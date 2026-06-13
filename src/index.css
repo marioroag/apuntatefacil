@@ -1,0 +1,107 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Criba · tokens (doctrina "SaaS confiable")
+   Acento = indigo-600 #4F46E5 (acción/nav/foco/selección, nunca estado).
+   Neutros = slate. Una sola sans. Una sola sombra por elevación. Radio 12px.
+--------------------------------------------------------------------------- */
+@theme {
+  --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Una sola sombra por nivel de elevación. Nunca apilar. */
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-pop: 0 8px 24px rgba(15, 23, 42, 0.12);
+
+  /* Curvas y duraciones únicas */
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -480px 0; }
+  100% { background-position: 480px 0; }
+}
+
+@keyframes pop-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+
+@layer base {
+  :root {
+    /* Acento dinámico: por defecto el indigo de marca. El formulario público
+       y la preview del builder lo sobreescriben con el color del cliente. */
+    --accent: #4f46e5;
+    --accent-contrast: #ffffff; /* texto legible sobre el acento (guarda AA) */
+  }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased;
+    margin: 0;
+    font-family: var(--font-sans);
+    font-feature-settings: 'tnum' 1, 'cv05' 1;
+    font-synthesis-weight: none;
+  }
+
+  /* Números siempre tabulares para que las columnas alineen. */
+  table, .tnum, time, [data-num] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Foco visible no negociable: solo :focus-visible, nunca quitar el outline. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  .on-accent:focus-visible {
+    outline-color: #ffffff;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+
+  ::selection { background: #e0e7ff; }
+}
+
+@layer utilities {
+  .shadow-card { box-shadow: var(--shadow-card); }
+  .shadow-pop { box-shadow: var(--shadow-pop); }
+
+  /* Acento dinámico expuesto como utilidades cómodas */
+  .bg-accent { background-color: var(--accent); }
+  .text-accent { color: var(--accent); }
+  .border-accent { border-color: var(--accent); }
+  .text-on-accent { color: var(--accent-contrast); }
+
+  .skeleton {
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 960px 100%;
+    animation: var(--animate-shimmer);
+  }
+}
+
+/* Respetar reduced-motion globalmente. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton { background: #e2e8f0; }
+}
+
+/* En forced-colors la sombra deja de verse: reforzar con borde. */
+@media (forced-colors: active), (prefers-contrast: more) {
+  .shadow-card, .shadow-pop { border: 1px solid CanvasText; }
+}

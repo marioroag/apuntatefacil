@@ -1,0 +1,154 @@
+import { useEffect, useState } from 'react'
+import { MessageCircle, Phone, Star, Trash2 } from 'lucide-react'
+import { SlideOver } from '../components/ui/SlideOver'
+import { StatusSelect } from '../components/ui/StatusPill'
+import type { Campaign, Candidate } from '../lib/types'
+import { SOURCE_META } from '../lib/types'
+import { fullDateTime, initials } from '../lib/format'
+import { useStore } from '../lib/store'
+
+function answerText(v: Candidate['answers'][string] | undefined): string {
+  if (v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) return 'Sin dato'
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No'
+  if (Array.isArray(v)) return v.join(', ')
+  return String(v)
+}
+
+export function CandidatePanel({
+  campaign,
+  candidate,
+  onClose,
+  onDeleted,
+}: {
+  campaign: Campaign
+  candidate: Candidate | null
+  onClose: () => void
+  onDeleted: (c: Candidate) => void
+}) {
+  const { setStatus, setRating, setNotes, deleteCandidate } = useStore()
+  const [notes, setLocalNotes] = useState('')
+
+  // Solo al cambiar de candidato, no en cada mutación del store (si no, borra
+  // las notas que el usuario está escribiendo al tocar estado o valoración).
+  useEffect(() => {
+    setLocalNotes(candidate?.notes ?? '')
+  }, [candidate?.id])
+
+  const open = !!candidate
+  const name = candidate ? answerText(candidate.answers['nombre']) : ''
+  const phone = candidate ? (candidate.answers['telefono'] as string) : ''
+  const waPhone = phone ? '34' + phone.replace(/\D/g, '') : ''
+
+  return (
+    <SlideOver
+      open={open}
+      onClose={onClose}
+      title={
+        candidate && (
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 shrink-0 place-items-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
+              {initials(name)}
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate text-xl font-semibold leading-tight text-slate-900">{name}</h2>
+              <p className="text-[13px] text-slate-500">{campaign.title}</p>
+            </div>
+          </div>
+        )
+      }
+      footer={
+        candidate && (
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => {
+                const removed = deleteCandidate(candidate.id)
+                if (removed) onDeleted(removed)
+                onClose()
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600"
+            >
+              <Trash2 className="size-4" aria-hidden /> Eliminar
+            </button>
+            <span className="text-[13px] text-slate-400">
+              {SOURCE_META[candidate.source].label} · {fullDateTime(candidate.submittedAt)}
+            </span>
+          </div>
+        )
+      }
+    >
+      {candidate && (
+        <div className="space-y-6">
+          {/* Estado + acciones de contacto */}
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusSelect status={candidate.status} onChange={(s) => setStatus(candidate.id, s)} />
+            <div className="ml-auto flex gap-2">
+              {phone && (
+                <a href={`tel:${phone.replace(/\s/g, '')}`} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+                  <Phone className="size-3.5" aria-hidden /> Llamar
+                </a>
+              )}
+              {waPhone && (
+                <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+                  <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Valoración */}
+          <div>
+            <p className="mb-1.5 text-sm font-semibold text-slate-800">Valoración</p>
+            <div className="flex gap-1" role="group" aria-label="Valoración del candidato">
+              {[1, 2, 3].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setRating(candidate.id, candidate.rating === n ? 0 : n)}
+                  aria-label={`${n} de 3 estrellas`}
+                  aria-pressed={candidate.rating >= n}
+                  className="rounded-md p-0.5 text-slate-300 transition-colors hover:text-amber-400"
+                >
+                  <Star
+                    className={`size-6 ${candidate.rating >= n ? 'fill-amber-400 text-amber-400' : ''}`}
+                    aria-hidden
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Respuestas */}
+          <div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Respuestas del formulario
+            </p>
+            <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+              {campaign.fields.map((f) => (
+                <div key={f.id} className="grid grid-cols-[42%_58%] gap-3 px-3.5 py-2.5">
+                  <dt className="text-[13px] text-slate-500">{f.label}</dt>
+                  <dd className="text-sm font-medium text-slate-800">{answerText(candidate.answers[f.id])}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          {/* Notas */}
+          <div>
+            <label htmlFor="notas" className="mb-1.5 block text-sm font-semibold text-slate-800">
+              Notas internas
+            </label>
+            <textarea
+              id="notas"
+              value={notes}
+              onChange={(e) => setLocalNotes(e.target.value)}
+              onBlur={() => setNotes(candidate.id, notes)}
+              rows={3}
+              placeholder="Lo que hablasteis por teléfono, disponibilidad real, etc."
+              className="w-full resize-y rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+            />
+            <p className="mt-1 text-[12px] text-slate-400">Solo las ve tu equipo. No se envían al candidato.</p>
+          </div>
+        </div>
+      )}
+    </SlideOver>
+  )
+}

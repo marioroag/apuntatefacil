@@ -1,0 +1,4 @@
+/// <reference types="vite/client" />
+
+// Importación de solo efecto (CSS) del paquete de la fuente, sin tipos propios.
+declare module '@fontsource-variable/inter'
