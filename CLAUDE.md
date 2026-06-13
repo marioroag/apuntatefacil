@@ -1,0 +1,69 @@
+# Criba — App de contratación vía Milanuncios
+
+> Este fichero se autocarga en cada sesión. Es la fuente de verdad de la **doctrina
+> de diseño, las reglas y el estándar de rigor** del proyecto. Si una sesión futura
+> propone algo que contradice esto, gana este documento (salvo que Mario lo cambie a propósito).
+
+## Qué es
+Web app (prototipo de frontend) para automatizar la contratación a través de Milanuncios y similares. **Multisector**: hostelería, construcción, logística, limpieza, comercio, ETTs. La empresa pone su anuncio como siempre; a quien responde le manda **un enlace** en vez de chatear; el enlace abre un **formulario personalizable**; cada envío entra en su **base de datos** de candidatos, que puede **filtrar** y **exportar a Excel**.
+
+- Fundador: Mario, España. Tiene un **listón de diseño muy alto** y nota cualquier bajón de calidad.
+- `Criba` es **nombre placeholder**, aprobado por Mario. Cambiable en un único sitio: `src/lib/brand.ts`.
+- Proyecto **independiente** de plain-points (otra app suya). No mezclar nunca: vive en su propio repo `/Users/mario/criba`.
+
+## Cómo arrancar y VERIFICAR
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # debe quedar verde
+npx tsc --noEmit # sin errores de tipos
+```
+- **Verificar siempre en navegador** cualquier cambio observable: capturar, mirarlo, probar interacciones (clicks, toggles, estados) y **rehacer si no cumple**. No dar nada por bueno sin verlo.
+- Gotcha del preview embebido de Claude: `IntersectionObserver` no dispara callbacks (rompe `whileInView` de framer-motion). Para reveals usar **animación CSS en montaje**, no IO. Para capturar una sección de abajo, ocultar temporalmente las de arriba (`display:none`) + `scrollTo(0,0)`.
+
+## Alcance (4 superficies). NO añadir features fuera de esto sin hablarlo
+| Ruta | Qué es |
+| --- | --- |
+| `/` | Landing de marketing |
+| `/app/puestos/:id` | Panel: base de datos de candidatos (filtros, estados, detalle, export a Excel) |
+| `/app/puestos/:id/formulario` | Constructor del formulario (drag & drop) + preview en vivo |
+| `/a/:slug` | Formulario público que rellena el candidato (mobile-first) |
+
+Datos demo: una ETT con 4 puestos de 4 sectores y ~50 candidatos en `localStorage` (clave `criba.data.v1`). Persisten entre recargas. Reinicio: borrar la clave o `resetDemo()`.
+
+## Doctrina visual "SaaS confiable" (NO cambiar sin debate)
+Sobria y profesional tipo Linear/Notion/Stripe. **Multisector**: nunca debe oler a construcción (cero cascos, naranjas de obra, mascotas).
+
+- **Acento índigo `#4F46E5` SOLO para acción, nav activo, foco y selección. NUNCA para estado ni decorativo.** Este es el error nº1 a evitar.
+- **5 estados de candidato, paleta propia y fija** (nunca el índigo de marca): nuevo = slate, contactado = azul, entrevista = ámbar, contratado = verde, descartado = slate apagado (**nunca rojo**: descartar es rutina y es reversible). Estado = punto de color **+** texto, nunca solo color. Mapa en `src/lib/types.ts` (`STATUS_META`).
+- **Neutros slate**: fondo app `#F8FAFC`, superficies `#FFFFFF`, borde `#E2E8F0`, texto `#0F172A` / secundario `#475569` / terciario `#64748B`. Texto con significado siempre ≥ 4.5:1.
+- **Rojo `#DC2626` solo** para errores reales y acciones destructivas (borde + icono, nunca solo color).
+- **Tipografía**: una sola sans (Inter variable autoalojada). Jerarquía por peso/color antes que por tamaño. `tabular-nums` global en cualquier número/fecha/teléfono.
+- **Radios**: 12px (botones, tarjetas, inputs, paneles), 999px (pills, chips, avatares), 8px (controles pequeños).
+- **Una sola sombra por elevación**: `shadow-card` para tarjetas; `shadow-pop` solo para overlays reales (dropdowns, paneles, modales). Nunca apilar sombras. Sin gradientes (salvo el barrido del skeleton).
+- **Un único `FieldRenderer`** (`src/components/FieldRenderer.tsx`) pinta **a la vez** la preview del builder y el formulario público: WYSIWYG real. Si tocas uno, tocas los dos. No hacer una versión "bonita" distinta del producto.
+- **Formulario público mobile-first**: una columna, max 480px, inputs 48px alto y **16px de fuente** (evita zoom iOS), targets ≥ 44px. Validación **al blur y al enviar, nunca al teclear**. **Nunca borrar lo que el candidato escribió** (ni el CV) en un envío fallido. Teclados correctos (`type=tel/email/number`, `inputmode`).
+- **Acento configurable del cliente** con **guarda de contraste AA** (`src/lib/colors.ts`): si el blanco no llega a 4.5:1 sobre su color, el texto del botón pasa a tinta oscura automáticamente.
+- **Detalle del candidato** = panel lateral (SlideOver), nunca modal a pantalla completa que tape la lista filtrada.
+- **Accesibilidad suelo**: foco visible con `:focus-visible` (nunca quitar el outline), `<button>`/`<a>` reales, `<table>` semántica con `aria-sort`, drag-to-reorder SIEMPRE con alternativa de teclado y subir/bajar, `prefers-reduced-motion` respetado.
+- **Movimiento**: corto y sobrio (120/180/240ms), solo `transform`/`opacity`. Sin springs ni rebotes. El verde "contratado" es el único hito con un pulse sutil; "descartado" solo cambia de color, sin shake ni rojo.
+
+## Reglas de copy (toda la app)
+- **Sin guion largo (—)** en nada visible. Usar comas, dos puntos o puntos.
+- Español con **tuteo** consistente. Sentence case en headings/botones/labels. Labels verbo-primero (1-3 palabras).
+- **Glosario congelado**: puesto (no vacante/oferta/campaña), candidato, candidatura (el envío), enlace (no link), estado, exportar, formulario. Estados: nuevo / contactado / entrevista / descartado / contratado.
+- **Cero dark patterns** (es el posicionamiento): sin urgencia/escasez falsa, sin prueba social inventada (testimonios, contadores, logos), sin confirmshaming, sin preselecciones. Test: "¿funcionaría igual si el usuario supiera cómo está hecho?".
+
+## Pricing (decidido: premium, no el más barato. "Los mejores")
+Good-better-best con **números redondos** (prestigio + honesto + citable; el `.99` grita ganga). Editable en `src/lib/pricing.ts`.
+- **Esencial 60 €/mes** (2 procesos activos), **Pro 150 €/mes** "el más elegido" (10 procesos), **Multi 350 €/mes** (ilimitado, multi-local, ETT). Anual = ×10 (2 meses gratis).
+- Diferenciar por **procesos/anuncios activos**, **nunca por nº de candidatos** (no estrangular en plena oleada) ni por usuario (castigaría al bar de 1-2 personas). **Usuarios siempre ilimitados.**
+- En la landing, **anclar el coste del sector ANTES** del precio (InfoJobs 295-369 €/oferta, ATS 190-477 €/mes, mala contratación hasta 3 sueldos). Cifras fechadas a junio 2026.
+
+## Principios de trabajo
+- **Mismo rigor en el cambio pequeño que en el grande**, también en follow-ups cortos. Aplicar principios de diseño, verificar visualmente y rehacer si no está perfecto. Mario lo pidió explícitamente tras un follow-up flojo.
+- **El cwd del shell se resetea entre llamadas Bash**: para compilar/verificar hacer `cd /Users/mario/criba` explícito y comprobar `pwd` (una vez un build salió del proyecto equivocado por esto).
+- El sistema de diseño se sintetizó con la skill `ux-ui-mastery`. Para nuevas piezas, ejecutar esa misma doctrina, no inventar otra dirección.
+
+## Estado actual
+Prototipo de **frontend** sin backend (datos en `localStorage`). Repo git propio, build verde. **Pendiente solo si Mario lo pide**: dejarlo online (deploy) y producto real (auth, BD, pagos con Stripe, emails). Esos tres planes ya encajan con Stripe Billing.
