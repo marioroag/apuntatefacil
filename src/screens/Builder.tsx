@@ -414,11 +414,13 @@ function Branding({ campaign }: { campaign: Campaign }) {
             {SWATCHES.map((c) => (
               <button
                 key={c}
+                type="button"
                 onClick={() => {
                   setHex(c)
                   updateBranding(campaign.id, { accent: c })
                 }}
                 aria-label={`Color ${c}`}
+                aria-pressed={b.accent === c}
                 className={`size-7 rounded-lg ring-2 ring-offset-2 transition-transform hover:scale-110 ${b.accent === c ? 'ring-slate-400' : 'ring-transparent'}`}
                 style={{ backgroundColor: c }}
               />

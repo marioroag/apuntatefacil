@@ -156,7 +156,7 @@ function Control({
       return <SelectControl field={field} id={id} labelId={labelId} value={value as string} onChange={onChange} onBlur={onBlur} describedBy={describedBy} invalid={invalid} />
 
     case 'multiselect':
-      return <MultiSelectControl field={field} labelId={labelId} value={(value as string[]) ?? []} onChange={onChange} describedBy={describedBy} invalid={invalid} />
+      return <MultiSelectControl field={field} id={id} labelId={labelId} value={(value as string[]) ?? []} onChange={onChange} describedBy={describedBy} invalid={invalid} />
 
     case 'boolean':
       return <BooleanControl id={id} labelId={labelId} value={value as boolean | undefined} onChange={onChange} invalid={invalid} describedBy={describedBy} />
@@ -274,7 +274,7 @@ function SelectControl({
 
   const focusIndex = options.findIndex((o) => o === value)
   return (
-    <div role="radiogroup" aria-labelledby={labelId} aria-describedby={describedBy} aria-invalid={invalid || undefined} className="grid gap-2">
+    <div role="radiogroup" id={id} aria-labelledby={labelId} aria-describedby={describedBy} aria-invalid={invalid || undefined} className="grid gap-2">
       {options.map((o, i) => {
         const sel = value === o
         const tabbable = sel || (focusIndex === -1 && i === 0)
@@ -309,6 +309,7 @@ function SelectControl({
 
 function MultiSelectControl({
   field,
+  id,
   labelId,
   value,
   onChange,
@@ -316,6 +317,7 @@ function MultiSelectControl({
   invalid,
 }: {
   field: FormField
+  id: string
   labelId: string
   value: string[]
   onChange: (v: FieldValue) => void
@@ -325,7 +327,7 @@ function MultiSelectControl({
   const toggle = (o: string) =>
     onChange(value.includes(o) ? value.filter((x) => x !== o) : [...value, o])
   return (
-    <div role="group" aria-labelledby={labelId} aria-describedby={describedBy} aria-invalid={invalid || undefined} className="flex flex-wrap gap-2">
+    <div role="group" id={id} aria-labelledby={labelId} aria-describedby={describedBy} aria-invalid={invalid || undefined} className="flex flex-wrap gap-2">
       {(field.options ?? []).map((o) => {
         const sel = value.includes(o)
         return (
