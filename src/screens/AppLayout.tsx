@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
+import { Link, NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
 import { Briefcase, ExternalLink, Inbox, Loader2, LogOut, Menu, Plus, Sparkles, X } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
@@ -7,8 +7,8 @@ import { useToast } from '../components/ui/Toast'
 import { BRAND } from '../lib/brand'
 import { Logo } from '../components/Logo'
 import { initials } from '../lib/format'
-import { blankCampaignInput } from '../lib/defaults'
 import { seedDemoData } from '../lib/seedDemo'
+import { NewCampaignWizard } from '../components/NewCampaignWizard'
 
 const PLAN_LABEL: Record<string, string> = {
   trial: 'Prueba', esencial: 'Esencial', pro: 'Pro', multi: 'Multi',
@@ -28,32 +28,24 @@ export function FirstCampaignRedirect() {
 }
 
 function EmptyCompany() {
-  const { createCampaign, reload } = useStore()
+  const { reload } = useStore()
   const { company } = useAuth()
-  const navigate = useNavigate()
   const toast = useToast()
-  const [busy, setBusy] = useState<null | 'demo' | 'blank'>(null)
+  const [busy, setBusy] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
 
   const loadDemo = async () => {
     if (!company) return
-    setBusy('demo')
+    setBusy(true)
     const res = await seedDemoData(company.id)
     if (res.error) {
       toast.error('No se pudieron cargar los datos de ejemplo.')
-      setBusy(null)
+      setBusy(false)
       return
     }
     await reload()
     toast.success('Datos de ejemplo cargados')
-    setBusy(null)
-  }
-
-  const startBlank = async () => {
-    if (!company) return
-    setBusy('blank')
-    const c = await createCampaign(blankCampaignInput(company.accent))
-    setBusy(null)
-    if (c) navigate(`/app/puestos/${c.id}/formulario`)
+    setBusy(false)
   }
 
   return (
@@ -68,46 +60,35 @@ function EmptyCompany() {
         </p>
         <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
           <button
-            onClick={startBlank}
-            disabled={!!busy}
+            onClick={() => setWizardOpen(true)}
+            disabled={busy}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60"
           >
-            {busy === 'blank' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Plus className="size-4" aria-hidden />}
-            Crear un puesto
+            <Plus className="size-4" aria-hidden /> Crear un puesto
           </button>
           <button
             onClick={loadDemo}
-            disabled={!!busy}
+            disabled={busy}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:opacity-60"
           >
-            {busy === 'demo' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4 text-slate-400" aria-hidden />}
+            {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4 text-slate-400" aria-hidden />}
             Cargar datos de ejemplo
           </button>
         </div>
       </div>
+      <NewCampaignWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
     </div>
   )
 }
 
 export function AppLayout() {
-  const { campaigns, newCountFor, createCampaign } = useStore()
+  const { campaigns, newCountFor } = useStore()
   const { company, user, signOut } = useAuth()
-  const navigate = useNavigate()
-  const toast = useToast()
   const { campaignId } = useParams()
   const [open, setOpen] = useState(false)
-  const [creating, setCreating] = useState(false)
+  const [wizardOpen, setWizardOpen] = useState(false)
 
   if (!company) return null // AuthGate garantiza empresa; guard de tipos
-
-  const createNew = async () => {
-    setCreating(true)
-    const c = await createCampaign(blankCampaignInput(company.accent))
-    setCreating(false)
-    setOpen(false)
-    if (c) navigate(`/app/puestos/${c.id}/formulario`)
-    else toast.error('No se pudo crear el puesto.')
-  }
 
   const nav = (
     <nav className="flex h-full flex-col" aria-label="Puestos">
@@ -127,12 +108,10 @@ export function AppLayout() {
 
       <div className="px-3 pt-5">
         <button
-          onClick={createNew}
-          disabled={creating}
-          className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-60"
+          onClick={() => { setWizardOpen(true); setOpen(false) }}
+          className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]"
         >
-          {creating ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Plus className="size-4" aria-hidden />}
-          Nuevo puesto
+          <Plus className="size-4" aria-hidden /> Nuevo puesto
         </button>
       </div>
 
@@ -237,6 +216,8 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      <NewCampaignWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
     </div>
   )
 }
