@@ -265,10 +265,10 @@ function Pricing() {
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
         <Reveal>
           <h2 className="max-w-3xl text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Contratar bien cuesta menos que perder al candidato bueno
+            Contratar ya te cuesta, lo sepas o no
           </h2>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
-            No somos los más baratos. Somos los que hacen que contratar deje de doler. Mira lo que pagas hoy y luego nuestro precio.
+            Hoy lo pagas en horas revisando el móvil o en facturas de portales y agencias. Mira lo que te cuesta ahora y luego nuestro precio, tres planes claros y sin sorpresas.
           </p>
         </Reveal>
 
