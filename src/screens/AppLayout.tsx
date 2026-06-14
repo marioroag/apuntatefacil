@@ -85,7 +85,7 @@ function EmptyCompany() {
 }
 
 export function AppLayout() {
-  const { campaigns, newCountFor } = useStore()
+  const { campaigns, newCountFor, resetDemo } = useStore()
   const { company, signOut } = useAuth()
   const { campaignId } = useParams()
   const base = useAppBase()
@@ -238,7 +238,11 @@ export function AppLayout() {
 
         {demo && (
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 border-b border-indigo-100 bg-indigo-50 px-4 py-2 text-center text-[13px] text-indigo-800">
-            <span>Demo con datos de ejemplo. Tus cambios no se guardan.</span>
+            <span>Demo con datos de ejemplo. Trastea a gusto, es solo tuyo.</span>
+            <button onClick={() => resetDemo()} className="font-semibold underline underline-offset-2 hover:text-indigo-900">
+              Reiniciar demo
+            </button>
+            <span aria-hidden className="text-indigo-300">·</span>
             <Link to="/login" className="font-semibold underline underline-offset-2 hover:text-indigo-900">
               Crear mi cuenta
             </Link>

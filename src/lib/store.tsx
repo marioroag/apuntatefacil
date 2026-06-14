@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Branding, Campaign, Candidate, CandidateStatus, FormField } from './types'
 import { supabase } from './supabase'
@@ -83,9 +83,26 @@ interface Store {
   updateCampaign: (campaignId: string, patch: Partial<Campaign>) => Promise<void>
   createCampaign: (input: NewCampaignInput) => Promise<Campaign | null>
   deleteCampaign: (campaignId: string) => Promise<void>
+  resetDemo: () => void
 }
 
 const Ctx = createContext<Store | null>(null)
+
+// --- Persistencia de la DEMO en localStorage --------------------------------
+// La demo es 100% local; guardamos su estado para que aguante recargas.
+const DEMO_KEY = 'criba.demo.v1'
+
+function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[] } | null {
+  try {
+    const raw = localStorage.getItem(DEMO_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed?.campaigns) && Array.isArray(parsed?.candidates)) return parsed
+  } catch {
+    /* ignora storage corrupto */
+  }
+  return null
+}
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const { company } = useAuth()
@@ -103,9 +120,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return
     }
     if (companyId === 'demo') {
-      // Demo pública: datos de ejemplo en memoria, sin tocar Supabase.
-      setCampaigns(SEED.campaigns)
-      setCandidates(SEED.candidates)
+      // Demo pública: persiste en localStorage; si no hay nada guardado, datos
+      // de ejemplo. No toca Supabase.
+      const saved = readDemoState()
+      setCampaigns(saved?.campaigns ?? SEED.campaigns)
+      setCandidates(saved?.candidates ?? SEED.candidates)
       setLoading(false)
       return
     }
@@ -126,6 +145,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     reload()
   }, [reload])
+
+  // Persiste la demo en localStorage tras cada cambio. Salta la primera ejecución
+  // (la hidratación inicial con el estado vacío) para no pisar lo guardado.
+  const demoPersistReady = useRef(false)
+  useEffect(() => {
+    if (companyId !== 'demo') return
+    if (!demoPersistReady.current) {
+      demoPersistReady.current = true
+      return
+    }
+    try {
+      localStorage.setItem(DEMO_KEY, JSON.stringify({ campaigns, candidates }))
+    } catch {
+      /* cuota llena, ignora */
+    }
+  }, [companyId, campaigns, candidates])
 
   const patchCandidateLocal = (id: string, patch: Partial<Candidate>) =>
     setCandidates((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)))
@@ -291,6 +326,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setCandidates(prevCands)
         toast.error('No se pudo eliminar el puesto.')
       }
+    },
+
+    resetDemo: () => {
+      try {
+        localStorage.removeItem(DEMO_KEY)
+      } catch {
+        /* ignora */
+      }
+      setCampaigns(SEED.campaigns)
+      setCandidates(SEED.candidates)
     },
   }), [loading, campaigns, candidates, companyId, reload, toast])
 
