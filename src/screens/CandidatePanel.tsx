@@ -98,15 +98,37 @@ export function CandidatePanel({
           <div className="flex flex-wrap items-center gap-2">
             <StatusSelect status={candidate.status} onChange={(s) => setStatus(candidate.id, s)} />
             <div className="ml-auto flex gap-2">
-              {!maskPhone && phone && (
-                <a href={`tel:${phone.replace(/\s/g, '')}`} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
-                  <Phone className="size-3.5" aria-hidden /> Llamar
-                </a>
+              {phone && (
+                maskPhone ? (
+                  <button
+                    type="button"
+                    onClick={() => toast.show('En la demo solo puedes mirar. Crea tu cuenta para llamar o escribir a tus candidatos.')}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                  >
+                    <Phone className="size-3.5" aria-hidden /> Llamar
+                  </button>
+                ) : (
+                  <a href={`tel:${phone.replace(/\s/g, '')}`} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+                    <Phone className="size-3.5" aria-hidden /> Llamar
+                  </a>
+                )
               )}
-              {!maskPhone && waPhone && (
-                <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
-                  <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
-                </a>
+              {phone && (
+                maskPhone ? (
+                  <button
+                    type="button"
+                    onClick={() => toast.show('En la demo solo puedes mirar. Crea tu cuenta para llamar o escribir a tus candidatos.')}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                  >
+                    <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
+                  </button>
+                ) : (
+                  waPhone && (
+                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+                      <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
+                    </a>
+                  )
+                )
               )}
               {candidate.cvPath && (
                 <button onClick={viewCv} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">

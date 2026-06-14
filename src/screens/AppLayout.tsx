@@ -170,7 +170,7 @@ export function AppLayout() {
               to="/login"
               className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
             >
-              Empezar gratis <ArrowRight className="size-4" aria-hidden />
+              Empezar <ArrowRight className="size-4" aria-hidden />
             </Link>
             <Link
               to="/"
@@ -215,7 +215,7 @@ export function AppLayout() {
   void campaignId
 
   return (
-    <div className="flex h-svh overflow-hidden bg-slate-50">
+    <div className="fixed inset-0 flex overflow-hidden bg-slate-50">
       <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">{nav}</aside>
 
       {open && (
@@ -240,11 +240,11 @@ export function AppLayout() {
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 border-b border-indigo-100 bg-indigo-50 px-4 py-2 text-center text-[13px] text-indigo-800">
             <span>Demo con datos de ejemplo. Tus cambios no se guardan.</span>
             <Link to="/login" className="font-semibold underline underline-offset-2 hover:text-indigo-900">
-              Crear mi cuenta gratis
+              Crear mi cuenta
             </Link>
           </div>
         )}
-        <main id="contenido" className="min-h-0 flex-1 overflow-y-auto">
+        <main id="contenido" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <Outlet />
         </main>
       </div>

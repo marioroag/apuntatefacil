@@ -37,7 +37,7 @@ import { ApplicationForm } from '../components/ApplicationForm'
 import type { FieldValue } from '../components/FieldRenderer'
 import { FIELD_TYPE_META } from '../lib/types'
 import type { Campaign, FieldType, FormField } from '../lib/types'
-import { SWATCHES, accentPassesWhite, isValidHex, normalizeHex } from '../lib/colors'
+import { SWATCHES, accentPassesWhite } from '../lib/colors'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
@@ -379,13 +379,7 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o:
 function Branding({ campaign }: { campaign: Campaign }) {
   const { updateBranding } = useStore()
   const b = campaign.branding
-  const [hex, setHex] = useState(b.accent)
   const passes = accentPassesWhite(b.accent)
-
-  const commitHex = (v: string) => {
-    setHex(v)
-    if (isValidHex(v)) updateBranding(campaign.id, { accent: normalizeHex(v) })
-  }
 
   return (
     <section>
@@ -418,22 +412,32 @@ function Branding({ campaign }: { campaign: Campaign }) {
               <button
                 key={c}
                 type="button"
-                onClick={() => {
-                  setHex(c)
-                  updateBranding(campaign.id, { accent: c })
-                }}
+                onClick={() => updateBranding(campaign.id, { accent: c })}
                 aria-label={`Color ${c}`}
                 aria-pressed={b.accent === c}
                 className={`size-7 rounded-lg ring-2 ring-offset-2 transition-transform hover:scale-110 ${b.accent === c ? 'ring-slate-400' : 'ring-transparent'}`}
                 style={{ backgroundColor: c }}
               />
             ))}
-            <input
-              value={hex}
-              onChange={(e) => commitHex(e.target.value)}
-              spellCheck={false}
-              className="ml-1 h-8 w-24 rounded-lg border border-slate-300 px-2 font-mono text-[13px] outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
-            />
+            {/* Picker de color libre (selector nativo del sistema) */}
+            <label
+              className="relative ml-1 inline-flex size-7 cursor-pointer items-center justify-center overflow-hidden rounded-lg ring-1 ring-slate-300 transition-transform hover:scale-110"
+              title="Elegir otro color"
+            >
+              <span
+                aria-hidden
+                className="absolute inset-0"
+                style={{ background: 'conic-gradient(from 0deg, #ef4444, #eab308, #22c55e, #06b6d4, #6366f1, #d946ef, #ef4444)' }}
+              />
+              <Plus className="relative size-3.5 text-white drop-shadow" aria-hidden />
+              <input
+                type="color"
+                value={/^#[0-9a-fA-F]{6}$/.test(b.accent) ? b.accent : '#4f46e5'}
+                onChange={(e) => updateBranding(campaign.id, { accent: e.target.value })}
+                aria-label="Elegir un color personalizado"
+                className="absolute inset-0 size-full cursor-pointer opacity-0"
+              />
+            </label>
           </div>
           {!passes && (
             <p className="mt-1.5 text-[12px] text-slate-500">

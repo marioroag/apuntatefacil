@@ -81,7 +81,7 @@ function TopNav() {
             Ver la demo
           </Link>
           <Link to="/login" className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700">
-            Empezar gratis <ArrowRight className="size-4" aria-hidden />
+            Empezar <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
         <button onClick={() => setOpen((o) => !o)} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden" aria-label="Menú" aria-expanded={open}>
@@ -99,7 +99,7 @@ function TopNav() {
             Ver la demo
           </Link>
           <Link to="/login" onClick={() => setOpen(false)} className="mt-1 flex h-10 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white">
-            Empezar gratis <ArrowRight className="size-4" aria-hidden />
+            Empezar <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
       )}
@@ -123,7 +123,7 @@ function Hero() {
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]">
-            Empezar gratis <ArrowRight className="size-4" aria-hidden />
+            Empezar <ArrowRight className="size-4" aria-hidden />
           </Link>
           <Link to="/demo" className="inline-flex h-12 items-center gap-2 rounded-xl px-5 text-base font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
             Ver la demo
@@ -420,7 +420,7 @@ function FinalCta() {
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-slate-900 transition-transform hover:scale-[1.02] active:scale-[0.99]">
-              Empezar gratis <ArrowRight className="size-4" aria-hidden />
+              Empezar <ArrowRight className="size-4" aria-hidden />
             </Link>
             <Link to="/demo" className="inline-flex h-12 items-center gap-2 rounded-xl px-5 text-base font-semibold text-white ring-1 ring-white/25 hover:bg-white/10">
               Ver la demo
@@ -448,7 +448,7 @@ function Footer() {
           <a href="#" className="hover:text-slate-800">Contacto</a>
         </div>
       </div>
-      <p className="pb-8 text-center text-[12px] text-slate-400">© 2026 {BRAND} · Hecho en España. Precios sin IVA.</p>
+      <p className="pb-8 text-center text-[12px] text-slate-400">© 2026 {BRAND} · Hecho en España.</p>
     </footer>
   )
 }
