@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Info, TriangleAlert, X } from 'lucide-react'
@@ -39,11 +39,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     window.setTimeout(() => remove(id), dur)
   }, [remove])
 
-  const api: ToastApi = {
+  // Estable entre renders: si no, cambiar el toast recrea este objeto y dispara
+  // efectos de consumidores (p. ej. el reload del store, que en la demo borraba
+  // el puesto recién creado al copiar el enlace).
+  const api = useMemo<ToastApi>(() => ({
     show,
     success: (m, o) => show(m, { kind: 'success', ...o }),
     error: (m) => show(m, { kind: 'error' }),
-  }
+  }), [show])
 
   return (
     <Ctx.Provider value={api}>

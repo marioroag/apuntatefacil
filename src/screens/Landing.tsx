@@ -115,7 +115,7 @@ function Hero() {
           Para quien contrata por Milanuncios y similares
         </span>
         <h1 className="mt-4 text-[34px] font-bold leading-[1.08] tracking-tight text-slate-900 sm:text-5xl">
-          Las respuestas a tu anuncio, en una base de datos. No en mil chats.
+          Las respuestas a tu anuncio, en un solo sitio. No en mil chats.
         </h1>
         <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600">
           {BRAND} convierte cada respuesta a tu oferta en un candidato ordenado. Compartes un enlace,
