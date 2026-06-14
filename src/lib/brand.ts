@@ -3,7 +3,7 @@
 // "Criba" = cribar candidatos. Es neutro y multisector.
 // -----------------------------------------------------------------------------
 export const BRAND = 'Criba'
-export const TAGLINE = 'Contrata sin perder ninguna respuesta'
+export const TAGLINE = 'Recibe, filtra y contrata'
 export const DOMAIN = 'criba.app'
 
 /** URL pública del formulario de un puesto, basada en el origen real (local o prod). */

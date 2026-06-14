@@ -463,11 +463,16 @@ function Branding({ campaign }: { campaign: Campaign }) {
 // --- Compartir --------------------------------------------------------------
 function ShareCard({ campaign }: { campaign: Campaign }) {
   const toast = useToast()
+  const demo = useAppBase() === '/demo'
   const url = publicFormUrlDisplay(campaign.slug)
   const full = publicFormUrl(campaign.slug)
   const disabled = campaign.fields.length === 0
 
+  const demoNotice = () =>
+    toast.show('En la demo el enlace es de muestra. Crea tu cuenta para tener un enlace que reciba candidaturas de verdad.')
+
   const copy = async () => {
+    if (demo) { demoNotice(); return }
     try {
       await navigator.clipboard.writeText(full)
       toast.success('Enlace copiado')
@@ -491,12 +496,20 @@ function ShareCard({ campaign }: { campaign: Campaign }) {
           </button>
         </div>
         <div className="mt-2 flex items-center gap-3">
-          <a href={`/a/${campaign.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700">
-            <ExternalLink className="size-3.5" aria-hidden /> Abrir formulario
-          </a>
+          {demo ? (
+            <button type="button" onClick={demoNotice} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700">
+              <ExternalLink className="size-3.5" aria-hidden /> Abrir formulario
+            </button>
+          ) : (
+            <a href={`/a/${campaign.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700">
+              <ExternalLink className="size-3.5" aria-hidden /> Abrir formulario
+            </a>
+          )}
         </div>
         <p className="mt-2.5 text-[12px] leading-relaxed text-slate-400">
-          Comparte este enlace con quien responda a tu anuncio. Cualquiera con el enlace puede enviar una candidatura a este puesto.
+          {demo
+            ? 'En la demo el enlace es solo de muestra y no recibe candidaturas. Con tu cuenta, cada respuesta entra en tu panel.'
+            : 'Comparte este enlace con quien responda a tu anuncio. Cualquiera con el enlace puede enviar una candidatura a este puesto.'}
         </p>
       </div>
     </section>

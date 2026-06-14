@@ -133,6 +133,12 @@ export function Dashboard() {
   }
 
   const copyLink = async () => {
+    if (base === '/demo') {
+      // Demo: el puesto no existe en la BD real, así que el enlace no recibiría
+      // candidaturas. Lo decimos claro en vez de copiar un enlace muerto.
+      toast.show('En la demo el enlace es de muestra. Crea tu cuenta para tener un enlace que reciba candidaturas de verdad.')
+      return
+    }
     try {
       await navigator.clipboard.writeText(publicFormUrl(campaign.slug))
       toast.success('Enlace copiado')
