@@ -13,7 +13,9 @@ export interface Tier {
   processes: string
   features: string[]
   cta: string
-  popular?: boolean
+  /** Plan destacado. La chapa es "Recomendado", NUNCA "el más elegido"
+   *  (sin usuarios reales sería prueba social inventada). */
+  recommended?: boolean
 }
 
 export const TIERS: Tier[] = [
@@ -21,8 +23,8 @@ export const TIERS: Tier[] = [
     id: 'esencial',
     name: 'Esencial',
     tagline: 'Para quien contrata para un solo sitio',
-    monthly: 60,
-    annual: 600,
+    monthly: 150,
+    annual: 1500,
     processes: '2 procesos activos a la vez',
     features: [
       'Candidatos ilimitados',
@@ -37,10 +39,10 @@ export const TIERS: Tier[] = [
     id: 'pro',
     name: 'Pro',
     tagline: 'Para quien tiene varias vacantes abiertas',
-    monthly: 150,
-    annual: 1500,
+    monthly: 250,
+    annual: 2500,
     processes: '10 procesos activos a la vez',
-    popular: true,
+    recommended: true,
     features: [
       'Todo lo de Esencial',
       'Hasta 10 procesos en paralelo',
@@ -54,8 +56,8 @@ export const TIERS: Tier[] = [
     id: 'multi',
     name: 'Multi',
     tagline: 'Para cadenas, franquicias y ETTs',
-    monthly: 350,
-    annual: 3500,
+    monthly: 450,
+    annual: 4500,
     processes: 'Procesos ilimitados',
     features: [
       'Todo lo de Pro',
@@ -68,11 +70,32 @@ export const TIERS: Tier[] = [
   },
 ]
 
-// Anclas reales del sector (junio 2026) que se muestran ANTES del precio.
-export const SECTOR_ANCHORS: { label: string; cost: string }[] = [
-  { label: 'Una oferta destacada en InfoJobs', cost: '295 a 369 €' },
-  { label: 'Patrocinar en Indeed', cost: 'desde 150 €/mes' },
-  { label: 'Un ATS profesional', cost: '190 a 477 €/mes' },
-  { label: 'Una empresa de selección', cost: '15 a 20% del salario' },
-  { label: 'Una mala contratación', cost: 'hasta 3 sueldos' },
+// Ancla del coste real, contada como DOS VERDADES antes de mostrar el precio:
+// lo que cuesta hacerlo a mano (tiempo, candidatos perdidos) frente a lo que
+// cuesta pagar por hacerlo "bien" (dinero). Sin jerga tipo "ATS".
+export interface CostTruth {
+  key: string
+  label: string
+  items: { lead: string; text: string }[]
+}
+
+export const COST_TRUTHS: CostTruth[] = [
+  {
+    key: 'mano',
+    label: 'Si lo haces a mano',
+    items: [
+      { lead: '56 candidatos', text: 'por vacante, en chats sueltos de Milanuncios' },
+      { lead: 'Horas', text: 'revisando respuestas y copiándolas a Excel' },
+      { lead: 'Buenos perfiles', text: 'que se pierden entre tanto mensaje' },
+    ],
+  },
+  {
+    key: 'pagando',
+    label: 'Si pagas por hacerlo bien',
+    items: [
+      { lead: '295 a 369 €', text: 'por una oferta destacada en InfoJobs' },
+      { lead: '15 a 20% del salario', text: 'a una empresa de selección' },
+      { lead: 'Hasta 3 sueldos', text: 'cuesta una mala contratación' },
+    ],
+  },
 ]

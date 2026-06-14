@@ -14,7 +14,7 @@ import {
 import { Logo } from '../components/Logo'
 import { BrowserMock } from '../components/BrowserMock'
 import { BRAND, TAGLINE } from '../lib/brand'
-import { TIERS, SECTOR_ANCHORS } from '../lib/pricing'
+import { TIERS, COST_TRUTHS } from '../lib/pricing'
 
 const SECTORS = ['Hostelería', 'Construcción', 'Logística', 'Limpieza', 'Comercio', 'Reformas', 'Cuidados']
 
@@ -266,15 +266,21 @@ function Pricing() {
           </p>
         </Reveal>
 
-        {/* Ancla del sector ANTES del precio */}
+        {/* Ancla del coste real ANTES del precio: dos verdades (a mano vs pagando) */}
         <Reveal delay={0.05}>
           <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 sm:p-7">
             <p className="text-[13px] font-semibold uppercase tracking-wider text-slate-400">Lo que cuesta contratar hoy</p>
-            <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
-              {SECTOR_ANCHORS.map((a) => (
-                <div key={a.label}>
-                  <div className="text-lg font-bold tracking-tight text-slate-900 tabular-nums">{a.cost}</div>
-                  <div className="mt-1 text-[13px] leading-snug text-slate-500">{a.label}</div>
+            <div className="mt-5 grid gap-7 sm:grid-cols-2 sm:gap-0 sm:divide-x sm:divide-slate-200">
+              {COST_TRUTHS.map((col, i) => (
+                <div key={col.key} className={i === 0 ? 'sm:pr-8' : 'sm:pl-8'}>
+                  <p className="text-sm font-semibold text-slate-700">{col.label}</p>
+                  <ul className="mt-3 space-y-2.5">
+                    {col.items.map((it) => (
+                      <li key={it.lead} className="text-[15px] leading-snug text-slate-600">
+                        <span className="font-bold tabular-nums text-slate-900">{it.lead}</span> {it.text}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ))}
             </div>
@@ -323,12 +329,12 @@ function Pricing() {
             <Reveal key={t.id} delay={i * 0.06}>
               <div
                 className={`relative flex h-full flex-col rounded-2xl bg-white p-7 ${
-                  t.popular ? 'border-2 border-indigo-600 shadow-card' : 'border border-slate-200'
+                  t.recommended ? 'border-2 border-indigo-600 shadow-card' : 'border border-slate-200'
                 }`}
               >
-                {t.popular && (
+                {t.recommended && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-[12px] font-semibold text-white">
-                    El más elegido
+                    Recomendado
                   </span>
                 )}
                 <h3 className="text-lg font-semibold text-slate-900">{t.name}</h3>
@@ -349,7 +355,7 @@ function Pricing() {
                 <Link
                   to="/app"
                   className={`mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-xl text-base font-semibold transition-colors active:scale-[0.99] ${
-                    t.popular ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-white text-slate-900 ring-1 ring-slate-200 hover:bg-slate-50'
+                    t.recommended ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-white text-slate-900 ring-1 ring-slate-200 hover:bg-slate-50'
                   }`}
                 >
                   {t.cta} <ArrowRight className="size-4" aria-hidden />

@@ -56,9 +56,10 @@ Sobria y profesional tipo Linear/Notion/Stripe. **Multisector**: nunca debe oler
 
 ## Pricing (decidido: premium, no el más barato. "Los mejores")
 Good-better-best con **números redondos** (prestigio + honesto + citable; el `.99` grita ganga). Editable en `src/lib/pricing.ts`.
-- **Esencial 60 €/mes** (2 procesos activos), **Pro 150 €/mes** "el más elegido" (10 procesos), **Multi 350 €/mes** (ilimitado, multi-local, ETT). Anual = ×10 (2 meses gratis).
+- **Esencial 150 €/mes** (2 procesos activos), **Pro 250 €/mes** (10 procesos), **Multi 450 €/mes** (ilimitado, multi-local, ETT). Anual = ×10 (2 meses gratis).
+- Chapa del plan Pro: **"Recomendado"**, NUNCA "el más elegido" (sin usuarios reales sería prueba social inventada: viola la regla de cero dark patterns).
 - Diferenciar por **procesos/anuncios activos**, **nunca por nº de candidatos** (no estrangular en plena oleada) ni por usuario (castigaría al bar de 1-2 personas). **Usuarios siempre ilimitados.**
-- En la landing, **anclar el coste del sector ANTES** del precio (InfoJobs 295-369 €/oferta, ATS 190-477 €/mes, mala contratación hasta 3 sueldos). Cifras fechadas a junio 2026.
+- En la landing, **anclar el coste real ANTES** del precio, como **dos verdades**: hacerlo **a mano** (56 candidatos/vacante, horas, perfiles perdidos) frente a **pagando** (InfoJobs 295-369 €/oferta, empresa de selección 15-20% del salario, mala contratación hasta 3 sueldos). Sin jerga tipo "ATS". Cifras fechadas a junio 2026.
 
 ## Principios de trabajo
 - **Mismo rigor en el cambio pequeño que en el grande**, también en follow-ups cortos. Aplicar principios de diseño, verificar visualmente y rehacer si no está perfecto. Mario lo pidió explícitamente tras un follow-up flojo.
