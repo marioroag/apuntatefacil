@@ -38,7 +38,8 @@ import type { FieldValue } from '../components/FieldRenderer'
 import { FIELD_TYPE_META } from '../lib/types'
 import type { Campaign, FieldType, FormField } from '../lib/types'
 import { SWATCHES, accentPassesWhite, isValidHex, normalizeHex } from '../lib/colors'
-import { DOMAIN } from '../lib/brand'
+import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
+import { useAuth } from '../lib/auth'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
 
@@ -456,8 +457,8 @@ function Branding({ campaign }: { campaign: Campaign }) {
 // --- Compartir --------------------------------------------------------------
 function ShareCard({ campaign }: { campaign: Campaign }) {
   const toast = useToast()
-  const url = `${DOMAIN}/a/${campaign.slug}`
-  const full = `https://${url}`
+  const url = publicFormUrlDisplay(campaign.slug)
+  const full = publicFormUrl(campaign.slug)
   const disabled = campaign.fields.length === 0
 
   const copy = async () => {
@@ -527,7 +528,7 @@ function PreviewFrame({ device, children }: { device: 'mobile' | 'desktop'; chil
 }
 
 function Preview({ campaign }: { campaign: Campaign }) {
-  const { data } = useStore()
+  const { company } = useAuth()
   const [values, setValues] = useState<Record<string, FieldValue>>({})
   return (
     <ApplicationForm
@@ -535,7 +536,7 @@ function Preview({ campaign }: { campaign: Campaign }) {
       values={values}
       errors={{}}
       onChange={(id, v) => setValues((p) => ({ ...p, [id]: v }))}
-      companyName={data.company.name}
+      companyName={company?.name ?? ''}
       preview
     />
   )

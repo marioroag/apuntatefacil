@@ -73,6 +73,7 @@ export interface Candidate {
   source: CandidateSource
   rating: number // 0..3 estrellas, 0 = sin valorar
   notes: string
+  cvPath?: string // ruta del CV en Supabase Storage (bucket cvs), si lo adjuntó
 }
 
 export interface Company {

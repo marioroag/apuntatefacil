@@ -14,10 +14,14 @@ Web app (prototipo de frontend) para automatizar la contratación a través de M
 ## Cómo arrancar y VERIFICAR
 ```bash
 npm install
+supabase start   # stack local: Postgres + Auth + Storage + Studio (necesita Docker)
+cp .env.example .env.local   # claves locales de Supabase (anon key + URL)
 npm run dev      # http://localhost:5173
 npm run build    # debe quedar verde
 npx tsc --noEmit # sin errores de tipos
 ```
+- Login local: el magic link llega a Mailpit (http://127.0.0.1:54324). Google OAuth necesita credenciales reales (pendiente).
+- Migraciones en `supabase/migrations/`. Tras tocar el esquema: `supabase db reset`. Tras tocar `config.toml`: `supabase stop && supabase start`.
 - **Verificar siempre en navegador** cualquier cambio observable: capturar, mirarlo, probar interacciones (clicks, toggles, estados) y **rehacer si no cumple**. No dar nada por bueno sin verlo.
 - Gotcha del preview embebido de Claude: `IntersectionObserver` no dispara callbacks (rompe `whileInView` de framer-motion). Para reveals usar **animación CSS en montaje**, no IO. Para capturar una sección de abajo, ocultar temporalmente las de arriba (`display:none`) + `scrollTo(0,0)`.
 
@@ -66,5 +70,13 @@ Good-better-best con **números redondos** (prestigio + honesto + citable; el `.
 - **El cwd del shell se resetea entre llamadas Bash**: para compilar/verificar hacer `cd /Users/mario/criba` explícito y comprobar `pwd` (una vez un build salió del proyecto equivocado por esto).
 - El sistema de diseño se sintetizó con la skill `ux-ui-mastery`. Para nuevas piezas, ejecutar esa misma doctrina, no inventar otra dirección.
 
+## Backend (Supabase)
+Producto full-stack: el frontend (Vite/React) habla con **Supabase** (Postgres + Auth + Storage + RLS).
+- **Multi-tenant**: `companies` <- `memberships` -> `auth.users`. Cada empresa tiene `campaigns` (puestos, con `fields`/`branding` en JSONB) y `candidates`. RLS acota todo por empresa vía `current_user_company_ids()`.
+- **El formulario público es anónimo**: NO toca las tablas directo. Lee con el RPC `get_public_campaign(slug)` y escribe con `submit_application(slug, answers, source, cv_path)` (ambos `security definer`, concedidos a `anon`). El rol `anon` no tiene acceso directo a las tablas; `authenticated` sí (acotado por RLS).
+- **Auth**: Google OAuth + email magic link (sin contraseñas). `auth.tsx` gestiona sesión + empresa; primer login sin empresa => onboarding (`create_company`).
+- **CVs**: bucket privado `cvs`. El candidato anónimo sube (policy insert); el merchant descarga con URL firmada (`createSignedUrl`).
+- **Store**: `store.tsx` es un caché en memoria de la empresa (getters síncronos, mutaciones optimistas a Supabase). El acento de empresa/puesto y los enlaces públicos usan el origen real (`publicFormUrl`).
+
 ## Estado actual
-Prototipo de **frontend** sin backend (datos en `localStorage`). Repo git propio, build verde. **Pendiente solo si Mario lo pide**: dejarlo online (deploy) y producto real (auth, BD, pagos con Stripe, emails). Esos tres planes ya encajan con Stripe Billing.
+Full-stack funcionando en local, verificado end-to-end (login magic link, onboarding, datos demo, dashboard real, formulario público anónimo que persiste). **Pendiente**: pagos con Stripe, emails con Resend, Google OAuth (credenciales), asistente de "Nuevo puesto" con plantillas, y deploy. Build verde, repo git propio.

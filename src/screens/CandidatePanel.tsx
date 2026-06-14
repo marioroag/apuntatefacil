@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { MessageCircle, Phone, Star, Trash2 } from 'lucide-react'
+import { FileText, MessageCircle, Phone, Star, Trash2 } from 'lucide-react'
 import { SlideOver } from '../components/ui/SlideOver'
 import { StatusSelect } from '../components/ui/StatusPill'
 import type { Campaign, Candidate } from '../lib/types'
 import { SOURCE_META } from '../lib/types'
 import { fullDateTime, initials } from '../lib/format'
 import { useStore } from '../lib/store'
+import { supabase } from '../lib/supabase'
+import { useToast } from '../components/ui/Toast'
 
 function answerText(v: Candidate['answers'][string] | undefined): string {
   if (v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) return 'Sin dato'
@@ -26,7 +28,18 @@ export function CandidatePanel({
   onDeleted: (c: Candidate) => void
 }) {
   const { setStatus, setRating, setNotes, deleteCandidate } = useStore()
+  const toast = useToast()
   const [notes, setLocalNotes] = useState('')
+
+  const viewCv = async () => {
+    if (!candidate?.cvPath) return
+    const { data, error } = await supabase.storage.from('cvs').createSignedUrl(candidate.cvPath, 120)
+    if (error || !data?.signedUrl) {
+      toast.error('No se pudo abrir el CV.')
+      return
+    }
+    window.open(data.signedUrl, '_blank', 'noopener')
+  }
 
   // Solo al cambiar de candidato, no en cada mutación del store (si no, borra
   // las notas que el usuario está escribiendo al tocar estado o valoración).
@@ -91,6 +104,11 @@ export function CandidatePanel({
                 <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
                   <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
                 </a>
+              )}
+              {candidate.cvPath && (
+                <button onClick={viewCv} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+                  <FileText className="size-3.5" aria-hidden /> Ver CV
+                </button>
               )}
             </div>
           </div>

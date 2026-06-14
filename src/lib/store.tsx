@@ -1,135 +1,267 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type {
-  Branding,
-  Campaign,
-  Candidate,
-  CandidateStatus,
-  CribaData,
-  FormField,
-} from './types'
-import { SEED } from './seed'
+import type { Branding, Campaign, Candidate, CandidateStatus, FormField } from './types'
+import { supabase } from './supabase'
+import { useAuth } from './auth'
+import { useToast } from '../components/ui/Toast'
 
-const KEY = 'criba.data.v1'
+// --- Mapeo BD (snake_case) <-> app (camelCase) -----------------------------
+type CampaignRow = {
+  id: string
+  slug: string
+  title: string
+  sector: string
+  location: string
+  status: Campaign['status']
+  milanuncios_url: string | null
+  fields: FormField[]
+  branding: Branding
+  created_at: string
+}
+type CandidateRow = {
+  id: string
+  campaign_id: string
+  answers: Candidate['answers']
+  status: CandidateStatus
+  source: Candidate['source']
+  rating: number
+  notes: string
+  cv_path: string | null
+  created_at: string
+}
 
-function load(): CribaData {
-  try {
-    const raw = localStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw) as CribaData
-  } catch {
-    /* ignora storage corrupto */
-  }
-  return SEED
+const toCampaign = (r: CampaignRow): Campaign => ({
+  id: r.id,
+  slug: r.slug,
+  title: r.title,
+  sector: r.sector,
+  location: r.location,
+  status: r.status,
+  createdAt: r.created_at,
+  milanunciosUrl: r.milanuncios_url ?? undefined,
+  fields: r.fields ?? [],
+  branding: r.branding,
+})
+const toCandidate = (r: CandidateRow): Candidate => ({
+  id: r.id,
+  campaignId: r.campaign_id,
+  answers: r.answers ?? {},
+  status: r.status,
+  source: r.source,
+  rating: r.rating,
+  notes: r.notes ?? '',
+  cvPath: r.cv_path ?? undefined,
+  submittedAt: r.created_at,
+})
+
+export interface NewCampaignInput {
+  title: string
+  sector: string
+  location: string
+  fields: FormField[]
+  branding: Branding
+  milanunciosUrl?: string
 }
 
 interface Store {
-  data: CribaData
+  loading: boolean
+  campaigns: Campaign[]
+  candidates: Candidate[]
   getCampaign: (id: string) => Campaign | undefined
-  getCampaignBySlug: (slug: string) => Campaign | undefined
   candidatesFor: (campaignId: string) => Candidate[]
   newCountFor: (campaignId: string) => number
+  reload: () => Promise<void>
   // mutaciones
-  setStatus: (candidateId: string, status: CandidateStatus) => void
-  setRating: (candidateId: string, rating: number) => void
-  setNotes: (candidateId: string, notes: string) => void
+  setStatus: (candidateId: string, status: CandidateStatus) => Promise<void>
+  setRating: (candidateId: string, rating: number) => Promise<void>
+  setNotes: (candidateId: string, notes: string) => Promise<void>
   deleteCandidate: (candidateId: string) => Candidate | undefined
-  restoreCandidate: (candidate: Candidate) => void
-  addCandidate: (campaignId: string, answers: Candidate['answers'], source?: Candidate['source']) => void
-  updateFields: (campaignId: string, fields: FormField[]) => void
-  updateBranding: (campaignId: string, branding: Partial<Branding>) => void
-  updateCampaign: (campaignId: string, patch: Partial<Campaign>) => void
-  resetDemo: () => void
+  restoreCandidate: (candidate: Candidate) => Promise<void>
+  updateFields: (campaignId: string, fields: FormField[]) => Promise<void>
+  updateBranding: (campaignId: string, branding: Partial<Branding>) => Promise<void>
+  updateCampaign: (campaignId: string, patch: Partial<Campaign>) => Promise<void>
+  createCampaign: (input: NewCampaignInput) => Promise<Campaign | null>
+  deleteCampaign: (campaignId: string) => Promise<void>
 }
 
 const Ctx = createContext<Store | null>(null)
 
-let idc = Date.now()
-const nextId = (p: string) => `${p}_${(idc++).toString(36)}`
-
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<CribaData>(load)
+  const { company } = useAuth()
+  const toast = useToast()
+  const companyId = company?.id
+
+  const [loading, setLoading] = useState(false)
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [candidates, setCandidates] = useState<Candidate[]>([])
+
+  const reload = useCallback(async () => {
+    if (!companyId) {
+      setCampaigns([])
+      setCandidates([])
+      return
+    }
+    setLoading(true)
+    const [c1, c2] = await Promise.all([
+      supabase.from('campaigns').select('*').order('created_at', { ascending: true }),
+      supabase.from('candidates').select('*').order('created_at', { ascending: false }),
+    ])
+    if (c1.error || c2.error) {
+      toast.error('No pudimos cargar tus datos. Reintenta en unos segundos.')
+    } else {
+      setCampaigns((c1.data as CampaignRow[]).map(toCampaign))
+      setCandidates((c2.data as CandidateRow[]).map(toCandidate))
+    }
+    setLoading(false)
+  }, [companyId, toast])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(data))
-    } catch {
-      /* cuota llena, ignora */
-    }
-  }, [data])
+    reload()
+  }, [reload])
 
-  const patchCandidate = useCallback((id: string, patch: Partial<Candidate>) => {
-    setData((d) => ({
-      ...d,
-      candidates: d.candidates.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-    }))
-  }, [])
+  const patchCandidateLocal = (id: string, patch: Partial<Candidate>) =>
+    setCandidates((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+
+  const dbCandidate = async (id: string, patch: Record<string, unknown>, revert: () => void) => {
+    const { error } = await supabase.from('candidates').update(patch).eq('id', id)
+    if (error) {
+      revert()
+      toast.error('No se pudo guardar el cambio. Inténtalo de nuevo.')
+    }
+  }
 
   const store = useMemo<Store>(() => ({
-    data,
-    getCampaign: (id) => data.campaigns.find((c) => c.id === id),
-    getCampaignBySlug: (slug) => data.campaigns.find((c) => c.slug === slug),
+    loading,
+    campaigns,
+    candidates,
+    getCampaign: (id) => campaigns.find((c) => c.id === id),
     candidatesFor: (campaignId) =>
-      data.candidates
+      candidates
         .filter((c) => c.campaignId === campaignId)
         .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
     newCountFor: (campaignId) =>
-      data.candidates.filter((c) => c.campaignId === campaignId && c.status === 'nuevo').length,
+      candidates.filter((c) => c.campaignId === campaignId && c.status === 'nuevo').length,
+    reload,
 
-    setStatus: (id, status) => patchCandidate(id, { status }),
-    setRating: (id, rating) => patchCandidate(id, { rating }),
-    setNotes: (id, notes) => patchCandidate(id, { notes }),
+    setStatus: async (id, status) => {
+      const prev = candidates.find((c) => c.id === id)?.status
+      patchCandidateLocal(id, { status })
+      await dbCandidate(id, { status }, () => prev && patchCandidateLocal(id, { status: prev }))
+    },
+    setRating: async (id, rating) => {
+      const prev = candidates.find((c) => c.id === id)?.rating
+      patchCandidateLocal(id, { rating })
+      await dbCandidate(id, { rating }, () => prev != null && patchCandidateLocal(id, { rating: prev }))
+    },
+    setNotes: async (id, notes) => {
+      patchCandidateLocal(id, { notes })
+      await dbCandidate(id, { notes }, () => {})
+    },
 
     deleteCandidate: (id) => {
-      const found = data.candidates.find((c) => c.id === id)
-      setData((d) => ({ ...d, candidates: d.candidates.filter((c) => c.id !== id) }))
+      const found = candidates.find((c) => c.id === id)
+      setCandidates((cs) => cs.filter((c) => c.id !== id))
+      supabase
+        .from('candidates')
+        .delete()
+        .eq('id', id)
+        .then(({ error }) => {
+          if (error) {
+            if (found) setCandidates((cs) => [found, ...cs])
+            toast.error('No se pudo eliminar. Inténtalo de nuevo.')
+          }
+        })
       return found
     },
-    restoreCandidate: (candidate) =>
-      setData((d) => ({ ...d, candidates: [candidate, ...d.candidates] })),
-
-    addCandidate: (campaignId, answers, source = 'enlace') =>
-      setData((d) => ({
-        ...d,
-        candidates: [
-          {
-            id: nextId('cand'),
-            campaignId,
-            answers,
-            status: 'nuevo',
-            submittedAt: new Date().toISOString(),
-            source,
-            rating: 0,
-            notes: '',
-          },
-          ...d.candidates,
-        ],
-      })),
-
-    updateFields: (campaignId, fields) =>
-      setData((d) => ({
-        ...d,
-        campaigns: d.campaigns.map((c) => (c.id === campaignId ? { ...c, fields } : c)),
-      })),
-
-    updateBranding: (campaignId, branding) =>
-      setData((d) => ({
-        ...d,
-        campaigns: d.campaigns.map((c) =>
-          c.id === campaignId ? { ...c, branding: { ...c.branding, ...branding } } : c,
-        ),
-      })),
-
-    updateCampaign: (campaignId, patch) =>
-      setData((d) => ({
-        ...d,
-        campaigns: d.campaigns.map((c) => (c.id === campaignId ? { ...c, ...patch } : c)),
-      })),
-
-    resetDemo: () => {
-      localStorage.removeItem(KEY)
-      setData(SEED)
+    restoreCandidate: async (candidate) => {
+      setCandidates((cs) => [candidate, ...cs])
+      const { error } = await supabase.from('candidates').insert({
+        id: candidate.id,
+        campaign_id: candidate.campaignId,
+        company_id: companyId,
+        answers: candidate.answers,
+        status: candidate.status,
+        source: candidate.source,
+        rating: candidate.rating,
+        notes: candidate.notes,
+        cv_path: candidate.cvPath ?? null,
+        created_at: candidate.submittedAt,
+      })
+      if (error) {
+        setCandidates((cs) => cs.filter((c) => c.id !== candidate.id))
+        toast.error('No se pudo deshacer.')
+      }
     },
-  }), [data, patchCandidate])
+
+    updateFields: async (campaignId, fields) => {
+      setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, fields } : c)))
+      const { error } = await supabase.from('campaigns').update({ fields }).eq('id', campaignId)
+      if (error) toast.error('No se pudieron guardar los campos.')
+    },
+    updateBranding: async (campaignId, branding) => {
+      let merged: Branding | undefined
+      setCampaigns((cs) =>
+        cs.map((c) => {
+          if (c.id !== campaignId) return c
+          merged = { ...c.branding, ...branding }
+          return { ...c, branding: merged }
+        }),
+      )
+      if (merged) {
+        const { error } = await supabase.from('campaigns').update({ branding: merged }).eq('id', campaignId)
+        if (error) toast.error('No se pudo guardar la apariencia.')
+      }
+    },
+    updateCampaign: async (campaignId, patch) => {
+      setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, ...patch } : c)))
+      const dbPatch: Record<string, unknown> = {}
+      if (patch.title !== undefined) dbPatch.title = patch.title
+      if (patch.status !== undefined) dbPatch.status = patch.status
+      if (patch.sector !== undefined) dbPatch.sector = patch.sector
+      if (patch.location !== undefined) dbPatch.location = patch.location
+      if (Object.keys(dbPatch).length) {
+        const { error } = await supabase.from('campaigns').update(dbPatch).eq('id', campaignId)
+        if (error) toast.error('No se pudo guardar el puesto.')
+      }
+    },
+
+    createCampaign: async (input) => {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .insert({
+          company_id: companyId,
+          slug: slugify(input.title),
+          title: input.title,
+          sector: input.sector,
+          location: input.location,
+          status: 'activa',
+          milanuncios_url: input.milanunciosUrl ?? null,
+          fields: input.fields,
+          branding: input.branding,
+        })
+        .select('*')
+        .single()
+      if (error || !data) {
+        toast.error('No se pudo crear el puesto.')
+        return null
+      }
+      const campaign = toCampaign(data as CampaignRow)
+      setCampaigns((cs) => [...cs, campaign])
+      return campaign
+    },
+    deleteCampaign: async (campaignId) => {
+      const prev = campaigns
+      const prevCands = candidates
+      setCampaigns((cs) => cs.filter((c) => c.id !== campaignId))
+      setCandidates((cs) => cs.filter((c) => c.campaignId !== campaignId))
+      const { error } = await supabase.from('campaigns').delete().eq('id', campaignId)
+      if (error) {
+        setCampaigns(prev)
+        setCandidates(prevCands)
+        toast.error('No se pudo eliminar el puesto.')
+      }
+    },
+  }), [loading, campaigns, candidates, companyId, reload, toast])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }
@@ -140,8 +272,15 @@ export function useStore(): Store {
   return s
 }
 
-// Hook auxiliar para simular "nuevas candidaturas entrando" en la demo.
-export function useNewSubmissionSimulator(_campaignId: string | undefined) {
-  const ref = useRef<number | null>(null)
-  return ref // (no-op de momento; gancho para la demo en vivo)
+// slug url-safe a partir del título, con sufijo aleatorio para unicidad.
+export function slugify(title: string): string {
+  const base = title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+  const rand = Math.random().toString(36).slice(2, 7)
+  return `${base || 'puesto'}-${rand}`
 }

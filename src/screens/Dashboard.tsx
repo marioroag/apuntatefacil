@@ -20,7 +20,7 @@ import { exportCandidatesToExcel } from '../lib/export'
 import { relativeDate, initials, miles } from '../lib/format'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { Campaign, Candidate, CandidateStatus, FormField } from '../lib/types'
-import { DOMAIN } from '../lib/brand'
+import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 
 type SortKey = 'nombre' | 'fecha' | 'estado'
 
@@ -112,7 +112,7 @@ export function Dashboard() {
   const activeFilterCount = statusFilter.size + valueFilters.length
   const cols = highlightFields(campaign)
   const openCandidate = openId ? all.find((c) => c.id === openId) ?? null : null
-  const publicUrl = `${DOMAIN}/a/${campaign.slug}`
+  const publicUrl = publicFormUrlDisplay(campaign.slug)
 
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
@@ -130,7 +130,7 @@ export function Dashboard() {
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(`https://${publicUrl}`)
+      await navigator.clipboard.writeText(publicFormUrl(campaign.slug))
       toast.success('Enlace copiado')
     } catch {
       toast.show('Copia el enlace manualmente: ' + publicUrl)

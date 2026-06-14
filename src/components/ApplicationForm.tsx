@@ -15,6 +15,7 @@ export function ApplicationForm({
   errors,
   onChange,
   onBlur,
+  onFile,
   onSubmit,
   submitting,
   companyName,
@@ -25,6 +26,7 @@ export function ApplicationForm({
   errors: Record<string, string>
   onChange: (fieldId: string, v: FieldValue) => void
   onBlur?: (fieldId: string) => void
+  onFile?: (fieldId: string, file: File | null) => void
   onSubmit?: () => void
   submitting?: boolean
   companyName: string
@@ -109,6 +111,7 @@ export function ApplicationForm({
             value={values[f.id]}
             onChange={(v) => onChange(f.id, v)}
             onBlur={onBlur ? () => onBlur(f.id) : undefined}
+            onFile={onFile ? (file) => onFile(f.id, file) : undefined}
             error={errors[f.id]}
           />
         ))}

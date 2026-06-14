@@ -60,6 +60,7 @@ export function FieldRenderer({
   value,
   onChange,
   onBlur,
+  onFile,
   error,
   idPrefix = 'f',
 }: {
@@ -67,6 +68,7 @@ export function FieldRenderer({
   value: FieldValue
   onChange: (v: FieldValue) => void
   onBlur?: () => void
+  onFile?: (file: File | null) => void
   error?: string
   idPrefix?: string
 }) {
@@ -95,6 +97,7 @@ export function FieldRenderer({
         value={value}
         onChange={onChange}
         onBlur={onBlur}
+        onFile={onFile}
         error={error}
         describedBy={describedBy}
         invalid={!!error}
@@ -117,6 +120,7 @@ function Control({
   value,
   onChange,
   onBlur,
+  onFile,
   describedBy,
   invalid,
   error,
@@ -127,6 +131,7 @@ function Control({
   value: FieldValue
   onChange: (v: FieldValue) => void
   onBlur?: () => void
+  onFile?: (file: File | null) => void
   describedBy?: string
   invalid: boolean
   error?: string
@@ -162,7 +167,7 @@ function Control({
       return <BooleanControl id={id} labelId={labelId} value={value as boolean | undefined} onChange={onChange} invalid={invalid} describedBy={describedBy} />
 
     case 'file':
-      return <FileControl id={id} value={value as string | undefined} onChange={onChange} error={error} describedBy={describedBy} />
+      return <FileControl id={id} value={value as string | undefined} onChange={onChange} onFile={onFile} error={error} describedBy={describedBy} />
 
     case 'date':
       return (
@@ -404,12 +409,14 @@ function FileControl({
   id,
   value,
   onChange,
+  onFile,
   error,
   describedBy,
 }: {
   id: string
   value?: string
   onChange: (v: FieldValue) => void
+  onFile?: (file: File | null) => void
   error?: string
   describedBy?: string
 }) {
@@ -417,7 +424,7 @@ function FileControl({
   const [localErr, setLocalErr] = useState<string | null>(null)
   const errId = `${id}-fileerr`
 
-  const onFile = (file?: File) => {
+  const handleFile = (file?: File) => {
     if (!file) return
     if (file.size > 8 * 1024 * 1024) {
       setLocalErr(`El archivo pesa ${(file.size / 1048576).toFixed(1)} MB y el máximo es 8 MB. Sube un archivo más pequeño`)
@@ -425,6 +432,7 @@ function FileControl({
     }
     setLocalErr(null)
     onChange(file.name)
+    onFile?.(file)
   }
 
   if (value) {
@@ -434,7 +442,7 @@ function FileControl({
         <span className="flex-1 truncate text-base text-slate-800">{value}</span>
         <button
           type="button"
-          onClick={() => onChange(undefined)}
+          onClick={() => { onChange(undefined); onFile?.(null) }}
           className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
         >
           <X className="size-4" aria-hidden /> Quitar
@@ -452,7 +460,7 @@ function FileControl({
         accept=".pdf,.doc,.docx"
         aria-describedby={[describedBy, localErr ? errId : null].filter(Boolean).join(' ') || undefined}
         className="sr-only"
-        onChange={(e) => onFile(e.target.files?.[0])}
+        onChange={(e) => handleFile(e.target.files?.[0])}
       />
       <button
         type="button"
