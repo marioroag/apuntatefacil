@@ -5,8 +5,8 @@ import type { NewCampaignInput } from './store'
 export const DEFAULT_FIELDS: FormField[] = [
   { id: 'nombre', type: 'text', label: 'Nombre y apellidos', required: true, system: true, placeholder: 'Tu nombre completo' },
   { id: 'telefono', type: 'phone', label: 'Teléfono', required: true, system: true, placeholder: '600 000 000' },
-  { id: 'email', type: 'email', label: 'Email' },
-  { id: 'experiencia', type: 'textarea', label: 'Cuéntanos tu experiencia' },
+  { id: 'email', type: 'email', label: 'Email', required: false },
+  { id: 'experiencia', type: 'textarea', label: 'Cuéntanos tu experiencia', required: false },
 ]
 
 export function defaultBranding(accent: string): Branding {

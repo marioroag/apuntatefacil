@@ -78,5 +78,13 @@ Producto full-stack: el frontend (Vite/React) habla con **Supabase** (Postgres +
 - **CVs**: bucket privado `cvs`. El candidato anónimo sube (policy insert); el merchant descarga con URL firmada (`createSignedUrl`).
 - **Store**: `store.tsx` es un caché en memoria de la empresa (getters síncronos, mutaciones optimistas a Supabase). El acento de empresa/puesto y los enlaces públicos usan el origen real (`publicFormUrl`).
 
+## Pagos y emails (código escrito, faltan SOLO las claves)
+Edge functions en `supabase/functions/` (Deno), listas para enchufar secrets:
+- `stripe-checkout` (auth): crea sesión de Stripe Checkout para un plan. Página `/app/plan` la invoca.
+- `stripe-webhook` (sin JWT): actualiza `plan`/`subscription_status` de la empresa según Stripe.
+- `notify-new-candidate` (sin JWT): email al dueño vía Resend al entrar una candidatura (lo llama el formulario público con el `candidate_id`). No-op si falta `RESEND_API_KEY`.
+- Secrets necesarios (`supabase secrets set ...` o env del deploy): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ESENCIAL|PRO|MULTI`, `RESEND_API_KEY`, `NOTIFY_FROM`, `APP_URL`.
+- Servir local: `supabase functions serve`. Webhook local: `stripe listen --forward-to localhost:54321/functions/v1/stripe-webhook`.
+
 ## Estado actual
-Full-stack funcionando en local, verificado end-to-end (login magic link, onboarding, datos demo, dashboard real, formulario público anónimo que persiste). **Pendiente**: pagos con Stripe, emails con Resend, Google OAuth (credenciales), asistente de "Nuevo puesto" con plantillas, y deploy. Build verde, repo git propio.
+Full-stack funcionando en local, verificado end-to-end (login magic link, onboarding, datos demo, dashboard real, formulario público anónimo que persiste, aislamiento multi-tenant comprobado en SQL, wizard de puestos con plantillas). Stripe/Resend con el código listo, faltan las claves. **Pendiente**: enchufar claves (Stripe/Resend), Google OAuth (credenciales) y deploy. Build verde, repo git propio.

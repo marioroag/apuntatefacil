@@ -14,6 +14,7 @@ import { Login } from './screens/Login'
 import { AppLayout, FirstCampaignRedirect } from './screens/AppLayout'
 import { Dashboard } from './screens/Dashboard'
 import { Builder } from './screens/Builder'
+import { Plan } from './screens/Plan'
 import { PublicForm } from './screens/PublicForm'
 
 createRoot(document.getElementById('root')!).render(
@@ -38,6 +39,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route index element={<FirstCampaignRedirect />} />
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
+                  <Route path="plan" element={<Plan />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

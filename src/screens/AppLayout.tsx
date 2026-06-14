@@ -83,7 +83,7 @@ function EmptyCompany() {
 
 export function AppLayout() {
   const { campaigns, newCountFor } = useStore()
-  const { company, user, signOut } = useAuth()
+  const { company, signOut } = useAuth()
   const { campaignId } = useParams()
   const [open, setOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -165,9 +165,9 @@ export function AppLayout() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-semibold text-slate-800">{company.name}</p>
-            <p className="truncate text-[11px] text-slate-500">
-              Plan {PLAN_LABEL[company.plan] ?? 'Prueba'} · {user?.email}
-            </p>
+            <Link to="/app/plan" className="block truncate text-[11px] text-slate-500 hover:text-indigo-600">
+              Plan {PLAN_LABEL[company.plan] ?? 'Prueba'} · gestionar
+            </Link>
           </div>
         </div>
         <div className="mt-1 flex items-center gap-1">

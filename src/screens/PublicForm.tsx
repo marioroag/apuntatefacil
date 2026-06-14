@@ -121,7 +121,7 @@ export function PublicForm() {
       cvPath = up.data.path
     }
 
-    const { error } = await supabase.rpc('submit_application', {
+    const { data: candidateId, error } = await supabase.rpc('submit_application', {
       p_slug: campaign.slug,
       p_answers: values,
       p_source: 'enlace',
@@ -132,6 +132,10 @@ export function PublicForm() {
       setSubmitError('No pudimos enviar tu candidatura. Inténtalo de nuevo.')
       formTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
+    }
+    // Aviso al merchant por email (no bloquea la pantalla de gracias).
+    if (candidateId) {
+      supabase.functions.invoke('notify-new-candidate', { body: { candidate_id: candidateId } }).catch(() => {})
     }
     setDone(true)
   }
