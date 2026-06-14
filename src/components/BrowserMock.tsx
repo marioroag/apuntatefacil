@@ -1,5 +1,6 @@
 import { STATUS_META } from '../lib/types'
 import type { CandidateStatus } from '../lib/types'
+import { MaskedPhone } from './MaskedPhone'
 
 const ROWS: { name: string; sector: string; phone: string; status: CandidateStatus; when: string }[] = [
   { name: 'Antonio Navarro', sector: 'Camarero/a', phone: '622 481 109', status: 'nuevo', when: 'hace 2 h' },
@@ -48,7 +49,7 @@ export function BrowserMock({ className = '' }: { className?: string }) {
                     </div>
                   </div>
                 </td>
-                <td className="hidden px-2 py-2.5 text-[12px] tabular-nums text-slate-500 sm:table-cell">{r.phone}</td>
+                <td className="hidden px-2 py-2.5 text-[12px] tabular-nums text-slate-500 sm:table-cell"><MaskedPhone value={r.phone} /></td>
                 <td className="px-2 py-2.5">
                   <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${m.chip}`}>
                     <span className={`size-1.5 rounded-full ${m.dot}`} />

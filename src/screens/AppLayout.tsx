@@ -9,6 +9,8 @@ import { Logo } from '../components/Logo'
 import { initials } from '../lib/format'
 import { seedDemoData } from '../lib/seedDemo'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
+import { useAppBase } from '../lib/useAppBase'
+import { ArrowRight } from 'lucide-react'
 
 const PLAN_LABEL: Record<string, string> = {
   trial: 'Prueba', esencial: 'Esencial', pro: 'Pro', multi: 'Multi',
@@ -16,6 +18,7 @@ const PLAN_LABEL: Record<string, string> = {
 
 export function FirstCampaignRedirect() {
   const { campaigns, loading } = useStore()
+  const base = useAppBase()
   if (loading)
     return (
       <div className="grid h-full place-items-center" role="status" aria-label="Cargando">
@@ -24,7 +27,7 @@ export function FirstCampaignRedirect() {
     )
   const first = campaigns[0]
   if (!first) return <EmptyCompany />
-  return <Navigate to={`/app/puestos/${first.id}`} replace />
+  return <Navigate to={`${base}/puestos/${first.id}`} replace />
 }
 
 function EmptyCompany() {
@@ -85,6 +88,8 @@ export function AppLayout() {
   const { campaigns, newCountFor } = useStore()
   const { company, signOut } = useAuth()
   const { campaignId } = useParams()
+  const base = useAppBase()
+  const demo = base === '/demo'
   const [open, setOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
 
@@ -124,7 +129,7 @@ export function AppLayout() {
           return (
             <li key={c.id}>
               <NavLink
-                to={`/app/puestos/${c.id}`}
+                to={`${base}/puestos/${c.id}`}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
                   `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
@@ -159,31 +164,50 @@ export function AppLayout() {
       </ul>
 
       <div className="mt-auto border-t border-slate-200 p-3">
-        <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
-          <div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-[12px] font-bold text-white">
-            {initials(company.name)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-semibold text-slate-800">{company.name}</p>
-            <Link to="/app/plan" className="block truncate text-[11px] text-slate-500 hover:text-indigo-600">
-              Plan {PLAN_LABEL[company.plan] ?? 'Prueba'} · gestionar
+        {demo ? (
+          <>
+            <Link
+              to="/login"
+              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+            >
+              Empezar gratis <ArrowRight className="size-4" aria-hidden />
             </Link>
-          </div>
-        </div>
-        <div className="mt-1 flex items-center gap-1">
-          <Link
-            to="/"
-            className="flex flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <ExternalLink className="size-3.5" aria-hidden /> Ver la web
-          </Link>
-          <button
-            onClick={() => signOut()}
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <LogOut className="size-3.5" aria-hidden /> Salir
-          </button>
-        </div>
+            <Link
+              to="/"
+              className="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            >
+              <ExternalLink className="size-3.5" aria-hidden /> Salir de la demo
+            </Link>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+              <div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-[12px] font-bold text-white">
+                {initials(company.name)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-semibold text-slate-800">{company.name}</p>
+                <Link to="/app/plan" className="block truncate text-[11px] text-slate-500 hover:text-indigo-600">
+                  Plan {PLAN_LABEL[company.plan] ?? 'Prueba'} · gestionar
+                </Link>
+              </div>
+            </div>
+            <div className="mt-1 flex items-center gap-1">
+              <Link
+                to="/"
+                className="flex flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <ExternalLink className="size-3.5" aria-hidden /> Ver la web
+              </Link>
+              <button
+                onClick={() => signOut()}
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <LogOut className="size-3.5" aria-hidden /> Salir
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </nav>
   )
@@ -212,6 +236,14 @@ export function AppLayout() {
           </Link>
         </div>
 
+        {demo && (
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 border-b border-indigo-100 bg-indigo-50 px-4 py-2 text-center text-[13px] text-indigo-800">
+            <span>Demo con datos de ejemplo. Tus cambios no se guardan.</span>
+            <Link to="/login" className="font-semibold underline underline-offset-2 hover:text-indigo-900">
+              Crear mi cuenta gratis
+            </Link>
+          </div>
+        )}
         <main id="contenido" className="min-h-0 flex-1 overflow-y-auto">
           <Outlet />
         </main>

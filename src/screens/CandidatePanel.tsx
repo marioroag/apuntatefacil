@@ -8,6 +8,7 @@ import { fullDateTime, initials } from '../lib/format'
 import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
+import { MaskedPhone } from '../components/MaskedPhone'
 
 function answerText(v: Candidate['answers'][string] | undefined): string {
   if (v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) return 'Sin dato'
@@ -21,11 +22,13 @@ export function CandidatePanel({
   candidate,
   onClose,
   onDeleted,
+  maskPhone = false,
 }: {
   campaign: Campaign
   candidate: Candidate | null
   onClose: () => void
   onDeleted: (c: Candidate) => void
+  maskPhone?: boolean
 }) {
   const { setStatus, setRating, setNotes, deleteCandidate } = useStore()
   const toast = useToast()
@@ -95,12 +98,12 @@ export function CandidatePanel({
           <div className="flex flex-wrap items-center gap-2">
             <StatusSelect status={candidate.status} onChange={(s) => setStatus(candidate.id, s)} />
             <div className="ml-auto flex gap-2">
-              {phone && (
+              {!maskPhone && phone && (
                 <a href={`tel:${phone.replace(/\s/g, '')}`} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
                   <Phone className="size-3.5" aria-hidden /> Llamar
                 </a>
               )}
-              {waPhone && (
+              {!maskPhone && waPhone && (
                 <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
                   <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
                 </a>
@@ -143,7 +146,11 @@ export function CandidatePanel({
               {campaign.fields.map((f) => (
                 <div key={f.id} className="grid grid-cols-[42%_58%] gap-3 px-3.5 py-2.5">
                   <dt className="text-[13px] text-slate-500">{f.label}</dt>
-                  <dd className="text-sm font-medium text-slate-800">{answerText(candidate.answers[f.id])}</dd>
+                  <dd className="text-sm font-medium text-slate-800">
+                    {maskPhone && f.id === 'telefono' && candidate.answers[f.id]
+                      ? <MaskedPhone value={String(candidate.answers[f.id])} />
+                      : answerText(candidate.answers[f.id])}
+                  </dd>
                 </div>
               ))}
             </dl>

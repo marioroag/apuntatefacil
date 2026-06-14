@@ -5,7 +5,7 @@ import { MotionConfig } from 'framer-motion'
 import '@fontsource-variable/inter'
 import './index.css'
 
-import { AuthProvider } from './lib/auth'
+import { AuthProvider, DemoAuthProvider } from './lib/auth'
 import { StoreProvider } from './lib/store'
 import { ToastProvider } from './components/ui/Toast'
 import { AuthGate } from './components/AuthGate'
@@ -40,6 +40,20 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
                   <Route path="plan" element={<Plan />} />
+                </Route>
+                <Route
+                  path="/demo"
+                  element={
+                    <DemoAuthProvider>
+                      <StoreProvider>
+                        <AppLayout />
+                      </StoreProvider>
+                    </DemoAuthProvider>
+                  }
+                >
+                  <Route index element={<FirstCampaignRedirect />} />
+                  <Route path="puestos/:campaignId" element={<Dashboard />} />
+                  <Route path="puestos/:campaignId/formulario" element={<Builder />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

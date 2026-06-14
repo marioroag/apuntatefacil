@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 
@@ -106,4 +107,31 @@ export function useAuth(): AuthApi {
   const a = useContext(Ctx)
   if (!a) throw new Error('useAuth fuera de AuthProvider')
   return a
+}
+
+// Empresa de la DEMO pública (sin login). El id 'demo' hace que el store cargue
+// datos de ejemplo en memoria en vez de Supabase.
+export const DEMO_COMPANY: Company = {
+  id: 'demo',
+  name: 'Empleos Levante ETT',
+  accent: '#4F46E5',
+  plan: 'pro',
+  subscription_status: null,
+}
+
+export function DemoAuthProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate()
+  const api: AuthApi = {
+    loading: false,
+    session: { user: { id: 'demo-user', email: 'demo@criba.app' } } as unknown as Session,
+    user: { id: 'demo-user', email: 'demo@criba.app' } as unknown as User,
+    company: DEMO_COMPANY,
+    companyLoading: false,
+    signInWithGoogle: async () => {},
+    signInWithEmail: async () => ({}),
+    signOut: async () => { navigate('/') },
+    createCompany: async () => ({}),
+    refreshCompany: async () => {},
+  }
+  return <Ctx.Provider value={api}>{children}</Ctx.Provider>
 }

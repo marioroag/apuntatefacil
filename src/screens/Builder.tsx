@@ -40,6 +40,7 @@ import type { Campaign, FieldType, FormField } from '../lib/types'
 import { SWATCHES, accentPassesWhite, isValidHex, normalizeHex } from '../lib/colors'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAuth } from '../lib/auth'
+import { useAppBase } from '../lib/useAppBase'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
 
@@ -73,6 +74,7 @@ export function Builder() {
   const { campaignId } = useParams()
   const { getCampaign, updateFields } = useStore()
   const toast = useToast()
+  const base = useAppBase()
   const campaign = getCampaign(campaignId!)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [device, setDevice] = useState<'mobile' | 'desktop'>('mobile')
@@ -132,7 +134,7 @@ export function Builder() {
       {/* Cabecera */}
       <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <Link to={`/app/puestos/${campaign.id}`} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Volver al puesto">
+          <Link to={`${base}/puestos/${campaign.id}`} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Volver al puesto">
             <ArrowLeft className="size-5" aria-hidden />
           </Link>
           <div className="min-w-0">

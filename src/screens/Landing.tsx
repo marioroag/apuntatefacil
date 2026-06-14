@@ -77,8 +77,11 @@ function TopNav() {
               {label}
             </a>
           ))}
-          <Link to="/app" className="ml-2 inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700">
-            Ver la demo <ArrowRight className="size-4" aria-hidden />
+          <Link to="/demo" className="ml-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+            Ver la demo
+          </Link>
+          <Link to="/login" className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700">
+            Empezar gratis <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
         <button onClick={() => setOpen((o) => !o)} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden" aria-label="Menú" aria-expanded={open}>
@@ -92,8 +95,11 @@ function TopNav() {
               {label}
             </a>
           ))}
-          <Link to="/app" className="mt-1 flex h-10 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white">
-            Ver la demo <ArrowRight className="size-4" aria-hidden />
+          <Link to="/demo" onClick={() => setOpen(false)} className="mt-1 block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+            Ver la demo
+          </Link>
+          <Link to="/login" onClick={() => setOpen(false)} className="mt-1 flex h-10 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white">
+            Empezar gratis <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
       )}
@@ -116,14 +122,14 @@ function Hero() {
           la gente rellena tu formulario y tú filtras y exportas a Excel cuando quieras.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
-          <Link to="/app" className="inline-flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]">
-            Ver la demo <ArrowRight className="size-4" aria-hidden />
+          <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]">
+            Empezar gratis <ArrowRight className="size-4" aria-hidden />
           </Link>
-          <a href="#como-funciona" className="inline-flex h-12 items-center rounded-xl px-5 text-base font-semibold text-slate-700 hover:bg-slate-100">
-            Cómo funciona
-          </a>
+          <Link to="/demo" className="inline-flex h-12 items-center gap-2 rounded-xl px-5 text-base font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+            Ver la demo
+          </Link>
         </div>
-        <p className="mt-4 text-sm text-slate-500">Sin tarjeta para probar la demo. Candidatos y usuarios ilimitados en todos los planes.</p>
+        <p className="mt-4 text-sm text-slate-500">Pruébala sin registrarte. Candidatos y usuarios ilimitados en todos los planes.</p>
       </div>
       <div className="relative">
         <div className="absolute -inset-4 -z-10 rounded-3xl bg-gradient-to-tr from-indigo-50 to-transparent" aria-hidden />
@@ -206,7 +212,7 @@ function Screenshot() {
                 </li>
               ))}
             </ul>
-            <Link to="/app" className="mt-7 inline-flex h-11 items-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white hover:bg-indigo-700">
+            <Link to="/demo" className="mt-7 inline-flex h-11 items-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white hover:bg-indigo-700">
               Abrir la demo <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>
@@ -353,7 +359,7 @@ function Pricing() {
                   ))}
                 </ul>
                 <Link
-                  to="/app"
+                  to="/login"
                   className={`mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-xl text-base font-semibold transition-colors active:scale-[0.99] ${
                     t.recommended ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-white text-slate-900 ring-1 ring-slate-200 hover:bg-slate-50'
                   }`}
@@ -410,11 +416,16 @@ function FinalCta() {
             Deja de perder buenos candidatos entre mensajes
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-lg text-slate-300">
-            Mira la demo con datos de ejemplo. Sin registro, sin tarjeta.
+            Crea tu cuenta en un minuto, o prueba la demo con datos de ejemplo. Sin tarjeta.
           </p>
-          <Link to="/app" className="mt-8 inline-flex h-12 items-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-slate-900 transition-transform hover:scale-[1.02] active:scale-[0.99]">
-            Ver la demo <ArrowRight className="size-4" aria-hidden />
-          </Link>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-slate-900 transition-transform hover:scale-[1.02] active:scale-[0.99]">
+              Empezar gratis <ArrowRight className="size-4" aria-hidden />
+            </Link>
+            <Link to="/demo" className="inline-flex h-12 items-center gap-2 rounded-xl px-5 text-base font-semibold text-white ring-1 ring-white/25 hover:bg-white/10">
+              Ver la demo
+            </Link>
+          </div>
         </div>
       </Reveal>
     </section>

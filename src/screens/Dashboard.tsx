@@ -21,6 +21,8 @@ import { relativeDate, initials, miles } from '../lib/format'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { Campaign, Candidate, CandidateStatus, FormField } from '../lib/types'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
+import { useAppBase } from '../lib/useAppBase'
+import { MaskedPhone } from '../components/MaskedPhone'
 
 type SortKey = 'nombre' | 'fecha' | 'estado'
 
@@ -46,6 +48,7 @@ export function Dashboard() {
   const { campaignId } = useParams()
   const { getCampaign, candidatesFor, restoreCandidate } = useStore()
   const toast = useToast()
+  const base = useAppBase()
   const campaign = getCampaign(campaignId!)
 
   const [loading, setLoading] = useState(true)
@@ -113,6 +116,7 @@ export function Dashboard() {
   const cols = highlightFields(campaign)
   const openCandidate = openId ? all.find((c) => c.id === openId) ?? null : null
   const publicUrl = publicFormUrlDisplay(campaign.slug)
+  const maskPhone = base === '/demo'
 
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
@@ -163,7 +167,7 @@ export function Dashboard() {
               <Share2 className="size-4 text-slate-400" aria-hidden /> Compartir enlace
             </button>
             <Link
-              to={`/app/puestos/${campaign.id}/formulario`}
+              to={`${base}/puestos/${campaign.id}/formulario`}
               className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-50"
             >
               <PenLine className="size-4 text-slate-400" aria-hidden /> Editar formulario
@@ -275,6 +279,7 @@ export function Dashboard() {
             selected={selected}
             setSelected={setSelected}
             onOpen={setOpenId}
+            maskPhone={maskPhone}
           />
         )}
       </div>
@@ -282,6 +287,7 @@ export function Dashboard() {
       <CandidatePanel
         campaign={campaign}
         candidate={openCandidate}
+        maskPhone={maskPhone}
         onClose={() => setOpenId(null)}
         onDeleted={(c) =>
           toast.success('Candidato eliminado', { action: { label: 'Deshacer', onClick: () => restoreCandidate(c) } })
@@ -338,6 +344,7 @@ function CandidateTable({
   selected,
   setSelected,
   onOpen,
+  maskPhone,
 }: {
   campaign: Campaign
   cols: FormField[]
@@ -347,6 +354,7 @@ function CandidateTable({
   selected: Set<string>
   setSelected: (s: Set<string>) => void
   onOpen: (id: string) => void
+  maskPhone: boolean
 }) {
   const { setStatus } = useStore()
   const allSel = rows.length > 0 && rows.every((r) => selected.has(r.id))
@@ -434,7 +442,9 @@ function CandidateTable({
                   </div>
                 </td>
                 <td className="hidden px-3 py-2.5 text-sm text-slate-600 md:table-cell tnum">
-                  {answerStr(c, 'telefono') || '·'}
+                  {maskPhone && answerStr(c, 'telefono')
+                    ? <MaskedPhone value={answerStr(c, 'telefono')} />
+                    : (answerStr(c, 'telefono') || '·')}
                 </td>
                 {cols.map((f) => (
                   <td key={f.id} className="hidden px-3 py-2.5 text-sm text-slate-600 lg:table-cell">

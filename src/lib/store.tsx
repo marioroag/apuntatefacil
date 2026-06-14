@@ -4,6 +4,7 @@ import type { Branding, Campaign, Candidate, CandidateStatus, FormField } from '
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
+import { SEED } from './seed'
 
 // --- Mapeo BD (snake_case) <-> app (camelCase) -----------------------------
 type CampaignRow = {
@@ -101,6 +102,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setCandidates([])
       return
     }
+    if (companyId === 'demo') {
+      // Demo pública: datos de ejemplo en memoria, sin tocar Supabase.
+      setCampaigns(SEED.campaigns)
+      setCandidates(SEED.candidates)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     const [c1, c2] = await Promise.all([
       supabase.from('campaigns').select('*').order('created_at', { ascending: true }),
@@ -123,6 +131,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCandidates((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)))
 
   const dbCandidate = async (id: string, patch: Record<string, unknown>, revert: () => void) => {
+    if (companyId === 'demo') return // demo: solo estado local
     const { error } = await supabase.from('candidates').update(patch).eq('id', id)
     if (error) {
       revert()
@@ -161,6 +170,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deleteCandidate: (id) => {
       const found = candidates.find((c) => c.id === id)
       setCandidates((cs) => cs.filter((c) => c.id !== id))
+      if (companyId === 'demo') return found
       supabase
         .from('candidates')
         .delete()
@@ -175,6 +185,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     restoreCandidate: async (candidate) => {
       setCandidates((cs) => [candidate, ...cs])
+      if (companyId === 'demo') return
       const { error } = await supabase.from('candidates').insert({
         id: candidate.id,
         campaign_id: candidate.campaignId,
@@ -195,6 +206,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     updateFields: async (campaignId, fields) => {
       setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, fields } : c)))
+      if (companyId === 'demo') return
       const { error } = await supabase.from('campaigns').update({ fields }).eq('id', campaignId)
       if (error) toast.error('No se pudieron guardar los campos.')
     },
@@ -207,6 +219,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { ...c, branding: merged }
         }),
       )
+      if (companyId === 'demo') return
       if (merged) {
         const { error } = await supabase.from('campaigns').update({ branding: merged }).eq('id', campaignId)
         if (error) toast.error('No se pudo guardar la apariencia.')
@@ -214,6 +227,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     updateCampaign: async (campaignId, patch) => {
       setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, ...patch } : c)))
+      if (companyId === 'demo') return
       const dbPatch: Record<string, unknown> = {}
       if (patch.title !== undefined) dbPatch.title = patch.title
       if (patch.status !== undefined) dbPatch.status = patch.status
@@ -226,6 +240,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     createCampaign: async (input) => {
+      if (companyId === 'demo') {
+        const campaign: Campaign = {
+          id: `demo_${Math.random().toString(36).slice(2, 9)}`,
+          slug: slugify(input.title),
+          title: input.title,
+          sector: input.sector,
+          location: input.location,
+          status: 'activa',
+          createdAt: new Date().toISOString(),
+          milanunciosUrl: input.milanunciosUrl,
+          fields: input.fields,
+          branding: input.branding,
+        }
+        setCampaigns((cs) => [...cs, campaign])
+        return campaign
+      }
       const { data, error } = await supabase
         .from('campaigns')
         .insert({
@@ -254,6 +284,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const prevCands = candidates
       setCampaigns((cs) => cs.filter((c) => c.id !== campaignId))
       setCandidates((cs) => cs.filter((c) => c.campaignId !== campaignId))
+      if (companyId === 'demo') return
       const { error } = await supabase.from('campaigns').delete().eq('id', campaignId)
       if (error) {
         setCampaigns(prev)

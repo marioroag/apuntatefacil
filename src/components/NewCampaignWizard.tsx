@@ -11,6 +11,7 @@ import { useToast } from './ui/Toast'
 import { TEMPLATES, templateCampaignInput } from '../lib/templates'
 import type { SectorTemplate } from '../lib/templates'
 import { blankCampaignInput } from '../lib/defaults'
+import { useAppBase } from '../lib/useAppBase'
 
 const ICONS: Record<string, LucideIcon> = {
   UtensilsCrossed, HardHat, Truck, Sparkles, ShoppingBag, HeartHandshake,
@@ -20,6 +21,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
   const { createCampaign } = useStore()
   const { company } = useAuth()
   const navigate = useNavigate()
+  const base = useAppBase()
   const toast = useToast()
   const [busy, setBusy] = useState<string | null>(null)
 
@@ -40,7 +42,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
     setBusy(null)
     if (c) {
       onClose()
-      navigate(`/app/puestos/${c.id}/formulario`)
+      navigate(`${base}/puestos/${c.id}/formulario`)
     } else {
       toast.error('No se pudo crear el puesto.')
     }
