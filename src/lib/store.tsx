@@ -334,7 +334,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       })
       if (error) {
         setCandidates((cs) => cs.filter((c) => c.id !== candidate.id))
-        toast.error('No se pudo deshacer.')
+        toast.error(
+          error.message?.includes('CANDIDATE_LIMIT_REACHED')
+            ? 'Has llegado al límite de candidatos de tu plan. Sube de plan para recuperarlo.'
+            : 'No se pudo deshacer.',
+        )
       }
     },
 

@@ -32,10 +32,12 @@ Deno.serve(async (req) => {
     if (event.type === 'checkout.session.completed') {
       const s = event.data.object as Stripe.Checkout.Session
       const companyId = s.metadata?.company_id
-      const plan = s.metadata?.plan
+      const plan = s.metadata?.plan ?? 'pro'
       if (companyId) {
+        // El estado de los puestos al cambiar de plan lo reconcilia el trigger de BD
+        // sync_campaigns_to_plan (reactiva al subir de Prueba, pausa al bajar).
         await admin.from('companies').update({
-          plan: plan ?? 'pro',
+          plan,
           subscription_status: 'active',
           stripe_customer_id: typeof s.customer === 'string' ? s.customer : null,
           stripe_subscription_id: typeof s.subscription === 'string' ? s.subscription : null,

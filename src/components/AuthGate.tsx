@@ -3,7 +3,6 @@ import { Navigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { Onboarding } from '../screens/Onboarding'
-import { Paywall } from '../screens/Paywall'
 
 function FullSpinner() {
   return (
@@ -20,7 +19,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!session) return <Navigate to="/login" replace />
   if (companyLoading && !company) return <FullSpinner />
   if (!company) return <Onboarding />
-  // El plan "Prueba" no da acceso: hay que contratar un plan de pago para usar el panel.
-  if (company.plan === 'trial') return <Paywall />
+  // El plan "Prueba" SÍ da acceso al panel, con topes (1 puesto, 15 candidatos).
+  // El puesto se pausa al llegar al tope y se avisa para subir de plan.
   return <>{children}</>
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
 import { Briefcase, Building2, ChevronDown, ExternalLink, Inbox, LayoutGrid, Loader2, LogOut, Menu, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -10,6 +10,7 @@ import { Logo } from '../components/Logo'
 import { initials } from '../lib/format'
 import { seedDemoData } from '../lib/seedDemo'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
+import { TrialPausedDialog } from '../components/TrialPausedDialog'
 import { useAppBase } from '../lib/useAppBase'
 import { ArrowRight } from 'lucide-react'
 import { planHas, PLAN_LABEL } from '../lib/pricing'
@@ -110,14 +111,18 @@ function EmptyCompany() {
           >
             <Plus className="size-4" aria-hidden /> Crear un puesto
           </button>
-          <button
-            onClick={loadDemo}
-            disabled={busy}
-            className={`${BTN_SECONDARY} disabled:opacity-60`}
-          >
-            {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4 text-slate-400" aria-hidden />}
-            Cargar datos de ejemplo
-          </button>
+          {/* En Prueba no se cargan datos de ejemplo: superarían los topes (1 puesto,
+              15 candidatos) y pausarían el puesto al instante. Para curiosear está /demo. */}
+          {company?.plan !== 'trial' && (
+            <button
+              onClick={loadDemo}
+              disabled={busy}
+              className={`${BTN_SECONDARY} disabled:opacity-60`}
+            >
+              {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4 text-slate-400" aria-hidden />}
+              Cargar datos de ejemplo
+            </button>
+          )}
         </div>
       </div>
       <NewCampaignWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
@@ -134,6 +139,21 @@ export function AppLayout() {
   const [open, setOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+
+  // Plan de Prueba con el puesto pausado por el tope de candidatos: avisamos una vez
+  // por apertura del panel (vuelve a salir en cada recarga hasta que suba de plan).
+  // Lo detectamos por el ESTADO del puesto, no por el recuento: así el aviso sigue
+  // saliendo aunque borren candidatos por debajo de 15 (en Prueba la única causa de
+  // pausa es el tope), y también lo ve el encargado, cuyo recuento está acotado por RLS.
+  const trialPaused = !demo && company?.plan === 'trial' && campaigns.some((c) => c.status === 'pausada')
+  const [pausedOpen, setPausedOpen] = useState(false)
+  const pausedShown = useRef(false)
+  useEffect(() => {
+    if (trialPaused && !pausedShown.current) {
+      pausedShown.current = true
+      setPausedOpen(true)
+    }
+  }, [trialPaused])
 
   if (!company) return null // AuthGate garantiza empresa; guard de tipos
 
@@ -425,6 +445,7 @@ export function AppLayout() {
       </div>
 
       <NewCampaignWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+      <TrialPausedDialog open={pausedOpen} onClose={() => setPausedOpen(false)} />
     </div>
   )
 }

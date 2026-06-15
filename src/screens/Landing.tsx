@@ -7,7 +7,7 @@ import {
 import { Logo } from '../components/Logo'
 import { BrowserMock } from '../components/BrowserMock'
 import { BRAND, TAGLINE } from '../lib/brand'
-import { TIERS, COST_TRUTHS } from '../lib/pricing'
+import { TIERS } from '../lib/pricing'
 
 const SECTORS = ['Hostelería', 'Construcción', 'Logística', 'Limpieza', 'Comercio', 'Reformas', 'Cuidados']
 
@@ -30,7 +30,7 @@ export function Landing() {
       <main id="contenido">
         <Hero />
         <Sectors />
-        <Problem />
+        <Compare />
         <HowItWorks />
         <Features />
         <Pricing />
@@ -108,10 +108,10 @@ function Hero() {
           Para quien contrata por Milanuncios
         </span>
         <h1 className="mt-4 text-[34px] font-bold leading-[1.07] tracking-tight text-slate-900 sm:text-[52px]">
-          Contrata por Milanuncios sin perderte en mil chats
+          Un mensaje es todo lo que necesitas para contratar
         </h1>
         <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600">
-          Cada vacante del sector recibe 56 respuestas de media. Que te lleguen todas ordenadas en un sitio, no sueltas por el chat. Pones tu anuncio como siempre, a quien te conteste le mandas un enlace y eliges sin perder a nadie.
+          Cada vacante recibe decenas de respuestas y se te van por el chat. Apúntate Fácil las recoge todas, ordenadas en un sitio: tú mandas un enlace y eliges sin perder a nadie.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link to="/demo" className="inline-flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]">
@@ -150,35 +150,115 @@ function Sectors() {
   )
 }
 
-function Problem() {
-  const bullets = [
-    'Respondes los mismos cuarenta mensajes uno por uno, a deshoras.',
-    'Copias teléfonos a Excel a mano y no sabes a quién ya has llamado.',
-    'El bueno se va a otra oferta mientras tú sigues contestando el chat.',
-    'La mitad ni tiene carnet ni vive cerca, y lo descubres leyéndolos todos.',
-  ]
+// Burbujas de chat para la sección comparativa.
+function Bubble({ children, from, muted = false }: { children: React.ReactNode; from: 'them' | 'you'; muted?: boolean }) {
+  if (from === 'them') {
+    return (
+      <div
+        className={`max-w-[82%] self-start rounded-2xl rounded-tl-md px-3.5 py-2 text-[14px] leading-snug ring-1 ${
+          muted ? 'bg-slate-100 italic text-slate-400 ring-slate-200/70' : 'bg-white text-slate-700 ring-slate-200'
+        }`}
+      >
+        {children}
+      </div>
+    )
+  }
   return (
-    <section className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:py-24">
-      <Reveal>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-[40px] sm:leading-[1.1]">
-          Así es contratar hoy por el chat: la mañana se te va y los buenos se escapan
-        </h2>
-        <p className="mt-5 text-lg leading-relaxed text-slate-600">
-          No es que te falte gente que te escriba, es que te sobra y no hay forma de no perderte. Contestas lo mismo treinta veces, copias teléfonos a una libreta y, para cuando llamas al bueno, ya está pillado en otro sitio. Cribar a 56 personas lleva su tiempo. La diferencia es si lo haces tú a mano o lo hace el sistema por ti.
-        </p>
-      </Reveal>
-      <ul className="mt-7 space-y-3">
-        {bullets.map((b, i) => (
-          <Reveal key={b} delay={0.05 + i * 0.05}>
-            <li className="flex items-start gap-3 text-[15px] text-slate-700">
-              <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500">
-                <X className="size-3.5" aria-hidden />
-              </span>
-              {b}
-            </li>
+    <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-slate-200/80 px-3.5 py-2 text-[14px] leading-snug text-slate-700">
+      {children}
+    </div>
+  )
+}
+
+function ChatTime({ children }: { children: React.ReactNode }) {
+  return <p className="py-1 text-center text-[12px] text-slate-400">{children}</p>
+}
+
+function Compare() {
+  return (
+    <section className="bg-white">
+      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
+        <Reveal className="text-center">
+          <p className="text-[13px] font-semibold uppercase tracking-wider text-indigo-600">La misma vacante, dos conversaciones</p>
+          <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-[40px] sm:leading-[1.1]">
+            Mira la diferencia en el propio chat
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
+            A la izquierda, el ida y vuelta de siempre que no lleva a nada. A la derecha, un enlace y ya está: te llega todo ordenado.
+          </p>
+        </Reveal>
+
+        <div className="mt-12 grid gap-6 lg:grid-cols-2">
+          {/* Antes: por el chat */}
+          <Reveal>
+            <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+              <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-500">AN</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-semibold text-slate-900">Antonio · respuesta al anuncio</p>
+                  <p className="truncate text-[13px] text-slate-500">por el chat, como hasta ahora</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold text-red-600 ring-1 ring-inset ring-red-100">Poco eficaz</span>
+              </div>
+              <div className="flex flex-1 flex-col gap-2.5 bg-slate-50 px-4 py-5">
+                <ChatTime>Lunes · 10:42</ChatTime>
+                <Bubble from="them">Hola, ¿sigue libre lo del peón?</Bubble>
+                <Bubble from="you">Sí. ¿Qué experiencia tienes?</Bubble>
+                <Bubble from="them">algo de obra</Bubble>
+                <Bubble from="you">¿Cuántos años? ¿Tienes carnet de conducir?</Bubble>
+                <ChatTime>11:58 · más de una hora después</ChatTime>
+                <Bubble from="them">si carnet B</Bubble>
+                <Bubble from="you">¿De qué zona eres? ¿Puedes empezar mañana a las 8?</Bubble>
+                <p className="self-end pr-1 text-[12px] text-slate-400">Visto ✓✓ · sin respuesta</p>
+                <Bubble from="them" muted>…y lo mismo con otros 37 candidatos</Bubble>
+              </div>
+            </div>
           </Reveal>
-        ))}
-      </ul>
+
+          {/* Después: con Apúntate Fácil */}
+          <Reveal delay={0.08}>
+            <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-green-200 bg-white shadow-card">
+              <div className="flex items-center gap-3 border-b border-green-100 px-4 py-3.5">
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-green-100 text-[12px] font-bold text-green-700">AN</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-semibold text-slate-900">Antonio · respuesta al anuncio</p>
+                  <p className="truncate text-[13px] text-slate-500">con {BRAND}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[12px] font-semibold text-green-700 ring-1 ring-inset ring-green-200">Resuelto</span>
+              </div>
+              <div className="flex flex-1 flex-col gap-2.5 bg-green-50/50 px-4 py-5">
+                <ChatTime>Lunes · 10:42</ChatTime>
+                <Bubble from="them">Hola, ¿sigue libre lo del peón?</Bubble>
+                <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-indigo-600 px-3.5 py-2 text-[14px] leading-snug text-white">
+                  ¡Hola! Sí 🙂 Apúntate aquí en 1 min y me llega todo:{' '}
+                  <span className="font-semibold underline decoration-white/50 underline-offset-2">apuntatefacil.es/peon</span>
+                </div>
+                <ChatTime>10:44 · dos minutos después</ChatTime>
+                <Bubble from="them">¡Hecho! ✅</Bubble>
+
+                <div className="mt-1.5 rounded-xl border border-green-200 bg-white p-3.5">
+                  <p className="flex items-center gap-1.5 text-[13px] font-semibold text-green-700">
+                    <Check className="size-4 shrink-0" aria-hidden /> Te llega ordenado en tu lista, sin preguntar nada
+                  </p>
+                  <div className="mt-3 flex items-center gap-2.5">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-500">AN</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-semibold text-slate-900">Antonio Navarro</p>
+                      <p className="truncate text-[12px] text-slate-500">Carpintero · 8 años</p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">Nuevo</span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {['Carnet B', 'Zona: Getafe', 'Empieza ya', '627 41…'].map((p) => (
+                      <span key={p} className="rounded-lg bg-slate-50 px-2.5 py-1 text-[12px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200 tabular-nums">{p}</span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </div>
     </section>
   )
 }
@@ -259,35 +339,13 @@ function Pricing() {
   return (
     <section id="precio" className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
-      <Reveal>
-        <h2 className="max-w-3xl text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-          Antes de ver el precio, mira lo que cuesta contratar como hoy
+      <Reveal className="text-center">
+        <h2 className="mx-auto max-w-3xl text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          Un precio claro, sin "desde" ni letra pequeña
         </h2>
-        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
-          Una oferta destacada en InfoJobs son 295 a 369 € y dura unos días. Una empresa de selección se lleva del 15 al 20% del sueldo. Y una mala contratación puede costarte hasta tres sueldos. Apúntate Fácil es todo el mes, con candidatos y usuarios sin límite.
+        <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
+          Candidatos y usuarios sin límite en todos los planes. Sin permanencia: te das de baja cuando quieras.
         </p>
-      </Reveal>
-
-      {/* Ancla del coste real: dos verdades (a mano vs pagando) */}
-      <Reveal delay={0.05}>
-        <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 sm:p-7">
-          <p className="text-[13px] font-semibold uppercase tracking-wider text-slate-500">Lo que cuesta contratar hoy</p>
-          <div className="mt-5 grid gap-7 sm:grid-cols-2 sm:gap-0 sm:divide-x sm:divide-slate-200">
-            {COST_TRUTHS.map((col, i) => (
-              <div key={col.key} className={i === 0 ? 'sm:pr-8' : 'sm:pl-8'}>
-                <p className="text-sm font-semibold text-slate-700">{col.label}</p>
-                <ul className="mt-3 space-y-2.5">
-                  {col.items.map((it) => (
-                    <li key={it.lead} className="text-[15px] leading-snug text-slate-600">
-                      <span className="font-bold tabular-nums text-slate-900">{it.lead}</span> {it.text}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <p className="mt-6 text-[13px] text-slate-500">Cifras de referencia del sector en España, junio de 2026.</p>
-        </div>
       </Reveal>
 
       {/* Toggle mensual / anual */}

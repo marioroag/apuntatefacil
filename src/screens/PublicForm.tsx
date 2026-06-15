@@ -65,15 +65,20 @@ export function PublicForm() {
     )
   }
 
-  if (state === 'notfound' || !campaign || campaign.status === 'cerrada') {
+  if (state === 'notfound' || !campaign || campaign.status === 'cerrada' || campaign.status === 'pausada') {
+    const paused = campaign?.status === 'pausada'
     return (
       <CenteredCard>
         <div className="grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
           <Link2Off className="size-6" aria-hidden />
         </div>
-        <h1 className="mt-4 text-xl font-semibold text-slate-900">Este enlace ya no está activo</h1>
+        <h1 className="mt-4 text-xl font-semibold text-slate-900">
+          {paused ? 'Esta oferta no admite candidaturas ahora mismo' : 'Este enlace ya no está activo'}
+        </h1>
         <p className="mt-1.5 text-sm text-slate-500">
-          La empresa ha cerrado esta oferta. Si crees que es un error, contacta con quien te lo compartió.
+          {paused
+            ? 'La empresa ha pausado esta oferta. Si crees que es un error, contacta con quien te lo compartió.'
+            : 'La empresa ha cerrado esta oferta. Si crees que es un error, contacta con quien te lo compartió.'}
         </p>
       </CenteredCard>
     )
@@ -136,7 +141,17 @@ export function PublicForm() {
     })
     setSubmitting(false)
     if (error) {
-      setSubmitError('No pudimos enviar tu candidatura. Inténtalo de nuevo.')
+      // El CV ya se subió antes del RPC: si la candidatura se rechaza, lo borramos
+      // para no dejar ficheros huérfanos (con PII) sin candidato que los referencie.
+      if (cvPath) supabase.storage.from('cvs').remove([cvPath]).catch(() => {})
+      // El puesto puede haberse llenado o pausado entre que se cargó y se envió.
+      const msg = error.message ?? ''
+      const full = msg.includes('CANDIDATE_LIMIT_REACHED') || msg.includes('no acepta candidaturas')
+      setSubmitError(
+        full
+          ? 'Esta oferta ya ha cubierto todas sus plazas y no admite más candidaturas.'
+          : 'No pudimos enviar tu candidatura. Inténtalo de nuevo.',
+      )
       formTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }

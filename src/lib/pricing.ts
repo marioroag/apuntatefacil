@@ -26,9 +26,20 @@ export interface Tier {
 // IMPORTANTE: estos topes son el ESPEJO del enforcement de servidor en
 // supabase/migrations/20260615000000_process_limit.sql. Mantener sincronizados.
 export const PLAN_PROCESS_LIMIT: Record<string, number> = {
-  trial: 0,
+  trial: 1,
   esencial: 2,
   pro: 10,
+  multi: Infinity,
+}
+
+// Tope de candidatos por plan. Solo el plan de Prueba tiene tope: al recibir el
+// 15º candidato el puesto se pausa y deja de aceptar más hasta subir de plan.
+// ESPEJO del enforcement de servidor en
+// supabase/migrations/20260615130000_trial_candidate_limit.sql. Mantener sincronizados.
+export const PLAN_CANDIDATE_LIMIT: Record<string, number> = {
+  trial: 15,
+  esencial: Infinity,
+  pro: Infinity,
   multi: Infinity,
 }
 
