@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Modelo de dominio de Criba
+// Modelo de dominio de Apúntate Fácil
 // ---------------------------------------------------------------------------
 // Una empresa (cliente) crea "puestos" (campañas). Cada puesto tiene un
 // formulario personalizable. El enlace del puesto se comparte con quien responde
@@ -52,6 +52,28 @@ export interface Campaign {
   milanunciosUrl?: string
   fields: FormField[]
   branding: Branding
+  siteId: string | null // sede a la que pertenece (Multi); null = sin sede
+  brandId: string | null // marca a la que pertenece (Multi); null = sin marca
+}
+
+// Sede (Multi): agrupa puestos de un mismo local. Entidad propia, separada de marca.
+export interface Site {
+  id: string
+  name: string
+  city: string
+}
+
+// Marca (Multi): identidad reutilizable. Su apariencia se copia al puesto.
+// Entidad propia, separada de sede. El nombre lo ve el candidato (vía RPC).
+export interface Brand {
+  id: string
+  name: string
+  accent: string
+  welcome: string
+  thanks: string
+  showLogo: boolean
+  logoPath: string | null // foto de perfil de la marca (bucket brand-assets o data: en demo)
+  bannerPath: string | null // banner de cabecera
 }
 
 export type CandidateStatus =
@@ -71,19 +93,48 @@ export interface Candidate {
   status: CandidateStatus
   submittedAt: string // ISO
   source: CandidateSource
-  rating: number // 0..3 estrellas, 0 = sin valorar
+  rating: number // 0..5 estrellas, 0 = sin valorar
   notes: string
   cvPath?: string // ruta del CV en Supabase Storage (bucket cvs), si lo adjuntó
 }
 
 export interface Company {
   name: string
-  plan: 'free' | 'pro'
+  plan: 'trial' | 'esencial' | 'pro' | 'multi'
   accent: string // hex de marca de la empresa
 }
 
-export interface CribaData {
+// --- Vistas guardadas (Pro/Multi) -----------------------------------------
+// Clave de orden de la tabla de candidatos (compartida por el panel y las vistas).
+export type SortKey = 'nombre' | 'fecha' | 'estado'
+
+export interface ValueFilter {
+  fieldId: string
+  label: string
+  value: string
+}
+
+// Lo que guarda una vista. Búsqueda, estados y orden son universales (valen en
+// cualquier puesto); los filtros de valor dependen de los campos del formulario,
+// por eso solo viajan en vistas con scope 'campaign'.
+export interface SavedViewPayload {
+  search: string
+  statuses: CandidateStatus[]
+  valueFilters: ValueFilter[]
+  sort: { key: SortKey; dir: 'asc' | 'desc' }
+  ratingFilter?: number
+}
+
+export interface SavedView {
+  id: string
+  campaignId: string | null // null = global (todos los puestos)
+  name: string
+  payload: SavedViewPayload
+}
+
+export interface AppData {
   company: Company
+  sites: Site[]
   campaigns: Campaign[]
   candidates: Candidate[]
 }

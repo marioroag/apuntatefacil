@@ -11,6 +11,13 @@ const admin = createClient(
 )
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? ''
 
+// Precio de Stripe -> nombre de plan. Permite saber el plan real tras un cambio
+// (los metadatos de la suscripción no se actualizan solos al cambiar de precio).
+const PRICE_TO_PLAN: Record<string, string> = {}
+const _pe = Deno.env.get('STRIPE_PRICE_ESENCIAL'); if (_pe) PRICE_TO_PLAN[_pe] = 'esencial'
+const _pp = Deno.env.get('STRIPE_PRICE_PRO'); if (_pp) PRICE_TO_PLAN[_pp] = 'pro'
+const _pm = Deno.env.get('STRIPE_PRICE_MULTI'); if (_pm) PRICE_TO_PLAN[_pm] = 'multi'
+
 Deno.serve(async (req) => {
   const sig = req.headers.get('stripe-signature') ?? ''
   const body = await req.text()
@@ -37,11 +44,13 @@ Deno.serve(async (req) => {
     } else if (event.type.startsWith('customer.subscription.')) {
       const sub = event.data.object as Stripe.Subscription
       const companyId = sub.metadata?.company_id
-      const plan = sub.metadata?.plan
       if (companyId) {
         const canceled = event.type === 'customer.subscription.deleted' || sub.status === 'canceled'
+        const priceId = sub.items?.data?.[0]?.price?.id
+        const planFromPrice = priceId ? PRICE_TO_PLAN[priceId] : undefined
+        const plan = canceled ? 'trial' : (planFromPrice ?? sub.metadata?.plan ?? 'pro')
         await admin.from('companies').update({
-          plan: canceled ? 'trial' : (plan ?? 'pro'),
+          plan,
           subscription_status: sub.status,
           stripe_subscription_id: sub.id,
         }).eq('id', companyId)

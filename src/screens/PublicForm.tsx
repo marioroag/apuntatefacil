@@ -8,10 +8,13 @@ import { validateField } from '../components/FieldRenderer'
 import type { FieldValue } from '../components/FieldRenderer'
 import { readableOn } from '../lib/colors'
 import { BRAND } from '../lib/brand'
+import { brandAssetUrl } from '../lib/brandAsset'
 import type { Campaign } from '../lib/types'
 
 interface PublicCampaign extends Campaign {
   companyName: string
+  logoUrl: string | null
+  bannerUrl: string | null
 }
 
 export function PublicForm() {
@@ -39,11 +42,15 @@ export function PublicForm() {
       const d = data as {
         id: string; slug: string; title: string; status: Campaign['status']
         fields: Campaign['fields']; branding: Campaign['branding']; company_name: string
+        logo_path: string | null; banner_path: string | null
       }
       setCampaign({
         id: d.id, slug: d.slug, title: d.title, status: d.status,
         sector: '', location: '', createdAt: '', fields: d.fields ?? [], branding: d.branding,
+        siteId: null, brandId: null,
         companyName: d.company_name,
+        logoUrl: brandAssetUrl(d.logo_path),
+        bannerUrl: brandAssetUrl(d.banner_path),
       })
       setState('ok')
     })
@@ -161,6 +168,8 @@ export function PublicForm() {
             onSubmit={submit}
             submitting={submitting}
             companyName={campaign.companyName}
+            logoUrl={campaign.logoUrl}
+            bannerUrl={campaign.bannerUrl}
           />
         </div>
         <p className="mt-4 text-center text-[12px] text-slate-400">Formulario con {BRAND}</p>

@@ -153,6 +153,7 @@ function Control({
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
           rows={4}
+          maxLength={2000}
           className={`${inputBase} ${border} resize-y py-3`}
         />
       )
@@ -187,7 +188,7 @@ function Control({
           type="number"
           inputMode="numeric"
           value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(e.target.value.slice(0, 12))}
           placeholder={field.placeholder}
           className={`${inputBase} ${border} h-12`}
         />
@@ -203,6 +204,7 @@ function Control({
           value={(value as string) ?? ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder ?? '600 000 000'}
+          maxLength={25}
           className={`${inputBase} ${border} h-12`}
         />
       )
@@ -217,6 +219,7 @@ function Control({
           value={(value as string) ?? ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder ?? 'nombre@email.com'}
+          maxLength={254}
           className={`${inputBase} ${border} h-12`}
         />
       )
@@ -229,6 +232,7 @@ function Control({
           value={(value as string) ?? ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder}
+          maxLength={100}
           className={`${inputBase} ${border} h-12`}
         />
       )

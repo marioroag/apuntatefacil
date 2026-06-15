@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
-import { Briefcase, ExternalLink, Inbox, Loader2, LogOut, Menu, Plus, Sparkles, X } from 'lucide-react'
+import { Briefcase, Building2, ChevronDown, ExternalLink, Inbox, LayoutGrid, Loader2, LogOut, Menu, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
@@ -11,9 +12,49 @@ import { seedDemoData } from '../lib/seedDemo'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
 import { useAppBase } from '../lib/useAppBase'
 import { ArrowRight } from 'lucide-react'
+import { planHas, PLAN_LABEL } from '../lib/pricing'
+import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 
-const PLAN_LABEL: Record<string, string> = {
-  trial: 'Prueba', esencial: 'Esencial', pro: 'Pro', multi: 'Multi',
+// Item del menú lateral. Solo se muestra si el plan incluye la feature (la
+// visibilidad la decide quien lo renderiza); el límite se descubre al intentar
+// usar las cosas en su contexto (pill de sede/marca, crear puesto, vistas), no
+// con tabs bloqueadas en el menú.
+function SideNavItem({
+  to,
+  Icon,
+  label,
+  count = 0,
+  onNavigate,
+}: {
+  to: string
+  Icon: LucideIcon
+  label: string
+  count?: number
+  onNavigate: () => void
+}) {
+  return (
+    <NavLink
+      to={to}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        `flex h-9 w-full items-center gap-2 rounded-xl px-2.5 text-sm transition-colors ${
+          isActive ? 'bg-indigo-50 font-semibold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <Icon className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
+          <span className="flex-1">{label}</span>
+          {count > 0 && (
+            <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700" title={`${count} nuevos`}>
+              {count}
+            </span>
+          )}
+        </>
+      )}
+    </NavLink>
+  )
 }
 
 export function FirstCampaignRedirect() {
@@ -65,14 +106,14 @@ function EmptyCompany() {
           <button
             onClick={() => setWizardOpen(true)}
             disabled={busy}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60"
+            className={`${BTN_PRIMARY} disabled:opacity-60`}
           >
             <Plus className="size-4" aria-hidden /> Crear un puesto
           </button>
           <button
             onClick={loadDemo}
             disabled={busy}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:opacity-60"
+            className={`${BTN_SECONDARY} disabled:opacity-60`}
           >
             {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4 text-slate-400" aria-hidden />}
             Cargar datos de ejemplo
@@ -85,15 +126,69 @@ function EmptyCompany() {
 }
 
 export function AppLayout() {
-  const { campaigns, newCountFor, resetDemo } = useStore()
-  const { company, signOut } = useAuth()
+  const { campaigns, newCountFor, resetDemo, sites } = useStore()
+  const { company, signOut, role } = useAuth()
   const { campaignId } = useParams()
   const base = useAppBase()
   const demo = base === '/demo'
   const [open, setOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
   if (!company) return null // AuthGate garantiza empresa; guard de tipos
+
+  const isEncargado = role === 'encargado'
+  const isOwner = role === 'owner'
+  // Las features avanzadas NO se muestran en el menú si el plan no las incluye:
+  // el cliente descubre el límite al intentar usar las cosas en su contexto (pill
+  // de sede/marca, crear puesto, vistas guardadas), no con tabs bloqueadas. El
+  // encargado ve sus datos (acotados por RLS) pero no gestiona estructura ni equipo.
+  const showBandeja = planHas(company.plan, 'bandeja')
+  const showResumen = planHas(company.plan, 'sites') // Vista general (todos los roles, acotada)
+  const showSedes = planHas(company.plan, 'sites') && !isEncargado // gestionar sedes
+  const showBrands = planHas(company.plan, 'brands') && !isEncargado // gestionar marcas
+  const showEquipo = !demo && isOwner // gestión de equipo: solo el propietario
+  const canCreate = !isEncargado // crear puestos
+  const groupBySite = planHas(company.plan, 'sites') && sites.length > 0
+  const totalNuevos = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
+  const toggleGroup = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
+  // Render de un puesto (reutilizado en lista plana y agrupada por sede).
+  const renderPuesto = (c: (typeof campaigns)[number]) => {
+    const count = newCountFor(c.id)
+    return (
+      <li key={c.id}>
+        <NavLink
+          to={`${base}/puestos/${c.id}`}
+          onClick={() => setOpen(false)}
+          className={({ isActive }) =>
+            `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
+              isActive ? 'bg-indigo-50 font-semibold text-slate-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            }`
+          }
+        >
+          {({ isActive }) => (
+            <>
+              {isActive && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-indigo-600" aria-hidden />}
+              <Briefcase className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{c.title}</span>
+              {c.status === 'pausada' && <span className="shrink-0 text-[11px] font-medium text-slate-400">Pausado</span>}
+              {count > 0 && (
+                <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700" title={`${count} nuevos`}>
+                  {count}
+                </span>
+              )}
+            </>
+          )}
+        </NavLink>
+      </li>
+    )
+  }
 
   const nav = (
     <nav className="flex h-full flex-col" aria-label="Puestos">
@@ -111,65 +206,137 @@ export function AppLayout() {
         </button>
       </div>
 
-      <div className="px-3 pt-5">
-        <button
-          onClick={() => { setWizardOpen(true); setOpen(false) }}
-          className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]"
-        >
-          <Plus className="size-4" aria-hidden /> Nuevo puesto
-        </button>
-      </div>
+      {canCreate && (
+        <div className="px-3 pt-5">
+          <button
+            onClick={() => { setWizardOpen(true); setOpen(false) }}
+            className={`${BTN_PRIMARY} w-full`}
+          >
+            <Plus className="size-4" aria-hidden /> Nuevo puesto
+          </button>
+        </div>
+      )}
 
-      <p className="px-4 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-        Puestos
-      </p>
-      <ul className="flex-1 space-y-0.5 overflow-y-auto px-2">
-        {campaigns.map((c) => {
-          const count = newCountFor(c.id)
-          return (
-            <li key={c.id}>
-              <NavLink
-                to={`${base}/puestos/${c.id}`}
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
-                    isActive
-                      ? 'bg-indigo-50 font-semibold text-slate-900'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    {isActive && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-indigo-600" aria-hidden />}
-                    <Briefcase className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
-                    <span className="min-w-0 flex-1 truncate">{c.title}</span>
-                    {c.status === 'pausada' && (
-                      <span className="shrink-0 text-[11px] font-medium text-slate-400">Pausado</span>
-                    )}
-                    {count > 0 && (
-                      <span
-                        className="shrink-0 rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700"
-                        title={`${count} nuevos`}
-                      >
-                        {count}
-                      </span>
-                    )}
-                  </>
-                )}
-              </NavLink>
-            </li>
-          )
-        })}
-      </ul>
+      {showResumen && (
+        <div className={`px-3 ${canCreate ? 'pt-2' : 'pt-5'}`}>
+          <SideNavItem
+            to={`${base}/resumen`}
+            Icon={LayoutGrid}
+            label="Vista general"
+            onNavigate={() => setOpen(false)}
+          />
+        </div>
+      )}
+
+      {showBandeja && (
+        <div className="px-3 pt-2">
+          <SideNavItem
+            to={`${base}/bandeja`}
+            Icon={Inbox}
+            label="Bandeja"
+            count={totalNuevos}
+            onNavigate={() => setOpen(false)}
+          />
+        </div>
+      )}
+
+      {showSedes && (
+        <div className="px-3 pt-2">
+          <SideNavItem
+            to={`${base}/sedes`}
+            Icon={Building2}
+            label="Sedes"
+            onNavigate={() => setOpen(false)}
+          />
+        </div>
+      )}
+
+      {showBrands && (
+        <div className="px-3 pt-2">
+          <SideNavItem
+            to={`${base}/marcas`}
+            Icon={Tag}
+            label="Marcas"
+            onNavigate={() => setOpen(false)}
+          />
+        </div>
+      )}
+
+      {showEquipo && (
+        <div className="px-3 pt-2">
+          <NavLink
+            to={`${base}/equipo`}
+            onClick={() => setOpen(false)}
+            className={({ isActive }) =>
+              `flex h-9 w-full items-center gap-2 rounded-xl px-2.5 text-sm transition-colors ${
+                isActive ? 'bg-indigo-50 font-semibold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                <Users className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
+                <span className="flex-1">Equipo</span>
+              </>
+            )}
+          </NavLink>
+        </div>
+      )}
+
+      {groupBySite ? (
+        <div className="flex-1 overflow-y-auto px-2 pt-4">
+          {sites.map((s) => {
+            const items = campaigns.filter((c) => c.siteId === s.id)
+            if (items.length === 0) return null
+            const isCollapsed = collapsed.has(s.id)
+            return (
+              <div key={s.id} className="mb-1">
+                <button
+                  onClick={() => toggleGroup(s.id)}
+                  aria-expanded={!isCollapsed}
+                  className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600"
+                >
+                  <ChevronDown className={`size-3.5 shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-left">{s.name}</span>
+                  <span className="tabular-nums">{items.length}</span>
+                </button>
+                {!isCollapsed && <ul className="space-y-0.5">{items.map(renderPuesto)}</ul>}
+              </div>
+            )
+          })}
+          {(() => {
+            const sinSede = campaigns.filter((c) => !c.siteId || !sites.some((s) => s.id === c.siteId))
+            if (sinSede.length === 0) return null
+            const isCollapsed = collapsed.has('__none__')
+            return (
+              <div className="mb-1">
+                <button
+                  onClick={() => toggleGroup('__none__')}
+                  aria-expanded={!isCollapsed}
+                  className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600"
+                >
+                  <ChevronDown className={`size-3.5 shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-left">Sin sede</span>
+                  <span className="tabular-nums">{sinSede.length}</span>
+                </button>
+                {!isCollapsed && <ul className="space-y-0.5">{sinSede.map(renderPuesto)}</ul>}
+              </div>
+            )
+          })()}
+        </div>
+      ) : (
+        <>
+          <p className="px-4 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            Puestos
+          </p>
+          <ul className="flex-1 space-y-0.5 overflow-y-auto px-2">{campaigns.map(renderPuesto)}</ul>
+        </>
+      )}
 
       <div className="mt-auto border-t border-slate-200 p-3">
         {demo ? (
           <>
-            <Link
-              to="/login"
-              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
-            >
+            <Link to="/login" className={`${BTN_PRIMARY} w-full`}>
               Empezar <ArrowRight className="size-4" aria-hidden />
             </Link>
             <Link
@@ -187,9 +354,13 @@ export function AppLayout() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-semibold text-slate-800">{company.name}</p>
-                <Link to="/app/plan" className="block truncate text-[11px] text-slate-500 hover:text-indigo-600">
-                  Plan {PLAN_LABEL[company.plan] ?? 'Prueba'} · gestionar
-                </Link>
+                {isOwner ? (
+                  <Link to="/app/plan" className="block truncate text-[11px] text-slate-500 hover:text-indigo-600">
+                    Plan {PLAN_LABEL[company.plan] ?? 'Prueba'} · gestionar
+                  </Link>
+                ) : (
+                  <p className="truncate text-[11px] text-slate-500">Plan {PLAN_LABEL[company.plan] ?? 'Prueba'}</p>
+                )}
               </div>
             </div>
             <div className="mt-1 flex items-center gap-1">
@@ -238,7 +409,7 @@ export function AppLayout() {
 
         {demo && (
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 border-b border-indigo-100 bg-indigo-50 px-4 py-2 text-center text-[13px] text-indigo-800">
-            <span>Demo con datos de ejemplo. Trastea a gusto, es solo tuyo.</span>
+            <span>Demo con datos de ejemplo en Plan {PLAN_LABEL[company.plan]}. Trastea a gusto, es solo tuyo.</span>
             <button onClick={() => resetDemo()} className="font-semibold underline underline-offset-2 hover:text-indigo-900">
               Reiniciar demo
             </button>

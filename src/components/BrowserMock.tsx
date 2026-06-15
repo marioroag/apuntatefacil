@@ -10,7 +10,7 @@ const ROWS: { name: string; sector: string; phone: string; status: CandidateStat
   { name: 'David Romero', sector: 'Peón albañil', phone: '671 552 048', status: 'contratado', when: 'hace 3 días' },
 ]
 
-export function BrowserMock({ className = '' }: { className?: string }) {
+export function BrowserMock({ className = '', dropIn = false }: { className?: string; dropIn?: boolean }) {
   return (
     <div className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-pop ${className}`}>
       {/* Barra del navegador */}
@@ -19,7 +19,7 @@ export function BrowserMock({ className = '' }: { className?: string }) {
         <span className="size-2.5 rounded-full bg-slate-300" />
         <span className="size-2.5 rounded-full bg-slate-300" />
         <div className="ml-2 flex-1 rounded-md bg-white px-3 py-1 text-[11px] text-slate-400 ring-1 ring-slate-200">
-          criba.app/app/puestos
+          apuntatefacil.com/app/puestos
         </div>
       </div>
       {/* Toolbar */}
@@ -34,10 +34,14 @@ export function BrowserMock({ className = '' }: { className?: string }) {
       {/* Filas */}
       <table className="w-full">
         <tbody>
-          {ROWS.map((r) => {
+          {ROWS.map((r, idx) => {
             const m = STATUS_META[r.status]
             return (
-              <tr key={r.name} className="border-b border-slate-50 last:border-0">
+              <tr
+                key={r.name}
+                className="border-b border-slate-50 last:border-0"
+                style={dropIn ? { animation: `drop-in .5s var(--ease-out) ${0.35 + idx * 0.22}s both` } : undefined}
+              >
                 <td className="py-2.5 pl-4 pr-2">
                   <div className="flex items-center gap-2.5">
                     <span className="grid size-7 place-items-center rounded-full bg-slate-100 text-[10px] font-bold text-slate-500">

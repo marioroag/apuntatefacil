@@ -32,6 +32,7 @@ import {
   X,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
+import { brandAssetUrl } from '../lib/brandAsset'
 import { useToast } from '../components/ui/Toast'
 import { ApplicationForm } from '../components/ApplicationForm'
 import type { FieldValue } from '../components/FieldRenderer'
@@ -41,6 +42,8 @@ import { SWATCHES, accentPassesWhite } from '../lib/colors'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
+import { BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
+import { copyText } from '../lib/clipboard'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
 
@@ -156,7 +159,7 @@ export function Builder() {
               href={`/a/${campaign.slug}`}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 lg:hidden"
+              className={`${BTN_SECONDARY} w-full lg:hidden`}
             >
               <Smartphone className="size-4 text-slate-400" aria-hidden /> Ver la vista previa del formulario
             </a>
@@ -473,12 +476,9 @@ function ShareCard({ campaign }: { campaign: Campaign }) {
 
   const copy = async () => {
     if (demo) { demoNotice(); return }
-    try {
-      await navigator.clipboard.writeText(full)
-      toast.success('Enlace copiado')
-    } catch {
-      toast.show('Copia manualmente: ' + url)
-    }
+    const ok = await copyText(full)
+    if (ok) toast.success('Enlace copiado')
+    else toast.show('Copia manualmente: ' + url)
   }
 
   return (
@@ -490,7 +490,7 @@ function ShareCard({ campaign }: { campaign: Campaign }) {
           <button
             onClick={copy}
             disabled={disabled}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-2.5 py-1 text-[13px] font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+            className={`${BTN_PRIMARY_SM} shrink-0 disabled:opacity-50`}
           >
             <Copy className="size-3.5" aria-hidden /> Copiar
           </button>
@@ -548,6 +548,8 @@ function PreviewFrame({ device, children }: { device: 'mobile' | 'desktop'; chil
 
 function Preview({ campaign }: { campaign: Campaign }) {
   const { company } = useAuth()
+  const { brands } = useStore()
+  const brand = campaign.brandId ? brands.find((b) => b.id === campaign.brandId) : null
   const [values, setValues] = useState<Record<string, FieldValue>>({})
   return (
     <ApplicationForm
@@ -555,7 +557,9 @@ function Preview({ campaign }: { campaign: Campaign }) {
       values={values}
       errors={{}}
       onChange={(id, v) => setValues((p) => ({ ...p, [id]: v }))}
-      companyName={company?.name ?? ''}
+      companyName={brand?.name ?? company?.name ?? ''}
+      logoUrl={brandAssetUrl(brand?.logoPath)}
+      bannerUrl={brandAssetUrl(brand?.bannerPath)}
       preview
     />
   )

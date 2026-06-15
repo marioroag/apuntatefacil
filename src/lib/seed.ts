@@ -3,8 +3,9 @@ import type {
   Candidate,
   CandidateSource,
   CandidateStatus,
-  CribaData,
+  AppData,
   FormField,
+  Site,
 } from './types'
 
 // PRNG determinista (mulberry32) para que los datos de ejemplo sean estables.
@@ -62,9 +63,17 @@ const SYS_TEL = f({ id: 'telefono', type: 'phone', label: 'Teléfono', required:
 // Puestos (campañas)
 // ---------------------------------------------------------------------------
 
+// Sedes de ejemplo de la demo (la ETT opera en dos localizaciones).
+const sites: Site[] = [
+  { id: 'site_valencia', name: 'Valencia centro', city: 'Valencia' },
+  { id: 'site_ribarroja', name: 'Riba-roja del Túria', city: 'Riba-roja' },
+]
+
 const campaigns: Campaign[] = [
   {
     id: 'cmp_peon',
+    siteId: 'site_valencia',
+    brandId: null,
     slug: 'peon-albanil-valencia',
     title: 'Peón de albañil',
     sector: 'Construcción',
@@ -92,6 +101,8 @@ const campaigns: Campaign[] = [
   },
   {
     id: 'cmp_camarero',
+    siteId: 'site_valencia',
+    brandId: null,
     slug: 'camarero-finde-valencia',
     title: 'Camarero/a fin de semana',
     sector: 'Hostelería',
@@ -118,6 +129,8 @@ const campaigns: Campaign[] = [
   },
   {
     id: 'cmp_mozo',
+    siteId: 'site_ribarroja',
+    brandId: null,
     slug: 'mozo-almacen-ribarroja',
     title: 'Mozo/a de almacén',
     sector: 'Logística',
@@ -143,6 +156,8 @@ const campaigns: Campaign[] = [
   },
   {
     id: 'cmp_limpieza',
+    siteId: null,
+    brandId: null,
     slug: 'limpieza-oficinas-valencia',
     title: 'Limpiador/a de oficinas',
     sector: 'Limpieza',
@@ -255,8 +270,9 @@ for (const cmp of campaigns) {
 // Orden: más recientes primero
 candidates.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
 
-export const SEED: CribaData = {
-  company: { name: 'Empleos Levante ETT', plan: 'pro', accent: '#4F46E5' },
+export const SEED: AppData = {
+  company: { name: 'Empleos Levante ETT', plan: 'multi', accent: '#4F46E5' },
+  sites,
   campaigns,
   candidates,
 }

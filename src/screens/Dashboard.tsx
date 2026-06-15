@@ -2,29 +2,42 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowUpDown,
+  Bookmark,
+  Briefcase,
+  Building2,
   Check,
+  ChevronDown,
   Download,
   Filter,
+  Globe,
   Inbox,
   PenLine,
+  Plus,
+  RefreshCw,
   Search,
   SearchX,
   Share2,
+  Star,
+  Tag,
+  Trash2,
   X,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
+import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { StatusSelect } from '../components/ui/StatusPill'
 import { CandidatePanel } from './CandidatePanel'
 import { exportCandidatesToExcel } from '../lib/export'
-import { relativeDate, initials, miles } from '../lib/format'
+import { relativeDate, initials, miles, formatPhone } from '../lib/format'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
-import type { Campaign, Candidate, CandidateStatus, FormField } from '../lib/types'
+import type { Brand, Campaign, Candidate, CandidateStatus, FormField, SavedView, Site, SortKey } from '../lib/types'
+import { planHas, type PlanFeature } from '../lib/pricing'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAppBase } from '../lib/useAppBase'
 import { MaskedPhone } from '../components/MaskedPhone'
-
-type SortKey = 'nombre' | 'fecha' | 'estado'
+import { UpgradeDialog } from '../components/UpgradeDialog'
+import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
+import { copyText } from '../lib/clipboard'
 
 function answerStr(c: Candidate, fieldId: string): string {
   const v = c.answers[fieldId]
@@ -46,18 +59,34 @@ function filterableFields(campaign: Campaign): FormField[] {
 
 export function Dashboard() {
   const { campaignId } = useParams()
-  const { getCampaign, candidatesFor, restoreCandidate } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor } = useStore()
+  const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
   const campaign = getCampaign(campaignId!)
+  // El encargado gestiona candidatos, pero NO edita el puesto (form/sede/marca):
+  // esas escrituras van contra campaigns, que la RLS le bloquea.
+  const isEncargado = role === 'encargado'
+  const canManage = !isEncargado
+  const canViews = planHas(company?.plan, 'savedViews')
+  // Las pills de sede y marca SE MUESTRAN siempre que el rol gestione el puesto;
+  // si el plan no incluye la feature, la pill abre el aviso de upgrade al pulsarla
+  // (el límite se descubre al usarla, no se anuncia con un tab bloqueado).
+  const hasSites = planHas(company?.plan, 'sites')
+  const hasBrands = planHas(company?.plan, 'brands')
 
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<Set<CandidateStatus>>(new Set())
   const [valueFilters, setValueFilters] = useState<{ fieldId: string; label: string; value: string }[]>([])
+  const [ratingFilter, setRatingFilter] = useState<number>(0)
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'fecha', dir: 'desc' })
   const [openId, setOpenId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [saveViewOpen, setSaveViewOpen] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  // Feature avanzada que se intentó usar sin tenerla en el plan: abre el aviso.
+  const [upgrade, setUpgrade] = useState<PlanFeature | null>(null)
 
   // Skeleton breve al cambiar de puesto (muestra el estado de carga real).
   useEffect(() => {
@@ -65,10 +94,22 @@ export function Dashboard() {
     setSearch('')
     setStatusFilter(new Set())
     setValueFilters([])
+    setRatingFilter(0)
     setSelected(new Set())
+    // Trae los candidatos nuevos de este puesto: la carga global solo ocurre al
+    // entrar en el panel, así que sin esto no se verían los llegados después.
+    if (campaignId) reloadCandidatesFor(campaignId)
     const t = setTimeout(() => setLoading(false), 600)
     return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId])
+
+  const refresh = async () => {
+    if (!campaignId || refreshing) return
+    setRefreshing(true)
+    await reloadCandidatesFor(campaignId)
+    setRefreshing(false)
+  }
 
   const all = useMemo(() => (campaign ? candidatesFor(campaign.id) : []), [campaign, candidatesFor])
 
@@ -77,6 +118,7 @@ export function Dashboard() {
     const q = search.trim().toLowerCase()
     let list = all.filter((c) => {
       if (statusFilter.size && !statusFilter.has(c.status)) return false
+      if (ratingFilter > 0 && c.rating < ratingFilter) return false
       if (q) {
         const hay = campaign.fields.some((f) => answerStr(c, f.id).toLowerCase().includes(q))
         if (!hay) return false
@@ -106,17 +148,54 @@ export function Dashboard() {
       return sort.dir === 'asc' ? cmp : -cmp
     })
     return list
-  }, [all, campaign, search, statusFilter, valueFilters, sort])
+  }, [all, campaign, search, statusFilter, valueFilters, ratingFilter, sort])
 
   if (!campaign) {
     return <div className="p-8 text-slate-500">Puesto no encontrado.</div>
   }
 
-  const activeFilterCount = statusFilter.size + valueFilters.length
+  const activeFilterCount = statusFilter.size + valueFilters.length + (ratingFilter > 0 ? 1 : 0)
   const cols = highlightFields(campaign)
   const openCandidate = openId ? all.find((c) => c.id === openId) ?? null : null
   const publicUrl = publicFormUrlDisplay(campaign.slug)
   const maskPhone = base === '/demo'
+
+  // Vistas guardadas: las globales valen en todos los puestos; las de puesto, solo aquí.
+  const myViews = canViews ? savedViews.filter((v) => v.campaignId === null || v.campaignId === campaign.id) : []
+  const hasValueFilters = valueFilters.length > 0
+  const canSaveView = activeFilterCount > 0 || search.trim().length > 0
+
+  const applyView = (v: SavedView) => {
+    setSearch(v.payload.search ?? '')
+    setStatusFilter(new Set(v.payload.statuses ?? []))
+    setValueFilters(v.payload.valueFilters ?? [])
+    setRatingFilter(v.payload.ratingFilter ?? 0)
+    setSort(v.payload.sort ?? { key: 'fecha', dir: 'desc' })
+  }
+
+  const saveView = async (name: string, scope: 'global' | 'campaign') => {
+    const ok = await createSavedView({
+      name,
+      campaignId: scope === 'global' ? null : campaign.id,
+      payload: { search, statuses: [...statusFilter], valueFilters, ratingFilter, sort },
+    })
+    setSaveViewOpen(false)
+    if (ok) toast.success('Vista guardada')
+  }
+
+  // Asignar una marca aplica su apariencia al puesto (mantiene el título). Quitarla
+  // solo desvincula: la apariencia ya copiada se conserva (sin sorpresas visuales).
+  const applyBrand = (brandId: string | null) => {
+    if (brandId === null) {
+      updateCampaign(campaign.id, { brandId: null })
+      return
+    }
+    const brand = brands.find((b) => b.id === brandId)
+    if (!brand) return
+    updateCampaign(campaign.id, { brandId })
+    updateBranding(campaign.id, { accent: brand.accent, welcome: brand.welcome, thanks: brand.thanks, showLogo: brand.showLogo })
+    toast.success(`Apariencia de ${brand.name} aplicada`)
+  }
 
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
@@ -124,6 +203,7 @@ export function Dashboard() {
   const clearFilters = () => {
     setStatusFilter(new Set())
     setValueFilters([])
+    setRatingFilter(0)
     setSearch('')
   }
 
@@ -139,12 +219,9 @@ export function Dashboard() {
       toast.show('En la demo el enlace es de muestra. Crea tu cuenta para tener un enlace que reciba candidaturas de verdad.')
       return
     }
-    try {
-      await navigator.clipboard.writeText(publicFormUrl(campaign.slug))
-      toast.success('Enlace copiado')
-    } catch {
-      toast.show('Copia el enlace manualmente: ' + publicUrl)
-    }
+    const ok = await copyText(publicFormUrl(campaign.slug))
+    if (ok) toast.success('Enlace copiado')
+    else toast.show('Copia el enlace manualmente: ' + publicUrl)
   }
 
   return (
@@ -164,20 +241,50 @@ export function Dashboard() {
             <p className="mt-0.5 text-sm text-slate-500">
               {campaign.sector} · {campaign.location}
             </p>
+            {canManage && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <SiteSelect
+                  sites={sites}
+                  value={campaign.siteId}
+                  onChange={(siteId) => updateCampaign(campaign.id, { siteId })}
+                  base={base}
+                  locked={!hasSites}
+                  onLocked={() => setUpgrade('sites')}
+                />
+                <BrandSelect
+                  brands={brands}
+                  value={campaign.brandId}
+                  onChange={applyBrand}
+                  base={base}
+                  locked={!hasBrands}
+                  onLocked={() => setUpgrade('brands')}
+                />
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <button
+              onClick={refresh}
+              disabled={refreshing}
+              className={`${BTN_SECONDARY} disabled:opacity-60`}
+              title="Buscar candidatos nuevos"
+            >
+              <RefreshCw className={`size-4 text-slate-400 ${refreshing ? 'animate-spin' : ''}`} aria-hidden /> Refrescar
+            </button>
             <button
               onClick={copyLink}
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-50"
+              className={BTN_SECONDARY}
             >
               <Share2 className="size-4 text-slate-400" aria-hidden /> Compartir enlace
             </button>
-            <Link
-              to={`${base}/puestos/${campaign.id}/formulario`}
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-50"
-            >
-              <PenLine className="size-4 text-slate-400" aria-hidden /> Editar formulario
-            </Link>
+            {canManage && (
+              <Link
+                to={`${base}/puestos/${campaign.id}/formulario`}
+                className={BTN_SECONDARY}
+              >
+                <PenLine className="size-4 text-slate-400" aria-hidden /> Editar formulario
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -211,8 +318,24 @@ export function Dashboard() {
           setStatusFilter={setStatusFilter}
           valueFilters={valueFilters}
           setValueFilters={setValueFilters}
+          ratingFilter={ratingFilter}
+          setRatingFilter={setRatingFilter}
           count={activeFilterCount}
         />
+
+        {canViews ? (
+          <SavedViewsMenu
+            views={myViews}
+            onApply={applyView}
+            onDelete={deleteSavedView}
+            onSave={() => setSaveViewOpen(true)}
+            canSave={canSaveView}
+          />
+        ) : (
+          <button onClick={() => setUpgrade('savedViews')} className={BTN_SECONDARY}>
+            <Bookmark className="size-4 text-slate-400" aria-hidden /> Vistas
+          </button>
+        )}
 
         {activeFilterCount > 0 && (
           <button onClick={clearFilters} className="inline-flex h-9 items-center gap-1 rounded-xl px-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
@@ -226,7 +349,7 @@ export function Dashboard() {
       </div>
 
       {/* Chips de filtros activos */}
-      {(statusFilter.size > 0 || valueFilters.length > 0) && (
+      {(statusFilter.size > 0 || valueFilters.length > 0 || ratingFilter > 0) && (
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {[...statusFilter].map((s) => (
             <Chip key={`s-${s}`} label={`Estado: ${STATUS_META[s].label}`} onRemove={() => setStatusFilter((p) => { const n = new Set(p); n.delete(s); return n })} />
@@ -234,6 +357,9 @@ export function Dashboard() {
           {valueFilters.map((vf, i) => (
             <Chip key={`v-${i}`} label={`${vf.label}: ${vf.value}`} onRemove={() => setValueFilters((p) => p.filter((_, j) => j !== i))} />
           ))}
+          {ratingFilter > 0 && (
+            <Chip label={`Valoración: ${ratingFilter}+ ${'★'.repeat(ratingFilter)}`} onRemove={() => setRatingFilter(0)} />
+          )}
         </div>
       )}
 
@@ -299,6 +425,19 @@ export function Dashboard() {
           toast.success('Candidato eliminado', { action: { label: 'Deshacer', onClick: () => restoreCandidate(c) } })
         }
       />
+
+      <SaveViewDialog
+        open={saveViewOpen}
+        onClose={() => setSaveViewOpen(false)}
+        onSave={saveView}
+        hasValueFilters={hasValueFilters}
+        valueFilterLabels={[...new Set(valueFilters.map((v) => v.label))]}
+        campaignTitle={campaign.title}
+      />
+
+      {upgrade && (
+        <UpgradeDialog open feature={upgrade} onClose={() => setUpgrade(null)} />
+      )}
     </div>
   )
 }
@@ -444,17 +583,19 @@ function CandidateTable({
                     <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-600">
                       {initials(name)}
                     </span>
-                    <span className="font-medium text-slate-900">{name}</span>
+                    <span className="block max-w-[220px] truncate font-medium text-slate-900" title={name}>{name}</span>
                   </div>
                 </td>
                 <td className="hidden px-3 py-2.5 text-sm text-slate-600 md:table-cell tnum">
-                  {maskPhone && answerStr(c, 'telefono')
-                    ? <MaskedPhone value={answerStr(c, 'telefono')} />
-                    : (answerStr(c, 'telefono') || '·')}
+                  <span className="block max-w-[150px] truncate">
+                    {maskPhone && answerStr(c, 'telefono')
+                      ? <MaskedPhone value={formatPhone(answerStr(c, 'telefono'))} />
+                      : (formatPhone(answerStr(c, 'telefono')) || '·')}
+                  </span>
                 </td>
                 {cols.map((f) => (
                   <td key={f.id} className="hidden px-3 py-2.5 text-sm text-slate-600 lg:table-cell">
-                    {answerStr(c, f.id) || '·'}
+                    <span className="block max-w-[200px] truncate" title={answerStr(c, f.id) || undefined}>{answerStr(c, f.id) || '·'}</span>
                   </td>
                 ))}
                 <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -490,6 +631,8 @@ function FilterMenu({
   setStatusFilter,
   valueFilters,
   setValueFilters,
+  ratingFilter,
+  setRatingFilter,
   count,
 }: {
   campaign: Campaign
@@ -497,6 +640,8 @@ function FilterMenu({
   setStatusFilter: React.Dispatch<React.SetStateAction<Set<CandidateStatus>>>
   valueFilters: { fieldId: string; label: string; value: string }[]
   setValueFilters: React.Dispatch<React.SetStateAction<{ fieldId: string; label: string; value: string }[]>>
+  ratingFilter: number
+  setRatingFilter: React.Dispatch<React.SetStateAction<number>>
   count: number
 }) {
   const [open, setOpen] = useState(false)
@@ -526,7 +671,7 @@ function FilterMenu({
       <button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-50"
+        className={BTN_SECONDARY}
       >
         <Filter className="size-4 text-slate-400" aria-hidden /> Filtros
         {count > 0 && <span className="rounded-full bg-indigo-600 px-1.5 text-[11px] font-bold text-white tabular-nums">{count}</span>}
@@ -573,6 +718,30 @@ function FilterMenu({
               </div>
             </div>
           ))}
+
+          <div>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Valoración mínima</p>
+            <div className="flex gap-0.5" role="group" aria-label="Filtrar por valoración mínima">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setRatingFilter(ratingFilter === n ? 0 : n)}
+                  aria-label={`${n} estrella${n > 1 ? 's' : ''} o más`}
+                  aria-pressed={ratingFilter >= n}
+                  className="rounded-md p-0.5 text-slate-300 transition-colors hover:text-amber-400"
+                >
+                  <Star
+                    className={`size-5 ${ratingFilter >= n ? 'fill-amber-400 text-amber-400' : ''}`}
+                    aria-hidden
+                  />
+                </button>
+              ))}
+            </div>
+            {ratingFilter > 0 && (
+              <p className="mt-1 text-[12px] text-slate-400">{ratingFilter} estrella{ratingFilter > 1 ? 's' : ''} o más</p>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -595,7 +764,7 @@ function ExportButton({ count, total, onExport }: { count: number; total: number
       <button
         onClick={() => setOpen((o) => !o)}
         disabled={count === 0}
-        className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:opacity-50"
+        className={`${BTN_SECONDARY} disabled:opacity-50`}
       >
         <Download className="size-4 text-slate-400" aria-hidden />
         <span className="hidden sm:inline">Exportar a Excel</span>
@@ -615,7 +784,7 @@ function ExportButton({ count, total, onExport }: { count: number; total: number
               onExport()
               setOpen(false)
             }}
-            className="mt-2.5 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 active:scale-[0.98]"
+            className={`${BTN_PRIMARY} mt-2.5 w-full`}
           >
             <Check className="size-4" aria-hidden /> Descargar Excel
           </button>
@@ -659,7 +828,7 @@ function EmptyFirstUse({ publicUrl, onCopy }: { publicUrl: string; onCopy: () =>
       </p>
       <div className="mt-4 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-3.5 pr-1.5">
         <span className="text-sm text-slate-500">{publicUrl}</span>
-        <button onClick={onCopy} className="rounded-lg bg-indigo-600 px-3 py-1 text-[13px] font-semibold text-white hover:bg-indigo-700">
+        <button onClick={onCopy} className={BTN_PRIMARY_SM}>
           Copiar enlace
         </button>
       </div>
@@ -682,9 +851,383 @@ function EmptyNoResults({ search, hasFilters, onClear }: { search: string; hasFi
             ? `Sin resultados para “${search}” con estos filtros.`
             : 'Ningún candidato encaja con estos filtros.'}
       </p>
-      <button onClick={onClear} className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-3.5 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+      <button onClick={onClear} className={`${BTN_SECONDARY} mt-4`}>
         {onlySearch ? 'Borrar búsqueda' : 'Limpiar filtros'}
       </button>
+    </div>
+  )
+}
+
+// --- Vistas guardadas (Pro/Multi) ------------------------------------------
+function SavedViewsMenu({
+  views,
+  onApply,
+  onDelete,
+  onSave,
+  canSave,
+}: {
+  views: SavedView[]
+  onApply: (v: SavedView) => void
+  onDelete: (id: string) => void
+  onSave: () => void
+  canSave: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className={BTN_SECONDARY}
+      >
+        <Bookmark className="size-4 text-slate-400" aria-hidden /> Vistas
+        {views.length > 0 && (
+          <span className="rounded-full bg-slate-100 px-1.5 text-[11px] font-bold tabular-nums text-slate-500">{views.length}</span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute left-0 z-50 mt-1 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-pop">
+          {views.length === 0 ? (
+            <p className="px-2.5 py-2 text-[13px] text-slate-500">
+              Aún no has guardado ninguna vista. Filtra como quieras y guarda la combinación.
+            </p>
+          ) : (
+            <ul className="max-h-[40vh] space-y-0.5 overflow-y-auto">
+              {views.map((v) => (
+                <li key={v.id} className="group flex items-center gap-1 rounded-lg hover:bg-slate-50">
+                  <button
+                    onClick={() => {
+                      onApply(v)
+                      setOpen(false)
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-left text-sm text-slate-700"
+                  >
+                    {v.campaignId === null ? (
+                      <Globe className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+                    ) : (
+                      <Briefcase className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+                    )}
+                    <span className="truncate">{v.name}</span>
+                  </button>
+                  <button
+                    onClick={() => onDelete(v.id)}
+                    aria-label={`Eliminar vista ${v.name}`}
+                    className="mr-1 grid size-7 shrink-0 place-items-center rounded-md text-slate-400 opacity-0 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 group-hover:opacity-100"
+                  >
+                    <Trash2 className="size-3.5" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-1 border-t border-slate-100 pt-1">
+            <button
+              onClick={() => {
+                setOpen(false)
+                onSave()
+              }}
+              disabled={!canSave}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              <Plus className="size-4" aria-hidden /> Guardar vista actual
+            </button>
+            {!canSave && (
+              <p className="px-2.5 pb-1 pt-0.5 text-[11px] text-slate-400">Aplica un filtro o una búsqueda para poder guardarla.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SaveViewDialog({
+  open,
+  onClose,
+  onSave,
+  hasValueFilters,
+  valueFilterLabels,
+  campaignTitle,
+}: {
+  open: boolean
+  onClose: () => void
+  onSave: (name: string, scope: 'global' | 'campaign') => void
+  hasValueFilters: boolean
+  valueFilterLabels: string[]
+  campaignTitle: string
+}) {
+  const [name, setName] = useState('')
+  const [scope, setScope] = useState<'global' | 'campaign'>('global')
+
+  useEffect(() => {
+    if (open) {
+      setName('')
+      setScope(hasValueFilters ? 'campaign' : 'global')
+    }
+  }, [open, hasValueFilters])
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [open, onClose])
+
+  if (!open) return null
+  const effectiveScope: 'global' | 'campaign' = hasValueFilters ? 'campaign' : scope
+  const canSave = name.trim().length > 0
+  const submit = () => canSave && onSave(name.trim(), effectiveScope)
+
+  return (
+    <div className="fixed inset-0 z-[55] grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="saveview-title">
+      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-pop">
+        <h2 id="saveview-title" className="text-lg font-semibold text-slate-900">Guardar vista</h2>
+        <p className="mt-0.5 text-[13px] text-slate-500">
+          Ponle nombre a esta combinación de filtros para reaplicarla de un clic.
+        </p>
+
+        <label htmlFor="viewname" className="mt-4 block text-sm font-semibold text-slate-800">Nombre</label>
+        <input
+          id="viewname"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          autoFocus
+          placeholder="ej: sin contactar esta semana"
+          className="mt-1.5 h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+        />
+
+        <div className="mt-4">
+          <p className="text-sm font-semibold text-slate-800">Dónde se aplica</p>
+          {hasValueFilters ? (
+            <p className="mt-1.5 rounded-xl bg-slate-50 px-3 py-2.5 text-[13px] leading-relaxed text-slate-600">
+              Esta vista incluye filtros de {valueFilterLabels.join(', ')}, que dependen de los campos de este formulario.
+              Por eso se guarda solo en <strong className="font-semibold text-slate-800">{campaignTitle}</strong>.
+            </p>
+          ) : (
+            <div className="mt-2 space-y-1.5">
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 px-3 py-2.5 hover:bg-slate-50">
+                <input type="radio" name="viewscope" checked={scope === 'global'} onChange={() => setScope('global')} className="mt-0.5 size-4 border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <span>
+                  <span className="block text-sm font-medium text-slate-800">En todos mis puestos</span>
+                  <span className="block text-[12px] text-slate-500">Búsqueda, estado y orden. Aparece en cualquier puesto.</span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 px-3 py-2.5 hover:bg-slate-50">
+                <input type="radio" name="viewscope" checked={scope === 'campaign'} onChange={() => setScope('campaign')} className="mt-0.5 size-4 border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <span>
+                  <span className="block text-sm font-medium text-slate-800">Solo en este puesto</span>
+                  <span className="block text-[12px] text-slate-500">Aparece solo en {campaignTitle}.</span>
+                </span>
+              </label>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className={BTN_SECONDARY}>
+            Cancelar
+          </button>
+          <button onClick={submit} disabled={!canSave} className={`${BTN_PRIMARY} disabled:opacity-50`}>
+            Guardar vista
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Selector de sede del puesto (Multi). Asigna el puesto a una sede o lo deja sin sede.
+function SiteSelect({
+  sites,
+  value,
+  onChange,
+  base,
+  locked = false,
+  onLocked,
+}: {
+  sites: Site[]
+  value: string | null
+  onChange: (siteId: string | null) => void
+  base: string
+  locked?: boolean
+  onLocked?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+  const current = sites.find((s) => s.id === value)
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button
+        onClick={() => (locked ? onLocked?.() : setOpen((o) => !o))}
+        aria-haspopup={locked ? 'dialog' : 'listbox'}
+        aria-expanded={locked ? undefined : open}
+        className="inline-flex h-7 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
+      >
+        <Building2 className="size-3.5 text-slate-400" aria-hidden />
+        {current ? current.name : 'Sin sede'}
+        <ChevronDown className="size-3 opacity-60" aria-hidden />
+      </button>
+      {open && !locked && (
+        <ul role="listbox" className="absolute left-0 z-50 mt-1 max-h-[50vh] w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-pop">
+          <li>
+            <button
+              role="option"
+              aria-selected={!value}
+              onClick={() => {
+                onChange(null)
+                setOpen(false)
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+            >
+              <span className="flex-1">Sin sede</span>
+              {!value && <Check className="size-4 text-indigo-600" aria-hidden />}
+            </button>
+          </li>
+          {sites.map((s) => (
+            <li key={s.id}>
+              <button
+                role="option"
+                aria-selected={s.id === value}
+                onClick={() => {
+                  onChange(s.id)
+                  setOpen(false)
+                }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <Building2 className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+                <span className="flex-1 truncate">{s.name}</span>
+                {s.id === value && <Check className="size-4 shrink-0 text-indigo-600" aria-hidden />}
+              </button>
+            </li>
+          ))}
+          <li className="mt-1 border-t border-slate-100 pt-1">
+            <Link to={`${base}/sedes`} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">
+              <Plus className="size-3.5" aria-hidden /> Gestionar sedes
+            </Link>
+          </li>
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// Selector de marca del puesto (Multi). Al elegir una marca se aplica su apariencia.
+function BrandSelect({
+  brands,
+  value,
+  onChange,
+  base,
+  locked = false,
+  onLocked,
+}: {
+  brands: Brand[]
+  value: string | null
+  onChange: (brandId: string | null) => void
+  base: string
+  locked?: boolean
+  onLocked?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+  const current = brands.find((b) => b.id === value)
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button
+        onClick={() => (locked ? onLocked?.() : setOpen((o) => !o))}
+        aria-haspopup={locked ? 'dialog' : 'listbox'}
+        aria-expanded={locked ? undefined : open}
+        className="inline-flex h-7 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
+      >
+        {current ? (
+          <span className="size-2.5 rounded-full" style={{ backgroundColor: current.accent }} aria-hidden />
+        ) : (
+          <Tag className="size-3.5 text-slate-400" aria-hidden />
+        )}
+        {current ? current.name : 'Sin marca'}
+        <ChevronDown className="size-3 opacity-60" aria-hidden />
+      </button>
+      {open && !locked && (
+        <ul role="listbox" className="absolute left-0 z-50 mt-1 max-h-[50vh] w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-pop">
+          <li>
+            <button
+              role="option"
+              aria-selected={!value}
+              onClick={() => {
+                onChange(null)
+                setOpen(false)
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+            >
+              <span className="flex-1">Sin marca</span>
+              {!value && <Check className="size-4 text-indigo-600" aria-hidden />}
+            </button>
+          </li>
+          {brands.map((b) => (
+            <li key={b.id}>
+              <button
+                role="option"
+                aria-selected={b.id === value}
+                onClick={() => {
+                  onChange(b.id)
+                  setOpen(false)
+                }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: b.accent }} aria-hidden />
+                <span className="flex-1 truncate">{b.name}</span>
+                {b.id === value && <Check className="size-4 shrink-0 text-indigo-600" aria-hidden />}
+              </button>
+            </li>
+          ))}
+          <li className="mt-1 border-t border-slate-100 pt-1">
+            <Link to={`${base}/marcas`} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">
+              <Plus className="size-3.5" aria-hidden /> Gestionar marcas
+            </Link>
+          </li>
+        </ul>
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Branding, Campaign, Candidate, CandidateStatus, FormField } from './types'
+import type { Brand, Branding, Campaign, Candidate, CandidateStatus, FormField, SavedView, SavedViewPayload, Site } from './types'
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
@@ -17,6 +17,8 @@ type CampaignRow = {
   milanuncios_url: string | null
   fields: FormField[]
   branding: Branding
+  site_id: string | null
+  brand_id: string | null
   created_at: string
 }
 type CandidateRow = {
@@ -42,6 +44,23 @@ const toCampaign = (r: CampaignRow): Campaign => ({
   milanunciosUrl: r.milanuncios_url ?? undefined,
   fields: r.fields ?? [],
   branding: r.branding,
+  siteId: r.site_id ?? null,
+  brandId: r.brand_id ?? null,
+})
+
+type SiteRow = { id: string; name: string; city: string }
+const toSite = (r: SiteRow): Site => ({ id: r.id, name: r.name, city: r.city ?? '' })
+
+type BrandRow = { id: string; name: string; accent: string; welcome: string; thanks: string; show_logo: boolean; logo_path: string | null; banner_path: string | null }
+const toBrand = (r: BrandRow): Brand => ({
+  id: r.id,
+  name: r.name,
+  accent: r.accent,
+  welcome: r.welcome ?? '',
+  thanks: r.thanks ?? '',
+  showLogo: r.show_logo,
+  logoPath: r.logo_path ?? null,
+  bannerPath: r.banner_path ?? null,
 })
 const toCandidate = (r: CandidateRow): Candidate => ({
   id: r.id,
@@ -53,6 +72,19 @@ const toCandidate = (r: CandidateRow): Candidate => ({
   notes: r.notes ?? '',
   cvPath: r.cv_path ?? undefined,
   submittedAt: r.created_at,
+})
+
+type SavedViewRow = {
+  id: string
+  campaign_id: string | null
+  name: string
+  payload: SavedViewPayload
+}
+const toSavedView = (r: SavedViewRow): SavedView => ({
+  id: r.id,
+  campaignId: r.campaign_id,
+  name: r.name,
+  payload: r.payload,
 })
 
 export interface NewCampaignInput {
@@ -72,6 +104,9 @@ interface Store {
   candidatesFor: (campaignId: string) => Candidate[]
   newCountFor: (campaignId: string) => number
   reload: () => Promise<void>
+  // Recarga solo los candidatos de un puesto (la carga global solo ocurre al
+  // entrar en el panel; esto trae los que llegaron después, sin recargar la página).
+  reloadCandidatesFor: (campaignId: string) => Promise<void>
   // mutaciones
   setStatus: (candidateId: string, status: CandidateStatus) => Promise<void>
   setRating: (candidateId: string, rating: number) => Promise<void>
@@ -83,6 +118,20 @@ interface Store {
   updateCampaign: (campaignId: string, patch: Partial<Campaign>) => Promise<void>
   createCampaign: (input: NewCampaignInput) => Promise<Campaign | null>
   deleteCampaign: (campaignId: string) => Promise<void>
+  // Vistas guardadas (Pro/Multi)
+  savedViews: SavedView[]
+  createSavedView: (input: { name: string; campaignId: string | null; payload: SavedViewPayload }) => Promise<SavedView | null>
+  deleteSavedView: (id: string) => Promise<void>
+  // Sedes (Multi)
+  sites: Site[]
+  createSite: (input: { name: string; city: string }) => Promise<Site | null>
+  renameSite: (id: string, patch: { name: string; city: string }) => Promise<void>
+  deleteSite: (id: string) => Promise<void>
+  // Marcas (Multi)
+  brands: Brand[]
+  createBrand: (input: Omit<Brand, 'id'>) => Promise<Brand | null>
+  updateBrand: (id: string, patch: Partial<Omit<Brand, 'id'>>) => Promise<void>
+  deleteBrand: (id: string) => Promise<void>
   resetDemo: () => void
 }
 
@@ -90,14 +139,21 @@ const Ctx = createContext<Store | null>(null)
 
 // --- Persistencia de la DEMO en localStorage --------------------------------
 // La demo es 100% local; guardamos su estado para que aguante recargas.
-const DEMO_KEY = 'criba.demo.v1'
+const DEMO_KEY = 'apuntatefacil.demo.v1'
 
-function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[] } | null {
+function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; savedViews: SavedView[]; sites: Site[]; brands: Brand[] } | null {
   try {
     const raw = localStorage.getItem(DEMO_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed?.campaigns) && Array.isArray(parsed?.candidates)) return parsed
+    if (Array.isArray(parsed?.campaigns) && Array.isArray(parsed?.candidates))
+      return {
+        campaigns: parsed.campaigns,
+        candidates: parsed.candidates,
+        savedViews: Array.isArray(parsed.savedViews) ? parsed.savedViews : [],
+        sites: Array.isArray(parsed.sites) ? parsed.sites : SEED.sites,
+        brands: Array.isArray(parsed.brands) ? parsed.brands : [],
+      }
   } catch {
     /* ignora storage corrupto */
   }
@@ -112,11 +168,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false)
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [candidates, setCandidates] = useState<Candidate[]>([])
+  const [savedViews, setSavedViews] = useState<SavedView[]>([])
+  const [sites, setSites] = useState<Site[]>([])
+  const [brands, setBrands] = useState<Brand[]>([])
+  // Candidatos con una escritura optimista aún sin confirmar en el servidor. Un
+  // refetch (reloadCandidatesFor) NO debe pisar su estado local con datos viejos
+  // del servidor mientras la escritura está en vuelo.
+  const pendingCandidateWrites = useRef<Set<string>>(new Set())
 
   const reload = useCallback(async () => {
     if (!companyId) {
       setCampaigns([])
       setCandidates([])
+      setSavedViews([])
+      setSites([])
+      setBrands([])
       return
     }
     if (companyId === 'demo') {
@@ -125,13 +191,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const saved = readDemoState()
       setCampaigns(saved?.campaigns ?? SEED.campaigns)
       setCandidates(saved?.candidates ?? SEED.candidates)
+      setSavedViews(saved?.savedViews ?? [])
+      setSites(saved?.sites ?? SEED.sites)
+      setBrands(saved?.brands ?? [])
       setLoading(false)
       return
     }
     setLoading(true)
-    const [c1, c2] = await Promise.all([
+    const [c1, c2, c3, c4, c5] = await Promise.all([
       supabase.from('campaigns').select('*').order('created_at', { ascending: true }),
       supabase.from('candidates').select('*').order('created_at', { ascending: false }),
+      supabase.from('saved_views').select('id,campaign_id,name,payload').order('created_at', { ascending: true }),
+      supabase.from('sites').select('id,name,city').order('name', { ascending: true }),
+      supabase.from('brands').select('id,name,accent,welcome,thanks,show_logo,logo_path,banner_path').order('name', { ascending: true }),
     ])
     if (c1.error || c2.error) {
       toast.error('No pudimos cargar tus datos. Reintenta en unos segundos.')
@@ -139,6 +211,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setCampaigns((c1.data as CampaignRow[]).map(toCampaign))
       setCandidates((c2.data as CandidateRow[]).map(toCandidate))
     }
+    // Vistas, sedes y marcas son secundarias: si la tabla aún no existe o falla, no rompe el panel.
+    setSavedViews(!c3.error && c3.data ? (c3.data as SavedViewRow[]).map(toSavedView) : [])
+    setSites(!c4.error && c4.data ? (c4.data as SiteRow[]).map(toSite) : [])
+    setBrands(!c5.error && c5.data ? (c5.data as BrandRow[]).map(toBrand) : [])
     setLoading(false)
   }, [companyId, toast])
 
@@ -156,18 +232,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return
     }
     try {
-      localStorage.setItem(DEMO_KEY, JSON.stringify({ campaigns, candidates }))
+      localStorage.setItem(DEMO_KEY, JSON.stringify({ campaigns, candidates, savedViews, sites, brands }))
     } catch {
       /* cuota llena, ignora */
     }
-  }, [companyId, campaigns, candidates])
+  }, [companyId, campaigns, candidates, savedViews, sites, brands])
 
   const patchCandidateLocal = (id: string, patch: Partial<Candidate>) =>
     setCandidates((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)))
 
   const dbCandidate = async (id: string, patch: Record<string, unknown>, revert: () => void) => {
     if (companyId === 'demo') return // demo: solo estado local
+    pendingCandidateWrites.current.add(id)
     const { error } = await supabase.from('candidates').update(patch).eq('id', id)
+    pendingCandidateWrites.current.delete(id)
     if (error) {
       revert()
       toast.error('No se pudo guardar el cambio. Inténtalo de nuevo.')
@@ -186,6 +264,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     newCountFor: (campaignId) =>
       candidates.filter((c) => c.campaignId === campaignId && c.status === 'nuevo').length,
     reload,
+
+    reloadCandidatesFor: async (campaignId) => {
+      if (!companyId || companyId === 'demo') return // demo: datos en memoria
+      const { data, error } = await supabase
+        .from('candidates')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('created_at', { ascending: false })
+      if (error || !data) return
+      const fetched = (data as CandidateRow[]).map(toCandidate)
+      // Reemplaza los de este puesto por el estado fresco del servidor; deja el
+      // resto. Para los candidatos con una edición optimista en vuelo, conserva el
+      // estado local (el servidor aún no lo refleja y lo pisaría con datos viejos).
+      setCandidates((prev) => {
+        const localById = new Map(prev.map((c) => [c.id, c]))
+        const merged = fetched.map((f) =>
+          pendingCandidateWrites.current.has(f.id) ? localById.get(f.id) ?? f : f,
+        )
+        return [...prev.filter((c) => c.campaignId !== campaignId), ...merged]
+      })
+    },
 
     setStatus: async (id, status) => {
       const prev = candidates.find((c) => c.id === id)?.status
@@ -261,6 +360,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     },
     updateCampaign: async (campaignId, patch) => {
+      const prev = campaigns.find((c) => c.id === campaignId)
       setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, ...patch } : c)))
       if (companyId === 'demo') return
       const dbPatch: Record<string, unknown> = {}
@@ -268,9 +368,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (patch.status !== undefined) dbPatch.status = patch.status
       if (patch.sector !== undefined) dbPatch.sector = patch.sector
       if (patch.location !== undefined) dbPatch.location = patch.location
+      if (patch.siteId !== undefined) dbPatch.site_id = patch.siteId
+      if (patch.brandId !== undefined) dbPatch.brand_id = patch.brandId
       if (Object.keys(dbPatch).length) {
         const { error } = await supabase.from('campaigns').update(dbPatch).eq('id', campaignId)
-        if (error) toast.error('No se pudo guardar el puesto.')
+        if (error) {
+          if (prev) setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? prev : c)))
+          toast.error(
+            error.message?.includes('PLAN_LIMIT_REACHED')
+              ? 'Has llegado al límite de procesos de tu plan. Cierra uno para reactivar este.'
+              : 'No se pudo guardar el puesto.',
+          )
+        }
       }
     },
 
@@ -287,6 +396,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           milanunciosUrl: input.milanunciosUrl,
           fields: input.fields,
           branding: input.branding,
+          siteId: null,
+          brandId: null,
         }
         setCampaigns((cs) => [...cs, campaign])
         return campaign
@@ -307,7 +418,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .select('*')
         .single()
       if (error || !data) {
-        toast.error('No se pudo crear el puesto.')
+        toast.error(
+          error?.message?.includes('PLAN_LIMIT_REACHED')
+            ? 'Has llegado al límite de procesos de tu plan. Cierra uno para abrir otro.'
+            : 'No se pudo crear el puesto.',
+        )
         return null
       }
       const campaign = toCampaign(data as CampaignRow)
@@ -328,6 +443,157 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     },
 
+    savedViews,
+    createSavedView: async ({ name, campaignId, payload }) => {
+      if (companyId === 'demo') {
+        const view: SavedView = { id: `view_${Math.random().toString(36).slice(2, 9)}`, campaignId, name, payload }
+        setSavedViews((vs) => [...vs, view])
+        return view
+      }
+      const { data, error } = await supabase
+        .from('saved_views')
+        .insert({
+          company_id: companyId,
+          campaign_id: campaignId,
+          name,
+          scope: campaignId ? 'campaign' : 'global',
+          payload,
+        })
+        .select('id,campaign_id,name,payload')
+        .single()
+      if (error || !data) {
+        toast.error('No se pudo guardar la vista.')
+        return null
+      }
+      const view = toSavedView(data as SavedViewRow)
+      setSavedViews((vs) => [...vs, view])
+      return view
+    },
+    deleteSavedView: async (id) => {
+      const prev = savedViews
+      setSavedViews((vs) => vs.filter((v) => v.id !== id))
+      if (companyId === 'demo') return
+      const { error } = await supabase.from('saved_views').delete().eq('id', id)
+      if (error) {
+        setSavedViews(prev)
+        toast.error('No se pudo eliminar la vista.')
+      }
+    },
+
+    sites,
+    createSite: async ({ name, city }) => {
+      if (companyId === 'demo') {
+        const site: Site = { id: `site_${Math.random().toString(36).slice(2, 9)}`, name, city }
+        setSites((ss) => [...ss, site])
+        return site
+      }
+      const { data, error } = await supabase
+        .from('sites')
+        .insert({ company_id: companyId, name, city })
+        .select('id,name,city')
+        .single()
+      if (error || !data) {
+        toast.error('No se pudo crear la sede.')
+        return null
+      }
+      const site = toSite(data as SiteRow)
+      setSites((ss) => [...ss, site])
+      return site
+    },
+    renameSite: async (id, patch) => {
+      const prev = sites
+      setSites((ss) => ss.map((s) => (s.id === id ? { ...s, ...patch } : s)))
+      if (companyId === 'demo') return
+      const { error } = await supabase.from('sites').update({ name: patch.name, city: patch.city }).eq('id', id)
+      if (error) {
+        setSites(prev)
+        toast.error('No se pudo guardar la sede.')
+      }
+    },
+    deleteSite: async (id) => {
+      const prevSites = sites
+      const prevCampaigns = campaigns
+      setSites((ss) => ss.filter((s) => s.id !== id))
+      // Los puestos de esa sede quedan "sin sede" (no se borran). En BD lo hace
+      // el "on delete set null"; aquí reflejamos lo mismo en local.
+      setCampaigns((cs) => cs.map((c) => (c.siteId === id ? { ...c, siteId: null } : c)))
+      if (companyId === 'demo') return
+      const { error } = await supabase.from('sites').delete().eq('id', id)
+      if (error) {
+        setSites(prevSites)
+        setCampaigns(prevCampaigns)
+        toast.error('No se pudo eliminar la sede.')
+      }
+    },
+
+    brands,
+    createBrand: async (input) => {
+      if (companyId === 'demo') {
+        const brand: Brand = { id: `brand_${Math.random().toString(36).slice(2, 9)}`, ...input }
+        setBrands((bs) => [...bs, brand])
+        return brand
+      }
+      const { data, error } = await supabase
+        .from('brands')
+        .insert({
+          company_id: companyId,
+          name: input.name,
+          accent: input.accent,
+          welcome: input.welcome,
+          thanks: input.thanks,
+          show_logo: input.showLogo,
+          logo_path: input.logoPath,
+          banner_path: input.bannerPath,
+        })
+        .select('id,name,accent,welcome,thanks,show_logo,logo_path,banner_path')
+        .single()
+      if (error || !data) {
+        // Backstop del tope de marcas del servidor (trigger enforce_brand_limit):
+        // el cliente ya avisa antes, pero si llega aquí damos un mensaje claro.
+        if (error?.message?.includes('BRAND_LIMIT_REACHED')) {
+          toast.error('Has llegado al límite de marcas de tu plan. Sube a Multi para crear más.')
+        } else {
+          toast.error('No se pudo crear la marca.')
+        }
+        return null
+      }
+      const brand = toBrand(data as BrandRow)
+      setBrands((bs) => [...bs, brand])
+      return brand
+    },
+    updateBrand: async (id, patch) => {
+      const prev = brands
+      setBrands((bs) => bs.map((b) => (b.id === id ? { ...b, ...patch } : b)))
+      if (companyId === 'demo') return
+      const dbPatch: Record<string, unknown> = {}
+      if (patch.name !== undefined) dbPatch.name = patch.name
+      if (patch.accent !== undefined) dbPatch.accent = patch.accent
+      if (patch.welcome !== undefined) dbPatch.welcome = patch.welcome
+      if (patch.thanks !== undefined) dbPatch.thanks = patch.thanks
+      if (patch.showLogo !== undefined) dbPatch.show_logo = patch.showLogo
+      if (patch.logoPath !== undefined) dbPatch.logo_path = patch.logoPath
+      if (patch.bannerPath !== undefined) dbPatch.banner_path = patch.bannerPath
+      const { error } = await supabase.from('brands').update(dbPatch).eq('id', id)
+      if (error) {
+        setBrands(prev)
+        toast.error('No se pudo guardar la marca.')
+      }
+    },
+    deleteBrand: async (id) => {
+      const prevBrands = brands
+      const prevCampaigns = campaigns
+      setBrands((bs) => bs.filter((b) => b.id !== id))
+      // El puesto conserva la apariencia ya copiada; solo pierde la referencia a la marca.
+      setCampaigns((cs) => cs.map((c) => (c.brandId === id ? { ...c, brandId: null } : c)))
+      if (companyId === 'demo') return
+      const { error } = await supabase.from('brands').delete().eq('id', id)
+      if (error) {
+        setBrands(prevBrands)
+        setCampaigns(prevCampaigns)
+        toast.error('No se pudo eliminar la marca.')
+      }
+    },
+
     resetDemo: () => {
       try {
         localStorage.removeItem(DEMO_KEY)
@@ -336,8 +602,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       setCampaigns(SEED.campaigns)
       setCandidates(SEED.candidates)
+      setSavedViews([])
+      setSites(SEED.sites)
+      setBrands([])
     },
-  }), [loading, campaigns, candidates, companyId, reload, toast])
+  }), [loading, campaigns, candidates, savedViews, sites, brands, companyId, reload, toast])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

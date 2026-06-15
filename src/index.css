@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* ---------------------------------------------------------------------------
-   Criba · tokens (doctrina "SaaS confiable")
+   Apúntate Fácil · tokens (doctrina "SaaS confiable")
    Acento = indigo-600 #4F46E5 (acción/nav/foco/selección, nunca estado).
    Neutros = slate. Una sola sans. Una sola sombra por elevación. Radio 12px.
 --------------------------------------------------------------------------- */
@@ -34,6 +34,12 @@
 @keyframes reveal-up {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: none; }
+}
+
+/* Una fila nueva "cae" en el mockup del hero: las candidaturas entran solas. */
+@keyframes drop-in {
+  0% { opacity: 0; transform: translateY(-10px); }
+  100% { opacity: 1; transform: none; }
 }
 
 @layer base {

@@ -19,6 +19,8 @@ export function ApplicationForm({
   onSubmit,
   submitting,
   companyName,
+  logoUrl,
+  bannerUrl,
   preview = false,
 }: {
   campaign: Campaign
@@ -30,6 +32,8 @@ export function ApplicationForm({
   onSubmit?: () => void
   submitting?: boolean
   companyName: string
+  logoUrl?: string | null
+  bannerUrl?: string | null
   preview?: boolean
 }) {
   const accent = campaign.branding.accent
@@ -54,14 +58,21 @@ export function ApplicationForm({
     >
       {/* Cabecera con el branding del cliente */}
       <header className="mb-6">
+        {bannerUrl && (
+          <img src={bannerUrl} alt="" className="mb-4 h-28 w-full rounded-xl object-cover sm:h-32" />
+        )}
         {campaign.branding.showLogo && (
-          <div className="mb-4 flex items-center gap-2">
-            <span
-              className="grid size-8 place-items-center rounded-lg text-sm font-bold text-on-accent"
-              style={{ backgroundColor: accent }}
-            >
-              {companyName.slice(0, 1)}
-            </span>
+          <div className="mb-4 flex items-center gap-2.5">
+            {logoUrl ? (
+              <img src={logoUrl} alt="" className="size-10 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" />
+            ) : (
+              <span
+                className="grid size-8 place-items-center rounded-lg text-sm font-bold text-on-accent"
+                style={{ backgroundColor: accent }}
+              >
+                {companyName.slice(0, 1)}
+              </span>
+            )}
             <span className="text-sm font-semibold text-slate-700">{companyName}</span>
           </div>
         )}

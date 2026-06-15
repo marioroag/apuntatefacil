@@ -1,5 +1,5 @@
 -- ============================================================================
--- Criba · esquema inicial (multi-tenant)
+-- Apúntate Fácil · esquema inicial (multi-tenant)
 -- Empresas (companies) <- memberships -> auth.users. Cada empresa tiene puestos
 -- (campaigns) y candidatos (candidates). El formulario público es anónimo y
 -- escribe vía RPC security definer; los miembros acceden a sus datos vía RLS.

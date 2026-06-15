@@ -4,8 +4,9 @@ import { SlideOver } from '../components/ui/SlideOver'
 import { StatusSelect } from '../components/ui/StatusPill'
 import type { Campaign, Candidate } from '../lib/types'
 import { SOURCE_META } from '../lib/types'
-import { fullDateTime, initials } from '../lib/format'
+import { fullDateTime, initials, formatPhone } from '../lib/format'
 import { useStore } from '../lib/store'
+import { BTN_SECONDARY } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { MaskedPhone } from '../components/MaskedPhone'
@@ -103,12 +104,12 @@ export function CandidatePanel({
                   <button
                     type="button"
                     onClick={() => toast.show('En la demo solo puedes mirar. Crea tu cuenta para llamar o escribir a tus candidatos.')}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                    className={BTN_SECONDARY}
                   >
                     <Phone className="size-3.5" aria-hidden /> Llamar
                   </button>
                 ) : (
-                  <a href={`tel:${phone.replace(/\s/g, '')}`} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+                  <a href={`tel:${phone.replace(/\s/g, '')}`} className={BTN_SECONDARY}>
                     <Phone className="size-3.5" aria-hidden /> Llamar
                   </a>
                 )
@@ -118,22 +119,17 @@ export function CandidatePanel({
                   <button
                     type="button"
                     onClick={() => toast.show('En la demo solo puedes mirar. Crea tu cuenta para llamar o escribir a tus candidatos.')}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+                    className={BTN_SECONDARY}
                   >
                     <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
                   </button>
                 ) : (
                   waPhone && (
-                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className={BTN_SECONDARY}>
                       <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
                     </a>
                   )
                 )
-              )}
-              {candidate.cvPath && (
-                <button onClick={viewCv} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
-                  <FileText className="size-3.5" aria-hidden /> Ver CV
-                </button>
               )}
             </div>
           </div>
@@ -141,17 +137,17 @@ export function CandidatePanel({
           {/* Valoración */}
           <div>
             <p className="mb-1.5 text-sm font-semibold text-slate-800">Valoración</p>
-            <div className="flex gap-1" role="group" aria-label="Valoración del candidato">
-              {[1, 2, 3].map((n) => (
+            <div className="flex gap-0.5" role="group" aria-label="Valoración del candidato">
+              {[1, 2, 3, 4, 5].map((n) => (
                 <button
                   key={n}
                   onClick={() => setRating(candidate.id, candidate.rating === n ? 0 : n)}
-                  aria-label={`${n} de 3 estrellas`}
+                  aria-label={`${n} de 5 estrellas`}
                   aria-pressed={candidate.rating >= n}
                   className="rounded-md p-0.5 text-slate-300 transition-colors hover:text-amber-400"
                 >
                   <Star
-                    className={`size-6 ${candidate.rating >= n ? 'fill-amber-400 text-amber-400' : ''}`}
+                    className={`size-5 ${candidate.rating >= n ? 'fill-amber-400 text-amber-400' : ''}`}
                     aria-hidden
                   />
                 </button>
@@ -167,11 +163,24 @@ export function CandidatePanel({
             <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200">
               {campaign.fields.map((f) => (
                 <div key={f.id} className="grid grid-cols-[42%_58%] gap-3 px-3.5 py-2.5">
-                  <dt className="text-[13px] text-slate-500">{f.label}</dt>
-                  <dd className="text-sm font-medium text-slate-800">
-                    {maskPhone && f.id === 'telefono' && candidate.answers[f.id]
-                      ? <MaskedPhone value={String(candidate.answers[f.id])} />
-                      : answerText(candidate.answers[f.id])}
+                  <dt className="break-words text-[13px] text-slate-500">{f.label}</dt>
+                  <dd className="break-words text-sm font-medium text-slate-800">
+                    {f.type === 'file' && candidate.cvPath ? (
+                      <button
+                        type="button"
+                        onClick={viewCv}
+                        className="inline-flex items-start gap-1.5 text-left font-medium text-indigo-600 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-700 hover:decoration-indigo-500"
+                      >
+                        <FileText className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                        <span className="break-words">{answerText(candidate.answers[f.id])}</span>
+                      </button>
+                    ) : maskPhone && f.id === 'telefono' && candidate.answers[f.id] ? (
+                      <MaskedPhone value={formatPhone(String(candidate.answers[f.id]))} />
+                    ) : f.type === 'phone' && candidate.answers[f.id] ? (
+                      formatPhone(String(candidate.answers[f.id]))
+                    ) : (
+                      answerText(candidate.answers[f.id])
+                    )}
                   </dd>
                 </div>
               ))}

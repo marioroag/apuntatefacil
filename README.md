@@ -1,4 +1,4 @@
-# Criba (prototipo de diseño)
+# Apúntate Fácil
 
 App para automatizar la contratación a través de Milanuncios (y similares), **multisector**:
 hostelería, construcción, logística, limpieza, comercio, etc.
@@ -7,7 +7,7 @@ hostelería, construcción, logística, limpieza, comercio, etc.
 > en vez de chatear. El enlace abre un **formulario personalizable**; cada envío entra en su **base de datos**
 > de candidatos, que puede **filtrar** y **exportar a Excel** cuando quiera.
 
-`Criba` es un **nombre placeholder**. Cámbialo en un único sitio: [`src/lib/brand.ts`](src/lib/brand.ts).
+La marca **Apúntate Fácil** (dominio apuntatefacil.com) se define en un único sitio: [`src/lib/brand.ts`](src/lib/brand.ts).
 
 ## Arrancar
 
@@ -27,7 +27,7 @@ npm run dev      # http://localhost:5173
 | `/a/:slug` | Formulario público que rellena el candidato (mobile-first) |
 
 Datos de ejemplo: una ETT con 4 puestos de 4 sectores y ~50 candidatos. Todo vive en
-`localStorage` (clave `criba.data.v1`), así que tus cambios (estados, envíos, edición del
+`localStorage` (clave `apuntatefacil.demo.v1`), así que tus cambios (estados, envíos, edición del
 formulario) **persisten**. Para reiniciar la demo: borra esa clave o llama a `resetDemo()`.
 
 ## Decisiones de diseño (doctrina "SaaS confiable")

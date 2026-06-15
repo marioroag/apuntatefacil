@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { Onboarding } from '../screens/Onboarding'
+import { Paywall } from '../screens/Paywall'
 
 function FullSpinner() {
   return (
@@ -19,5 +20,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!session) return <Navigate to="/login" replace />
   if (companyLoading && !company) return <FullSpinner />
   if (!company) return <Onboarding />
+  // El plan "Prueba" no da acceso: hay que contratar un plan de pago para usar el panel.
+  if (company.plan === 'trial') return <Paywall />
   return <>{children}</>
 }

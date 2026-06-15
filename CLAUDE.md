@@ -1,4 +1,4 @@
-# Criba — App de contratación vía Milanuncios
+# Apúntate Fácil — App de contratación vía Milanuncios
 
 > Este fichero se autocarga en cada sesión. Es la fuente de verdad de la **doctrina
 > de diseño, las reglas y el estándar de rigor** del proyecto. Si una sesión futura
@@ -8,7 +8,7 @@
 Web app (prototipo de frontend) para automatizar la contratación a través de Milanuncios y similares. **Multisector**: hostelería, construcción, logística, limpieza, comercio, ETTs. La empresa pone su anuncio como siempre; a quien responde le manda **un enlace** en vez de chatear; el enlace abre un **formulario personalizable**; cada envío entra en su **base de datos** de candidatos, que puede **filtrar** y **exportar a Excel**.
 
 - Fundador: Mario, España. Tiene un **listón de diseño muy alto** y nota cualquier bajón de calidad.
-- `Criba` es **nombre placeholder**, aprobado por Mario. Cambiable en un único sitio: `src/lib/brand.ts`.
+- La marca es **Apúntate Fácil** (dominio apuntatefacil.com), nombre definitivo. Se define en un único sitio: `src/lib/brand.ts`.
 - Proyecto **independiente** de plain-points (otra app suya). No mezclar nunca: vive en su propio repo `/Users/mario/criba`.
 
 ## Cómo arrancar y VERIFICAR
@@ -20,7 +20,7 @@ npm run dev      # http://localhost:5173
 npm run build    # debe quedar verde
 npx tsc --noEmit # sin errores de tipos
 ```
-- Login local: el magic link llega a Mailpit (http://127.0.0.1:54324). Google OAuth necesita credenciales reales (pendiente).
+- Login local: email + contraseña (con confirmación de email obligatoria) y Google. Los emails de acceso (confirmación, reset) llegan a Mailpit (http://127.0.0.1:54324). Google OAuth necesita credenciales reales (pendiente).
 - Migraciones en `supabase/migrations/`. Tras tocar el esquema: `supabase db reset`. Tras tocar `config.toml`: `supabase stop && supabase start`.
 - **Verificar siempre en navegador** cualquier cambio observable: capturar, mirarlo, probar interacciones (clicks, toggles, estados) y **rehacer si no cumple**. No dar nada por bueno sin verlo.
 - Gotcha del preview embebido de Claude: `IntersectionObserver` no dispara callbacks (rompe `whileInView` de framer-motion). Para reveals usar **animación CSS en montaje**, no IO. Para capturar una sección de abajo, ocultar temporalmente las de arriba (`display:none`) + `scrollTo(0,0)`.
@@ -33,7 +33,7 @@ npx tsc --noEmit # sin errores de tipos
 | `/app/puestos/:id/formulario` | Constructor del formulario (drag & drop) + preview en vivo |
 | `/a/:slug` | Formulario público que rellena el candidato (mobile-first) |
 
-Datos demo: una ETT con 4 puestos de 4 sectores y ~50 candidatos en `localStorage` (clave `criba.data.v1`). Persisten entre recargas. Reinicio: borrar la clave o `resetDemo()`.
+Datos demo: una ETT con 4 puestos de 4 sectores y ~50 candidatos en `localStorage` (clave `apuntatefacil.demo.v1`). Persisten entre recargas. Reinicio: borrar la clave o `resetDemo()`.
 
 ## Doctrina visual "SaaS confiable" (NO cambiar sin debate)
 Sobria y profesional tipo Linear/Notion/Stripe. **Multisector**: nunca debe oler a construcción (cero cascos, naranjas de obra, mascotas).
@@ -74,7 +74,7 @@ Good-better-best con **números redondos** (prestigio + honesto + citable; el `.
 Producto full-stack: el frontend (Vite/React) habla con **Supabase** (Postgres + Auth + Storage + RLS).
 - **Multi-tenant**: `companies` <- `memberships` -> `auth.users`. Cada empresa tiene `campaigns` (puestos, con `fields`/`branding` en JSONB) y `candidates`. RLS acota todo por empresa vía `current_user_company_ids()`.
 - **El formulario público es anónimo**: NO toca las tablas directo. Lee con el RPC `get_public_campaign(slug)` y escribe con `submit_application(slug, answers, source, cv_path)` (ambos `security definer`, concedidos a `anon`). El rol `anon` no tiene acceso directo a las tablas; `authenticated` sí (acotado por RLS).
-- **Auth**: Google OAuth + email magic link (sin contraseñas). `auth.tsx` gestiona sesión + empresa; primer login sin empresa => onboarding (`create_company`).
+- **Auth**: Google OAuth + email con contraseña (confirmación de email obligatoria; política de longitud/complejidad + rechazo de filtradas). `auth.tsx` gestiona sesión + empresa; primer login sin empresa => onboarding (`create_company`). Reset de contraseña en `/restablecer`.
 - **CVs**: bucket privado `cvs`. El candidato anónimo sube (policy insert); el merchant descarga con URL firmada (`createSignedUrl`).
 - **Store**: `store.tsx` es un caché en memoria de la empresa (getters síncronos, mutaciones optimistas a Supabase). El acento de empresa/puesto y los enlaces públicos usan el origen real (`publicFormUrl`).
 
