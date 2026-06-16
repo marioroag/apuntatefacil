@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
+import { useAuth } from '../lib/auth'
 import {
   ArrowRight, Check, FileSpreadsheet, Filter, Infinity as InfinityIcon,
   Link2, ListChecks, Megaphone, Menu, PhoneCall, Sliders, X,
@@ -23,6 +24,10 @@ function Reveal({ children, delay = 0, className = '' }: { children: React.React
 }
 
 export function Landing() {
+  // Si ya hay sesión, el sitio "abre" directo en el panel, no en el marketing.
+  const { session, loading } = useAuth()
+  if (!loading && session) return <Navigate to="/app" replace />
+
   return (
     <div className="min-h-svh bg-white text-slate-900">
       <SkipLink />

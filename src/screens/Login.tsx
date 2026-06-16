@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, Eye, EyeOff, Loader2, Mail } from 'lucide-react'
 import { useAuth } from '../lib/auth'
+import { setRememberMe } from '../lib/supabase'
 import { Logo } from '../components/Logo'
 import { BRAND } from '../lib/brand'
 import { PWD_RULES, passwordValid } from '../lib/password'
@@ -38,7 +39,7 @@ const inputClass = (invalid: boolean) =>
   `h-11 w-full rounded-xl border bg-white px-3.5 text-base outline-none placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-500/15 ${invalid ? 'border-red-400' : 'border-slate-300 focus:border-indigo-500'}`
 
 export function Login() {
-  const { signInWithGoogle, signUpWithPassword, signInWithPassword, sendPasswordReset, resendConfirmation } = useAuth()
+  const { signInWithGoogle, signUpWithPassword, signInWithPassword, sendPasswordReset, resendConfirmation, session, loading } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   // Destino tras entrar: por defecto /app; respeta ?next= solo si es una ruta
@@ -54,6 +55,7 @@ export function Login() {
   const [error, setError] = useState<string | null>(null)
   const [unconfirmed, setUnconfirmed] = useState(false)
   const [note, setNote] = useState<string | null>(null)
+  const [remember, setRemember] = useState(true)
 
   const switchMode = (m: Mode) => {
     setMode(m)
@@ -83,6 +85,7 @@ export function Login() {
     }
     setError(null)
     setUnconfirmed(false)
+    setRememberMe(remember)
     setBusy(true)
     if (mode === 'signup') {
       const res = await signUpWithPassword(email, password)
@@ -122,6 +125,9 @@ export function Login() {
     if (res.error) setError(res.error)
     else setView('reset-sent')
   }
+
+  // Si ya hay sesión, no enseñamos el login: directo al panel (o al ?next= seguro).
+  if (!loading && session) return <Navigate to={dest} replace />
 
   return (
     <div className="grid min-h-svh place-items-center bg-slate-50 px-4">
@@ -217,7 +223,7 @@ export function Login() {
               </div>
 
               <button
-                onClick={() => signInWithGoogle()}
+                onClick={() => { setRememberMe(remember); signInWithGoogle() }}
                 className="mt-5 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 active:scale-[0.99]"
               >
                 <GoogleIcon /> Continuar con Google
@@ -283,8 +289,17 @@ export function Login() {
                   </ul>
                 )}
 
-                {mode === 'signin' && (
-                  <div className="mt-2 text-right">
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <label className="flex cursor-pointer select-none items-center gap-2 text-[13px] text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(e) => { setRemember(e.target.checked); setRememberMe(e.target.checked) }}
+                      className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500/30"
+                    />
+                    Recordarme
+                  </label>
+                  {mode === 'signin' && (
                     <button
                       type="button"
                       onClick={() => { setView('reset-request'); setError(null) }}
@@ -292,8 +307,8 @@ export function Login() {
                     >
                       ¿Olvidaste tu contraseña?
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {error && <p className="mt-3 text-[13px] font-medium text-red-600">{error}</p>}
                 {unconfirmed && (

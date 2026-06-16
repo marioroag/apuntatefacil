@@ -383,16 +383,10 @@ export function AppLayout() {
                 )}
               </div>
             </div>
-            <div className="mt-1 flex items-center gap-1">
-              <Link
-                to="/"
-                className="flex flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-              >
-                <ExternalLink className="size-3.5" aria-hidden /> Ver la web
-              </Link>
+            <div className="mt-1">
               <button
                 onClick={() => signOut()}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
               >
                 <LogOut className="size-3.5" aria-hidden /> Salir
               </button>
