@@ -13,7 +13,7 @@ const PLAN_RANK: Record<string, number> = { trial: 0, esencial: 1, pro: 2, multi
 const eur = (cents: number) => (cents / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
 
 type Dialog =
-  | { type: 'change'; planId: string; tierName: string; monthly: number; amountDue: number; total: number }
+  | { type: 'change'; planId: string; tierName: string; price: number; annual: boolean; amountDue: number; total: number }
   | { type: 'cancel' }
 
 export function Plan() {
@@ -23,9 +23,13 @@ export function Plan() {
   const [busy, setBusy] = useState<string | null>(null)
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [dialogBusy, setDialogBusy] = useState(false)
+  const [annual, setAnnual] = useState(false)
 
   const current = company?.plan ?? 'trial'
   const subscribed = current !== 'trial'
+  const currentInterval = company?.billing_interval ?? null // 'month' | 'year' | null
+  const selectedInterval = annual ? 'year' : 'month'
+  const pendingCancel = subscribed && !!company?.cancel_at_period_end
 
   useEffect(() => {
     const c = params.get('checkout')
@@ -35,7 +39,7 @@ export function Plan() {
     setParams(params, { replace: true })
     if (c === 'ok') {
       toast.success('Suscripción activada. Aplicando tu plan...')
-      void pollPlanAndReload(refreshCompany, (plan) => !!plan && plan !== 'trial').then((ok) => {
+      void pollPlanAndReload(refreshCompany, (c) => !!c && c.plan !== 'trial').then((ok) => {
         if (!ok) toast.show('El plan puede tardar unos segundos en reflejarse. Recarga si no lo ves.')
       })
     } else if (c === 'cancel') {
@@ -57,7 +61,7 @@ export function Plan() {
   // Alta nueva o cobro de cambio ya confirmado: llama a la función y actúa según la respuesta.
   const runCheckout = async (planId: string): Promise<boolean> => {
     const { data, error } = await supabase.functions.invoke('stripe-checkout', {
-      body: { plan: planId, returnUrl: `${window.location.origin}/app/plan` },
+      body: { plan: planId, returnUrl: `${window.location.origin}/app/plan`, annual },
     })
     if (error) {
       toast.error('No se pudo completar. Inténtalo de nuevo.')
@@ -69,9 +73,13 @@ export function Plan() {
     }
     if (data?.changed) {
       toast.success('Plan actualizado. Aplicando los cambios...')
-      // El plan real lo confirma el webhook de Stripe (no es instantáneo): sondeamos
-      // hasta que la empresa lo refleje y recargamos para que todo el panel se actualice.
-      void pollPlanAndReload(refreshCompany, (plan) => plan === planId).then((ok) => {
+      // El plan/periodo real lo confirma el webhook de Stripe (no es instantáneo):
+      // sondeamos hasta que la empresa refleje plan Y periodo y recargamos. Esperar
+      // también al periodo evita recargar con el periodo viejo en un cambio de solo periodo.
+      void pollPlanAndReload(
+        refreshCompany,
+        (c) => c?.plan === planId && c?.billing_interval === selectedInterval,
+      ).then((ok) => {
         if (!ok) toast.show('El cambio puede tardar unos segundos en reflejarse. Recarga si no lo ves.')
       })
       return true
@@ -93,7 +101,7 @@ export function Plan() {
     if (!tier) return
     setBusy(planId)
     const { data: pv, error } = await supabase.functions.invoke('stripe-checkout', {
-      body: { plan: planId, preview: true },
+      body: { plan: planId, preview: true, annual },
     })
     setBusy(null)
     if (error) {
@@ -112,7 +120,8 @@ export function Plan() {
       type: 'change',
       planId,
       tierName: tier.name,
-      monthly: tier.monthly,
+      price: annual ? tier.annual : tier.monthly,
+      annual,
       amountDue: typeof pv?.amountDue === 'number' ? pv.amountDue : 0,
       total: typeof pv?.total === 'number' ? pv.total : 0,
     })
@@ -133,9 +142,41 @@ export function Plan() {
         return
       }
       toast.success('Suscripción cancelada. Mantienes el acceso hasta el final del periodo.')
-      refreshCompany()
       setDialog(null)
+      // Mantenemos los botones bloqueados durante el sondeo para que no se pueda
+      // disparar un cambio de plan que pise la cancelación aún en vuelo.
+      setBusy('__cancel__')
+      const ok = await pollCancelState(true)
+      setBusy(null)
+      if (!ok) toast.show('El cambio puede tardar unos segundos en reflejarse. Recarga si no lo ves.')
     }
+  }
+
+  // Tras cancelar/reanudar, el flag real lo fija el webhook de Stripe (no es
+  // instantáneo): sondeamos la empresa hasta que el panel refleje el botón correcto.
+  // Devuelve true si convergió a tiempo, false si agotó los intentos.
+  const pollCancelState = async (expected: boolean): Promise<boolean> => {
+    for (let i = 0; i < 12; i++) {
+      const c = await refreshCompany()
+      if (!!c?.cancel_at_period_end === expected) return true
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+    return false
+  }
+
+  const resumeSubscription = async () => {
+    setBusy('__resume__')
+    const { data, error } = await supabase.functions.invoke('stripe-checkout', { body: { resume: true } })
+    if (error || !data?.resumed) {
+      setBusy(null)
+      toast.error('No se pudo reanudar. Inténtalo de nuevo.')
+      return
+    }
+    toast.success('Suscripción reanudada. Seguirás con tu plan.')
+    if (!(await pollCancelState(false))) {
+      toast.show('El cambio puede tardar unos segundos en reflejarse. Recarga si no lo ves.')
+    }
+    setBusy(null)
   }
 
   return (
@@ -148,9 +189,29 @@ export function Plan() {
         Estás en el plan <strong className="font-semibold text-slate-900">{PLAN_LABEL[current] ?? 'Prueba'}</strong>. Candidatos y usuarios ilimitados en todos. Precios sin IVA.
       </p>
 
+      <div className="mt-6 flex justify-center sm:justify-start">
+        {/* El periodo se bloquea mientras hay un cambio en curso o el modal abierto:
+            así lo que se cobra coincide siempre con lo que muestra la confirmación. */}
+        <div role="group" aria-label="Periodicidad de facturación" className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1">
+          <button type="button" disabled={!!dialog || !!busy} onClick={() => setAnnual(false)} aria-pressed={!annual} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors disabled:opacity-60 ${!annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
+            Mensual
+          </button>
+          <button type="button" disabled={!!dialog || !!busy} onClick={() => setAnnual(true)} aria-pressed={annual} className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors disabled:opacity-60 ${annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
+            Anual
+            <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${annual ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'}`}>2 meses gratis</span>
+          </button>
+        </div>
+      </div>
+
       <div className="mt-8 grid items-stretch gap-5 lg:grid-cols-3">
         {TIERS.map((t) => {
-          const isCurrent = current === t.id
+          const samePlan = current === t.id
+          // Mismo plan + mismo periodo = el plan actual. Mismo plan + otro periodo =
+          // se puede cambiar solo el periodo. Si aún no sabemos el periodo (suscripción
+          // previa a esta función), tratamos el plan como actual para no ofrecer un
+          // cambio a ciegas hasta que el webhook lo registre.
+          const isCurrent = samePlan && (currentInterval == null || currentInterval === selectedInterval)
+          const switchInterval = samePlan && !isCurrent
           const isDowngrade = PLAN_RANK[current] > PLAN_RANK[t.id]
           return (
             <div
@@ -165,8 +226,8 @@ export function Plan() {
               <h2 className="text-lg font-semibold text-slate-900">{t.name}</h2>
               <p className="mt-1 text-[14px] text-slate-500">{t.tagline}</p>
               <div className="mt-4 flex items-baseline gap-1.5">
-                <span className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">{t.monthly} €</span>
-                <span className="text-sm text-slate-500">al mes</span>
+                <span className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">{annual ? t.annual : t.monthly} €</span>
+                <span className="text-sm text-slate-500">{annual ? 'al año' : 'al mes'}</span>
               </div>
               <ul className="mt-5 flex-1 space-y-2">
                 {t.features.map((f) => (
@@ -181,7 +242,11 @@ export function Plan() {
                 className={`mt-6 ${t.recommended ? BTN_PRIMARY : BTN_SECONDARY} w-full disabled:opacity-60`}
               >
                 {busy === t.id ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-                {isCurrent ? 'Tu plan actual' : isDowngrade ? `Cambiar a ${t.name}` : `Mejorar a ${t.name}`}
+                {isCurrent
+                  ? 'Tu plan actual'
+                  : switchInterval
+                    ? annual ? 'Pasar a anual' : 'Pasar a mensual'
+                    : isDowngrade ? `Cambiar a ${t.name}` : `Mejorar a ${t.name}`}
               </button>
             </div>
           )
@@ -189,7 +254,16 @@ export function Plan() {
       </div>
 
       <div className="mt-6 flex flex-col items-center gap-3">
-        {subscribed && (
+        {subscribed && (pendingCancel ? (
+          <button
+            onClick={resumeSubscription}
+            disabled={!!busy}
+            className="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 disabled:opacity-60"
+          >
+            {busy === '__resume__' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+            Reanudar suscripción
+          </button>
+        ) : (
           <button
             onClick={() => setDialog({ type: 'cancel' })}
             disabled={!!busy}
@@ -197,11 +271,13 @@ export function Plan() {
           >
             Cancelar suscripción
           </button>
-        )}
+        ))}
         <p className="text-center text-[13px] text-slate-400">
-          El pago se gestiona con Stripe. {subscribed
-            ? 'Al cambiar de plan, el cobro se ajusta de forma proporcional.'
-            : 'Puedes cancelar cuando quieras y exportar tus datos siempre.'}
+          {pendingCancel
+            ? 'Tu plan se cancelará al final del periodo ya pagado. Reanúdalo cuando quieras para seguir.'
+            : subscribed
+              ? 'El pago se gestiona con Stripe. Al cambiar de plan, el cobro se ajusta de forma proporcional.'
+              : 'El pago se gestiona con Stripe. Puedes cancelar cuando quieras y exportar tus datos siempre.'}
         </p>
       </div>
 
@@ -217,12 +293,12 @@ export function Plan() {
         {dialog?.type === 'change' && (
           <>
             <p>
-              Tu plan pasará a <strong className="font-semibold text-slate-900">{dialog.tierName}</strong>, {dialog.monthly} € al mes.
+              Tu plan pasará a <strong className="font-semibold text-slate-900">{dialog.tierName}</strong>, {dialog.price} € {dialog.annual ? 'al año' : 'al mes'}.
             </p>
             <div className="mt-3 rounded-xl bg-slate-50 p-3.5 text-slate-700">
               {dialog.amountDue > 0 ? (
                 <p>
-                  Se te cobrará ahora <strong className="font-semibold text-slate-900">{eur(dialog.amountDue)}</strong> a tu tarjeta guardada: la parte proporcional de lo que queda de mes.
+                  Se te cobrará ahora <strong className="font-semibold text-slate-900">{eur(dialog.amountDue)}</strong> a tu tarjeta guardada: la parte proporcional de lo que queda de tu periodo actual.
                 </p>
               ) : dialog.total < 0 ? (
                 <p>
@@ -232,7 +308,12 @@ export function Plan() {
                 <p>No se te cobra nada ahora.</p>
               )}
             </div>
-            <p className="mt-3 text-[13px] text-slate-400">Después seguirás pagando {dialog.monthly} € al mes (IVA aparte). Puedes cancelar cuando quieras.</p>
+            {pendingCancel && (
+              <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[13px] text-amber-800">
+                Tenías programada la cancelación al final del periodo. Al cambiar de plan, tu suscripción se reactiva y seguirá renovándose.
+              </p>
+            )}
+            <p className="mt-3 text-[13px] text-slate-400">Después seguirás pagando {dialog.price} € {dialog.annual ? 'al año' : 'al mes'} (IVA aparte). Puedes cancelar cuando quieras.</p>
           </>
         )}
       </ConfirmDialog>

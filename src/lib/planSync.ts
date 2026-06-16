@@ -8,12 +8,12 @@ import type { Company } from './auth'
 // día sin que el usuario tenga que recargar a mano.
 export async function pollPlanAndReload(
   refreshCompany: () => Promise<Company | null>,
-  matches: (plan: string | undefined) => boolean,
+  matches: (company: Company | null) => boolean,
   { tries = 15, intervalMs = 1000 }: { tries?: number; intervalMs?: number } = {},
 ): Promise<boolean> {
   for (let i = 0; i < tries; i++) {
     const c = await refreshCompany()
-    if (matches(c?.plan)) {
+    if (matches(c)) {
       window.location.reload()
       // La recarga es asíncrona: dejamos la promesa colgada para que el .then del
       // llamante (el aviso de "tarda unos segundos") NO se ejecute durante el

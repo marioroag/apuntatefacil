@@ -10,6 +10,8 @@ export interface Company {
   accent: string
   plan: 'trial' | 'esencial' | 'pro' | 'multi'
   subscription_status: string | null
+  billing_interval: string | null // 'month' | 'year' | null (sin suscripción)
+  cancel_at_period_end: boolean // suscripción marcada para cancelarse al final del periodo
 }
 
 type AuthResult = { error?: string; needsConfirmation?: boolean }
@@ -72,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // RLS solo devuelve las empresas del usuario, así que con seleccionar basta.
     const { data } = await supabase
       .from('companies')
-      .select('id,name,accent,plan,subscription_status')
+      .select('id,name,accent,plan,subscription_status,billing_interval,cancel_at_period_end')
       .order('created_at', { ascending: true })
       .limit(1)
     const c = data && data[0] ? (data[0] as Company) : null
@@ -189,6 +191,8 @@ export const DEMO_COMPANY: Company = {
   accent: '#4F46E5',
   plan: 'multi',
   subscription_status: null,
+  billing_interval: null,
+  cancel_at_period_end: false,
 }
 
 export function DemoAuthProvider({ children }: { children: ReactNode }) {

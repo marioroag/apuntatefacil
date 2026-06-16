@@ -6,18 +6,20 @@
 // Auto-reparación: si la suscripción/cliente guardados no existen en el modo actual
 // (p.ej. datos de prueba tras pasar a modo real, o borrados), se limpian y se trata
 // como alta nueva, en vez de dar error.
+// Precios mensual/anual por plan (anual = STRIPE_PRICE_*_ANNUAL).
 import Stripe from 'npm:stripe@18'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil' })
 
-const PRICES: Record<string, string | undefined> = {
-  esencial: Deno.env.get('STRIPE_PRICE_ESENCIAL'),
-  pro: Deno.env.get('STRIPE_PRICE_PRO'),
-  multi: Deno.env.get('STRIPE_PRICE_MULTI'),
+// Cada plan tiene un price mensual y otro anual (dos meses gratis). Los IDs anuales
+// son STRIPE_PRICE_*_ANNUAL; si no están configurados, el alta anual avisa y no rompe.
+const PRICES: Record<string, { month?: string; year?: string }> = {
+  esencial: { month: Deno.env.get('STRIPE_PRICE_ESENCIAL'), year: Deno.env.get('STRIPE_PRICE_ESENCIAL_ANNUAL') },
+  pro: { month: Deno.env.get('STRIPE_PRICE_PRO'), year: Deno.env.get('STRIPE_PRICE_PRO_ANNUAL') },
+  multi: { month: Deno.env.get('STRIPE_PRICE_MULTI'), year: Deno.env.get('STRIPE_PRICE_MULTI_ANNUAL') },
 }
-const ACTIVE = ['active', 'trialing', 'past_due', 'unpaid']
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -30,7 +32,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return json({ error: 'No autenticado' }, 401)
 
-    const { plan, returnUrl, cancel, preview } = await req.json()
+    const { plan, returnUrl, cancel, resume, preview, annual } = await req.json()
 
     const { data: companies } = await supabase
       .from('companies')
@@ -50,25 +52,34 @@ Deno.serve(async (req) => {
       return json({ error: 'Solo el propietario puede gestionar el plan' }, 403)
     }
 
-    // ¿Hay una suscripción REALMENTE válida en el modo actual? Si la referencia
-    // guardada no existe aquí (datos de test en live, o borrada), se limpia.
+    // ¿Hay una suscripción en el modo actual? Consultamos SIEMPRE a Stripe (la fuente
+    // de verdad), no el estado guardado: así un cliente con sub real pero estado raro
+    // (p.ej. 'incomplete' por SCA) no acaba con una SEGUNDA suscripción.
     let subId = company.stripe_subscription_id as string | null
     let subObj: Stripe.Subscription | null = null
     let hasActiveSub = false
-    if (subId && ACTIVE.includes((company.subscription_status as string) ?? '')) {
+    if (subId) {
       try {
         subObj = await stripe.subscriptions.retrieve(subId)
-        hasActiveSub = ACTIVE.includes(subObj.status)
-      } catch (_e) {
-        await supabase.from('companies').update({
-          stripe_subscription_id: null,
-          subscription_status: null,
-          stripe_customer_id: null,
-          plan: 'trial',
-        }).eq('id', company.id)
-        subId = null
-        company.stripe_customer_id = null
-        hasActiveSub = false
+        // Sub usable (modificable/cancelable). 'incomplete' (SCA sin completar) NO
+        // cuenta: ese alta nunca se cobró, así que se recupera con un alta nueva.
+        hasActiveSub = ['active', 'trialing', 'past_due', 'unpaid'].includes(subObj.status)
+      } catch (e) {
+        // Solo auto-reparamos cuando la sub NO existe en este modo (datos de test en
+        // live, o borrada): limpiamos SOLO la sub (no el cliente ni el plan, para no
+        // degradar ni pausar puestos). Ante un error transitorio (red, rate limit, 5xx)
+        // NO tocamos nada y devolvemos error: el cliente reintenta sin riesgo.
+        if ((e as { code?: string })?.code === 'resource_missing') {
+          await supabase.from('companies').update({
+            stripe_subscription_id: null,
+            subscription_status: null,
+          }).eq('id', company.id)
+          subId = null
+          subObj = null
+          hasActiveSub = false
+        } else {
+          return json({ error: 'No se pudo verificar tu suscripción. Inténtalo de nuevo en un momento.' }, 502)
+        }
       }
     }
 
@@ -79,8 +90,20 @@ Deno.serve(async (req) => {
       return json({ canceled: true })
     }
 
-    const price = PRICES[plan]
-    if (!price) return json({ error: 'Plan no válido o sin price configurado' }, 400)
+    // 1b) Reanudar una suscripción marcada para cancelarse al final del periodo.
+    if (resume) {
+      if (!hasActiveSub) return json({ error: 'No hay suscripción que reanudar' }, 400)
+      await stripe.subscriptions.update(subId!, { cancel_at_period_end: false })
+      return json({ resumed: true })
+    }
+
+    const price = annual ? PRICES[plan]?.year : PRICES[plan]?.month
+    if (!price) {
+      return json({
+        error: annual ? 'El plan anual aún no está disponible.' : 'Plan no válido o sin price configurado',
+        annualUnavailable: !!annual,
+      }, 400)
+    }
 
     // 2) Previsualizar el importe inmediato al cambiar a `plan`.
     if (preview) {

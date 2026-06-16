@@ -380,7 +380,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (prev) setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? prev : c)))
           toast.error(
             error.message?.includes('PLAN_LIMIT_REACHED')
-              ? 'Has llegado al límite de procesos de tu plan. Cierra uno para reactivar este.'
+              ? 'Has llegado al límite de procesos de tu plan. Sube de plan para reactivar este.'
               : 'No se pudo guardar el puesto.',
           )
         }

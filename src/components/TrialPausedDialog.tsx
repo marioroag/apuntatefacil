@@ -25,9 +25,9 @@ export function TrialPausedDialog({ open, onClose }: { open: boolean; onClose: (
     >
       <p className="text-sm leading-relaxed text-slate-600">
         El plan de Prueba admite hasta{' '}
-        <strong className="font-semibold text-slate-900">{limit} candidatos</strong> por puesto. El tuyo ha
-        llegado al tope, así que lo hemos pausado para no perder a nadie. Sube de plan para reactivarlo y
-        seguir recibiendo candidaturas.
+        <strong className="font-semibold text-slate-900">{limit} candidatos</strong>. Has llegado al tope,
+        así que hemos pausado tu puesto para no perder a nadie. Sube de plan para reactivarlo y seguir
+        recibiendo candidaturas.
       </p>
     </ConfirmDialog>
   )

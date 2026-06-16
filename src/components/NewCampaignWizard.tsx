@@ -86,7 +86,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                 <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-relaxed text-slate-500">
                   Tu plan {PLAN_LABEL[company?.plan ?? 'esencial']} permite {limit}{' '}
                   {limit === 1 ? 'proceso abierto' : 'procesos abiertos'} a la vez, contando activos y pausados.
-                  Cierra uno que ya no uses, o sube de plan para abrir más.
+                  Sube de plan para abrir más.
                 </p>
                 <div className="mt-6 flex justify-center gap-2">
                   <button onClick={onClose} className={BTN_SECONDARY}>

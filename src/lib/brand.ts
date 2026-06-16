@@ -3,7 +3,7 @@
 // le llegan las respuestas ordenadas. Dominio apuntatefacil.com.
 // -----------------------------------------------------------------------------
 export const BRAND = 'Apúntate Fácil'
-export const TAGLINE = 'El candidato se apunta fácil. Tú eliges sin perderte en mil chats.'
+export const TAGLINE = 'Apúntate fácil, contrata fácil.'
 export const DOMAIN = 'apuntatefacil.com'
 
 /** URL pública del formulario de un puesto, basada en el origen real (local o prod). */

@@ -60,20 +60,24 @@ function TopNav() {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6" aria-label="Principal">
-        <Link to="/" className="flex items-center gap-2">
-          <Logo className="size-8" />
-          <span className="text-[17px] font-bold tracking-tight">{BRAND}</span>
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link to="/" className="flex items-center gap-2">
+            <Logo className="size-8" />
+            <span className="text-[17px] font-bold tracking-tight">{BRAND}</span>
+          </Link>
+          <div className="hidden items-center gap-1 md:flex">
+            {links.map(([label, href]) => (
+              <a key={href} href={href} className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+                {label}
+              </a>
+            ))}
+          </div>
+        </div>
         <div className="hidden items-center gap-1 md:flex">
-          {links.map(([label, href]) => (
-            <a key={href} href={href} className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
-              {label}
-            </a>
-          ))}
-          <Link to="/demo" className="ml-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+          <Link to="/demo" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
             Ver la demo
           </Link>
-          <Link to="/login" className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700">
+          <Link to="/login" className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700">
             Empezar <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
@@ -114,14 +118,14 @@ function Hero() {
           Cada vacante recibe decenas de respuestas y se te van por el chat. Apúntate Fácil las recoge todas, ordenadas en un sitio: tú mandas un enlace y eliges sin perder a nadie.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
-          <Link to="/demo" className="inline-flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]">
-            Probar la demo sin registrarme <ArrowRight className="size-4" aria-hidden />
+          <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]">
+            Pruébalo gratis <ArrowRight className="size-4" aria-hidden />
           </Link>
-          <Link to="/login" className="inline-flex h-12 items-center rounded-xl px-5 text-base font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
-            Empezar
+          <Link to="/demo" className="inline-flex h-12 items-center rounded-xl px-5 text-base font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+            Ver la demo
           </Link>
         </div>
-        <p className="mt-4 text-sm text-slate-500">Sin permanencia. Sin tarjeta para probar.</p>
+        <p className="mt-4 text-sm text-slate-500">Empieza gratis, sin tarjeta. Sin permanencia.</p>
       </div>
       <div className="relative">
         <div className="absolute -inset-4 -z-10 rounded-3xl bg-gradient-to-tr from-indigo-50 to-transparent" aria-hidden />
@@ -344,7 +348,7 @@ function Pricing() {
           Un precio claro, sin "desde" ni letra pequeña
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
-          Candidatos y usuarios sin límite en todos los planes. Sin permanencia: te das de baja cuando quieras.
+          Empieza gratis y sube de plan cuando lo necesites. En los planes de pago, candidatos y usuarios sin límite y sin permanencia.
         </p>
       </Reveal>
 
@@ -413,7 +417,7 @@ function Pricing() {
       </div>
 
       <p className="mx-auto mt-8 max-w-2xl text-center text-[14px] leading-relaxed text-slate-500">
-        Todos los planes: candidatos y usuarios <strong className="font-semibold text-slate-700">sin límite</strong>, exportar a Excel y sin permanencia. Lo que ves es lo que pagas.
+        En los planes de pago: candidatos y usuarios <strong className="font-semibold text-slate-700">sin límite</strong>, exportar a Excel y sin permanencia. Lo que ves es lo que pagas.
       </p>
       </div>
     </section>
@@ -423,20 +427,19 @@ function Pricing() {
 function Faq() {
   const qs: [string, string][] = [
     ['¿Tengo que cambiar cómo pongo mi anuncio?', 'No. Sigues publicando en Milanuncios igual que ahora. Lo único que cambia es que, a quien te conteste, en vez de liarte en el chat le mandas un enlace.'],
-    ['¿Esto me trae gente nueva?', 'No, y queremos que lo sepas. La gente la sigue trayendo tu anuncio de Milanuncios. Lo que hace Apúntate Fácil es ordenar a los que te contestan para que no se te escape ninguno.'],
     ['¿No se irá la gente al ver el formulario?', 'Es un formulario corto, de un par de preguntas, pensado para el móvil. Se tarda menos en rellenarlo que en escribirte por el chat, así que normalmente termina más gente, no menos.'],
     ['¿Necesito saber de ordenadores?', 'No. Si sabes poner un anuncio en Milanuncios, sabes usar esto. Se deja listo en cinco minutos y lo puede usar cualquiera de tu equipo sin que tengas que explicárselo.'],
     ['¿Hay permanencia?', 'No hay permanencia. Pagas el mes y, si no te sirve, te das de baja cuando quieras con un clic. Sin llamadas, sin papeleo, sin retenerte.'],
     ['¿Mis datos son míos de verdad?', 'Sí. Toda la lista de personas que te escriben es tuya y te la descargas a Excel en cualquier momento. Si te vas, te lo llevas todo contigo.'],
     ['¿Hay costes ocultos o precios "desde"?', 'Ninguno. Son 150, 250 o 450 € al mes según el plan, con candidatos y usuarios sin límite, filtros y exportar a Excel. Lo que ves es lo que pagas. El IVA va aparte, como en cualquier factura.'],
-    ['¿Tengo que registrarme o poner tarjeta para probar?', 'No. Puedes entrar en la demo sin registrarte, con datos de ejemplo ya dentro, para que toques el producto antes de dar ningún dato ni la tarjeta.'],
+    ['¿Tengo que registrarme o poner tarjeta para probar?', 'No. Puedes entrar en la demo sin registrarte, con datos de ejemplo ya dentro, para tocar el producto antes de dar ningún dato. Y si te registras, empiezas gratis en el plan de Prueba: 1 puesto y hasta 15 candidatos, también sin tarjeta. Cuando lo necesites, subes de plan.'],
     ['¿Cómo me doy de alta?', 'Pones tu email y eliges una contraseña, o entras con un clic con tu cuenta de Google. Si te registras con email, te enviamos un correo para confirmar tu cuenta antes de entrar.'],
   ]
   return (
     <section id="faq" className="bg-white">
       <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:py-24">
         <Reveal>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Las dudas que tendrías tú, respondidas sin rodeos</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-[2rem]">Todo lo que necesitas saber antes de empezar</h2>
         </Reveal>
         <div className="mt-10 divide-y divide-slate-200 border-y border-slate-200 bg-white">
           {qs.map(([q, a], i) => (
@@ -460,7 +463,7 @@ function FinalCta() {
       <Reveal>
         <div className="overflow-hidden rounded-3xl bg-slate-900 px-8 py-14 text-center sm:px-16">
           <h2 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Pruébalo con tus propios anuncios y míralo funcionar
+            Míralo funcionar antes de registrarte
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-slate-300">
             No te pedimos que te fíes de una promesa. Entra, toca el panel con datos de ejemplo y compruébalo tú. Sin registro y sin tarjeta.
@@ -482,13 +485,13 @@ function FinalCta() {
 function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-6">
-        <div className="flex items-center gap-2">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-8 sm:grid sm:grid-cols-3 sm:items-center sm:px-6">
+        <div className="flex items-center gap-2 sm:justify-self-start">
           <Logo className="size-6" />
           <span className="text-sm font-bold tracking-tight">{BRAND}</span>
         </div>
-        <p className="order-last text-center text-[13px] text-slate-500 sm:order-none">{TAGLINE}</p>
-        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] text-slate-500">
+        <p className="order-last text-center text-[13px] text-slate-500 sm:order-none sm:justify-self-center">{TAGLINE}</p>
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] text-slate-500 sm:justify-self-end">
           <Link to="/privacidad" className="hover:text-slate-800">Privacidad</Link>
           <Link to="/terminos" className="hover:text-slate-800">Términos</Link>
           <Link to="/login" className="hover:text-slate-800">Entrar</Link>
