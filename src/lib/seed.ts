@@ -82,6 +82,16 @@ export const SEED_BRANDS: Brand[] = [
     logoPath: '/brand-demo/logo.png',
     bannerPath: '/brand-demo/banner.jpg',
   },
+  {
+    id: 'brand_logistica',
+    name: 'Empresa de logística',
+    accent: '#0f766e',
+    welcome: 'Gracias por tu interés. Cuéntanos un poco sobre ti y te llamamos pronto.',
+    thanks: 'Recibido. Revisamos tu candidatura y te contactamos. Gracias por escribirnos.',
+    showLogo: true,
+    logoPath: '/brand-demo/logo-2.png',
+    bannerPath: '/brand-demo/banner-2.jpg',
+  },
 ]
 
 const campaigns: Campaign[] = [
@@ -145,7 +155,7 @@ const campaigns: Campaign[] = [
   {
     id: 'cmp_mozo',
     siteId: 'site_ribarroja',
-    brandId: 'brand_atrium',
+    brandId: 'brand_logistica',
     slug: 'mozo-almacen-ribarroja',
     title: 'Mozo/a de almacén',
     sector: 'Logística',
