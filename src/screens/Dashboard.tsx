@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowUpDown,
   Bell,
@@ -13,17 +14,20 @@ import {
   Filter,
   Globe,
   Inbox,
+  Lock,
   PenLine,
   Plus,
   RefreshCw,
   Search,
   SearchX,
   Share2,
+  SlidersHorizontal,
   Star,
   Tag,
   Trash2,
   X,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
@@ -37,6 +41,7 @@ import { planHas, type PlanFeature } from '../lib/pricing'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAppBase } from '../lib/useAppBase'
 import { MaskedPhone } from '../components/MaskedPhone'
+import { PullToRefresh } from '../components/PullToRefresh'
 import { UpgradeDialog } from '../components/UpgradeDialog'
 import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
@@ -73,6 +78,7 @@ function numberFilterLabel(nf: NumberFilter): string {
 
 export function Dashboard() {
   const { campaignId } = useParams()
+  const [searchParams] = useSearchParams()
   const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen } = useStore()
   const { company, role } = useAuth()
   const toast = useToast()
@@ -100,6 +106,7 @@ export function Dashboard() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [saveViewOpen, setSaveViewOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false) // hoja de ajustes del puesto (móvil)
   // Feature avanzada que se intentó usar sin tenerla en el plan: abre el aviso.
   const [upgrade, setUpgrade] = useState<PlanFeature | null>(null)
 
@@ -107,7 +114,14 @@ export function Dashboard() {
   useEffect(() => {
     setLoading(true)
     setSearch('')
-    setStatusFilter(new Set())
+    // Filtro inicial por estado vía ?estado=nuevo (p. ej. al venir de la Vista
+    // general pulsando un puesto con candidatos nuevos). El estado queda editable
+    // como cualquier otro filtro; el chip "Estado: Nuevo" deja quitarlo.
+    const estado = searchParams.get('estado')
+    const initialEstado = estado && (STATUS_ORDER as readonly string[]).includes(estado)
+      ? (estado as CandidateStatus)
+      : null
+    setStatusFilter(initialEstado ? new Set([initialEstado]) : new Set())
     setValueFilters([])
     setNumberFilters([])
     setRatingFilter(0)
@@ -124,11 +138,16 @@ export function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId])
 
+  // Recarga los candidatos del puesto. La disparan el gesto de tirar para refrescar
+  // (móvil) y el botón Refrescar (escritorio). El guardado evita recargas solapadas.
   const refresh = async () => {
     if (!campaignId || refreshing) return
     setRefreshing(true)
-    await reloadCandidatesFor(campaignId)
-    setRefreshing(false)
+    try {
+      await reloadCandidatesFor(campaignId)
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   const all = useMemo(() => (campaign ? candidatesFor(campaign.id) : []), [campaign, candidatesFor])
@@ -270,89 +289,114 @@ export function Dashboard() {
   }
 
   return (
+    <PullToRefresh onRefresh={refresh}>
     <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8">
       {/* Cabecera del puesto */}
       <header className="mb-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl font-semibold text-slate-900">{campaign.title}</h1>
-              {campaign.status === 'pausada' && (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
-                  Pausado
-                </span>
-              )}
-            </div>
-            <p className="mt-0.5 text-sm text-slate-500">
-              {[campaign.sector, campaign.location].map((s) => s?.trim()).filter(Boolean).join(', ')}
-            </p>
-            {canManage && (
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <SiteSelect
-                  sites={sites}
-                  value={campaign.siteId}
-                  onChange={(siteId) => updateCampaign(campaign.id, { siteId })}
-                  base={base}
-                  locked={!hasSites}
-                  onLocked={() => setUpgrade('sites')}
-                />
-                <BrandSelect
-                  brands={brands}
-                  value={campaign.brandId}
-                  onChange={applyBrand}
-                  base={base}
-                  locked={!hasBrands}
-                  onLocked={() => setUpgrade('brands')}
-                />
-                <button
-                  type="button"
-                  onClick={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
-                  aria-pressed={campaign.notifyNew !== false}
-                  title={campaign.notifyNew !== false
-                    ? 'Recibes un email cada vez que entra un candidato nuevo. Toca para desactivarlo.'
-                    : 'No recibes emails de candidatos de este puesto. Toca para activarlo.'}
-                  className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium transition-colors ${
-                    campaign.notifyNew !== false
-                      ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      : 'bg-white text-slate-400 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  {campaign.notifyNew !== false
-                    ? <Bell className="size-3.5 text-slate-400" aria-hidden />
-                    : <BellOff className="size-3.5" aria-hidden />}
-                  {campaign.notifyNew !== false ? 'Avisos por email' : 'Avisos desactivados'}
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <button
-              onClick={refresh}
-              disabled={refreshing}
-              className={`${BTN_SECONDARY} disabled:opacity-60`}
-              title="Buscar candidatos nuevos"
-            >
-              <RefreshCw className={`size-4 text-slate-400 ${refreshing ? 'animate-spin' : ''}`} aria-hidden /> Refrescar
-            </button>
+        {/* Título + acciones en la MISMA línea (las acciones a la derecha con ml-auto).
+            En móvil las acciones son solo iconos; en sm+ recuperan su etiqueta. */}
+        <div className="flex items-center gap-2.5">
+          <h1 className="min-w-0 truncate text-xl font-semibold text-slate-900">{campaign.title}</h1>
+          {campaign.status === 'pausada' && (
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
+              Pausado
+            </span>
+          )}
+          <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
+            {/* Solo escritorio: en móvil se refresca tirando hacia abajo (PullToRefresh).
+                El wrapper controla la visibilidad para no chocar con el inline-flex del botón. */}
+            <span className="hidden sm:contents">
+              <button
+                onClick={refresh}
+                disabled={refreshing}
+                className={`${BTN_SECONDARY} disabled:opacity-60`}
+                title="Refrescar candidatos"
+                aria-label="Refrescar candidatos"
+              >
+                <RefreshCw className={`size-4 text-slate-400 ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
+                Refrescar
+              </button>
+            </span>
+            {/* En móvil son dos cuadrados iguales (solo icono); en sm+ recuperan
+                su etiqueta. max-sm: evita el choque con el padding de los BTN_*. */}
             <button
               onClick={copyLink}
-              className={BTN_SECONDARY}
+              className={`${BTN_SECONDARY} max-sm:size-9 max-sm:p-0`}
+              title="Compartir enlace"
+              aria-label="Compartir enlace"
             >
-              <Share2 className="size-4 text-slate-400" aria-hidden /> Compartir enlace
+              <Share2 className="size-4 text-slate-400" aria-hidden />
+              <span className="hidden sm:inline">Compartir enlace</span>
             </button>
             {canManage && (
               <Link
                 to={`${base}/puestos/${campaign.id}/formulario`}
-                className={BTN_PRIMARY}
+                className={`${BTN_PRIMARY} max-sm:size-9 max-sm:p-0`}
+                title="Editar formulario"
+                aria-label="Editar formulario"
               >
-                <PenLine className="size-4 text-indigo-200" aria-hidden /> Editar formulario
+                <PenLine className="size-4 text-indigo-200" aria-hidden />
+                <span className="hidden sm:inline">Editar formulario</span>
               </Link>
             )}
           </div>
         </div>
+        <p className="mt-0.5 text-sm text-slate-500">
+          {[campaign.sector, campaign.location].map((s) => s?.trim()).filter(Boolean).join(', ')}
+        </p>
+        {canManage && (
+          <>
+            {/* Escritorio: pills de sede, marca y avisos en línea (caben de sobra) */}
+            <div className="mt-2 hidden flex-wrap items-center gap-2 sm:flex">
+              <SiteSelect
+                sites={sites}
+                value={campaign.siteId}
+                onChange={(siteId) => updateCampaign(campaign.id, { siteId })}
+                base={base}
+                locked={!hasSites}
+                onLocked={() => setUpgrade('sites')}
+              />
+              <BrandSelect
+                brands={brands}
+                value={campaign.brandId}
+                onChange={applyBrand}
+                base={base}
+                locked={!hasBrands}
+                onLocked={() => setUpgrade('brands')}
+              />
+              <button
+                type="button"
+                onClick={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
+                aria-pressed={campaign.notifyNew !== false}
+                title={campaign.notifyNew !== false
+                  ? 'Recibes un email cada vez que entra un candidato nuevo. Toca para desactivarlo.'
+                  : 'No recibes emails de candidatos de este puesto. Toca para activarlo.'}
+                className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium transition-colors ${
+                  campaign.notifyNew !== false
+                    ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    : 'bg-white text-slate-400 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {campaign.notifyNew !== false
+                  ? <Bell className="size-3.5 text-slate-400" aria-hidden />
+                  : <BellOff className="size-3.5" aria-hidden />}
+                {campaign.notifyNew !== false ? 'Avisos por email' : 'Avisos desactivados'}
+              </button>
+            </div>
+            {/* Móvil: un solo acceso que agrupa sede, marca y avisos en una hoja */}
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-200 sm:hidden"
+            >
+              <SlidersHorizontal className="size-3.5 text-slate-400" aria-hidden /> Ajustes del puesto
+            </button>
+          </>
+        )}
       </header>
 
-      {/* Resumen de estados */}
+      {/* Resumen de estados. Oculto en móvil (poco esencial y come pantalla); el
+          filtro por estado sigue disponible en el menú Filtros. */}
       <StatusSummary all={all} statusFilter={statusFilter} onToggle={(s) => {
         setStatusFilter((prev) => {
           const next = new Set(prev)
@@ -363,7 +407,7 @@ export function Dashboard() {
 
       {/* Barra de filtros */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] flex-1">
+        <div className="relative w-full sm:min-w-[200px] sm:flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
           <input
             type="search"
@@ -375,35 +419,39 @@ export function Dashboard() {
           />
         </div>
 
-        <FilterMenu
-          campaign={campaign}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          valueFilters={valueFilters}
-          setValueFilters={setValueFilters}
-          numberFilters={numberFilters}
-          setNumberFilters={setNumberFilters}
-          numberDomains={numberDomains}
-          ratingFilter={ratingFilter}
-          setRatingFilter={setRatingFilter}
-          count={activeFilterCount}
-        />
-
-        {canViews ? (
-          <SavedViewsMenu
-            views={myViews}
-            onApply={applyView}
-            onDelete={deleteSavedView}
-            onSave={() => setSaveViewOpen(true)}
-            canSave={canSaveView}
+        {/* Acciones: en móvil reparten el ancho de la fila a partes iguales (limpio,
+            sin huecos). En sm+ recuperan su tamaño natural y se alinean a la derecha.
+            [&>*] = el wrapper de cada control; [&>*>button] = solo su botón disparador
+            (no los botones internos de los desplegables). */}
+        <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none [&>*>button]:w-full sm:[&>*>button]:w-auto">
+          <FilterMenu
+            campaign={campaign}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+            valueFilters={valueFilters}
+            setValueFilters={setValueFilters}
+            numberFilters={numberFilters}
+            setNumberFilters={setNumberFilters}
+            numberDomains={numberDomains}
+            ratingFilter={ratingFilter}
+            setRatingFilter={setRatingFilter}
+            count={activeFilterCount}
           />
-        ) : (
-          <button onClick={() => setUpgrade('savedViews')} className={BTN_SECONDARY}>
-            <Bookmark className="size-4 text-slate-400" aria-hidden /> Vistas
-          </button>
-        )}
 
-        <div className="ml-auto">
+          {canViews ? (
+            <SavedViewsMenu
+              views={myViews}
+              onApply={applyView}
+              onDelete={deleteSavedView}
+              onSave={() => setSaveViewOpen(true)}
+              canSave={canSaveView}
+            />
+          ) : (
+            <button onClick={() => setUpgrade('savedViews')} className={`${BTN_SECONDARY} w-full sm:w-auto`}>
+              <Bookmark className="size-4 text-slate-400" aria-hidden /> Vistas
+            </button>
+          )}
+
           <ExportButton count={filtered.length} total={all.length} onExport={doExport} />
         </div>
       </div>
@@ -504,7 +552,25 @@ export function Dashboard() {
       {upgrade && (
         <UpgradeDialog open feature={upgrade} onClose={() => setUpgrade(null)} />
       )}
+
+      {canManage && (
+        <PuestoSettingsSheet
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          campaign={campaign}
+          sites={sites}
+          brands={brands}
+          hasSites={hasSites}
+          hasBrands={hasBrands}
+          base={base}
+          onSetSite={(siteId) => updateCampaign(campaign.id, { siteId })}
+          onSetBrand={applyBrand}
+          onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
+          onUpgrade={setUpgrade}
+        />
+      )}
     </div>
+    </PullToRefresh>
   )
 }
 
@@ -520,7 +586,8 @@ function StatusSummary({
 }) {
   const counts = STATUS_ORDER.map((s) => ({ s, n: all.filter((c) => c.status === s).length }))
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+    // Solo escritorio: en móvil se oculta (el filtro por estado vive en Filtros).
+    <div className="hidden gap-2 sm:grid sm:grid-cols-3 lg:grid-cols-5">
       {counts.map(({ s, n }) => {
         const active = statusFilter.has(s)
         const m = STATUS_META[s]
@@ -594,7 +661,48 @@ function CandidateTable({
   )
 
   return (
-    <div className="overflow-x-auto">
+    <>
+      {/* --- Vista móvil: tarjetas (< md) --- */}
+      <ul className="divide-y divide-slate-100 md:hidden" aria-label={`Candidatos de ${campaign.title}`}>
+        {rows.map((c) => {
+          const name = answerStr(c, 'nombre') || 'Sin nombre'
+          const phone = answerStr(c, 'telefono')
+          const m = STATUS_META[c.status]
+          return (
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => onOpen(c.id)}
+                className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-slate-50"
+              >
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-[13px] font-bold text-slate-600">
+                  {initials(name)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-medium text-slate-900">{name}</p>
+                  {phone && (
+                    <p className="mt-0.5 truncate text-sm text-slate-500 tabular-nums">
+                      {maskPhone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone)}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ring-1 ring-inset ${m.chip}`}>
+                    <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
+                    {m.label}
+                  </span>
+                  <time dateTime={c.submittedAt} className="text-[11px] text-slate-400 tabular-nums">
+                    {relativeDate(c.submittedAt)}
+                  </time>
+                </div>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+
+      {/* --- Vista escritorio: tabla (md+) --- */}
+      <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[680px] border-collapse">
         <caption className="sr-only">Candidatos de {campaign.title}</caption>
         <thead>
@@ -675,7 +783,8 @@ function CandidateTable({
           })}
         </tbody>
       </table>
-    </div>
+      </div>
+    </>
   )
 }
 
@@ -782,6 +891,106 @@ function FilterMenu({
     })
   }
 
+  // Limpia solo los filtros (no la búsqueda); lo usa el pie de la hoja en móvil.
+  const clearAll = () => {
+    setStatusFilter(new Set())
+    setValueFilters([])
+    setNumberFilters([])
+    setRatingFilter(0)
+  }
+
+  // Controles compartidos por el desplegable de escritorio y la hoja inferior de
+  // móvil. Las filas son cómodas al tacto (≥44px) en móvil y compactas en sm+.
+  const rowClass =
+    'flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2.5 text-[15px] text-slate-700 hover:bg-slate-50 sm:gap-2 sm:px-1.5 sm:py-1 sm:text-sm'
+  const checkClass = 'size-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 sm:size-4'
+  const controls = (
+    <>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Estado</p>
+      <div className="mb-4 space-y-0.5 sm:mb-3">
+        {STATUS_ORDER.map((s) => (
+          <label key={s} className={rowClass}>
+            <input
+              type="checkbox"
+              checked={statusFilter.has(s)}
+              onChange={() =>
+                setStatusFilter((p) => {
+                  const n = new Set(p)
+                  n.has(s) ? n.delete(s) : n.add(s)
+                  return n
+                })
+              }
+              className={checkClass}
+            />
+            <span className={`size-2 rounded-full ${STATUS_META[s].dot}`} aria-hidden />
+            {STATUS_META[s].label}
+          </label>
+        ))}
+      </div>
+
+      {filterableFields(campaign).map((f) => (
+        <div key={f.id} className="mb-4 sm:mb-3">
+          <p id={`flt-${f.id}`} className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{f.label}</p>
+          <div role="group" aria-labelledby={`flt-${f.id}`} className="space-y-0.5">
+            {(f.type === 'boolean' ? ['Sí', 'No'] : f.options ?? []).map((opt) => (
+              <label key={opt} className={rowClass}>
+                <input
+                  type="checkbox"
+                  checked={hasValue(f.id, opt)}
+                  onChange={() => toggleValue(f, opt)}
+                  className={checkClass}
+                />
+                {opt}
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {numberFields(campaign).map((f) => {
+        const dom = numberDomains[f.id]
+        if (!dom) return null // sin rango útil (sin datos o todos iguales): no hay slider
+        const [lo, hi] = dom
+        const nf = numFor(f.id)
+        const from = nf?.min ?? lo
+        const to = nf?.max ?? hi
+        return (
+          <div key={f.id} className="mb-4 sm:mb-3">
+            <div className="mb-2 flex items-baseline justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{f.label}</p>
+              <span className="text-[12px] font-medium tabular-nums text-slate-600">{from} – {to}</span>
+            </div>
+            <RangeSlider min={lo} max={hi} from={from} to={to} onChange={(nFrom, nTo) => setRange(f, lo, hi, nFrom, nTo)} />
+          </div>
+        )
+      })}
+
+      <div>
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Valoración mínima</p>
+        <div className="flex gap-0.5" role="group" aria-label="Filtrar por valoración mínima">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setRatingFilter(ratingFilter === n ? 0 : n)}
+              aria-label={`${n} estrella${n > 1 ? 's' : ''} o más`}
+              aria-pressed={ratingFilter >= n}
+              className="rounded-md p-1.5 text-slate-300 transition-colors hover:text-amber-400 sm:p-0.5"
+            >
+              <Star
+                className={`size-7 sm:size-5 ${ratingFilter >= n ? 'fill-amber-400 text-amber-400' : ''}`}
+                aria-hidden
+              />
+            </button>
+          ))}
+        </div>
+        {ratingFilter > 0 && (
+          <p className="mt-1 text-[12px] text-slate-400">{ratingFilter} estrella{ratingFilter > 1 ? 's' : ''} o más</p>
+        )}
+      </div>
+    </>
+  )
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -792,92 +1001,56 @@ function FilterMenu({
         <Filter className="size-4 text-slate-400" aria-hidden /> Filtros
         {count > 0 && <span className="rounded-full bg-indigo-600 px-1.5 text-[11px] font-bold text-white tabular-nums">{count}</span>}
       </button>
+
+      {/* Escritorio: desplegable anclado al botón */}
       {open && (
-        <div className="absolute left-0 z-50 mt-1 max-h-[60vh] w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-pop">
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Estado</p>
-          <div className="mb-3 space-y-0.5">
-            {STATUS_ORDER.map((s) => (
-              <label key={s} className="flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1 text-sm text-slate-700 hover:bg-slate-50">
-                <input
-                  type="checkbox"
-                  checked={statusFilter.has(s)}
-                  onChange={() =>
-                    setStatusFilter((p) => {
-                      const n = new Set(p)
-                      n.has(s) ? n.delete(s) : n.add(s)
-                      return n
-                    })
-                  }
-                  className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className={`size-2 rounded-full ${STATUS_META[s].dot}`} aria-hidden />
-                {STATUS_META[s].label}
-              </label>
-            ))}
-          </div>
-
-          {filterableFields(campaign).map((f) => (
-            <div key={f.id} className="mb-3">
-              <p id={`flt-${f.id}`} className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{f.label}</p>
-              <div role="group" aria-labelledby={`flt-${f.id}`} className="space-y-0.5">
-                {(f.type === 'boolean' ? ['Sí', 'No'] : f.options ?? []).map((opt) => (
-                  <label key={opt} className="flex cursor-pointer items-center gap-2 rounded-lg px-1.5 py-1 text-sm text-slate-700 hover:bg-slate-50">
-                    <input
-                      type="checkbox"
-                      checked={hasValue(f.id, opt)}
-                      onChange={() => toggleValue(f, opt)}
-                      className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    {opt}
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {numberFields(campaign).map((f) => {
-            const dom = numberDomains[f.id]
-            if (!dom) return null // sin rango útil (sin datos o todos iguales): no hay slider
-            const [lo, hi] = dom
-            const nf = numFor(f.id)
-            const from = nf?.min ?? lo
-            const to = nf?.max ?? hi
-            return (
-              <div key={f.id} className="mb-3">
-                <div className="mb-2 flex items-baseline justify-between">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{f.label}</p>
-                  <span className="text-[12px] font-medium tabular-nums text-slate-600">{from} – {to}</span>
-                </div>
-                <RangeSlider min={lo} max={hi} from={from} to={to} onChange={(nFrom, nTo) => setRange(f, lo, hi, nFrom, nTo)} />
-              </div>
-            )
-          })}
-
-          <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Valoración mínima</p>
-            <div className="flex gap-0.5" role="group" aria-label="Filtrar por valoración mínima">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setRatingFilter(ratingFilter === n ? 0 : n)}
-                  aria-label={`${n} estrella${n > 1 ? 's' : ''} o más`}
-                  aria-pressed={ratingFilter >= n}
-                  className="rounded-md p-0.5 text-slate-300 transition-colors hover:text-amber-400"
-                >
-                  <Star
-                    className={`size-5 ${ratingFilter >= n ? 'fill-amber-400 text-amber-400' : ''}`}
-                    aria-hidden
-                  />
-                </button>
-              ))}
-            </div>
-            {ratingFilter > 0 && (
-              <p className="mt-1 text-[12px] text-slate-400">{ratingFilter} estrella{ratingFilter > 1 ? 's' : ''} o más</p>
-            )}
-          </div>
+        <div className="absolute left-0 z-50 mt-1 hidden max-h-[60vh] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-pop sm:block">
+          {controls}
         </div>
       )}
+
+      {/* Móvil: hoja inferior que sube desde abajo, al estilo nativo */}
+      <AnimatePresence>
+        {open && (
+          <div className="fixed inset-0 z-50 sm:hidden" role="dialog" aria-modal="true" aria-label="Filtros">
+            <motion.div
+              className="absolute inset-0 bg-slate-900/40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => setOpen(false)}
+            />
+            <motion.div
+              className="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-2xl bg-white shadow-pop"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <p className="text-base font-semibold text-slate-900">Filtros</p>
+                <button
+                  onClick={() => setOpen(false)}
+                  aria-label="Cerrar filtros"
+                  className="-mr-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <X className="size-5" aria-hidden />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3">{controls}</div>
+              <div className="flex items-center gap-2 border-t border-slate-200 px-4 py-3">
+                <button onClick={clearAll} disabled={count === 0} className={`${BTN_SECONDARY} flex-1 disabled:opacity-50`}>
+                  Limpiar
+                </button>
+                <button onClick={() => setOpen(false)} className={`${BTN_PRIMARY} flex-1`}>
+                  Ver resultados
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -961,8 +1134,8 @@ function EmptyFirstUse({ publicUrl, onCopy }: { publicUrl: string; onCopy: () =>
         Comparte el enlace del formulario para empezar a recibir respuestas. Cada respuesta entra aquí automáticamente.
       </p>
       <div className="mt-4 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-3.5 pr-1.5">
-        <span className="text-sm text-slate-500">{publicUrl}</span>
-        <button onClick={onCopy} className={BTN_PRIMARY_SM}>
+        <span className="min-w-0 flex-1 truncate text-sm text-slate-500">{publicUrl}</span>
+        <button onClick={onCopy} className={`${BTN_PRIMARY_SM} shrink-0`}>
           Copiar enlace
         </button>
       </div>
@@ -1020,6 +1193,44 @@ function SavedViewsMenu({
     }
   }, [open])
 
+  // Lista de vistas compartida por el desplegable de escritorio y la hoja de móvil.
+  // En móvil las filas son cómodas al tacto y el botón de borrar SIEMPRE se ve (en
+  // táctil no hay hover); en sm+ se mantiene el borrar que aparece al pasar el ratón.
+  const list =
+    views.length === 0 ? (
+      <p className="px-2.5 py-2 text-[13px] text-slate-500">
+        Aún no has guardado ninguna vista. Filtra como quieras y guarda la combinación.
+      </p>
+    ) : (
+      <ul className="max-h-[60vh] space-y-0.5 overflow-y-auto sm:max-h-[40vh]">
+        {views.map((v) => (
+          <li key={v.id} className="group flex items-center gap-1 rounded-lg hover:bg-slate-50">
+            <button
+              onClick={() => {
+                onApply(v)
+                setOpen(false)
+              }}
+              className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-3 text-left text-[15px] text-slate-700 sm:gap-2 sm:py-1.5 sm:text-sm"
+            >
+              {v.campaignId === null ? (
+                <Globe className="size-4 shrink-0 text-slate-400 sm:size-3.5" aria-hidden />
+              ) : (
+                <Briefcase className="size-4 shrink-0 text-slate-400 sm:size-3.5" aria-hidden />
+              )}
+              <span className="truncate">{v.name}</span>
+            </button>
+            <button
+              onClick={() => onDelete(v.id)}
+              aria-label={`Eliminar vista ${v.name}`}
+              className="mr-1 grid size-9 shrink-0 place-items-center rounded-md text-slate-400 opacity-100 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
+            >
+              <Trash2 className="size-4 sm:size-3.5" aria-hidden />
+            </button>
+          </li>
+        ))}
+      </ul>
+    )
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -1032,41 +1243,11 @@ function SavedViewsMenu({
           <span className="rounded-full bg-slate-100 px-1.5 text-[11px] font-bold tabular-nums text-slate-500">{views.length}</span>
         )}
       </button>
+
+      {/* Escritorio: desplegable anclado al botón */}
       {open && (
-        <div className="absolute left-0 z-50 mt-1 w-72 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-pop">
-          {views.length === 0 ? (
-            <p className="px-2.5 py-2 text-[13px] text-slate-500">
-              Aún no has guardado ninguna vista. Filtra como quieras y guarda la combinación.
-            </p>
-          ) : (
-            <ul className="max-h-[40vh] space-y-0.5 overflow-y-auto">
-              {views.map((v) => (
-                <li key={v.id} className="group flex items-center gap-1 rounded-lg hover:bg-slate-50">
-                  <button
-                    onClick={() => {
-                      onApply(v)
-                      setOpen(false)
-                    }}
-                    className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-left text-sm text-slate-700"
-                  >
-                    {v.campaignId === null ? (
-                      <Globe className="size-3.5 shrink-0 text-slate-400" aria-hidden />
-                    ) : (
-                      <Briefcase className="size-3.5 shrink-0 text-slate-400" aria-hidden />
-                    )}
-                    <span className="truncate">{v.name}</span>
-                  </button>
-                  <button
-                    onClick={() => onDelete(v.id)}
-                    aria-label={`Eliminar vista ${v.name}`}
-                    className="mr-1 grid size-7 shrink-0 place-items-center rounded-md text-slate-400 opacity-0 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 group-hover:opacity-100"
-                  >
-                    <Trash2 className="size-3.5" aria-hidden />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+        <div className="absolute left-0 z-50 mt-1 hidden w-72 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-pop sm:block">
+          {list}
           <div className="mt-1 border-t border-slate-100 pt-1">
             <button
               onClick={() => {
@@ -1084,6 +1265,56 @@ function SavedViewsMenu({
           </div>
         </div>
       )}
+
+      {/* Móvil: hoja inferior que sube desde abajo, igual que Filtros */}
+      <AnimatePresence>
+        {open && (
+          <div className="fixed inset-0 z-50 sm:hidden" role="dialog" aria-modal="true" aria-label="Vistas guardadas">
+            <motion.div
+              className="absolute inset-0 bg-slate-900/40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => setOpen(false)}
+            />
+            <motion.div
+              className="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-2xl bg-white shadow-pop"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <p className="text-base font-semibold text-slate-900">Vistas</p>
+                <button
+                  onClick={() => setOpen(false)}
+                  aria-label="Cerrar vistas"
+                  className="-mr-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <X className="size-5" aria-hidden />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto overscroll-contain px-2 py-2">{list}</div>
+              <div className="border-t border-slate-200 px-4 py-3">
+                <button
+                  onClick={() => {
+                    setOpen(false)
+                    onSave()
+                  }}
+                  disabled={!canSave}
+                  className={`${BTN_PRIMARY} w-full disabled:opacity-50`}
+                >
+                  <Plus className="size-4" aria-hidden /> Guardar vista actual
+                </button>
+                {!canSave && (
+                  <p className="mt-2 text-center text-[12px] text-slate-400">Aplica un filtro o una búsqueda para poder guardarla.</p>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -1363,5 +1594,169 @@ function BrandSelect({
         </ul>
       )}
     </div>
+  )
+}
+
+// --- Ajustes del puesto (hoja inferior, solo móvil) ------------------------
+// Agrupa sede, marca y avisos en una hoja para no romper la cabecera con pills
+// que no caben en una línea. Las opciones se eligen como chips (no desplegables
+// anidados, que se recortarían dentro del scroll de la hoja).
+function SettingSwitch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onChange}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${checked ? 'bg-indigo-600' : 'bg-slate-300'}`}
+    >
+      <span className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+    </button>
+  )
+}
+
+function SettingChip({ selected, onClick, label, dot, Icon }: { selected: boolean; onClick: () => void; label: string; dot?: string; Icon?: LucideIcon }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-medium transition-colors ${
+        selected ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+      }`}
+    >
+      {dot !== undefined ? (
+        <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: dot }} aria-hidden />
+      ) : Icon ? (
+        <Icon className={`size-3.5 shrink-0 ${selected ? 'text-indigo-500' : 'text-slate-400'}`} aria-hidden />
+      ) : null}
+      <span className="truncate">{label}</span>
+      {selected && <Check className="size-3.5 shrink-0" aria-hidden />}
+    </button>
+  )
+}
+
+function LockedSetting({ onClick, text }: { onClick: () => void; text: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left text-[13px] text-slate-600 hover:bg-slate-100"
+    >
+      <Lock className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+      <span className="flex-1">{text}</span>
+      <span className="shrink-0 font-semibold text-indigo-700">Ver planes</span>
+    </button>
+  )
+}
+
+function PuestoSettingsSheet({
+  open,
+  onClose,
+  campaign,
+  sites,
+  brands,
+  hasSites,
+  hasBrands,
+  base,
+  onSetSite,
+  onSetBrand,
+  onToggleNotify,
+  onUpgrade,
+}: {
+  open: boolean
+  onClose: () => void
+  campaign: Campaign
+  sites: Site[]
+  brands: Brand[]
+  hasSites: boolean
+  hasBrands: boolean
+  base: string
+  onSetSite: (siteId: string | null) => void
+  onSetBrand: (brandId: string | null) => void
+  onToggleNotify: () => void
+  onUpgrade: (f: PlanFeature) => void
+}) {
+  const notify = campaign.notifyNew !== false
+  return (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 sm:hidden" role="dialog" aria-modal="true" aria-label="Ajustes del puesto">
+          <motion.div
+            className="absolute inset-0 bg-slate-900/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={onClose}
+          />
+          <motion.div
+            className="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-2xl bg-white shadow-pop"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <p className="text-base font-semibold text-slate-900">Ajustes del puesto</p>
+              <button
+                onClick={onClose}
+                aria-label="Cerrar ajustes"
+                className="-mr-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="size-5" aria-hidden />
+              </button>
+            </div>
+            <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4">
+              <section>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Sede</p>
+                {hasSites ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <SettingChip selected={!campaign.siteId} onClick={() => onSetSite(null)} label="Sin sede" Icon={Building2} />
+                      {sites.map((s) => (
+                        <SettingChip key={s.id} selected={campaign.siteId === s.id} onClick={() => onSetSite(s.id)} label={s.name} Icon={Building2} />
+                      ))}
+                    </div>
+                    <Link to={`${base}/sedes`} onClick={onClose} className="mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700">
+                      <Plus className="size-3.5" aria-hidden /> Gestionar sedes
+                    </Link>
+                  </>
+                ) : (
+                  <LockedSetting onClick={() => { onUpgrade('sites'); onClose() }} text="Organiza tus puestos por sede con el plan Multi." />
+                )}
+              </section>
+
+              <section>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Marca</p>
+                {hasBrands ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      <SettingChip selected={!campaign.brandId} onClick={() => onSetBrand(null)} label="Sin marca" Icon={Tag} />
+                      {brands.map((b) => (
+                        <SettingChip key={b.id} selected={campaign.brandId === b.id} onClick={() => onSetBrand(b.id)} label={b.name} dot={b.accent} />
+                      ))}
+                    </div>
+                    <Link to={`${base}/marcas`} onClick={onClose} className="mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700">
+                      <Plus className="size-3.5" aria-hidden /> Gestionar marcas
+                    </Link>
+                  </>
+                ) : (
+                  <LockedSetting onClick={() => { onUpgrade('brands'); onClose() }} text="Aplica la identidad de tus marcas con el plan Multi." />
+                )}
+              </section>
+
+              <section className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3.5 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800">Avisos por email</p>
+                  <p className="mt-0.5 text-[12px] leading-relaxed text-slate-500">Te avisamos cuando entra un candidato nuevo en este puesto.</p>
+                </div>
+                <SettingSwitch checked={notify} onChange={onToggleNotify} label="Avisos por email" />
+              </section>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   )
 }

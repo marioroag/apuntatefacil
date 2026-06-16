@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Briefcase, Building2 } from 'lucide-react'
+import { Briefcase, Building2, ChevronRight } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
@@ -108,31 +108,61 @@ function SedeCard({ group, base, newCountFor }: { group: Group; base: string; ne
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2.5">
+      {/* Móvil: lista vertical, las etiquetas tienen ancho y no se parten en 3 líneas */}
+      <div className="mt-4 space-y-1.5 sm:hidden">
+        <StatRow n={group.nuevos} label="Nuevos sin revisar" />
+        <StatRow n={group.stale} label={`Sin contactar +${STALE_DAYS} días`} />
+        <StatRow n={group.contratados} label="Contratados" />
+      </div>
+      {/* sm+: tres columnas (caben de sobra) */}
+      <div className="mt-4 hidden grid-cols-3 gap-2.5 sm:grid">
         <Stat n={group.nuevos} label="Nuevos sin revisar" />
         <Stat n={group.stale} label={`Sin contactar +${STALE_DAYS}d`} />
         <Stat n={group.contratados} label="Contratados" />
       </div>
 
       {group.camps.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {group.camps.map((c) => {
-            const n = newCountFor(c.id)
-            return (
-              <Link
-                key={c.id}
-                to={`${base}/puestos/${c.id}`}
-                className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
-              >
-                <Briefcase className="size-3.5 shrink-0 text-slate-400" aria-hidden />
-                <span className="max-w-[160px] truncate">{c.title}</span>
-                {n > 0 && (
-                  <span className="rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700">{n}</span>
-                )}
-              </Link>
-            )
-          })}
-        </div>
+        <>
+          {/* Móvil: filas a ancho completo, aprovechan el espacio y se leen mejor */}
+          <div className="mt-4 space-y-1 sm:hidden">
+            {group.camps.map((c) => {
+              const n = newCountFor(c.id)
+              return (
+                <Link
+                  key={c.id}
+                  to={`${base}/puestos/${c.id}${n > 0 ? '?estado=nuevo' : ''}`}
+                  className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5 transition-colors active:bg-slate-100"
+                >
+                  <Briefcase className="size-4 shrink-0 text-slate-400" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{c.title}</span>
+                  {n > 0 && (
+                    <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700">{n}</span>
+                  )}
+                  <ChevronRight className="size-4 shrink-0 text-slate-300" aria-hidden />
+                </Link>
+              )
+            })}
+          </div>
+          {/* sm+: pills */}
+          <div className="mt-4 hidden flex-wrap gap-1.5 sm:flex">
+            {group.camps.map((c) => {
+              const n = newCountFor(c.id)
+              return (
+                <Link
+                  key={c.id}
+                  to={`${base}/puestos/${c.id}${n > 0 ? '?estado=nuevo' : ''}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
+                >
+                  <Briefcase className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+                  <span className="max-w-[160px] truncate">{c.title}</span>
+                  {n > 0 && (
+                    <span className="rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700">{n}</span>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )
@@ -143,6 +173,17 @@ function Stat({ n, label }: { n: number; label: string }) {
     <div className="rounded-lg bg-slate-50 px-3 py-2.5">
       <p className="text-2xl font-semibold tabular-nums text-slate-900">{n}</p>
       <p className="mt-0.5 text-[12px] leading-tight text-slate-500">{label}</p>
+    </div>
+  )
+}
+
+// Versión móvil: número y etiqueta en una fila, así la etiqueta dispone de todo
+// el ancho y no se rompe en varias líneas como en la rejilla de tres columnas.
+function StatRow({ n, label }: { n: number; label: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg bg-slate-50 px-3.5 py-2">
+      <span className="w-9 shrink-0 text-2xl font-semibold tabular-nums text-slate-900">{n}</span>
+      <span className="text-[13px] text-slate-600">{label}</span>
     </div>
   )
 }

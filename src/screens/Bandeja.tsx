@@ -64,7 +64,39 @@ export function Bandeja() {
             {nuevos.length} {nuevos.length === 1 ? 'candidato nuevo' : 'candidatos nuevos'} sin revisar
           </p>
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
-            <div className="overflow-x-auto">
+            {/* Móvil: tarjetas (sin scroll horizontal, sin truncar el puesto) */}
+            <ul className="divide-y divide-slate-100 md:hidden" aria-label="Candidatos nuevos de todos los puestos">
+              {nuevos.map((c) => {
+                const camp = getCampaign(c.campaignId)
+                const name = answer(c, 'nombre') || 'Sin nombre'
+                return (
+                  <li key={c.id}>
+                    <button
+                      onClick={() => setOpenId(c.id)}
+                      className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-slate-50"
+                    >
+                      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-[13px] font-bold text-slate-600">
+                        {initials(name)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[15px] font-medium text-slate-900">{name}</p>
+                        {camp && (
+                          <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-1.5 pr-2 text-[12px] font-medium text-slate-600">
+                            <Briefcase className="size-3 shrink-0 text-slate-400" aria-hidden />
+                            <span className="truncate">{camp.title}</span>
+                          </span>
+                        )}
+                      </div>
+                      <time dateTime={c.submittedAt} className="shrink-0 text-[12px] text-slate-400 tabular-nums">
+                        {relativeDate(c.submittedAt)}
+                      </time>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+            {/* Escritorio: tabla */}
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[680px] border-collapse">
                 <caption className="sr-only">Candidatos nuevos de todos los puestos</caption>
                 <thead>

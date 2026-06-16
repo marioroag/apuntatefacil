@@ -65,6 +65,27 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Quita la apariencia nativa de los campos de texto. Safari/iOS les pone su
+     propio estilo (forma de píldora + sombra interior) que ignora el borde y el
+     radio del diseño; con esto manda nuestro rounded-xl + borde slate, coherente
+     en toda la app. No tocamos checkbox/radio/range/color/file/date (necesitan su
+     apariencia nativa para verse o abrir su selector). */
+  input:not([type]),
+  input[type='text'],
+  input[type='email'],
+  input[type='tel'],
+  input[type='url'],
+  input[type='password'],
+  input[type='search'],
+  textarea {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input[type='search']::-webkit-search-decoration,
+  input[type='search']::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+  }
+
   /* Inputs numéricos sin flechas de spinner: se renderizan como campo de texto
      (no las ocultamos, el control directamente no existe). */
   input[type='number'] {

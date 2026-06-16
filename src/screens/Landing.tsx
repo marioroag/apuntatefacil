@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import brandMark from '../assets/brand-mark.png'
 import {
   ArrowRight, Check, FileSpreadsheet, Filter, Infinity as InfinityIcon,
   Link2, ListChecks, Megaphone, Menu, PhoneCall, Sliders, X,
 } from 'lucide-react'
-import { Logo } from '../components/Logo'
 import { BrowserMock } from '../components/BrowserMock'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { TIERS } from '../lib/pricing'
@@ -47,6 +47,22 @@ export function Landing() {
   )
 }
 
+// Lockup de marca de la landing: mark bicolor + "Apúntate" en tinta / "Fácil" en
+// índigo. Solo en la landing; el resto de la app sigue usando <Logo/>.
+function BrandLockup({ compact = false }: { compact?: boolean }) {
+  const markSize = compact ? 'size-7' : 'size-9'
+  const textSize = compact ? 'text-sm' : 'text-[18px]'
+  return (
+    <span className="flex items-center gap-2">
+      <img src={brandMark} alt="" className={`${markSize} shrink-0 object-contain`} />
+      <span className={`${textSize} font-bold tracking-tight`}>
+        <span className="text-slate-900">Apúntate </span>
+        <span className="text-indigo-600">Fácil</span>
+      </span>
+    </span>
+  )
+}
+
 function SkipLink() {
   return (
     <a href="#contenido" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-indigo-600 focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white">
@@ -66,9 +82,8 @@ function TopNav() {
     <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6" aria-label="Principal">
         <div className="flex items-center gap-6">
-          <Link to="/" className="flex items-center gap-2">
-            <Logo className="size-8" />
-            <span className="text-[17px] font-bold tracking-tight">{BRAND}</span>
+          <Link to="/" className="flex items-center" aria-label={BRAND}>
+            <BrandLockup />
           </Link>
           <div className="hidden items-center gap-1 md:flex">
             {links.map(([label, href]) => (
@@ -491,9 +506,8 @@ function Footer() {
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-8 sm:grid sm:grid-cols-3 sm:items-center sm:px-6">
-        <div className="flex items-center gap-2 sm:justify-self-start">
-          <Logo className="size-6" />
-          <span className="text-sm font-bold tracking-tight">{BRAND}</span>
+        <div className="sm:justify-self-start">
+          <BrandLockup compact />
         </div>
         <p className="order-last text-center text-[13px] text-slate-500 sm:order-none sm:justify-self-center">{TAGLINE}</p>
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] text-slate-500 sm:justify-self-end">

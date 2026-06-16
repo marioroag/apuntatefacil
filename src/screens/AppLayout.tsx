@@ -423,7 +423,7 @@ export function AppLayout() {
 
         {demo && (
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 border-b border-indigo-100 bg-indigo-50 px-4 py-2 text-center text-[13px] text-indigo-800">
-            <span>Demo con datos de ejemplo en Plan {PLAN_LABEL[company.plan]}. Trastea a gusto, es solo tuyo.</span>
+            <span>Demo con datos de ejemplo en Plan {PLAN_LABEL[company.plan]}.</span>
             <button onClick={() => resetDemo()} className="font-semibold underline underline-offset-2 hover:text-indigo-900">
               Reiniciar demo
             </button>
