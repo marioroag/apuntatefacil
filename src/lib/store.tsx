@@ -4,7 +4,7 @@ import type { Brand, Branding, Campaign, Candidate, CandidateStatus, FormField, 
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
-import { SEED } from './seed'
+import { SEED, SEED_BRANDS } from './seed'
 
 // --- Mapeo BD (snake_case) <-> app (camelCase) -----------------------------
 type CampaignRow = {
@@ -19,6 +19,7 @@ type CampaignRow = {
   branding: Branding
   site_id: string | null
   brand_id: string | null
+  notify_new: boolean
   created_at: string
 }
 type CandidateRow = {
@@ -46,6 +47,7 @@ const toCampaign = (r: CampaignRow): Campaign => ({
   branding: r.branding,
   siteId: r.site_id ?? null,
   brandId: r.brand_id ?? null,
+  notifyNew: r.notify_new ?? true,
 })
 
 type SiteRow = { id: string; name: string; city: string }
@@ -103,6 +105,9 @@ interface Store {
   getCampaign: (id: string) => Campaign | undefined
   candidatesFor: (campaignId: string) => Candidate[]
   newCountFor: (campaignId: string) => number
+  // Candidatos llegados desde la última vez que se abrió el puesto (por dispositivo).
+  newSinceFor: (campaignId: string) => number
+  markSeen: (campaignId: string) => void
   reload: () => Promise<void>
   // Recarga solo los candidatos de un puesto (la carga global solo ocurre al
   // entrar en el panel; esto trae los que llegaron después, sin recargar la página).
@@ -141,6 +146,17 @@ const Ctx = createContext<Store | null>(null)
 // La demo es 100% local; guardamos su estado para que aguante recargas.
 const DEMO_KEY = 'apuntatefacil.demo.v1'
 
+// "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
+const SEEN_KEY = 'apuntatefacil.seen.v1'
+function readSeen(): Record<string, string> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SEEN_KEY) ?? 'null')
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {}
+  } catch {
+    return {}
+  }
+}
+
 function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; savedViews: SavedView[]; sites: Site[]; brands: Brand[] } | null {
   try {
     const raw = localStorage.getItem(DEMO_KEY)
@@ -152,7 +168,7 @@ function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; save
         candidates: parsed.candidates,
         savedViews: Array.isArray(parsed.savedViews) ? parsed.savedViews : [],
         sites: Array.isArray(parsed.sites) ? parsed.sites : SEED.sites,
-        brands: Array.isArray(parsed.brands) ? parsed.brands : [],
+        brands: Array.isArray(parsed.brands) ? parsed.brands : SEED_BRANDS,
       }
   } catch {
     /* ignora storage corrupto */
@@ -171,6 +187,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [savedViews, setSavedViews] = useState<SavedView[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
+  const [seen, setSeen] = useState<Record<string, string>>(() => readSeen())
   // Candidatos con una escritura optimista aún sin confirmar en el servidor. Un
   // refetch (reloadCandidatesFor) NO debe pisar su estado local con datos viejos
   // del servidor mientras la escritura está en vuelo.
@@ -193,7 +210,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setCandidates(saved?.candidates ?? SEED.candidates)
       setSavedViews(saved?.savedViews ?? [])
       setSites(saved?.sites ?? SEED.sites)
-      setBrands(saved?.brands ?? [])
+      setBrands(saved?.brands ?? SEED_BRANDS)
       setLoading(false)
       return
     }
@@ -263,6 +280,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
     newCountFor: (campaignId) =>
       candidates.filter((c) => c.campaignId === campaignId && c.status === 'nuevo').length,
+    newSinceFor: (campaignId) => {
+      const since = seen[campaignId]
+      // Sin marca de "visto" (nunca abierto): cuentan todos como nuevos.
+      return candidates.filter((c) => c.campaignId === campaignId && (!since || c.submittedAt > since)).length
+    },
+    markSeen: (campaignId) => {
+      setSeen((prev) => {
+        const next = { ...prev, [campaignId]: new Date().toISOString() }
+        try { localStorage.setItem(SEEN_KEY, JSON.stringify(next)) } catch { /* cuota llena */ }
+        return next
+      })
+    },
     reload,
 
     reloadCandidatesFor: async (campaignId) => {
@@ -374,6 +403,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (patch.location !== undefined) dbPatch.location = patch.location
       if (patch.siteId !== undefined) dbPatch.site_id = patch.siteId
       if (patch.brandId !== undefined) dbPatch.brand_id = patch.brandId
+      if (patch.notifyNew !== undefined) dbPatch.notify_new = patch.notifyNew
       if (Object.keys(dbPatch).length) {
         const { error } = await supabase.from('campaigns').update(dbPatch).eq('id', campaignId)
         if (error) {
@@ -402,6 +432,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           branding: input.branding,
           siteId: null,
           brandId: null,
+          notifyNew: true,
         }
         setCampaigns((cs) => [...cs, campaign])
         return campaign
@@ -424,7 +455,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (error || !data) {
         toast.error(
           error?.message?.includes('PLAN_LIMIT_REACHED')
-            ? 'Has llegado al límite de procesos de tu plan. Cierra uno para abrir otro.'
+            ? 'Has llegado al límite de procesos de tu plan. Sube de plan para abrir otro.'
             : 'No se pudo crear el puesto.',
         )
         return null
@@ -608,9 +639,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setCandidates(SEED.candidates)
       setSavedViews([])
       setSites(SEED.sites)
-      setBrands([])
+      setBrands(SEED_BRANDS)
     },
-  }), [loading, campaigns, candidates, savedViews, sites, brands, companyId, reload, toast])
+  }), [loading, campaigns, candidates, savedViews, sites, brands, seen, companyId, reload, toast])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

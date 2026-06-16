@@ -187,7 +187,7 @@ export function useAuth(): AuthApi {
 // completo (bandeja, vistas, sedes, marcas...). El pricing aclara qué da cada plan.
 export const DEMO_COMPANY: Company = {
   id: 'demo',
-  name: 'Empleos Levante ETT',
+  name: 'Tu empresa',
   accent: '#4F46E5',
   plan: 'multi',
   subscription_status: null,

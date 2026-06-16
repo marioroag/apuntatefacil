@@ -105,12 +105,12 @@ export function Bandeja() {
                               <span className="truncate">{camp.title}</span>
                             </Link>
                           ) : (
-                            <span className="text-[12px] text-slate-400">·</span>
+                            <span className="text-[12px] text-slate-400">–</span>
                           )}
                         </td>
                         <td className="hidden px-3 py-2.5 text-sm text-slate-600 md:table-cell tnum">
                           <span className="block max-w-[150px] truncate">
-                            {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '·'}
+                            {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
                           </span>
                         </td>
                         <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>

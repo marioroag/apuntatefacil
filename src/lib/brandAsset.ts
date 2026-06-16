@@ -6,6 +6,7 @@ import { supabase } from './supabase'
 // - en otro caso es un path del bucket público 'brand-assets' -> URL pública
 export function brandAssetUrl(path: string | null | undefined): string | null {
   if (!path) return null
-  if (path.startsWith('data:') || path.startsWith('http')) return path
+  // data:/http(s) tal cual; rutas absolutas (assets de /public, p.ej. la demo) tal cual.
+  if (path.startsWith('data:') || path.startsWith('http') || path.startsWith('/')) return path
   return supabase.storage.from('brand-assets').getPublicUrl(path).data.publicUrl
 }

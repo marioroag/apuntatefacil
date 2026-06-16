@@ -10,7 +10,7 @@ function LegalLayout({ doc, other }: { doc: LegalDoc; other: { to: string; label
   useEffect(() => {
     window.scrollTo(0, 0)
     const prev = document.title
-    document.title = `${doc.title} · ${BRAND}`
+    document.title = `${doc.title} – ${BRAND}`
     return () => {
       document.title = prev
     }
@@ -85,7 +85,7 @@ function LegalLayout({ doc, other }: { doc: LegalDoc; other: { to: string; label
             <Link to="/" className="hover:text-slate-800">Inicio</Link>
           </div>
         </div>
-        <p className="pb-8 text-center text-[12px] text-slate-500">© 2026 {BRAND} · Hecho en España.</p>
+        <p className="pb-8 text-center text-[12px] text-slate-500">© 2026 {BRAND}. Hecho en España.</p>
       </footer>
     </div>
   )

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   ArrowUpDown,
+  Bell,
+  BellOff,
   Bookmark,
   Briefcase,
   Building2,
@@ -30,7 +32,7 @@ import { CandidatePanel } from './CandidatePanel'
 import { exportCandidatesToExcel } from '../lib/export'
 import { relativeDate, initials, miles, formatPhone } from '../lib/format'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
-import type { Brand, Campaign, Candidate, CandidateStatus, FormField, SavedView, Site, SortKey } from '../lib/types'
+import type { Brand, Campaign, Candidate, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey } from '../lib/types'
 import { planHas, type PlanFeature } from '../lib/pricing'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAppBase } from '../lib/useAppBase'
@@ -57,9 +59,21 @@ function filterableFields(campaign: Campaign): FormField[] {
   return campaign.fields.filter((f) => ['select', 'multiselect', 'boolean'].includes(f.type))
 }
 
+// Preguntas numéricas, filtrables por rango (Desde / Hasta).
+function numberFields(campaign: Campaign): FormField[] {
+  return campaign.fields.filter((f) => f.type === 'number')
+}
+
+// Etiqueta legible de un filtro numérico para el chip.
+function numberFilterLabel(nf: NumberFilter): string {
+  if (nf.min != null && nf.max != null) return `${nf.min}–${nf.max}`
+  if (nf.min != null) return `≥ ${nf.min}`
+  return `≤ ${nf.max}`
+}
+
 export function Dashboard() {
   const { campaignId } = useParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen } = useStore()
   const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -79,6 +93,7 @@ export function Dashboard() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<Set<CandidateStatus>>(new Set())
   const [valueFilters, setValueFilters] = useState<{ fieldId: string; label: string; value: string }[]>([])
+  const [numberFilters, setNumberFilters] = useState<NumberFilter[]>([])
   const [ratingFilter, setRatingFilter] = useState<number>(0)
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'fecha', dir: 'desc' })
   const [openId, setOpenId] = useState<string | null>(null)
@@ -94,11 +109,16 @@ export function Dashboard() {
     setSearch('')
     setStatusFilter(new Set())
     setValueFilters([])
+    setNumberFilters([])
     setRatingFilter(0)
     setSelected(new Set())
     // Trae los candidatos nuevos de este puesto: la carga global solo ocurre al
     // entrar en el panel, así que sin esto no se verían los llegados después.
-    if (campaignId) reloadCandidatesFor(campaignId)
+    // Y marca el puesto como visto: el badge del menú cuenta los llegados después.
+    if (campaignId) {
+      reloadCandidatesFor(campaignId)
+      markSeen(campaignId)
+    }
     const t = setTimeout(() => setLoading(false), 600)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -137,6 +157,14 @@ export function Dashboard() {
         })
         if (!match) return false
       }
+      // Filtros numéricos por rango: sin valor numérico -> no pasa.
+      for (const nf of numberFilters) {
+        const raw = c.answers[nf.fieldId]
+        const n = typeof raw === 'string' || typeof raw === 'number' ? Number(raw) : NaN
+        if (Number.isNaN(n)) return false
+        if (nf.min != null && n < nf.min) return false
+        if (nf.max != null && n > nf.max) return false
+      }
       return true
     })
 
@@ -148,13 +176,28 @@ export function Dashboard() {
       return sort.dir === 'asc' ? cmp : -cmp
     })
     return list
-  }, [all, campaign, search, statusFilter, valueFilters, ratingFilter, sort])
+  }, [all, campaign, search, statusFilter, valueFilters, numberFilters, ratingFilter, sort])
+
+  // Dominio real (mín/máx) de cada pregunta numérica, para acotar sus sliders.
+  const numberDomains = useMemo(() => {
+    const m: Record<string, [number, number]> = {}
+    if (!campaign) return m
+    for (const f of numberFields(campaign)) {
+      const vals = all.map((c) => Number(c.answers[f.id])).filter((n) => !Number.isNaN(n))
+      if (vals.length) {
+        const lo = Math.min(...vals)
+        const hi = Math.max(...vals)
+        if (hi > lo) m[f.id] = [lo, hi]
+      }
+    }
+    return m
+  }, [all, campaign])
 
   if (!campaign) {
     return <div className="p-8 text-slate-500">Puesto no encontrado.</div>
   }
 
-  const activeFilterCount = statusFilter.size + valueFilters.length + (ratingFilter > 0 ? 1 : 0)
+  const activeFilterCount = statusFilter.size + valueFilters.length + numberFilters.length + (ratingFilter > 0 ? 1 : 0)
   const cols = highlightFields(campaign)
   const openCandidate = openId ? all.find((c) => c.id === openId) ?? null : null
   const publicUrl = publicFormUrlDisplay(campaign.slug)
@@ -169,6 +212,7 @@ export function Dashboard() {
     setSearch(v.payload.search ?? '')
     setStatusFilter(new Set(v.payload.statuses ?? []))
     setValueFilters(v.payload.valueFilters ?? [])
+    setNumberFilters(v.payload.numberFilters ?? [])
     setRatingFilter(v.payload.ratingFilter ?? 0)
     setSort(v.payload.sort ?? { key: 'fecha', dir: 'desc' })
   }
@@ -177,7 +221,7 @@ export function Dashboard() {
     const ok = await createSavedView({
       name,
       campaignId: scope === 'global' ? null : campaign.id,
-      payload: { search, statuses: [...statusFilter], valueFilters, ratingFilter, sort },
+      payload: { search, statuses: [...statusFilter], valueFilters, numberFilters, ratingFilter, sort },
     })
     setSaveViewOpen(false)
     if (ok) toast.success('Vista guardada')
@@ -203,6 +247,7 @@ export function Dashboard() {
   const clearFilters = () => {
     setStatusFilter(new Set())
     setValueFilters([])
+    setNumberFilters([])
     setRatingFilter(0)
     setSearch('')
   }
@@ -239,7 +284,7 @@ export function Dashboard() {
               )}
             </div>
             <p className="mt-0.5 text-sm text-slate-500">
-              {campaign.sector} · {campaign.location}
+              {[campaign.sector, campaign.location].map((s) => s?.trim()).filter(Boolean).join(', ')}
             </p>
             {canManage && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -259,6 +304,24 @@ export function Dashboard() {
                   locked={!hasBrands}
                   onLocked={() => setUpgrade('brands')}
                 />
+                <button
+                  type="button"
+                  onClick={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
+                  aria-pressed={campaign.notifyNew !== false}
+                  title={campaign.notifyNew !== false
+                    ? 'Recibes un email cada vez que entra un candidato nuevo. Toca para desactivarlo.'
+                    : 'No recibes emails de candidatos de este puesto. Toca para activarlo.'}
+                  className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium transition-colors ${
+                    campaign.notifyNew !== false
+                      ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      : 'bg-white text-slate-400 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {campaign.notifyNew !== false
+                    ? <Bell className="size-3.5 text-slate-400" aria-hidden />
+                    : <BellOff className="size-3.5" aria-hidden />}
+                  {campaign.notifyNew !== false ? 'Avisos por email' : 'Avisos desactivados'}
+                </button>
               </div>
             )}
           </div>
@@ -280,9 +343,9 @@ export function Dashboard() {
             {canManage && (
               <Link
                 to={`${base}/puestos/${campaign.id}/formulario`}
-                className={BTN_SECONDARY}
+                className={BTN_PRIMARY}
               >
-                <PenLine className="size-4 text-slate-400" aria-hidden /> Editar formulario
+                <PenLine className="size-4 text-indigo-200" aria-hidden /> Editar formulario
               </Link>
             )}
           </div>
@@ -318,6 +381,9 @@ export function Dashboard() {
           setStatusFilter={setStatusFilter}
           valueFilters={valueFilters}
           setValueFilters={setValueFilters}
+          numberFilters={numberFilters}
+          setNumberFilters={setNumberFilters}
+          numberDomains={numberDomains}
           ratingFilter={ratingFilter}
           setRatingFilter={setRatingFilter}
           count={activeFilterCount}
@@ -337,25 +403,25 @@ export function Dashboard() {
           </button>
         )}
 
-        {activeFilterCount > 0 && (
-          <button onClick={clearFilters} className="inline-flex h-9 items-center gap-1 rounded-xl px-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
-            <X className="size-3.5" aria-hidden /> Limpiar
-          </button>
-        )}
-
         <div className="ml-auto">
           <ExportButton count={filtered.length} total={all.length} onExport={doExport} />
         </div>
       </div>
 
       {/* Chips de filtros activos */}
-      {(statusFilter.size > 0 || valueFilters.length > 0 || ratingFilter > 0) && (
+      {(statusFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0 || ratingFilter > 0) && (
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <button onClick={clearFilters} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+            <X className="size-3.5" aria-hidden /> Limpiar
+          </button>
           {[...statusFilter].map((s) => (
             <Chip key={`s-${s}`} label={`Estado: ${STATUS_META[s].label}`} onRemove={() => setStatusFilter((p) => { const n = new Set(p); n.delete(s); return n })} />
           ))}
           {valueFilters.map((vf, i) => (
             <Chip key={`v-${i}`} label={`${vf.label}: ${vf.value}`} onRemove={() => setValueFilters((p) => p.filter((_, j) => j !== i))} />
+          ))}
+          {numberFilters.map((nf) => (
+            <Chip key={`n-${nf.fieldId}`} label={`${nf.label}: ${numberFilterLabel(nf)}`} onRemove={() => setNumberFilters((p) => p.filter((x) => x.fieldId !== nf.fieldId))} />
           ))}
           {ratingFilter > 0 && (
             <Chip label={`Valoración: ${ratingFilter}+ ${'★'.repeat(ratingFilter)}`} onRemove={() => setRatingFilter(0)} />
@@ -366,7 +432,7 @@ export function Dashboard() {
       {/* Línea de contexto */}
       <p className="mt-3 text-[13px] text-slate-500" role="status">
         {loading ? 'Cargando candidatos' : `${miles(filtered.length)} ${filtered.length === 1 ? 'candidato' : 'candidatos'}`}
-        {!loading && activeFilterCount > 0 && ` · ${activeFilterCount} ${activeFilterCount === 1 ? 'filtro activo' : 'filtros activos'}`}
+        {!loading && activeFilterCount > 0 && `, ${activeFilterCount} ${activeFilterCount === 1 ? 'filtro activo' : 'filtros activos'}`}
       </p>
 
       {/* Barra de selección */}
@@ -399,7 +465,7 @@ export function Dashboard() {
           all.length === 0 ? (
             <EmptyFirstUse publicUrl={publicUrl} onCopy={copyLink} />
           ) : (
-            <EmptyNoResults search={search} hasFilters={statusFilter.size + valueFilters.length > 0} onClear={clearFilters} />
+            <EmptyNoResults search={search} hasFilters={statusFilter.size + valueFilters.length + numberFilters.length > 0} onClear={clearFilters} />
           )
         ) : (
           <CandidateTable
@@ -590,12 +656,12 @@ function CandidateTable({
                   <span className="block max-w-[150px] truncate">
                     {maskPhone && answerStr(c, 'telefono')
                       ? <MaskedPhone value={formatPhone(answerStr(c, 'telefono'))} />
-                      : (formatPhone(answerStr(c, 'telefono')) || '·')}
+                      : (formatPhone(answerStr(c, 'telefono')) || '–')}
                   </span>
                 </td>
                 {cols.map((f) => (
                   <td key={f.id} className="hidden px-3 py-2.5 text-sm text-slate-600 lg:table-cell">
-                    <span className="block max-w-[200px] truncate" title={answerStr(c, f.id) || undefined}>{answerStr(c, f.id) || '·'}</span>
+                    <span className="block max-w-[200px] truncate" title={answerStr(c, f.id) || undefined}>{answerStr(c, f.id) || '–'}</span>
                   </td>
                 ))}
                 <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -614,6 +680,38 @@ function CandidateTable({
 }
 
 // --- Subcomponentes de filtro / estados ------------------------------------
+// Slider de rango con dos pomos (dos inputs range superpuestos; los pomos no se
+// cruzan). La pista coloreada marca el tramo seleccionado.
+function RangeSlider({ min, max, from, to, onChange }: {
+  min: number; max: number; from: number; to: number; onChange: (from: number, to: number) => void
+}) {
+  const span = max - min || 1
+  const pctFrom = ((from - min) / span) * 100
+  const pctTo = ((to - min) / span) * 100
+  return (
+    <div className="relative h-5">
+      <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-slate-200" aria-hidden />
+      <div
+        className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-indigo-500"
+        style={{ left: `${pctFrom}%`, width: `${pctTo - pctFrom}%` }}
+        aria-hidden
+      />
+      <input
+        type="range" min={min} max={max} value={from}
+        onChange={(e) => onChange(Math.min(Number(e.target.value), to), to)}
+        aria-label="Desde"
+        className="range-thumb absolute inset-0 h-5 w-full"
+      />
+      <input
+        type="range" min={min} max={max} value={to}
+        onChange={(e) => onChange(from, Math.max(Number(e.target.value), from))}
+        aria-label="Hasta"
+        className="range-thumb absolute inset-0 h-5 w-full"
+      />
+    </div>
+  )
+}
+
 function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 py-1 pl-2.5 pr-1 text-[13px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200">
@@ -631,6 +729,9 @@ function FilterMenu({
   setStatusFilter,
   valueFilters,
   setValueFilters,
+  numberFilters,
+  setNumberFilters,
+  numberDomains,
   ratingFilter,
   setRatingFilter,
   count,
@@ -640,6 +741,9 @@ function FilterMenu({
   setStatusFilter: React.Dispatch<React.SetStateAction<Set<CandidateStatus>>>
   valueFilters: { fieldId: string; label: string; value: string }[]
   setValueFilters: React.Dispatch<React.SetStateAction<{ fieldId: string; label: string; value: string }[]>>
+  numberFilters: NumberFilter[]
+  setNumberFilters: React.Dispatch<React.SetStateAction<NumberFilter[]>>
+  numberDomains: Record<string, [number, number]>
   ratingFilter: number
   setRatingFilter: React.Dispatch<React.SetStateAction<number>>
   count: number
@@ -665,6 +769,18 @@ function FilterMenu({
         ? p.filter((v) => !(v.fieldId === f.id && v.value === value))
         : [...p, { fieldId: f.id, label: f.label, value }],
     )
+
+  const numFor = (fieldId: string) => numberFilters.find((n) => n.fieldId === fieldId)
+  // El slider va de [lo, hi]; guardamos min/max solo cuando se estrecha respecto al
+  // dominio (null en los extremos -> chip "≥"/"≤"; rango completo -> sin filtro).
+  const setRange = (f: FormField, lo: number, hi: number, from: number, to: number) => {
+    const min = from > lo ? from : null
+    const max = to < hi ? to : null
+    setNumberFilters((p) => {
+      const rest = p.filter((n) => n.fieldId !== f.id)
+      return min == null && max == null ? rest : [...rest, { fieldId: f.id, label: f.label, min, max }]
+    })
+  }
 
   return (
     <div className="relative" ref={ref}>
@@ -719,6 +835,24 @@ function FilterMenu({
             </div>
           ))}
 
+          {numberFields(campaign).map((f) => {
+            const dom = numberDomains[f.id]
+            if (!dom) return null // sin rango útil (sin datos o todos iguales): no hay slider
+            const [lo, hi] = dom
+            const nf = numFor(f.id)
+            const from = nf?.min ?? lo
+            const to = nf?.max ?? hi
+            return (
+              <div key={f.id} className="mb-3">
+                <div className="mb-2 flex items-baseline justify-between">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{f.label}</p>
+                  <span className="text-[12px] font-medium tabular-nums text-slate-600">{from} – {to}</span>
+                </div>
+                <RangeSlider min={lo} max={hi} from={from} to={to} onChange={(nFrom, nTo) => setRange(f, lo, hi, nFrom, nTo)} />
+              </div>
+            )
+          })}
+
           <div>
             <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Valoración mínima</p>
             <div className="flex gap-0.5" role="group" aria-label="Filtrar por valoración mínima">
@@ -764,9 +898,9 @@ function ExportButton({ count, total, onExport }: { count: number; total: number
       <button
         onClick={() => setOpen((o) => !o)}
         disabled={count === 0}
-        className={`${BTN_SECONDARY} disabled:opacity-50`}
+        className={`${BTN_PRIMARY} disabled:opacity-50`}
       >
-        <Download className="size-4 text-slate-400" aria-hidden />
+        <Download className="size-4 text-indigo-200" aria-hidden />
         <span className="hidden sm:inline">Exportar a Excel</span>
         <span className="sm:hidden">Excel</span>
       </button>

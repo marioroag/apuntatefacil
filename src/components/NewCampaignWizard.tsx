@@ -128,7 +128,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                             {loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Icon className="size-5" aria-hidden />}
                           </span>
                           <span className="text-sm font-semibold text-slate-900">{t.label}</span>
-                          <span className="text-[12px] text-slate-500">{t.title} · {t.fields.length} preguntas</span>
+                          <span className="text-[12px] text-slate-500">{t.title}, {t.fields.length} preguntas</span>
                         </button>
                       )
                     })}

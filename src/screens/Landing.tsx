@@ -204,21 +204,21 @@ function Compare() {
               <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5">
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-500">AN</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold text-slate-900">Antonio · respuesta al anuncio</p>
+                  <p className="truncate text-[15px] font-semibold text-slate-900">Antonio, respuesta al anuncio</p>
                   <p className="truncate text-[13px] text-slate-500">por el chat, como hasta ahora</p>
                 </div>
                 <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold text-red-600 ring-1 ring-inset ring-red-100">Poco eficaz</span>
               </div>
               <div className="flex flex-1 flex-col gap-2.5 bg-slate-50 px-4 py-5">
-                <ChatTime>Lunes · 10:42</ChatTime>
+                <ChatTime>Lunes, 10:42</ChatTime>
                 <Bubble from="them">Hola, ¿sigue libre lo del peón?</Bubble>
                 <Bubble from="you">Sí. ¿Qué experiencia tienes?</Bubble>
                 <Bubble from="them">algo de obra</Bubble>
                 <Bubble from="you">¿Cuántos años? ¿Tienes carnet de conducir?</Bubble>
-                <ChatTime>11:58 · más de una hora después</ChatTime>
+                <ChatTime>11:58, más de una hora después</ChatTime>
                 <Bubble from="them">si carnet B</Bubble>
                 <Bubble from="you">¿De qué zona eres? ¿Puedes empezar mañana a las 8?</Bubble>
-                <p className="self-end pr-1 text-[12px] text-slate-400">Visto ✓✓ · sin respuesta</p>
+                <p className="self-end pr-1 text-[12px] text-slate-400">Visto ✓✓, sin respuesta</p>
                 <Bubble from="them" muted>…y lo mismo con otros 37 candidatos</Bubble>
               </div>
             </div>
@@ -230,19 +230,19 @@ function Compare() {
               <div className="flex items-center gap-3 border-b border-green-100 px-4 py-3.5">
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-green-100 text-[12px] font-bold text-green-700">AN</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold text-slate-900">Antonio · respuesta al anuncio</p>
+                  <p className="truncate text-[15px] font-semibold text-slate-900">Antonio, respuesta al anuncio</p>
                   <p className="truncate text-[13px] text-slate-500">con {BRAND}</p>
                 </div>
                 <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[12px] font-semibold text-green-700 ring-1 ring-inset ring-green-200">Resuelto</span>
               </div>
               <div className="flex flex-1 flex-col gap-2.5 bg-green-50/50 px-4 py-5">
-                <ChatTime>Lunes · 10:42</ChatTime>
+                <ChatTime>Lunes, 10:42</ChatTime>
                 <Bubble from="them">Hola, ¿sigue libre lo del peón?</Bubble>
                 <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-indigo-600 px-3.5 py-2 text-[14px] leading-snug text-white">
                   ¡Hola! Sí 🙂 Apúntate aquí en 1 min y me llega todo:{' '}
                   <span className="font-semibold underline decoration-white/50 underline-offset-2">apuntatefacil.es/peon</span>
                 </div>
-                <ChatTime>10:44 · dos minutos después</ChatTime>
+                <ChatTime>10:44, dos minutos después</ChatTime>
                 <Bubble from="them">¡Hecho! ✅</Bubble>
 
                 <div className="mt-1.5 rounded-xl border border-green-200 bg-white p-3.5">
@@ -253,7 +253,7 @@ function Compare() {
                     <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-500">AN</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[14px] font-semibold text-slate-900">Antonio Navarro</p>
-                      <p className="truncate text-[12px] text-slate-500">Carpintero · 8 años</p>
+                      <p className="truncate text-[12px] text-slate-500">Carpintero, 8 años</p>
                     </div>
                     <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">Nuevo</span>
                   </div>
@@ -502,7 +502,7 @@ function Footer() {
           <Link to="/login" className="hover:text-slate-800">Entrar</Link>
         </div>
       </div>
-      <p className="pb-8 text-center text-[12px] text-slate-500">© 2026 {BRAND} · Hecho en España.</p>
+      <p className="pb-8 text-center text-[12px] text-slate-500">© 2026 {BRAND}. Hecho en España.</p>
     </footer>
   )
 }

@@ -60,7 +60,7 @@ export function Onboarding() {
           {children}
         </div>
         <p className="mt-4 text-center text-[13px] text-slate-400">
-          {user?.email} ·{' '}
+          {user?.email},{' '}
           <button onClick={() => signOut()} className="font-medium text-slate-500 underline hover:text-slate-700">
             Cerrar sesión
           </button>

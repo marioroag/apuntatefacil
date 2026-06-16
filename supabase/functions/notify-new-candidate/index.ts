@@ -24,7 +24,9 @@ Deno.serve(async (req) => {
     if (!cand) return json({ ok: true, skipped: 'candidato no encontrado' })
 
     const { data: camp } = await admin
-      .from('campaigns').select('title,slug').eq('id', cand.campaign_id).single()
+      .from('campaigns').select('title,slug,notify_new').eq('id', cand.campaign_id).single()
+    // El puesto puede tener los avisos por email desactivados: no enviamos nada.
+    if (camp && camp.notify_new === false) return json({ ok: true, sent: false, skipped: 'avisos desactivados' })
     const { data: emailRow } = await admin.rpc('get_company_owner_email', { p_company: cand.company_id })
     const ownerEmail = emailRow as string | null
 
@@ -39,7 +41,7 @@ Deno.serve(async (req) => {
     const html = `
       <div style="font-family:Inter,system-ui,sans-serif;color:#0f172a">
         <h2 style="margin:0 0 8px">Nueva candidatura para ${camp?.title ?? 'tu puesto'}</h2>
-        <p style="color:#475569;margin:0 0 12px"><strong>${nombre}</strong>${tel ? ` · ${tel}` : ''} acaba de enviar su candidatura.</p>
+        <p style="color:#475569;margin:0 0 12px"><strong>${nombre}</strong>${tel ? `, ${tel}` : ''} acaba de enviar su candidatura.</p>
         ${link ? `<a href="${link}" style="display:inline-block;background:#4F46E5;color:#fff;text-decoration:none;padding:10px 16px;border-radius:12px;font-weight:600">Ver en Apúntate Fácil</a>` : ''}
       </div>`
 

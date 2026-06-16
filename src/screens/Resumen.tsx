@@ -95,7 +95,7 @@ type Group = {
 function SedeCard({ group, base, newCountFor }: { group: Group; base: string; newCountFor: (id: string) => number }) {
   const sub = [group.city, `${group.abiertos} ${group.abiertos === 1 ? 'puesto abierto' : 'puestos abiertos'}`]
     .filter(Boolean)
-    .join(' · ')
+    .join(', ')
   return (
     <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-card">
       <div className="flex items-center gap-2.5">

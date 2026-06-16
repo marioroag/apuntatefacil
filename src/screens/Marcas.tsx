@@ -242,7 +242,7 @@ function BrandEditor({
       <p className="mt-1 text-[12px] text-slate-400">Es lo que ve el candidato en el formulario.</p>
 
       <p className="mt-4 text-sm font-semibold text-slate-800">Color de la marca</p>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {SWATCHES.map((c) => (
           <button
             key={c}
@@ -254,15 +254,24 @@ function BrandEditor({
             style={{ backgroundColor: c }}
           />
         ))}
-        <label className="ml-1 inline-flex size-7 cursor-pointer items-center justify-center rounded-lg ring-1 ring-slate-200" title="Elegir otro color" style={{ backgroundColor: isValidHex(accent) ? accent : '#4f46e5' }}>
+        {/* Picker de color libre (selector nativo del sistema), igual que en el formulario */}
+        <label
+          className="relative ml-1 inline-flex size-7 cursor-pointer items-center justify-center overflow-hidden rounded-lg ring-1 ring-slate-300 transition-transform hover:scale-110"
+          title="Elegir otro color"
+        >
+          <span
+            aria-hidden
+            className="absolute inset-0"
+            style={{ background: 'conic-gradient(from 0deg, #ef4444, #eab308, #22c55e, #06b6d4, #6366f1, #d946ef, #ef4444)' }}
+          />
+          <Plus className="relative size-3.5 text-white drop-shadow" aria-hidden />
           <input
             type="color"
             value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : '#4f46e5'}
             onChange={(e) => setAccent(e.target.value)}
             aria-label="Elegir un color personalizado"
-            className="size-0 opacity-0"
+            className="absolute inset-0 size-full cursor-pointer opacity-0"
           />
-          <Plus className="size-3.5" style={{ color: readableOn(isValidHex(accent) ? accent : '#4f46e5') }} aria-hidden />
         </label>
       </div>
       <div className="mt-2.5 flex items-center gap-2.5">

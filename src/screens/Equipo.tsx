@@ -178,7 +178,7 @@ export function Equipo() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-slate-900">{inv.email}</p>
                       <p className="text-[12px] text-slate-500">
-                        {ROLE_LABEL[inv.role] ?? 'Miembro'} · invitado {relativeDate(inv.created_at)} · pendiente
+                        {ROLE_LABEL[inv.role] ?? 'Miembro'}, invitado {relativeDate(inv.created_at)}, pendiente
                       </p>
                     </div>
                     <button onClick={() => copy(inv.token)} className={BTN_SECONDARY}>

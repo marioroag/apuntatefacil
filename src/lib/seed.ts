@@ -1,4 +1,5 @@
 import type {
+  Brand,
   Campaign,
   Candidate,
   CandidateSource,
@@ -69,11 +70,25 @@ const sites: Site[] = [
   { id: 'site_ribarroja', name: 'Riba-roja del Túria', city: 'Riba-roja' },
 ]
 
+// Marca de ejemplo de la demo, con logo y banner (assets en public/brand-demo).
+export const SEED_BRANDS: Brand[] = [
+  {
+    id: 'brand_atrium',
+    name: 'Empresa de construcción',
+    accent: '#2f6db5',
+    welcome: 'Gracias por tu interés. Cuéntanos un poco sobre ti y te llamamos pronto.',
+    thanks: 'Recibido. Revisamos tu candidatura y te contactamos. Gracias por escribirnos.',
+    showLogo: true,
+    logoPath: '/brand-demo/logo.png',
+    bannerPath: '/brand-demo/banner.jpg',
+  },
+]
+
 const campaigns: Campaign[] = [
   {
     id: 'cmp_peon',
     siteId: 'site_valencia',
-    brandId: null,
+    brandId: 'brand_atrium',
     slug: 'peon-albanil-valencia',
     title: 'Peón de albañil',
     sector: 'Construcción',
@@ -82,7 +97,7 @@ const campaigns: Campaign[] = [
     createdAt: '2026-05-15T09:00:00.000Z',
     milanunciosUrl: 'https://www.milanuncios.com/ofertas-de-empleo/peon-albanil-987654.htm',
     branding: {
-      headline: 'Peón de albañil · Valencia',
+      headline: 'Peón de albañil, Valencia',
       welcome: 'Gracias por tu interés. Cuéntanos un poco sobre ti y te llamamos en 24-48 h.',
       thanks: 'Recibido. Revisamos tu candidatura y te contactamos por teléfono. Mucha suerte.',
       accent: '#4F46E5',
@@ -102,7 +117,7 @@ const campaigns: Campaign[] = [
   {
     id: 'cmp_camarero',
     siteId: 'site_valencia',
-    brandId: null,
+    brandId: 'brand_atrium',
     slug: 'camarero-finde-valencia',
     title: 'Camarero/a fin de semana',
     sector: 'Hostelería',
@@ -130,7 +145,7 @@ const campaigns: Campaign[] = [
   {
     id: 'cmp_mozo',
     siteId: 'site_ribarroja',
-    brandId: null,
+    brandId: 'brand_atrium',
     slug: 'mozo-almacen-ribarroja',
     title: 'Mozo/a de almacén',
     sector: 'Logística',
@@ -138,7 +153,7 @@ const campaigns: Campaign[] = [
     status: 'activa',
     createdAt: '2026-06-01T09:00:00.000Z',
     branding: {
-      headline: 'Mozo/a de almacén · Riba-roja',
+      headline: 'Mozo/a de almacén, Riba-roja',
       welcome: 'Almacén logístico, turnos rotativos. Cuéntanos tu disponibilidad.',
       thanks: 'Candidatura recibida. Te llamamos para una entrevista breve.',
       accent: '#4F46E5',
@@ -157,7 +172,7 @@ const campaigns: Campaign[] = [
   {
     id: 'cmp_limpieza',
     siteId: null,
-    brandId: null,
+    brandId: 'brand_atrium',
     slug: 'limpieza-oficinas-valencia',
     title: 'Limpiador/a de oficinas',
     sector: 'Limpieza',
@@ -271,7 +286,7 @@ for (const cmp of campaigns) {
 candidates.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
 
 export const SEED: AppData = {
-  company: { name: 'Empleos Levante ETT', plan: 'multi', accent: '#4F46E5' },
+  company: { name: 'Tu empresa', plan: 'multi', accent: '#4F46E5' },
   sites,
   campaigns,
   candidates,

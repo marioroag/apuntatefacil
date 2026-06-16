@@ -87,7 +87,7 @@ export function CandidatePanel({
               <Trash2 className="size-4" aria-hidden /> Eliminar
             </button>
             <span className="text-[13px] text-slate-400">
-              {SOURCE_META[candidate.source].label} · {fullDateTime(candidate.submittedAt)}
+              {SOURCE_META[candidate.source].label}, {fullDateTime(candidate.submittedAt)}
             </span>
           </div>
         )

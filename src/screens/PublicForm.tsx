@@ -221,7 +221,7 @@ function ThankYou({ campaign }: { campaign: PublicCampaign }) {
           </p>
         </div>
         <p className="mt-4 text-center text-[12px] text-slate-400">
-          Formulario con {BRAND} · enviado a {campaign.companyName}
+          Formulario con {BRAND}, enviado a {campaign.companyName}
         </p>
       </div>
     </div>

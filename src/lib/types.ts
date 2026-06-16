@@ -54,6 +54,7 @@ export interface Campaign {
   branding: Branding
   siteId: string | null // sede a la que pertenece (Multi); null = sin sede
   brandId: string | null // marca a la que pertenece (Multi); null = sin marca
+  notifyNew?: boolean // avisar por email al entrar un candidato (por defecto sí)
 }
 
 // Sede (Multi): agrupa puestos de un mismo local. Entidad propia, separada de marca.
@@ -114,6 +115,14 @@ export interface ValueFilter {
   value: string
 }
 
+// Filtro de rango para preguntas numéricas (min y/o max, ambos opcionales).
+export interface NumberFilter {
+  fieldId: string
+  label: string
+  min: number | null
+  max: number | null
+}
+
 // Lo que guarda una vista. Búsqueda, estados y orden son universales (valen en
 // cualquier puesto); los filtros de valor dependen de los campos del formulario,
 // por eso solo viajan en vistas con scope 'campaign'.
@@ -123,6 +132,7 @@ export interface SavedViewPayload {
   valueFilters: ValueFilter[]
   sort: { key: SortKey; dir: 'asc' | 'desc' }
   ratingFilter?: number
+  numberFilters?: NumberFilter[]
 }
 
 export interface SavedView {

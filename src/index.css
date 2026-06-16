@@ -65,6 +65,18 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Inputs numéricos sin flechas de spinner: se renderizan como campo de texto
+     (no las ocultamos, el control directamente no existe). */
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
   /* Foco visible no negociable: solo :focus-visible, nunca quitar el outline. */
   :focus-visible {
     outline: 2px solid var(--accent);
@@ -94,6 +106,24 @@
     background-size: 960px 100%;
     animation: var(--animate-shimmer);
   }
+
+  /* Pomo de un slider de rango: dos inputs superpuestos; solo el pomo captura el
+     puntero (la pista es transparente y no interactiva). */
+  .range-thumb { -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none; }
+  .range-thumb:focus { outline: none; }
+  .range-thumb::-webkit-slider-thumb {
+    -webkit-appearance: none; pointer-events: auto;
+    width: 16px; height: 16px; border-radius: 9999px;
+    background: #4f46e5; border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(15,23,42,0.15); cursor: pointer;
+  }
+  .range-thumb::-moz-range-thumb {
+    pointer-events: auto;
+    width: 16px; height: 16px; border: 2px solid #fff; border-radius: 9999px;
+    background: #4f46e5; box-shadow: 0 0 0 1px rgba(15,23,42,0.15); cursor: pointer;
+  }
+  .range-thumb::-webkit-slider-runnable-track { background: transparent; }
+  .range-thumb::-moz-range-track { background: transparent; }
 }
 
 /* Respetar reduced-motion globalmente. */

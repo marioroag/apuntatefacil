@@ -131,7 +131,7 @@ function EmptyCompany() {
 }
 
 export function AppLayout() {
-  const { campaigns, newCountFor, resetDemo, sites } = useStore()
+  const { campaigns, newCountFor, newSinceFor, resetDemo, sites } = useStore()
   const { company, signOut, role } = useAuth()
   const { campaignId } = useParams()
   const base = useAppBase()
@@ -180,7 +180,7 @@ export function AppLayout() {
 
   // Render de un puesto (reutilizado en lista plana y agrupada por sede).
   const renderPuesto = (c: (typeof campaigns)[number]) => {
-    const count = newCountFor(c.id)
+    const count = newSinceFor(c.id)
     return (
       <li key={c.id}>
         <NavLink
@@ -376,7 +376,7 @@ export function AppLayout() {
                 <p className="truncate text-[13px] font-semibold text-slate-800">{company.name}</p>
                 {isOwner ? (
                   <Link to="/app/plan" className="block truncate text-[11px] text-slate-500 hover:text-indigo-600">
-                    Plan {PLAN_LABEL[company.plan] ?? 'Prueba'} · gestionar
+                    Gestionar plan {PLAN_LABEL[company.plan] ?? 'Prueba'}
                   </Link>
                 ) : (
                   <p className="truncate text-[11px] text-slate-500">Plan {PLAN_LABEL[company.plan] ?? 'Prueba'}</p>
@@ -427,7 +427,7 @@ export function AppLayout() {
             <button onClick={() => resetDemo()} className="font-semibold underline underline-offset-2 hover:text-indigo-900">
               Reiniciar demo
             </button>
-            <span aria-hidden className="text-indigo-300">·</span>
+            <span aria-hidden className="h-3 w-px bg-indigo-200" />
             <Link to="/login" className="font-semibold underline underline-offset-2 hover:text-indigo-900">
               Crear mi cuenta
             </Link>

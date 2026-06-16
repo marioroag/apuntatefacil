@@ -141,7 +141,7 @@ export function Builder() {
             <ArrowLeft className="size-5" aria-hidden />
           </Link>
           <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold text-slate-900">Formulario · {campaign.title}</h1>
+            <h1 className="truncate text-base font-semibold text-slate-900">Formulario de {campaign.title}</h1>
             <p className="text-[13px] text-slate-500">Lo que ve quien abre tu enlace</p>
           </div>
         </div>

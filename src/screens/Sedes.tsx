@@ -196,7 +196,7 @@ function SiteRowItem({
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium text-slate-900">{site.name}</p>
         <p className="text-[13px] text-slate-500">
-          {[site.city, `${count} ${count === 1 ? 'puesto' : 'puestos'}`].filter(Boolean).join(' · ')}
+          {[site.city, `${count} ${count === 1 ? 'puesto' : 'puestos'}`].filter(Boolean).join(', ')}
         </p>
       </div>
       <button onClick={onEdit} aria-label={`Editar ${site.name}`} className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
