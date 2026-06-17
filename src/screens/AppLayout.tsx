@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Briefcase, Building2, ChevronDown, ExternalLink, Inbox, LayoutGrid, Loader2, LogOut, Menu, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
@@ -154,6 +155,69 @@ export function AppLayout() {
       setPausedOpen(true)
     }
   }, [trialPaused])
+
+  // Gesto de navegación en móvil: deslizar hacia la derecha desde los primeros ~70%
+  // del ancho abre el menú (zona generosa, acorde a la memoria muscular); deslizar
+  // a la izquierda lo cierra. Solo gestos claramente horizontales, para no pelear
+  // con el scroll vertical ni con tirar para refrescar. Listeners pasivos.
+  const openRef = useRef(open)
+  openRef.current = open
+  useEffect(() => {
+    const THRESHOLD = 55 // px de recorrido horizontal para disparar
+    const OPEN_ZONE = 0.7 // fracción del ancho (desde la izq.) donde puede iniciarse la apertura
+    let sx = 0,
+      sy = 0,
+      track = false,
+      inOpenZone = false
+    let axis: '' | 'h' | 'v' = ''
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1 || window.innerWidth >= 1024) {
+        track = false
+        return
+      }
+      sx = e.touches[0].clientX
+      sy = e.touches[0].clientY
+      // Abrir: el gesto puede empezar en los primeros ~70% del ancho.
+      inOpenZone = sx <= window.innerWidth * OPEN_ZONE
+      track = openRef.current || inOpenZone // abrir: zona izquierda amplia; cerrar: en cualquier sitio
+      axis = ''
+    }
+    const onMove = (e: TouchEvent) => {
+      if (!track) return
+      const dx = e.touches[0].clientX - sx
+      const dy = e.touches[0].clientY - sy
+      if (!axis) {
+        if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return
+        axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+        if (axis === 'v') {
+          track = false // vertical: lo maneja el scroll / pull-to-refresh
+          return
+        }
+      }
+      if (openRef.current) {
+        if (dx < -THRESHOLD) {
+          setOpen(false)
+          track = false
+        }
+      } else if (inOpenZone && dx > THRESHOLD) {
+        setOpen(true)
+        track = false
+      }
+    }
+    const onEnd = () => {
+      track = false
+    }
+    window.addEventListener('touchstart', onStart, { passive: true })
+    window.addEventListener('touchmove', onMove, { passive: true })
+    window.addEventListener('touchend', onEnd, { passive: true })
+    window.addEventListener('touchcancel', onEnd, { passive: true })
+    return () => {
+      window.removeEventListener('touchstart', onStart)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onEnd)
+      window.removeEventListener('touchcancel', onEnd)
+    }
+  }, [])
 
   if (!company) return null // AuthGate garantiza empresa; guard de tipos
 
@@ -403,12 +467,29 @@ export function AppLayout() {
     <div className="fixed inset-0 flex overflow-hidden bg-slate-50">
       <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">{nav}</aside>
 
-      {open && (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-slate-900/40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-pop">{nav}</div>
-        </div>
-      )}
+      <AnimatePresence>
+        {open && (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            <motion.div
+              className="absolute inset-0 bg-slate-900/40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => setOpen(false)}
+            />
+            <motion.div
+              className="absolute left-0 top-0 h-full w-72 bg-white shadow-pop"
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+            >
+              {nav}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5 lg:hidden">
@@ -424,13 +505,17 @@ export function AppLayout() {
         {demo && (
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 border-b border-indigo-100 bg-indigo-50 px-4 py-2 text-center text-[13px] text-indigo-800">
             <span>Demo con datos de ejemplo en Plan {PLAN_LABEL[company.plan]}.</span>
-            <button onClick={() => resetDemo()} className="font-semibold underline underline-offset-2 hover:text-indigo-900">
-              Reiniciar demo
-            </button>
-            <span aria-hidden className="h-3 w-px bg-indigo-200" />
-            <Link to="/login" className="font-semibold underline underline-offset-2 hover:text-indigo-900">
-              Crear mi cuenta
-            </Link>
+            {/* Los dos accionables van juntos: saltan de línea como un bloque, sin
+                que "Crear mi cuenta" se quede solo en la línea de abajo. */}
+            <span className="inline-flex items-center gap-2">
+              <button onClick={() => resetDemo()} className="font-semibold underline underline-offset-2 hover:text-indigo-900">
+                Reiniciar demo
+              </button>
+              <span aria-hidden className="h-3 w-px bg-indigo-200" />
+              <Link to="/login" className="font-semibold underline underline-offset-2 hover:text-indigo-900">
+                Crear mi cuenta
+              </Link>
+            </span>
           </div>
         )}
         <main id="contenido" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">

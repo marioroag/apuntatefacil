@@ -490,7 +490,7 @@ function FinalCta() {
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link to="/demo" className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-slate-900 transition-transform hover:scale-[1.02] active:scale-[0.99]">
-              Probar la demo sin registrarme <ArrowRight className="size-4" aria-hidden />
+              Ver la demo <ArrowRight className="size-4" aria-hidden />
             </Link>
             <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-xl px-5 text-base font-semibold text-white ring-1 ring-white/25 hover:bg-white/10">
               Empezar

@@ -13,10 +13,10 @@ export function MaskedPhone({ value, className = '' }: { value: string; classNam
       {prefix}
       {/* Tres bloques borrosos: NO hay dígitos en el DOM, así que copiar o
           inspeccionar no revela ningún número. Visualmente parecen 3 cifras borrosas. */}
-      <span aria-hidden className="ml-1 inline-flex select-none items-center gap-[2px] align-middle blur-[2px]">
-        <span className="inline-block h-[0.95em] w-[0.52em] rounded-[1.5px] bg-slate-300" />
-        <span className="inline-block h-[0.95em] w-[0.52em] rounded-[1.5px] bg-slate-300" />
-        <span className="inline-block h-[0.95em] w-[0.52em] rounded-[1.5px] bg-slate-300" />
+      <span aria-hidden className="ml-1 inline-flex select-none items-center gap-[2px] align-baseline blur-[2px]">
+        <span className="inline-block h-[0.72em] w-[0.52em] rounded-[1.5px] bg-slate-300" />
+        <span className="inline-block h-[0.72em] w-[0.52em] rounded-[1.5px] bg-slate-300" />
+        <span className="inline-block h-[0.72em] w-[0.52em] rounded-[1.5px] bg-slate-300" />
       </span>
       <span className="sr-only">(últimos dígitos ocultos por privacidad)</span>
     </span>

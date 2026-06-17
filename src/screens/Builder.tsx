@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   DndContext,
   KeyboardSensor,
@@ -81,6 +82,7 @@ export function Builder() {
   const campaign = getCampaign(campaignId!)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [device, setDevice] = useState<'mobile' | 'desktop'>('mobile')
+  const [previewOpen, setPreviewOpen] = useState(false) // vista previa a pantalla completa (móvil)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -154,15 +156,14 @@ export function Builder() {
         {/* Panel de edición */}
         <div className="overflow-y-auto border-r border-slate-200 px-4 py-6 sm:px-6">
           <div className="mx-auto max-w-xl space-y-7">
-            {/* Acceso a la vista previa en pantallas donde la columna no cabe */}
-            <a
-              href={`/a/${campaign.slug}`}
-              target="_blank"
-              rel="noreferrer"
+            {/* Vista previa en vivo a pantalla completa donde la columna no cabe (móvil/tablet) */}
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
               className={`${BTN_SECONDARY} w-full lg:hidden`}
             >
               <Smartphone className="size-4 text-slate-400" aria-hidden /> Ver la vista previa del formulario
-            </a>
+            </button>
 
             {/* Campos */}
             <section>
@@ -228,6 +229,43 @@ export function Builder() {
           </div>
         </div>
       </div>
+
+      {/* Vista previa en vivo a pantalla completa (móvil): sube desde abajo, refleja
+          los cambios al instante y se cierra sin salir del constructor. */}
+      <AnimatePresence>
+        {previewOpen && (
+          <motion.div
+            className="fixed inset-0 z-50 flex flex-col bg-slate-50 lg:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Vista previa del formulario"
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-slate-900">Vista previa</p>
+                <p className="text-[12px] text-slate-500">Así lo verá el candidato</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewOpen(false)}
+                aria-label="Cerrar vista previa"
+                className="-mr-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="size-5" aria-hidden />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6">
+              <div className="mx-auto w-full max-w-[480px] rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+                <Preview key={campaign.id} campaign={campaign} />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -267,10 +305,12 @@ function SortableFieldRow({
       className={`overflow-hidden rounded-xl border bg-white ${isDragging ? 'border-indigo-300 shadow-pop' : 'border-slate-200'}`}
     >
       <div className="flex items-center gap-1.5 px-2 py-2">
+        {/* Asa de arrastre: solo escritorio. En móvil el reordenar va con los
+            botones subir/bajar (el arrastre táctil es poco fiable). */}
         <button
           {...attributes}
           {...listeners}
-          className="cursor-grab touch-none rounded-md p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing"
+          className="hidden cursor-grab touch-none rounded-md p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing sm:block"
           aria-label={`Reordenar ${field.label}, posición ${index + 1} de ${total}`}
         >
           <GripVertical className="size-4" aria-hidden />
@@ -279,7 +319,9 @@ function SortableFieldRow({
         <button onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-50">
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">{field.label}</span>
           <span className="hidden shrink-0 text-[12px] text-slate-400 sm:inline">{meta.label}</span>
-          {field.required && <span className="shrink-0 rounded bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-500">Obligatorio</span>}
+          {/* "Obligatorio" inline solo en sm+: en móvil ocupa demasiado y ya aparece
+              en el editor desplegado. */}
+          {field.required && <span className="hidden shrink-0 rounded bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-500 sm:inline">Obligatorio</span>}
           <ChevronDown className={`size-4 shrink-0 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
         </button>
 

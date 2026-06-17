@@ -86,6 +86,18 @@
     -webkit-appearance: none;
   }
 
+  /* Safari/iOS (y otros navegadores táctiles) hacen zoom al enfocar un campo cuya
+     fuente es menor de 16px. En dispositivos táctiles forzamos 16px para que NO
+     salte ese zoom (sin desactivar el pellizco-zoom, que sería problema de a11y).
+     En escritorio se mantienen los tamaños compactos del diseño (text-sm, etc.). */
+  @media (pointer: coarse) {
+    input:not([type='checkbox']):not([type='radio']):not([type='range']),
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
+
   /* Inputs numéricos sin flechas de spinner: se renderizan como campo de texto
      (no las ocultamos, el control directamente no existe). */
   input[type='number'] {

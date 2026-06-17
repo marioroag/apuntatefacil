@@ -6,7 +6,7 @@ import type { Campaign, Candidate } from '../lib/types'
 import { SOURCE_META } from '../lib/types'
 import { fullDateTime, initials, formatPhone } from '../lib/format'
 import { useStore } from '../lib/store'
-import { BTN_SECONDARY } from '../lib/buttons'
+import { BTN_PRIMARY } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { MaskedPhone } from '../components/MaskedPhone'
@@ -104,13 +104,13 @@ export function CandidatePanel({
                   <button
                     type="button"
                     onClick={() => toast.show('En la demo solo puedes mirar. Crea tu cuenta para llamar o escribir a tus candidatos.')}
-                    className={BTN_SECONDARY}
+                    className={BTN_PRIMARY}
                   >
-                    <Phone className="size-3.5" aria-hidden /> Llamar
+                    <Phone className="size-3.5 text-indigo-200" aria-hidden /> Llamar
                   </button>
                 ) : (
-                  <a href={`tel:${phone.replace(/\s/g, '')}`} className={BTN_SECONDARY}>
-                    <Phone className="size-3.5" aria-hidden /> Llamar
+                  <a href={`tel:${phone.replace(/\s/g, '')}`} className={BTN_PRIMARY}>
+                    <Phone className="size-3.5 text-indigo-200" aria-hidden /> Llamar
                   </a>
                 )
               )}
@@ -119,14 +119,14 @@ export function CandidatePanel({
                   <button
                     type="button"
                     onClick={() => toast.show('En la demo solo puedes mirar. Crea tu cuenta para llamar o escribir a tus candidatos.')}
-                    className={BTN_SECONDARY}
+                    className={BTN_PRIMARY}
                   >
-                    <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
+                    <MessageCircle className="size-3.5 text-indigo-200" aria-hidden /> WhatsApp
                   </button>
                 ) : (
                   waPhone && (
-                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className={BTN_SECONDARY}>
-                      <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
+                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className={BTN_PRIMARY}>
+                      <MessageCircle className="size-3.5 text-indigo-200" aria-hidden /> WhatsApp
                     </a>
                   )
                 )

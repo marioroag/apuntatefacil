@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowUpDown,
   Bell,
@@ -31,7 +30,8 @@ import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
-import { StatusSelect } from '../components/ui/StatusPill'
+import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
+import { BottomSheet } from '../components/ui/BottomSheet'
 import { CandidatePanel } from './CandidatePanel'
 import { exportCandidatesToExcel } from '../lib/export'
 import { relativeDate, initials, miles, formatPhone } from '../lib/format'
@@ -41,7 +41,7 @@ import { planHas, type PlanFeature } from '../lib/pricing'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAppBase } from '../lib/useAppBase'
 import { MaskedPhone } from '../components/MaskedPhone'
-import { PullToRefresh } from '../components/PullToRefresh'
+import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
 import { UpgradeDialog } from '../components/UpgradeDialog'
 import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
@@ -104,6 +104,38 @@ export function Dashboard() {
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'fecha', dir: 'desc' })
   const [openId, setOpenId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selectMode, setSelectMode] = useState(false) // modo selección múltiple (móvil)
+  // Cabecera adaptativa (móvil): si el título no cabe, "Compartir" se reduce a icono
+  // para darle sitio. Medimos el título y aplicamos histéresis para que no parpadee.
+  const titleRowRef = useRef<HTMLDivElement | null>(null)
+  const titleRef = useRef<HTMLHeadingElement | null>(null)
+  const [compactShare, setCompactShare] = useState(false)
+  const [rowW, setRowW] = useState(0)
+  const [measureTick, setMeasureTick] = useState(0)
+  useEffect(() => {
+    const el = titleRowRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => setRowW(entries[0].contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  // Re-mide tras el primer layout y al terminar de cargar la fuente: el ancho real
+  // del título cambia con la tipografía, después de la primera medición.
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setMeasureTick((t) => t + 1))
+    const fonts = (document as unknown as { fonts?: { ready?: Promise<unknown> } }).fonts
+    fonts?.ready?.then(() => setMeasureTick((t) => t + 1))
+    return () => cancelAnimationFrame(raf)
+  }, [campaignId])
+  useLayoutEffect(() => {
+    const el = titleRef.current
+    if (!el) return
+    if (!compactShare && el.scrollWidth - el.clientWidth > 1) {
+      setCompactShare(true) // el título se corta: oculta la etiqueta de Compartir
+    } else if (compactShare && el.clientWidth - el.scrollWidth > 90) {
+      setCompactShare(false) // hay holgura de sobra: recupera la etiqueta sin volver a cortar
+    }
+  }, [compactShare, rowW, measureTick, campaignId])
   const [saveViewOpen, setSaveViewOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false) // hoja de ajustes del puesto (móvil)
@@ -126,6 +158,7 @@ export function Dashboard() {
     setNumberFilters([])
     setRatingFilter(0)
     setSelected(new Set())
+    setSelectMode(false)
     // Trae los candidatos nuevos de este puesto: la carga global solo ocurre al
     // entrar en el panel, así que sin esto no se verían los llegados después.
     // Y marca el puesto como visto: el badge del menú cuenta los llegados después.
@@ -138,16 +171,39 @@ export function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId])
 
-  // Recarga los candidatos del puesto. La disparan el gesto de tirar para refrescar
-  // (móvil) y el botón Refrescar (escritorio). El guardado evita recargas solapadas.
-  const refresh = async () => {
-    if (!campaignId || refreshing) return
-    setRefreshing(true)
+  // Pista única en móvil: como el refresco va por gesto (no hay botón), lo
+  // enseñamos una sola vez para que sea descubrible. La marca se escribe DENTRO
+  // del timeout (al mostrarse de verdad), no antes: así el doble montaje de
+  // StrictMode no la cancela sin llegar a enseñarla.
+  useEffect(() => {
     try {
-      await reloadCandidatesFor(campaignId)
-    } finally {
-      setRefreshing(false)
+      if (!window.matchMedia('(max-width: 767px)').matches) return
+      if (localStorage.getItem('af.hint.pull')) return
+    } catch {
+      return
     }
+    const t = window.setTimeout(() => {
+      try {
+        localStorage.setItem('af.hint.pull', '1')
+      } catch {
+        // sin localStorage: igualmente mostramos la pista esta vez
+      }
+      toast.show('Desliza hacia abajo para actualizar')
+    }, 1200)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Recarga los candidatos del puesto y DEVUELVE el resultado (no avisa por su cuenta):
+  // en móvil lo muestra la propia barra de "tirar para refrescar"; en escritorio el
+  // botón lo enseña con un toast. El guardado evita recargas solapadas.
+  const refresh = async (): Promise<RefreshResult> => {
+    if (!campaignId || refreshing) return { ok: true, message: '' }
+    setRefreshing(true)
+    const n = await reloadCandidatesFor(campaignId)
+    setRefreshing(false)
+    if (n < 0) return { ok: false, message: 'No pudimos actualizar' }
+    return { ok: true, message: n === 0 ? 'Estás al día' : `${n} ${n === 1 ? 'candidato nuevo' : 'candidatos nuevos'}` }
   }
 
   const all = useMemo(() => (campaign ? candidatesFor(campaign.id) : []), [campaign, candidatesFor])
@@ -276,6 +332,24 @@ export function Dashboard() {
     toast.success(`Excel listo, ${name}`)
   }
 
+  // Selección múltiple en móvil (modo selección): sale del modo y limpia.
+  const exitSelect = () => {
+    setSelectMode(false)
+    setSelected(new Set())
+  }
+  // Selecciona/deselecciona todos los candidatos visibles (filtrados).
+  const allFilteredSelected = filtered.length > 0 && filtered.every((c) => selected.has(c.id))
+  const toggleSelectAll = () =>
+    setSelected(allFilteredSelected ? new Set() : new Set(filtered.map((c) => c.id)))
+  // Exporta solo la selección (misma lógica que la barra de escritorio) y sale.
+  const exportSelected = () => {
+    const subset = all.filter((c) => selected.has(c.id))
+    if (subset.length === 0) return
+    const name = exportCandidatesToExcel(campaign, subset)
+    toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
+    exitSelect()
+  }
+
   const copyLink = async () => {
     if (base === '/demo') {
       // Demo: el puesto no existe en la BD real, así que el enlace no recibiría
@@ -295,8 +369,8 @@ export function Dashboard() {
       <header className="mb-5">
         {/* Título + acciones en la MISMA línea (las acciones a la derecha con ml-auto).
             En móvil las acciones son solo iconos; en sm+ recuperan su etiqueta. */}
-        <div className="flex items-center gap-2.5">
-          <h1 className="min-w-0 truncate text-xl font-semibold text-slate-900">{campaign.title}</h1>
+        <div ref={titleRowRef} className="flex items-center gap-2.5">
+          <h1 ref={titleRef} className="min-w-0 truncate text-xl font-semibold text-slate-900">{campaign.title}</h1>
           {campaign.status === 'pausada' && (
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
               Pausado
@@ -307,7 +381,10 @@ export function Dashboard() {
                 El wrapper controla la visibilidad para no chocar con el inline-flex del botón. */}
             <span className="hidden sm:contents">
               <button
-                onClick={refresh}
+                onClick={async () => {
+                  const r = await refresh()
+                  if (r.message) r.ok ? toast.show(r.message) : toast.error(r.message)
+                }}
                 disabled={refreshing}
                 className={`${BTN_SECONDARY} disabled:opacity-60`}
                 title="Refrescar candidatos"
@@ -317,25 +394,28 @@ export function Dashboard() {
                 Refrescar
               </button>
             </span>
-            {/* En móvil son dos cuadrados iguales (solo icono); en sm+ recuperan
-                su etiqueta. max-sm: evita el choque con el padding de los BTN_*. */}
+            {/* En móvil llevan etiqueta corta ("Compartir"/"Editar") pero compacta
+                (h-8, texto e icono más pequeños) para no empujar ni truncar el título;
+                en sm+ recuperan su tamaño y etiqueta completa. */}
             <button
               onClick={copyLink}
-              className={`${BTN_SECONDARY} max-sm:size-9 max-sm:p-0`}
+              className={`${BTN_SECONDARY} max-sm:h-8 max-sm:gap-1 max-sm:px-2.5 max-sm:text-[12px]`}
               title="Compartir enlace"
               aria-label="Compartir enlace"
             >
-              <Share2 className="size-4 text-slate-400" aria-hidden />
+              <Share2 className="size-4 shrink-0 text-slate-400 max-sm:size-3.5" aria-hidden />
+              <span className={compactShare ? 'hidden' : 'sm:hidden'}>Compartir</span>
               <span className="hidden sm:inline">Compartir enlace</span>
             </button>
             {canManage && (
               <Link
                 to={`${base}/puestos/${campaign.id}/formulario`}
-                className={`${BTN_PRIMARY} max-sm:size-9 max-sm:p-0`}
+                className={`${BTN_PRIMARY} max-sm:h-8 max-sm:gap-1 max-sm:px-2.5 max-sm:text-[12px]`}
                 title="Editar formulario"
                 aria-label="Editar formulario"
               >
-                <PenLine className="size-4 text-indigo-200" aria-hidden />
+                <PenLine className="size-4 shrink-0 text-indigo-200 max-sm:size-3.5" aria-hidden />
+                <span className="sm:hidden">Editar</span>
                 <span className="hidden sm:inline">Editar formulario</span>
               </Link>
             )}
@@ -477,15 +557,26 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Línea de contexto */}
-      <p className="mt-3 text-[13px] text-slate-500" role="status">
-        {loading ? 'Cargando candidatos' : `${miles(filtered.length)} ${filtered.length === 1 ? 'candidato' : 'candidatos'}`}
-        {!loading && activeFilterCount > 0 && `, ${activeFilterCount} ${activeFilterCount === 1 ? 'filtro activo' : 'filtros activos'}`}
-      </p>
+      {/* Línea de contexto + entrada al modo selección (móvil) */}
+      <div className="mt-3 flex items-center gap-3">
+        <p className="text-[13px] text-slate-500" role="status">
+          {loading ? 'Cargando candidatos' : `${miles(filtered.length)} ${filtered.length === 1 ? 'candidato' : 'candidatos'}`}
+          {!loading && activeFilterCount > 0 && `, ${activeFilterCount} ${activeFilterCount === 1 ? 'filtro activo' : 'filtros activos'}`}
+        </p>
+        {!loading && filtered.length > 0 && !selectMode && (
+          <button
+            type="button"
+            onClick={() => setSelectMode(true)}
+            className="ml-auto text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 sm:hidden"
+          >
+            Seleccionar
+          </button>
+        )}
+      </div>
 
-      {/* Barra de selección */}
+      {/* Barra de selección (escritorio): aparece al marcar filas con los checks. */}
       {selected.size > 0 && !loading && (
-        <div className="mt-3 flex items-center gap-3 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm text-white shadow-card">
+        <div className="mt-3 hidden items-center gap-3 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm text-white shadow-card sm:flex">
           <span className="font-semibold">{selected.size} seleccionados</span>
           <button
             onClick={() => {
@@ -526,9 +617,14 @@ export function Dashboard() {
             setSelected={setSelected}
             onOpen={setOpenId}
             maskPhone={maskPhone}
+            selectMode={selectMode}
+            onEnterSelect={() => setSelectMode(true)}
           />
         )}
       </div>
+
+      {/* Hueco para que la barra inferior fija no tape la última tarjeta (móvil) */}
+      {selectMode && <div className="h-20 sm:hidden" aria-hidden />}
 
       <CandidatePanel
         campaign={campaign}
@@ -568,6 +664,41 @@ export function Dashboard() {
           onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
           onUpgrade={setUpgrade}
         />
+      )}
+
+      {/* Barra de acción de selección (móvil): fija abajo, al alcance del pulgar. */}
+      {selectMode && !loading && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white px-4 pt-3 shadow-pop sm:hidden"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        >
+          <div className="mx-auto flex max-w-[1180px] items-center gap-2">
+            <button
+              type="button"
+              onClick={exitSelect}
+              aria-label="Cancelar selección"
+              className="-ml-1.5 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+            >
+              <X className="size-5" aria-hidden />
+            </button>
+            <span className="text-sm font-semibold text-slate-900 tabular-nums">{selected.size} seleccionados</span>
+            <button
+              type="button"
+              onClick={toggleSelectAll}
+              className="ml-1 text-[13px] font-medium text-indigo-600 hover:text-indigo-700"
+            >
+              {allFilteredSelected ? 'Ninguno' : 'Todos'}
+            </button>
+            <button
+              type="button"
+              onClick={exportSelected}
+              disabled={selected.size === 0}
+              className={`${BTN_PRIMARY} ml-auto disabled:opacity-50`}
+            >
+              <Download className="size-4 text-indigo-200" aria-hidden /> Exportar
+            </button>
+          </div>
+        </div>
       )}
     </div>
     </PullToRefresh>
@@ -623,6 +754,8 @@ function CandidateTable({
   setSelected,
   onOpen,
   maskPhone,
+  selectMode,
+  onEnterSelect,
 }: {
   campaign: Campaign
   cols: FormField[]
@@ -633,8 +766,31 @@ function CandidateTable({
   setSelected: (s: Set<string>) => void
   onOpen: (id: string) => void
   maskPhone: boolean
+  selectMode: boolean
+  onEnterSelect: () => void
 }) {
   const { setStatus } = useStore()
+  // Candidato cuyo estado se está cambiando desde la hoja (solo móvil).
+  const [statusFor, setStatusFor] = useState<Candidate | null>(null)
+  // Pulsación larga (móvil) para entrar en modo selección. longPressed evita que
+  // el click posterior al gesto vuelva a alternar la tarjeta.
+  const longPressed = useRef(false)
+  const pressTimer = useRef<number | null>(null)
+  const startPress = (id: string) => {
+    longPressed.current = false
+    pressTimer.current = window.setTimeout(() => {
+      longPressed.current = true
+      onEnterSelect()
+      toggleOne(id)
+      pressTimer.current = null
+    }, 400)
+  }
+  const cancelPress = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current)
+      pressTimer.current = null
+    }
+  }
   const allSel = rows.length > 0 && rows.every((r) => selected.has(r.id))
   const someSel = rows.some((r) => selected.has(r.id))
   const headRef = useRef<HTMLInputElement>(null)
@@ -668,16 +824,45 @@ function CandidateTable({
           const name = answerStr(c, 'nombre') || 'Sin nombre'
           const phone = answerStr(c, 'telefono')
           const m = STATUS_META[c.status]
+          const sel = selected.has(c.id)
+          // Tap: en modo selección alterna; si no, abre el detalle. El guard
+          // longPressed evita que el click tras la pulsación larga lo deshaga.
+          const onTap = () => {
+            if (longPressed.current) {
+              longPressed.current = false
+              return
+            }
+            if (selectMode) toggleOne(c.id)
+            else onOpen(c.id)
+          }
           return (
-            <li key={c.id}>
+            <li
+              key={c.id}
+              className={`flex items-center gap-3 px-4 py-3 transition-colors ${selectMode && sel ? 'bg-indigo-50/70' : ''}`}
+            >
               <button
                 type="button"
-                onClick={() => onOpen(c.id)}
-                className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-slate-50"
+                onClick={onTap}
+                onTouchStart={selectMode ? undefined : () => startPress(c.id)}
+                onTouchMove={selectMode ? undefined : cancelPress}
+                onTouchEnd={selectMode ? undefined : cancelPress}
+                aria-pressed={selectMode ? sel : undefined}
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors active:bg-slate-50"
               >
-                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-[13px] font-bold text-slate-600">
-                  {initials(name)}
-                </span>
+                {selectMode ? (
+                  <span
+                    className={`grid size-10 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                      sel ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
+                    }`}
+                    aria-hidden
+                  >
+                    {sel && <Check className="size-5 text-white" />}
+                  </span>
+                ) : (
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-[13px] font-bold text-slate-600">
+                    {initials(name)}
+                  </span>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-medium text-slate-900">{name}</p>
                   {phone && (
@@ -686,16 +871,29 @@ function CandidateTable({
                     </p>
                   )}
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-1.5">
+              </button>
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                {selectMode ? (
                   <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ring-1 ring-inset ${m.chip}`}>
                     <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
                     {m.label}
                   </span>
-                  <time dateTime={c.submittedAt} className="text-[11px] text-slate-400 tabular-nums">
-                    {relativeDate(c.submittedAt)}
-                  </time>
-                </div>
-              </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setStatusFor(c)}
+                    aria-label={`Estado: ${m.label}. Tocar para cambiar`}
+                    className={`inline-flex items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[12px] font-semibold ring-1 ring-inset transition-[filter] ${m.chip} active:brightness-95`}
+                  >
+                    <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
+                    {m.label}
+                    <ChevronDown className="size-3 opacity-60" aria-hidden />
+                  </button>
+                )}
+                <time dateTime={c.submittedAt} className="text-[11px] text-slate-400 tabular-nums">
+                  {relativeDate(c.submittedAt)}
+                </time>
+              </div>
             </li>
           )
         })}
@@ -784,6 +982,13 @@ function CandidateTable({
         </tbody>
       </table>
       </div>
+
+      <StatusPickerSheet
+        open={!!statusFor}
+        status={statusFor?.status ?? null}
+        onPick={(s) => statusFor && setStatus(statusFor.id, s)}
+        onClose={() => setStatusFor(null)}
+      />
     </>
   )
 }
@@ -1009,48 +1214,24 @@ function FilterMenu({
         </div>
       )}
 
-      {/* Móvil: hoja inferior que sube desde abajo, al estilo nativo */}
-      <AnimatePresence>
-        {open && (
-          <div className="fixed inset-0 z-50 sm:hidden" role="dialog" aria-modal="true" aria-label="Filtros">
-            <motion.div
-              className="absolute inset-0 bg-slate-900/40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              onClick={() => setOpen(false)}
-            />
-            <motion.div
-              className="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-2xl bg-white shadow-pop"
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
-            >
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <p className="text-base font-semibold text-slate-900">Filtros</p>
-                <button
-                  onClick={() => setOpen(false)}
-                  aria-label="Cerrar filtros"
-                  className="-mr-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                >
-                  <X className="size-5" aria-hidden />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-3">{controls}</div>
-              <div className="flex items-center gap-2 border-t border-slate-200 px-4 py-3">
-                <button onClick={clearAll} disabled={count === 0} className={`${BTN_SECONDARY} flex-1 disabled:opacity-50`}>
-                  Limpiar
-                </button>
-                <button onClick={() => setOpen(false)} className={`${BTN_PRIMARY} flex-1`}>
-                  Ver resultados
-                </button>
-              </div>
-            </motion.div>
+      {/* Móvil: hoja inferior */}
+      <BottomSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Filtros"
+        footer={
+          <div className="flex items-center gap-2 border-t border-slate-200 px-4 py-3">
+            <button onClick={clearAll} disabled={count === 0} className={`${BTN_SECONDARY} flex-1 disabled:opacity-50`}>
+              Limpiar
+            </button>
+            <button onClick={() => setOpen(false)} className={`${BTN_PRIMARY} flex-1`}>
+              Ver resultados
+            </button>
           </div>
-        )}
-      </AnimatePresence>
+        }
+      >
+        <div className="px-4 py-3">{controls}</div>
+      </BottomSheet>
     </div>
   )
 }
@@ -1133,8 +1314,11 @@ function EmptyFirstUse({ publicUrl, onCopy }: { publicUrl: string; onCopy: () =>
       <p className="mt-1 max-w-sm text-sm text-slate-500">
         Comparte el enlace del formulario para empezar a recibir respuestas. Cada respuesta entra aquí automáticamente.
       </p>
-      <div className="mt-4 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-3.5 pr-1.5">
-        <span className="min-w-0 flex-1 truncate text-sm text-slate-500">{publicUrl}</span>
+      {/* w-full + max-w para que la fila se ciña al ancho del card y el enlace se
+          trunque (en una columna items-center, sin ancho fijo, no truncaría y se
+          saldría). El enlace va discreto (más pequeño y tenue): manda la acción. */}
+      <div className="mt-4 flex w-full max-w-md items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-3.5 pr-1.5">
+        <span className="min-w-0 flex-1 truncate text-[13px] text-slate-400">{publicUrl}</span>
         <button onClick={onCopy} className={`${BTN_PRIMARY_SM} shrink-0`}>
           Copiar enlace
         </button>
@@ -1266,55 +1450,31 @@ function SavedViewsMenu({
         </div>
       )}
 
-      {/* Móvil: hoja inferior que sube desde abajo, igual que Filtros */}
-      <AnimatePresence>
-        {open && (
-          <div className="fixed inset-0 z-50 sm:hidden" role="dialog" aria-modal="true" aria-label="Vistas guardadas">
-            <motion.div
-              className="absolute inset-0 bg-slate-900/40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              onClick={() => setOpen(false)}
-            />
-            <motion.div
-              className="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-2xl bg-white shadow-pop"
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+      {/* Móvil: hoja inferior */}
+      <BottomSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Vistas"
+        footer={
+          <div className="border-t border-slate-200 px-4 py-3">
+            <button
+              onClick={() => {
+                setOpen(false)
+                onSave()
+              }}
+              disabled={!canSave}
+              className={`${BTN_PRIMARY} w-full disabled:opacity-50`}
             >
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <p className="text-base font-semibold text-slate-900">Vistas</p>
-                <button
-                  onClick={() => setOpen(false)}
-                  aria-label="Cerrar vistas"
-                  className="-mr-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                >
-                  <X className="size-5" aria-hidden />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto overscroll-contain px-2 py-2">{list}</div>
-              <div className="border-t border-slate-200 px-4 py-3">
-                <button
-                  onClick={() => {
-                    setOpen(false)
-                    onSave()
-                  }}
-                  disabled={!canSave}
-                  className={`${BTN_PRIMARY} w-full disabled:opacity-50`}
-                >
-                  <Plus className="size-4" aria-hidden /> Guardar vista actual
-                </button>
-                {!canSave && (
-                  <p className="mt-2 text-center text-[12px] text-slate-400">Aplica un filtro o una búsqueda para poder guardarla.</p>
-                )}
-              </div>
-            </motion.div>
+              <Plus className="size-4" aria-hidden /> Guardar vista actual
+            </button>
+            {!canSave && (
+              <p className="mt-2 text-center text-[12px] text-slate-400">Aplica un filtro o una búsqueda para poder guardarla.</p>
+            )}
           </div>
-        )}
-      </AnimatePresence>
+        }
+      >
+        <div className="px-2 py-2">{list}</div>
+      </BottomSheet>
     </div>
   )
 }
@@ -1679,35 +1839,8 @@ function PuestoSettingsSheet({
 }) {
   const notify = campaign.notifyNew !== false
   return (
-    <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-50 sm:hidden" role="dialog" aria-modal="true" aria-label="Ajustes del puesto">
-          <motion.div
-            className="absolute inset-0 bg-slate-900/40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            onClick={onClose}
-          />
-          <motion.div
-            className="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-2xl bg-white shadow-pop"
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <p className="text-base font-semibold text-slate-900">Ajustes del puesto</p>
-              <button
-                onClick={onClose}
-                aria-label="Cerrar ajustes"
-                className="-mr-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-              >
-                <X className="size-5" aria-hidden />
-              </button>
-            </div>
-            <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4">
+    <BottomSheet open={open} onClose={onClose} title="Ajustes del puesto">
+      <div className="space-y-5 px-4 py-4">
               <section>
                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Sede</p>
                 {hasSites ? (
@@ -1753,10 +1886,7 @@ function PuestoSettingsSheet({
                 </div>
                 <SettingSwitch checked={notify} onChange={onToggleNotify} label="Avisos por email" />
               </section>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+      </div>
+    </BottomSheet>
   )
 }

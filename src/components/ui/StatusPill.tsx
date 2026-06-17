@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import { STATUS_META, STATUS_ORDER } from '../../lib/types'
 import type { CandidateStatus } from '../../lib/types'
+import { BottomSheet } from './BottomSheet'
 
 export function StatusPill({ status, className = '' }: { status: CandidateStatus; className?: string }) {
   const m = STATUS_META[status]
@@ -88,5 +89,49 @@ export function StatusSelect({
         </ul>
       )}
     </div>
+  )
+}
+
+/**
+ * Selector de estado como hoja inferior (solo móvil). Lo usan las tarjetas de
+ * candidato del panel y la bandeja para cambiar el estado sin abrir el detalle.
+ * En hoja (no desplegable) para que no lo recorte el `overflow-hidden` de la lista.
+ */
+export function StatusPickerSheet({
+  open,
+  status,
+  onPick,
+  onClose,
+}: {
+  open: boolean
+  status: CandidateStatus | null
+  onPick: (s: CandidateStatus) => void
+  onClose: () => void
+}) {
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Cambiar estado" zClass="z-[60]">
+      <ul className="p-2 pb-3">
+        {STATUS_ORDER.map((s) => {
+          const m = STATUS_META[s]
+          const sel = s === status
+          return (
+            <li key={s}>
+              <button
+                type="button"
+                onClick={() => {
+                  onPick(s)
+                  onClose()
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] text-slate-700 transition-colors active:bg-slate-50"
+              >
+                <span className={`size-2.5 shrink-0 rounded-full ${m.dot}`} aria-hidden />
+                <span className="flex-1">{m.label}</span>
+                {sel && <Check className="size-[18px] text-indigo-600" aria-hidden />}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </BottomSheet>
   )
 }

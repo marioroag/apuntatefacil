@@ -111,7 +111,8 @@ interface Store {
   reload: () => Promise<void>
   // Recarga solo los candidatos de un puesto (la carga global solo ocurre al
   // entrar en el panel; esto trae los que llegaron después, sin recargar la página).
-  reloadCandidatesFor: (campaignId: string) => Promise<void>
+  // Devuelve cuántos candidatos NUEVOS trajo (>= 0), o -1 si la recarga falló.
+  reloadCandidatesFor: (campaignId: string) => Promise<number>
   // mutaciones
   setStatus: (candidateId: string, status: CandidateStatus) => Promise<void>
   setRating: (candidateId: string, rating: number) => Promise<void>
@@ -295,14 +296,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     reload,
 
     reloadCandidatesFor: async (campaignId) => {
-      if (!companyId || companyId === 'demo') return // demo: datos en memoria
+      if (!companyId || companyId === 'demo') return 0 // demo: datos en memoria, nada nuevo de red
       const { data, error } = await supabase
         .from('candidates')
         .select('*')
         .eq('campaign_id', campaignId)
         .order('created_at', { ascending: false })
-      if (error || !data) return
+      if (error || !data) return -1
       const fetched = (data as CandidateRow[]).map(toCandidate)
+      // Cuántos vienen que no teníamos ya en local (para avisar "N nuevos").
+      const knownIds = new Set(candidates.filter((c) => c.campaignId === campaignId).map((c) => c.id))
+      const added = fetched.filter((f) => !knownIds.has(f.id)).length
       // Reemplaza los de este puesto por el estado fresco del servidor; deja el
       // resto. Para los candidatos con una edición optimista en vuelo, conserva el
       // estado local (el servidor aún no lo refleja y lo pisaría con datos viejos).
@@ -313,6 +317,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         )
         return [...prev.filter((c) => c.campaignId !== campaignId), ...merged]
       })
+      return added
     },
 
     setStatus: async (id, status) => {

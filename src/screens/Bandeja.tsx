@@ -1,16 +1,17 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, Inbox } from 'lucide-react'
+import { Briefcase, ChevronDown, Inbox } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
-import { StatusSelect } from '../components/ui/StatusPill'
+import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { CandidatePanel } from './CandidatePanel'
 import { relativeDate, initials, formatPhone } from '../lib/format'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { useAppBase } from '../lib/useAppBase'
 import { planHas } from '../lib/pricing'
 import { FeatureLocked } from '../components/FeatureLocked'
+import { STATUS_META } from '../lib/types'
 import type { Candidate } from '../lib/types'
 
 function answer(c: Candidate, id: string): string {
@@ -31,6 +32,7 @@ export function Bandeja() {
   const demo = base === '/demo'
   const maskPhone = demo
   const [openId, setOpenId] = useState<string | null>(null)
+  const [statusFor, setStatusFor] = useState<Candidate | null>(null) // cambiar estado (móvil)
 
   const nuevos = useMemo(
     () =>
@@ -69,11 +71,15 @@ export function Bandeja() {
               {nuevos.map((c) => {
                 const camp = getCampaign(c.campaignId)
                 const name = answer(c, 'nombre') || 'Sin nombre'
+                const m = STATUS_META[c.status]
                 return (
-                  <li key={c.id}>
+                  // Botón del candidato (abrir) y pastilla de estado (cambiar y triar
+                  // sin abrir el detalle) como hermanos, no anidados.
+                  <li key={c.id} className="flex items-center gap-3 px-4 py-3">
                     <button
+                      type="button"
                       onClick={() => setOpenId(c.id)}
-                      className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-slate-50"
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors active:bg-slate-50"
                     >
                       <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-[13px] font-bold text-slate-600">
                         {initials(name)}
@@ -87,10 +93,22 @@ export function Bandeja() {
                           </span>
                         )}
                       </div>
-                      <time dateTime={c.submittedAt} className="shrink-0 text-[12px] text-slate-400 tabular-nums">
+                    </button>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setStatusFor(c)}
+                        aria-label={`Estado: ${m.label}. Tocar para cambiar`}
+                        className={`inline-flex items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[12px] font-semibold ring-1 ring-inset transition-[filter] ${m.chip} active:brightness-95`}
+                      >
+                        <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
+                        {m.label}
+                        <ChevronDown className="size-3 opacity-60" aria-hidden />
+                      </button>
+                      <time dateTime={c.submittedAt} className="text-[11px] text-slate-400 tabular-nums">
                         {relativeDate(c.submittedAt)}
                       </time>
-                    </button>
+                    </div>
                   </li>
                 )
               })}
@@ -172,6 +190,13 @@ export function Bandeja() {
           }
         />
       )}
+
+      <StatusPickerSheet
+        open={!!statusFor}
+        status={statusFor?.status ?? null}
+        onPick={(s) => statusFor && setStatus(statusFor.id, s)}
+        onClose={() => setStatusFor(null)}
+      />
     </div>
   )
 }
