@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Briefcase, Building2, ChevronDown, ExternalLink, Inbox, LayoutGrid, Loader2, LogOut, Menu, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
@@ -519,7 +519,9 @@ export function AppLayout() {
           </div>
         )}
         <main id="contenido" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <Outlet />
+          <Suspense fallback={<div className="grid h-full place-items-center" role="status" aria-label="Cargando"><Loader2 className="size-6 animate-spin text-slate-400" aria-hidden /></div>}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 

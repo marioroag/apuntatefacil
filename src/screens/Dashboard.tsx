@@ -327,8 +327,8 @@ export function Dashboard() {
     setSearch('')
   }
 
-  const doExport = () => {
-    const name = exportCandidatesToExcel(campaign, filtered)
+  const doExport = async () => {
+    const name = await exportCandidatesToExcel(campaign, filtered)
     toast.success(`Excel listo, ${name}`)
   }
 
@@ -342,10 +342,10 @@ export function Dashboard() {
   const toggleSelectAll = () =>
     setSelected(allFilteredSelected ? new Set() : new Set(filtered.map((c) => c.id)))
   // Exporta solo la selección (misma lógica que la barra de escritorio) y sale.
-  const exportSelected = () => {
+  const exportSelected = async () => {
     const subset = all.filter((c) => selected.has(c.id))
     if (subset.length === 0) return
-    const name = exportCandidatesToExcel(campaign, subset)
+    const name = await exportCandidatesToExcel(campaign, subset)
     toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
     exitSelect()
   }
@@ -579,11 +579,11 @@ export function Dashboard() {
         <div className="mt-3 hidden items-center gap-3 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm text-white shadow-card sm:flex">
           <span className="font-semibold">{selected.size} seleccionados</span>
           <button
-            onClick={() => {
+            onClick={async () => {
               // Exporta TODA la selección, también filas que un filtro posterior
               // haya ocultado (si no, exportaría menos de lo que dice la barra).
               const subset = all.filter((c) => selected.has(c.id))
-              const name = exportCandidatesToExcel(campaign, subset)
+              const name = await exportCandidatesToExcel(campaign, subset)
               toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
             }}
             className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"

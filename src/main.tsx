@@ -1,7 +1,8 @@
-import { StrictMode } from 'react'
+import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { MotionConfig } from 'framer-motion'
+import { Loader2 } from 'lucide-react'
 import '@fontsource-variable/inter'
 import './index.css'
 
@@ -9,21 +10,33 @@ import { AuthProvider, DemoAuthProvider } from './lib/auth'
 import { StoreProvider } from './lib/store'
 import { ToastProvider } from './components/ui/Toast'
 import { AuthGate } from './components/AuthGate'
+import { AppLayout, FirstCampaignRedirect } from './screens/AppLayout'
+// La landing y el login quedan en el bundle de entrada (primer pintado de la web
+// pública y del acceso). El resto de pantallas van con code-splitting: cada una en
+// su propio chunk, cargada al visitarla. Así el candidato en /a/:slug no se descarga
+// el panel, ni el panel arrastra el formulario público o el constructor (dnd-kit).
 import { Landing } from './screens/Landing'
 import { Login } from './screens/Login'
-import { ResetPassword } from './screens/ResetPassword'
-import { Privacidad, Terminos } from './screens/Legal'
-import { AppLayout, FirstCampaignRedirect } from './screens/AppLayout'
-import { Dashboard } from './screens/Dashboard'
-import { Bandeja } from './screens/Bandeja'
-import { Sedes } from './screens/Sedes'
-import { Marcas } from './screens/Marcas'
-import { Resumen } from './screens/Resumen'
-import { Equipo } from './screens/Equipo'
-import { Invitacion } from './screens/Invitacion'
-import { Builder } from './screens/Builder'
-import { Plan } from './screens/Plan'
-import { PublicForm } from './screens/PublicForm'
+
+const ResetPassword = lazy(() => import('./screens/ResetPassword').then((m) => ({ default: m.ResetPassword })))
+const Privacidad = lazy(() => import('./screens/Legal').then((m) => ({ default: m.Privacidad })))
+const Terminos = lazy(() => import('./screens/Legal').then((m) => ({ default: m.Terminos })))
+const PublicForm = lazy(() => import('./screens/PublicForm').then((m) => ({ default: m.PublicForm })))
+const Dashboard = lazy(() => import('./screens/Dashboard').then((m) => ({ default: m.Dashboard })))
+const Bandeja = lazy(() => import('./screens/Bandeja').then((m) => ({ default: m.Bandeja })))
+const Sedes = lazy(() => import('./screens/Sedes').then((m) => ({ default: m.Sedes })))
+const Marcas = lazy(() => import('./screens/Marcas').then((m) => ({ default: m.Marcas })))
+const Resumen = lazy(() => import('./screens/Resumen').then((m) => ({ default: m.Resumen })))
+const Equipo = lazy(() => import('./screens/Equipo').then((m) => ({ default: m.Equipo })))
+const Invitacion = lazy(() => import('./screens/Invitacion').then((m) => ({ default: m.Invitacion })))
+const Builder = lazy(() => import('./screens/Builder').then((m) => ({ default: m.Builder })))
+const Plan = lazy(() => import('./screens/Plan').then((m) => ({ default: m.Plan })))
+
+const RouteFallback = () => (
+  <div className="grid min-h-screen place-items-center" role="status" aria-label="Cargando">
+    <Loader2 className="size-6 animate-spin text-slate-400" aria-hidden />
+  </div>
+)
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -32,6 +45,7 @@ createRoot(document.getElementById('root')!).render(
         <ToastProvider>
           <StoreProvider>
             <BrowserRouter>
+              <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/login" element={<Login />} />
@@ -78,6 +92,7 @@ createRoot(document.getElementById('root')!).render(
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
+              </Suspense>
             </BrowserRouter>
           </StoreProvider>
         </ToastProvider>

@@ -1,7 +1,9 @@
-import * as XLSX from 'xlsx'
 import type { Campaign, Candidate } from './types'
 import { STATUS_META, SOURCE_META } from './types'
 import { fullDateTime } from './format'
+
+// xlsx es pesado (~400 KB) y solo hace falta al exportar. Se carga bajo demanda
+// con import() dinámico para que no entre en el bundle inicial del panel.
 
 function answerToCell(v: Candidate['answers'][string] | undefined): string {
   if (v === undefined || v === null) return ''
@@ -14,7 +16,8 @@ function answerToCell(v: Candidate['answers'][string] | undefined): string {
  * Exporta los candidatos (ya filtrados) de un puesto a un .xlsx real.
  * Las columnas salen de los campos del formulario, en su orden, más metadatos.
  */
-export function exportCandidatesToExcel(campaign: Campaign, candidates: Candidate[]): string {
+export async function exportCandidatesToExcel(campaign: Campaign, candidates: Candidate[]): Promise<string> {
+  const XLSX = await import('xlsx')
   const header = [
     ...campaign.fields.map((f) => f.label),
     'Estado',
