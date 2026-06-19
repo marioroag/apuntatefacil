@@ -97,6 +97,7 @@ export function Sedes() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && add()}
+              aria-label="Nombre de la sede"
               placeholder="Nombre, ej: Valencia centro"
               className="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1"
             />
@@ -104,6 +105,7 @@ export function Sedes() {
               value={city}
               onChange={(e) => setCity(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && add()}
+              aria-label="Ciudad de la sede (opcional)"
               placeholder="Ciudad (opcional)"
               className="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1"
             />
@@ -231,11 +233,13 @@ function SedeCard({
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
+            aria-label="Nombre de la sede"
             className="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1"
           />
           <input
             value={city}
             onChange={(e) => setCity(e.target.value)}
+            aria-label="Ciudad de la sede (opcional)"
             placeholder="Ciudad (opcional)"
             className="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1"
           />

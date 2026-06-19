@@ -91,11 +91,7 @@ export function Resumen() {
                   {atencion.slice(0, 6).map((a) => (
                     <li key={a.key}>
                       <Link to={a.to} className="flex items-center gap-2.5 py-2.5 transition-colors hover:bg-slate-50">
-                        <span
-                          className={`grid size-7 shrink-0 place-items-center rounded-lg ${
-                            a.kind === 'stale' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'
-                          }`}
-                        >
+                        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
                           {a.kind === 'stale' ? <Clock className="size-4" aria-hidden /> : <PauseCircle className="size-4" aria-hidden />}
                         </span>
                         <span className="min-w-0 flex-1">
@@ -164,14 +160,14 @@ function IntakeChart({ candidates }: { candidates: Candidate[] }) {
     <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
       <div className="flex items-baseline justify-between">
         <p className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</p>
-        <p className="text-[12px] text-slate-400 tabular-nums">{total} en total</p>
+        <p className="text-[12px] text-slate-500 tabular-nums">{total} en total</p>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-40 w-full sm:h-44" preserveAspectRatio="none" role="img" aria-label={`Candidatos recibidos por semana, ${total} en total`}>
-        <path d={area} fill="#4F46E5" fillOpacity="0.1" />
-        <path d={line} fill="none" stroke="#4F46E5" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
-        <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="3.5" fill="#4F46E5" stroke="#fff" strokeWidth="2" />
+        <path d={area} className="fill-indigo-600/10" />
+        <path d={line} fill="none" strokeWidth="2.5" vectorEffect="non-scaling-stroke" className="stroke-indigo-600" />
+        <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="3.5" strokeWidth="2" className="fill-indigo-600 stroke-white" />
       </svg>
-      <div className="mt-1 flex justify-between text-[11px] text-slate-400">
+      <div className="mt-1 flex justify-between text-[11px] text-slate-500">
         {labelIdx.map((i) => (
           <span key={i}>{weeks[i].label}</span>
         ))}
@@ -235,7 +231,7 @@ function Panel({ title, right, children }: { title: string; right?: string; chil
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
       <div className="mb-1 flex items-baseline justify-between">
         <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-        {right && <span className="text-[13px] tabular-nums text-slate-400">{right}</span>}
+        {right && <span className="text-[13px] tabular-nums text-slate-500">{right}</span>}
       </div>
       {children}
     </div>
