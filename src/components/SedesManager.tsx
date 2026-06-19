@@ -1,30 +1,34 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Building2, Check, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { useAuth } from '../lib/auth'
-import { useToast } from '../components/ui/Toast'
-import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import { useAppBase } from '../lib/useAppBase'
-import { planHas } from '../lib/pricing'
-import { FeatureLocked } from '../components/FeatureLocked'
+import { useToast } from './ui/Toast'
+import { ConfirmDialog } from './ui/ConfirmDialog'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import type { Site } from '../lib/types'
 
-// Gestión de sedes (Multi): crear, renombrar y eliminar. Las sedes agrupan
-// puestos por local. Eliminar una sede deja sus puestos "sin sede", no los borra.
-export function Sedes() {
+// Gestión de sedes incrustada al pie de la Vista general (antes pantalla /sedes).
+// Crear, renombrar y eliminar. Eliminar una sede deja sus puestos "sin sede",
+// no los borra. El gating por plan y por rol (solo owner/member, nunca encargado)
+// lo decide quien la renderiza (Resumen): aquí se asume permitido.
+// focusSignal: al incrementarse (botón "Nueva sede" o deep-link ?sedes=1) la
+// sección se desplaza a la vista y enfoca el campo de nombre.
+export function SedesManager({ focusSignal = 0 }: { focusSignal?: number }) {
   const { sites, campaigns, createSite, renameSite, deleteSite } = useStore()
-  const { company } = useAuth()
   const toast = useToast()
-  const base = useAppBase()
-  const demo = base === '/demo'
   const [name, setName] = useState('')
   const [city, setCity] = useState('')
   const [busy, setBusy] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
   const [toDelete, setToDelete] = useState<Site | null>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
+  const sectionRef = useRef<HTMLDivElement>(null)
 
-  if (!demo && !planHas(company?.plan, 'sites')) return <FeatureLocked feature="sites" />
+  useEffect(() => {
+    if (focusSignal > 0) {
+      sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      nameRef.current?.focus({ preventScroll: true })
+    }
+  }, [focusSignal])
 
   const count = (id: string) => campaigns.filter((c) => c.siteId === id).length
 
@@ -41,10 +45,10 @@ export function Sedes() {
   }
 
   return (
-    <div className="mx-auto max-w-[820px] px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-5">
-        <h1 className="text-xl font-semibold text-slate-900">Sedes</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
+    <section ref={sectionRef} id="gestionar-sedes" className="mt-8 scroll-mt-6">
+      <header className="mb-3">
+        <h2 className="text-base font-semibold text-slate-900">Gestionar sedes</h2>
+        <p className="mt-0.5 text-[13px] text-slate-500">
           Agrupa tus puestos por local. Cada puesto puede pertenecer a una sede y el menú lateral se ordena por sede.
         </p>
       </header>
@@ -53,6 +57,7 @@ export function Sedes() {
         <p className="text-sm font-semibold text-slate-800">Nueva sede</p>
         <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
           <input
+            ref={nameRef}
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && add()}
@@ -127,7 +132,7 @@ export function Sedes() {
           })()}
         </p>
       </ConfirmDialog>
-    </div>
+    </section>
   )
 }
 

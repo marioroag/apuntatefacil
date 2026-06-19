@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Briefcase, Building2, ChevronDown, ExternalLink, Inbox, LayoutGrid, Loader2, LogOut, Menu, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
+import { Briefcase, ChevronDown, ExternalLink, Inbox, LayoutGrid, Loader2, LogOut, Menu, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
@@ -228,8 +228,7 @@ export function AppLayout() {
   // de sede/marca, crear puesto, vistas guardadas), no con tabs bloqueadas. El
   // encargado ve sus datos (acotados por RLS) pero no gestiona estructura ni equipo.
   const showBandeja = planHas(company.plan, 'bandeja')
-  const showResumen = planHas(company.plan, 'sites') // Vista general (todos los roles, acotada)
-  const showSedes = planHas(company.plan, 'sites') && !isEncargado // gestionar sedes
+  const showResumen = planHas(company.plan, 'sites') // Vista general (todos los roles, acotada). La gestión de sedes vive dentro, gateada por rol
   const showBrands = planHas(company.plan, 'brands') && !isEncargado // gestionar marcas
   const showEquipo = !demo && isOwner // gestión de equipo: solo el propietario
   const canCreate = !isEncargado // crear puestos
@@ -319,17 +318,6 @@ export function AppLayout() {
             Icon={Inbox}
             label="Bandeja"
             count={totalNuevos}
-            onNavigate={() => setOpen(false)}
-          />
-        </div>
-      )}
-
-      {showSedes && (
-        <div className="px-3 pt-2">
-          <SideNavItem
-            to={`${base}/sedes`}
-            Icon={Building2}
-            label="Sedes"
             onNavigate={() => setOpen(false)}
           />
         </div>

@@ -16,7 +16,6 @@ import { Privacidad, Terminos } from './screens/Legal'
 import { AppLayout, FirstCampaignRedirect } from './screens/AppLayout'
 import { Dashboard } from './screens/Dashboard'
 import { Bandeja } from './screens/Bandeja'
-import { Sedes } from './screens/Sedes'
 import { Marcas } from './screens/Marcas'
 import { Resumen } from './screens/Resumen'
 import { Equipo } from './screens/Equipo'
@@ -51,7 +50,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route index element={<FirstCampaignRedirect />} />
                   <Route path="resumen" element={<Resumen />} />
                   <Route path="bandeja" element={<Bandeja />} />
-                  <Route path="sedes" element={<Sedes />} />
+                  <Route path="sedes" element={<Navigate to="../resumen?sedes=1" replace />} />
                   <Route path="marcas" element={<Marcas />} />
                   <Route path="equipo" element={<Equipo />} />
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
@@ -71,7 +70,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route index element={<FirstCampaignRedirect />} />
                   <Route path="resumen" element={<Resumen />} />
                   <Route path="bandeja" element={<Bandeja />} />
-                  <Route path="sedes" element={<Sedes />} />
+                  <Route path="sedes" element={<Navigate to="../resumen?sedes=1" replace />} />
                   <Route path="marcas" element={<Marcas />} />
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />

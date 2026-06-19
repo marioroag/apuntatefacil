@@ -1657,7 +1657,7 @@ function SiteSelect({
             </li>
           ))}
           <li className="mt-1 border-t border-slate-100 pt-1">
-            <Link to={`${base}/sedes`} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">
+            <Link to={`${base}/resumen?sedes=1`} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">
               <Plus className="size-3.5" aria-hidden /> Gestionar sedes
             </Link>
           </li>
@@ -1851,7 +1851,7 @@ function PuestoSettingsSheet({
                         <SettingChip key={s.id} selected={campaign.siteId === s.id} onClick={() => onSetSite(s.id)} label={s.name} Icon={Building2} />
                       ))}
                     </div>
-                    <Link to={`${base}/sedes`} onClick={onClose} className="mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700">
+                    <Link to={`${base}/resumen?sedes=1`} onClick={onClose} className="mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700">
                       <Plus className="size-3.5" aria-hidden /> Gestionar sedes
                     </Link>
                   </>
