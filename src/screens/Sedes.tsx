@@ -267,10 +267,10 @@ function SedeCard({
           </div>
           {manageable && (
             <div className="flex shrink-0 items-center gap-1">
-              <button onClick={onEdit} aria-label={`Editar ${group.name}`} className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+              <button onClick={onEdit} aria-label={`Editar ${group.name}`} className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 pointer-coarse:size-11">
                 <Pencil className="size-4" aria-hidden />
               </button>
-              <button onClick={onDelete} aria-label={`Eliminar ${group.name}`} className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600">
+              <button onClick={onDelete} aria-label={`Eliminar ${group.name}`} className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 pointer-coarse:size-11">
                 <Trash2 className="size-4" aria-hidden />
               </button>
             </div>
