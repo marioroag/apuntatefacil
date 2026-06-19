@@ -88,3 +88,10 @@ Edge functions en `supabase/functions/` (Deno), listas para enchufar secrets:
 
 ## Estado actual
 Full-stack funcionando en local, verificado end-to-end (login magic link, onboarding, datos demo, dashboard real, formulario público anónimo que persiste, aislamiento multi-tenant comprobado en SQL, wizard de puestos con plantillas). Stripe/Resend con el código listo, faltan las claves. **Pendiente**: enchufar claves (Stripe/Resend), Google OAuth (credenciales) y deploy. Build verde, repo git propio.
+
+## Contexto de diseño (impeccable)
+La skill `impeccable` mantiene dos documentos en la raíz que cualquier trabajo de diseño lee antes de empezar:
+- **`PRODUCT.md`** (estrategia): register (`product`), usuarios, propósito, personalidad, anti-referencias y principios. Quién/qué/por qué. El cliente que encaja va de una pequeña constructora a una ETT (no micro-bares); nichos núcleo construcción y logística.
+- **`DESIGN.md`** (sistema visual): colores, tipografía, componentes y layout. Cómo se ve. PENDIENTE de generar con `/impeccable document` (capturará los tokens reales de `index.css`).
+
+Esta doctrina visual ("SaaS confiable", arriba) sigue siendo la fuente de verdad; PRODUCT.md/DESIGN.md la formalizan para las herramientas de diseño, no la sustituyen.

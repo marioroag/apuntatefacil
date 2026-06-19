@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-19T00:00:00Z",
+  "title": "Design System: Apúntate Fácil",
+  "extensions": {
+    "colorMeta": {
+      "accent": { "role": "primary", "displayName": "Índigo de confianza", "canonical": "#4F46E5", "tonalRamp": ["#312E81", "#3730A3", "#4338CA", "#4F46E5", "#6366F1", "#818CF8", "#A5B4FC", "#C7D2FE"] },
+      "ink": { "role": "neutral", "displayName": "Tinta (slate)", "canonical": "#0F172A", "tonalRamp": ["#0F172A", "#1E293B", "#334155", "#475569", "#64748B", "#94A3B8", "#CBD5E1", "#E2E8F0"] },
+      "bg-app": { "role": "neutral", "displayName": "Fondo de app", "canonical": "#F8FAFC", "tonalRamp": ["#0F172A", "#334155", "#64748B", "#94A3B8", "#CBD5E1", "#E2E8F0", "#F1F5F9", "#F8FAFC"] },
+      "status-contacted": { "role": "tertiary", "displayName": "Contactado (azul)", "canonical": "#3B82F6", "tonalRamp": ["#1E3A8A", "#1D4ED8", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE", "#EFF6FF"] },
+      "status-interview": { "role": "tertiary", "displayName": "Entrevista (ámbar)", "canonical": "#F59E0B", "tonalRamp": ["#78350F", "#B45309", "#D97706", "#F59E0B", "#FBBF24", "#FCD34D", "#FDE68A", "#FFFBEB"] },
+      "status-hired": { "role": "tertiary", "displayName": "Contratado (verde)", "canonical": "#22C55E", "tonalRamp": ["#14532D", "#15803D", "#16A34A", "#22C55E", "#4ADE80", "#86EFAC", "#BBF7D0", "#F0FDF4"] },
+      "danger": { "role": "danger", "displayName": "Peligro (rojo)", "canonical": "#DC2626", "tonalRamp": ["#7F1D1D", "#991B1B", "#B91C1C", "#DC2626", "#EF4444", "#F87171", "#FCA5A5", "#FEF2F2"] }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Títulos de página. El elemento de tipo más grande del panel." },
+      "title": { "displayName": "Title", "purpose": "Títulos de sección y de panel/tarjeta." },
+      "body": { "displayName": "Body", "purpose": "Texto de UI por defecto; prosa a 65-75ch, datos más densos." },
+      "label": { "displayName": "Label", "purpose": "Etiquetas, chips y controles; verbo-primero, sentence case." },
+      "overline": { "displayName": "Overline", "purpose": "Solo cabeceras de grupo del menú lateral. Único uso de mayúsculas tracked." }
+    },
+    "shadows": [
+      { "name": "card", "value": "0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04)", "purpose": "Reposo de tarjetas y paneles sobre el fondo." },
+      { "name": "pop", "value": "0 8px 24px rgba(15,23,42,0.12)", "purpose": "Solo superficies que flotan de verdad: dropdowns, paneles deslizantes, modales." },
+      { "name": "button-relief", "value": "inset 0 1px 0 rgba(255,255,255,0.25), 0 1px 2px rgba(30,27,75,0.35)", "purpose": "Excepción única a la planitud: tacto del botón primario." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0, 0, 0.2, 1)", "purpose": "Entradas y aparición." },
+      { "name": "ease-in", "value": "cubic-bezier(0.4, 0, 1, 1)", "purpose": "Salidas." },
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Transición de estado por defecto." },
+      { "name": "duration-fast", "value": "120ms", "purpose": "Microinteracciones (hover, active)." },
+      { "name": "duration-base", "value": "180ms", "purpose": "Transiciones de estado." },
+      { "name": "duration-slow", "value": "240ms", "purpose": "Aparición de paneles y reveals." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal con relieve índigo. La única excepción consciente a la planitud.",
+      "html": "<button class='ds-btn-primary'>Nuevo puesto</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; padding:0 16px; border-radius:10px; background:linear-gradient(to bottom,#6366F1,#4F46E5); color:#fff; font:600 14px/1 'Inter Variable',system-ui,sans-serif; border:1px solid rgba(67,56,202,0.5); box-shadow:inset 0 1px 0 rgba(255,255,255,0.25),0 1px 2px rgba(30,27,75,0.35); cursor:pointer; transition:background .18s,box-shadow .18s,transform .18s; } .ds-btn-primary:hover { background:linear-gradient(to bottom,#6366F1,#4338CA); } .ds-btn-primary:active { transform:translateY(1px); box-shadow:inset 0 1px 3px rgba(30,27,75,0.4); } .ds-btn-primary:focus-visible { outline:2px solid #4F46E5; outline-offset:2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Acción de menor peso: superficie blanca con borde, no botón fantasma plano.",
+      "html": "<button class='ds-btn-secondary'>Exportar a Excel</button>",
+      "css": ".ds-btn-secondary { display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; padding:0 12px; border-radius:10px; background:#fff; color:#1E293B; font:500 14px/1 'Inter Variable',system-ui,sans-serif; border:1px solid rgba(203,213,225,0.7); box-shadow:0 1px 2px rgba(16,24,40,0.07); cursor:pointer; transition:background .18s,transform .18s; } .ds-btn-secondary:hover { background:#F8FAFC; } .ds-btn-secondary:active { transform:translateY(1px); box-shadow:none; } .ds-btn-secondary:focus-visible { outline:2px solid #4F46E5; outline-offset:2px; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip-status",
+      "description": "Estado de candidato: punto de color mas texto, paleta fija que nunca usa el indigo. Ejemplo: Entrevista (ambar).",
+      "html": "<span class='ds-chip-status'><span class='ds-dot'></span>Entrevista</span>",
+      "css": ".ds-chip-status { display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 10px; border-radius:9999px; background:#FFFBEB; color:#B45309; font:500 12px/1 'Inter Variable',system-ui,sans-serif; box-shadow:inset 0 0 0 1px #FDE68A; } .ds-chip-status .ds-dot { width:6px; height:6px; border-radius:9999px; background:#F59E0B; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo de texto: borde slate, foco indigo con halo. Nunca se quita el outline.",
+      "html": "<input class='ds-input' type='text' placeholder='Buscar por nombre, telefono...' />",
+      "css": ".ds-input { height:40px; width:260px; padding:0 12px; border-radius:12px; background:#fff; border:1px solid #CBD5E1; color:#0F172A; font:400 14px/1 'Inter Variable',system-ui,sans-serif; outline:none; transition:border-color .15s,box-shadow .15s; } .ds-input::placeholder { color:#94A3B8; } .ds-input:focus { border-color:#4F46E5; box-shadow:0 0 0 4px rgba(79,70,229,0.15); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Superficie blanca sobre fondo slate: borde mas sombra de reposo. Tarjetas anidadas prohibidas.",
+      "html": "<div class='ds-card'><div class='ds-card-title'>Valencia</div><div class='ds-card-sub'>Valencia, 3 puestos abiertos</div></div>",
+      "css": ".ds-card { background:#fff; border:1px solid #E2E8F0; border-radius:12px; box-shadow:0 1px 3px rgba(15,23,42,0.08),0 1px 2px rgba(15,23,42,0.04); padding:20px; width:260px; } .ds-card-title { font:600 16px/1.4 'Inter Variable',system-ui,sans-serif; color:#0F172A; } .ds-card-sub { margin-top:2px; font:400 13px/1.4 'Inter Variable',system-ui,sans-serif; color:#64748B; }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Item de menu lateral. Activo: lavado indigo mas icono indigo y texto en negrita.",
+      "html": "<a class='ds-nav-item active' href='#'><svg class='ds-ico' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='7' height='7' x='3' y='3' rx='1'/><rect width='7' height='7' x='14' y='3' rx='1'/><rect width='7' height='7' x='14' y='14' rx='1'/><rect width='7' height='7' x='3' y='14' rx='1'/></svg>Vista general</a>",
+      "css": ".ds-nav-item { display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 10px; border-radius:12px; font:500 14px/1 'Inter Variable',system-ui,sans-serif; color:#475569; text-decoration:none; transition:background .15s,color .15s; } .ds-nav-item:hover { background:#F1F5F9; color:#0F172A; } .ds-nav-item.active { background:#EEF2FF; color:#0F172A; font-weight:600; } .ds-ico { width:16px; height:16px; color:#94A3B8; } .ds-nav-item.active .ds-ico { color:#4F46E5; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "La mesa de trabajo despejada",
+    "overview": "Apúntate Fácil recibe el caos de decenas de respuestas sueltas en un chat y las deja en una superficie ordenada donde cada cosa está en su sitio. La interfaz es la mesa de trabajo despejada: sobria, precisa, sin adornos, con bajo coste cognitivo. La herramienta desaparece en la tarea. El registro es el de 'SaaS confiable' tipo Linear, Notion y Stripe: familiaridad ganada, no sorpresa. La emoción objetivo es control y calma sobre el caos: nada parpadea pidiendo atención, el siguiente paso siempre está claro. La densidad es la de una herramienta de trabajo; la jerarquía se construye con peso y color antes que con tamaño. El color es contenido: un único acento índigo para lo accionable y una escala neutra slate para todo lo demás. Multisector neutro: la estética nunca se inclina a un gremio.",
+    "keyCharacteristics": [
+      "Un solo acento (índigo #4F46E5) y neutros slate; color = significado, nunca decoración.",
+      "Jerarquía por peso y color antes que por tamaño; una sola familia (Inter).",
+      "Plano por defecto, una sola sombra por elevación, bordes que hacen el trabajo.",
+      "Estado de candidato = punto de color mas texto, con paleta propia que nunca usa el índigo.",
+      "Mobile-first donde el candidato (y a menudo quien contrata) están; accesibilidad como suelo."
+    ],
+    "rules": [
+      { "name": "La regla del acento único", "body": "El índigo #4F46E5 se reserva a acción, navegación activa, foco y selección. Nunca para estado ni para decorar. Es el error número uno a evitar.", "section": "colors" },
+      { "name": "La regla 'estado no es marca'", "body": "Los estados de candidato usan su paleta fija (slate / azul / ámbar / verde / slate). Si un estado aparece en índigo, está mal. Descartar es rutina: nunca rojo.", "section": "colors" },
+      { "name": "La regla del punto y el texto", "body": "Un estado se comunica con punto de color y texto, jamás solo con color.", "section": "colors" },
+      { "name": "La regla del peso antes que el tamaño", "body": "La jerarquía se construye subiendo el peso y oscureciendo el color antes que agrandando la fuente.", "section": "typography" },
+      { "name": "La regla de los números tabulares", "body": "Todo número, fecha y teléfono usa tabular-nums para que las columnas alineen. Es global.", "section": "typography" },
+      { "name": "La regla de una sombra por elevación", "body": "Cada elemento usa como mucho una sombra del vocabulario. Apilar sombras, o usar shadow-pop en algo que no flota de verdad, está prohibido.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do reservar el índigo #4F46E5 a acción, nav activo, foco y selección; para todo lo demás, slate.",
+      "Do comunicar el estado con punto de color mas texto, usando la paleta fija de estado, nunca el índigo.",
+      "Do construir jerarquía con peso y color antes que con tamaño; una sola familia, Inter, con tabular-nums en todo número.",
+      "Do mantener plano por defecto: borde mas shadow-card en reposo, shadow-pop solo en lo que flota de verdad.",
+      "Do respetar el suelo de accesibilidad: focus-visible siempre, contraste >= 4.5:1, prefers-reduced-motion, alternativa de teclado al drag, inputs de 16px en táctil.",
+      "Do mantener movimiento corto y sobrio (120/180/240 ms, solo transform/opacity)."
+    ],
+    "donts": [
+      "Don't usar el índigo de marca para estados ni para decorar; don't pintar 'descartado' en rojo ni con shake.",
+      "Don't caer en el molde de SaaS de plantilla: rejillas de cards idénticas, eyebrow tracked sobre cada sección, plantilla hero-métrica, degradados de IA.",
+      "Don't parecer cutre o de ganga: nada de .99, contadores de urgencia, gradientes chillones ni prueba social inventada. Cero dark patterns.",
+      "Don't parecer infantil ni de juguete ni sesgar la estética a un gremio (cascos, naranjas de obra, iconografía de oficio).",
+      "Don't usar borde lateral de color, texto con degradado, glassmorphism decorativo ni sombras apiladas.",
+      "Don't abrir el detalle en un modal a pantalla completa; don't anidar tarjetas; don't validar al teclear ni borrar lo que el candidato ya escribió."
+    ]
+  }
+}
