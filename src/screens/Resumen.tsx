@@ -1,86 +1,43 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { Briefcase, Building2, ChevronRight, Clock, PauseCircle, Plus } from 'lucide-react'
+import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
+import { Briefcase, Building2, ChevronRight, Clock, PauseCircle } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { planHas } from '../lib/pricing'
 import { FeatureLocked } from '../components/FeatureLocked'
-import { SedesManager } from '../components/SedesManager'
-import { BTN_SECONDARY } from '../lib/buttons'
-import type { Campaign, Candidate } from '../lib/types'
+import type { Candidate } from '../lib/types'
 
 const STALE_DAYS = 7
 
-// Vista general (Multi): cómo van todos tus puestos de un vistazo, al estilo de un
-// panel "home". Fusiona el antiguo overview por sede con la GESTIÓN de sedes (que
-// vive ahora como sección al pie, no como pestaña aparte). Solo lectura arriba;
-// las mutaciones de sedes están separadas abajo y solo las ve owner/member.
+// Vista general (Multi): panel "home" con el pulso global de todos los puestos.
+// Solo lectura. El detalle por sede y su gestión viven en la pestaña Sedes.
 export function Resumen() {
-  const { campaigns, candidates, sites, newCountFor } = useStore()
-  const { company, role } = useAuth()
+  const { campaigns, candidates, newCountFor } = useStore()
+  const { company } = useAuth()
   const base = useAppBase()
   const demo = base === '/demo'
-  const isEncargado = role === 'encargado'
-  const [focusSedes, setFocusSedes] = useState(0)
-  const [params, setParams] = useSearchParams()
-
-  // Deep-link ?sedes=1 (desde el redirect de /sedes y los enlaces "Gestionar sedes"
-  // del panel del puesto): lleva a la sección de gestión. Nunca para el encargado.
-  useEffect(() => {
-    if (params.get('sedes') && !isEncargado) {
-      setFocusSedes((n) => n + 1)
-      const next = new URLSearchParams(params)
-      next.delete('sedes')
-      setParams(next, { replace: true })
-    }
-  }, [params, isEncargado, setParams])
 
   if (!demo && !planHas(company?.plan, 'sites'))
     return (
       <FeatureLocked
         feature="sites"
         featureLabel="la Vista general"
-        blurb="Compara de un vistazo cómo va cada sede y gestiónalas desde un sitio: nuevos, sin contactar y contratados."
+        blurb="Un vistazo a cómo van todos tus puestos: candidatos, nuevos sin revisar y contratados."
       />
     )
 
   const staleCut = Date.now() - STALE_DAYS * 86400000
-
-  const groupFor = (id: string | null, name: string, city: string) => {
-    const camps = campaigns.filter((c) =>
-      id === null ? !c.siteId || !sites.some((s) => s.id === c.siteId) : c.siteId === id,
-    )
-    const campIds = new Set(camps.map((c) => c.id))
-    const cands = candidates.filter((c) => campIds.has(c.campaignId))
-    const nuevos = cands.filter((c) => c.status === 'nuevo')
-    return {
-      id,
-      name,
-      city,
-      camps,
-      nuevos: nuevos.length,
-      stale: nuevos.filter((c) => new Date(c.submittedAt).getTime() < staleCut).length,
-      contratados: cands.filter((c) => c.status === 'contratado').length,
-      abiertos: camps.filter((c) => c.status === 'activa' || c.status === 'pausada').length,
-    }
-  }
-
-  const groups = sites.map((s) => groupFor(s.id, s.name, s.city))
-  const sinSede = groupFor(null, 'Sin sede', '')
-  const allGroups = sinSede.camps.length ? [...groups, sinSede] : groups
-
-  // KPIs globales (todos reales, derivados del store).
   const nuevosTotal = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
   const contratados = candidates.filter((c) => c.status === 'contratado').length
   const abiertos = campaigns.filter((c) => c.status === 'activa' || c.status === 'pausada').length
 
-  // "Piden atención": candidatos nuevos sin contactar +7 días (por puesto) y puestos
-  // pausados. Datos reales y accionables, sin urgencia inventada.
+  // "Piden atención": nuevos sin contactar +7 días (por puesto) y puestos pausados.
   const atencion: { key: string; to: string; title: string; reason: string; kind: 'stale' | 'pause' }[] = []
   for (const c of campaigns) {
-    const cands = candidates.filter((x) => x.campaignId === c.id)
-    const staleN = cands.filter((x) => x.status === 'nuevo' && new Date(x.submittedAt).getTime() < staleCut).length
+    const staleN = candidates.filter(
+      (x) => x.campaignId === c.id && x.status === 'nuevo' && new Date(x.submittedAt).getTime() < staleCut,
+    ).length
     if (staleN > 0)
       atencion.push({
         key: `stale-${c.id}`,
@@ -102,24 +59,15 @@ export function Resumen() {
     .sort((a, b) => b.n - a.n)
     .slice(0, 6)
 
-  const openSedes = () => setFocusSedes((n) => n + 1)
-
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Vista general</h1>
-          <p className="mt-0.5 text-sm text-slate-500">Cómo van todos tus puestos de un vistazo.</p>
-        </div>
-        {!isEncargado && (
-          <button onClick={openSedes} className={`${BTN_SECONDARY} shrink-0 whitespace-nowrap`}>
-            <Plus className="size-4 text-slate-400" aria-hidden /> Nueva sede
-          </button>
-        )}
+      <header className="mb-5">
+        <h1 className="text-xl font-semibold text-slate-900">Vista general</h1>
+        <p className="mt-0.5 text-sm text-slate-500">Cómo van todos tus puestos de un vistazo.</p>
       </header>
 
       {campaigns.length === 0 ? (
-        <Empty text="Aún no tienes puestos. Crea el primero para ver aquí cómo van tus sedes." />
+        <Empty text="Aún no tienes puestos. Crea el primero para ver aquí cómo van tus puestos." />
       ) : (
         <>
           {/* KPIs */}
@@ -132,34 +80,6 @@ export function Resumen() {
 
           {/* Gráfica de altas por semana (única serie temporal real: fecha de alta) */}
           <IntakeChart candidates={candidates} />
-
-          {sites.length === 0 ? (
-            <div className="mt-5">
-              <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-[13px] text-slate-600">
-                {isEncargado ? (
-                  'Tus puestos aún no están agrupados por sede.'
-                ) : (
-                  <>
-                    Crea tus sedes para ver cada local por separado.{' '}
-                    <button onClick={openSedes} className="font-medium text-indigo-700 hover:text-indigo-800">
-                      Crear una sede
-                    </button>
-                    . Mientras, este es el total.
-                  </>
-                )}
-              </div>
-              <SedeCard group={{ ...sinSede, name: 'Todos tus puestos' }} base={base} newCountFor={newCountFor} />
-            </div>
-          ) : (
-            <section className="mt-6">
-              <h2 className="mb-3 text-base font-semibold text-slate-900">Por sede</h2>
-              <div className="grid gap-4 lg:grid-cols-2">
-                {allGroups.map((g) => (
-                  <SedeCard key={g.id ?? '__none__'} group={g} base={base} newCountFor={newCountFor} />
-                ))}
-              </div>
-            </section>
-          )}
 
           {/* Piden atención + Nuevos sin revisar */}
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -213,8 +133,6 @@ export function Resumen() {
           </div>
         </>
       )}
-
-      {!isEncargado && <SedesManager focusSignal={focusSedes} />}
     </div>
   )
 }
@@ -320,113 +238,6 @@ function Panel({ title, right, children }: { title: string; right?: string; chil
         {right && <span className="text-[13px] tabular-nums text-slate-400">{right}</span>}
       </div>
       {children}
-    </div>
-  )
-}
-
-type Group = {
-  id: string | null
-  name: string
-  city: string
-  camps: Campaign[]
-  nuevos: number
-  stale: number
-  contratados: number
-  abiertos: number
-}
-
-function SedeCard({ group, base, newCountFor }: { group: Group; base: string; newCountFor: (id: string) => number }) {
-  const sub = [group.city, `${group.abiertos} ${group.abiertos === 1 ? 'puesto abierto' : 'puestos abiertos'}`]
-    .filter(Boolean)
-    .join(', ')
-  return (
-    <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-card">
-      <div className="flex items-center gap-2.5">
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
-          <Building2 className="size-5" aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <h3 className="truncate font-semibold text-slate-900">{group.name}</h3>
-          <p className="text-[13px] text-slate-500">{sub}</p>
-        </div>
-      </div>
-
-      {/* Móvil: lista vertical, las etiquetas tienen ancho y no se parten en 3 líneas */}
-      <div className="mt-4 space-y-1.5 sm:hidden">
-        <StatRow n={group.nuevos} label="Nuevos sin revisar" />
-        <StatRow n={group.stale} label={`Sin contactar +${STALE_DAYS} días`} />
-        <StatRow n={group.contratados} label="Contratados" />
-      </div>
-      {/* sm+: tres columnas (caben de sobra) */}
-      <div className="mt-4 hidden grid-cols-3 gap-2.5 sm:grid">
-        <Stat n={group.nuevos} label="Nuevos sin revisar" />
-        <Stat n={group.stale} label={`Sin contactar +${STALE_DAYS}d`} />
-        <Stat n={group.contratados} label="Contratados" />
-      </div>
-
-      {group.camps.length > 0 && (
-        <>
-          {/* Móvil: filas a ancho completo, aprovechan el espacio y se leen mejor */}
-          <div className="mt-4 space-y-1 sm:hidden">
-            {group.camps.map((c) => {
-              const n = newCountFor(c.id)
-              return (
-                <Link
-                  key={c.id}
-                  to={`${base}/puestos/${c.id}${n > 0 ? '?estado=nuevo' : ''}`}
-                  className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5 transition-colors active:bg-slate-100"
-                >
-                  <Briefcase className="size-4 shrink-0 text-slate-400" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{c.title}</span>
-                  {n > 0 && (
-                    <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700">{n}</span>
-                  )}
-                  <ChevronRight className="size-4 shrink-0 text-slate-300" aria-hidden />
-                </Link>
-              )
-            })}
-          </div>
-          {/* sm+: pills */}
-          <div className="mt-4 hidden flex-wrap gap-1.5 sm:flex">
-            {group.camps.map((c) => {
-              const n = newCountFor(c.id)
-              return (
-                <Link
-                  key={c.id}
-                  to={`${base}/puestos/${c.id}${n > 0 ? '?estado=nuevo' : ''}`}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
-                >
-                  <Briefcase className="size-3.5 shrink-0 text-slate-400" aria-hidden />
-                  <span className="max-w-[160px] truncate">{c.title}</span>
-                  {n > 0 && (
-                    <span className="rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700">{n}</span>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-function Stat({ n, label }: { n: number; label: string }) {
-  return (
-    <div className="rounded-lg bg-slate-50 px-3 py-2.5">
-      <p className="text-2xl font-semibold tabular-nums text-slate-900">{n}</p>
-      <p className="mt-0.5 text-[12px] leading-tight text-slate-500">{label}</p>
-    </div>
-  )
-}
-
-// Versión móvil: número y etiqueta en una fila, así la etiqueta dispone de todo
-// el ancho y no se rompe en varias líneas como en la rejilla de tres columnas.
-function StatRow({ n, label }: { n: number; label: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg bg-slate-50 px-3.5 py-2">
-      <span className="w-9 shrink-0 text-2xl font-semibold tabular-nums text-slate-900">{n}</span>
-      <span className="text-[13px] text-slate-600">{label}</span>
     </div>
   )
 }
