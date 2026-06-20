@@ -10,7 +10,7 @@ import { BrowserMock } from '../components/BrowserMock'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { TIERS } from '../lib/pricing'
 
-const SECTORS = ['Hostelería', 'Construcción', 'Logística', 'Limpieza', 'Comercio', 'Reformas', 'Cuidados']
+const SECTORS = ['Construcción', 'Logística', 'Limpieza', 'Reformas', 'Comercio', 'Cuidados']
 
 // Entrada sobria con animación CSS en montaje (fill 'both' deja el estado final;
 // reduced-motion la vuelve instantánea con el CSS global). No depende de
@@ -160,7 +160,7 @@ function Sectors() {
     <section className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <p className="text-center text-[13px] font-semibold uppercase tracking-wider text-slate-500">
-          Sirve para contratar en cualquier sector
+          De la construcción a la logística, y cualquier oficio de a pie
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           {SECTORS.map((s) => (
