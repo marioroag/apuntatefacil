@@ -3,11 +3,11 @@ import type { CandidateStatus } from '../lib/types'
 import { MaskedPhone } from './MaskedPhone'
 
 const ROWS: { name: string; sector: string; phone: string; status: CandidateStatus; when: string }[] = [
-  { name: 'Antonio Navarro', sector: 'Oficial 1ª', phone: '622 481 109', status: 'nuevo', when: 'hace 2 h' },
+  { name: 'Sergio Vidal', sector: 'Electricista', phone: '622 481 109', status: 'nuevo', when: 'hace 2 h' },
   { name: 'Lucía Fernández', sector: 'Mozo/a almacén', phone: '655 203 884', status: 'nuevo', when: 'hace 5 h' },
   { name: 'Mohamed El Amrani', sector: 'Peón albañil', phone: '634 770 512', status: 'contactado', when: 'ayer' },
   { name: 'Marta Gil', sector: 'Carretillera', phone: '600 918 233', status: 'entrevista', when: 'ayer' },
-  { name: 'David Romero', sector: 'Peón albañil', phone: '671 552 048', status: 'contratado', when: 'hace 3 días' },
+  { name: 'David Romero', sector: 'Oficial 1ª', phone: '671 552 048', status: 'contratado', when: 'hace 3 días' },
 ]
 
 export function BrowserMock({ className = '', dropIn = false }: { className?: string; dropIn?: boolean }) {

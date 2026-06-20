@@ -106,24 +106,24 @@ function TopNav() {
             Ver la demo
           </Link>
           <Link to="/login" className="group ml-1 inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700">
-            Empezar <ArrowRight className="size-4 transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:translate-x-1" aria-hidden />
+            Empezar <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
         </div>
-        <button onClick={() => setOpen((o) => !o)} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden" aria-label="Menú" aria-expanded={open}>
+        <button onClick={() => setOpen((o) => !o)} className="grid size-11 place-items-center rounded-lg text-slate-600 hover:bg-slate-100 md:hidden" aria-label="Menú" aria-expanded={open}>
           {open ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
       </nav>
       {open && (
-        <div className="border-t border-slate-200 px-4 py-3 md:hidden">
+        <div className="border-t border-slate-200 bg-white px-4 py-3 md:hidden">
           {links.map(([label, href]) => (
-            <a key={href} href={href} onClick={() => setOpen(false)} className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+            <a key={href} href={href} onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100">
               {label}
             </a>
           ))}
-          <Link to="/demo" onClick={() => setOpen(false)} className="mt-1 block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100">
+          <Link to="/demo" onClick={() => setOpen(false)} className="mt-1 block rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100">
             Ver la demo
           </Link>
-          <Link to="/login" onClick={() => setOpen(false)} className="mt-1 flex h-10 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white">
+          <Link to="/login" onClick={() => setOpen(false)} className="mt-1 flex h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white">
             Empezar <ArrowRight className="size-4" aria-hidden />
           </Link>
         </div>
@@ -139,15 +139,15 @@ function Hero() {
         <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-[13px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-100">
           Para quien contrata por Milanuncios
         </span>
-        <h1 className="mt-4 text-[34px] font-bold leading-[1.07] tracking-tight text-slate-900 sm:text-[52px]">
+        <h1 className="mt-4 text-balance text-[34px] font-bold leading-[1.07] tracking-tight text-slate-900 sm:text-[52px]">
           Un mensaje es todo lo que necesitas para contratar
         </h1>
-        <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600">
+        <p className="mt-5 max-w-xl text-pretty text-lg leading-relaxed text-slate-600">
           Cada vacante recibe decenas de respuestas y se te van por el chat. Apúntate Fácil las recoge todas, ordenadas en un sitio: tú mandas un enlace y eliges sin perder a nadie.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link to="/login" className="group inline-flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]">
-            Pruébalo gratis <ArrowRight className="size-4 transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:translate-x-1" aria-hidden />
+            Pruébalo gratis <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
           <Link to="/demo" className="inline-flex h-12 items-center rounded-xl px-5 text-base font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
             Ver la demo
@@ -212,10 +212,10 @@ function Compare() {
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
         <Reveal className="text-center">
           <p className="text-[13px] font-semibold uppercase tracking-wider text-indigo-600">La misma vacante, dos conversaciones</p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900 sm:text-[40px] sm:leading-[1.1]">
+          <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-[40px] sm:leading-[1.1]">
             Mira la diferencia en el propio chat
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
+          <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
             A la izquierda, el ida y vuelta de siempre que no lleva a nada. A la derecha, un enlace y ya está: te llega todo ordenado.
           </p>
         </Reveal>
@@ -305,7 +305,7 @@ function HowItWorks() {
     <section id="como-funciona" className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
         <Reveal>
-          <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             Tres pasos, y lo montas en cinco minutos
           </h2>
         </Reveal>
@@ -345,7 +345,7 @@ function Features() {
     <section className="bg-white">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
         <Reveal>
-          <h2 className="max-w-2xl text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             Todo lo que necesitas para elegir bien, sin perder a nadie
           </h2>
         </Reveal>
@@ -398,10 +398,10 @@ function Pricing() {
     <section id="precio" className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
       <Reveal className="text-center">
-        <h2 className="mx-auto max-w-3xl text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+        <h2 className="mx-auto max-w-3xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
           Un precio claro, sin "desde" ni letra pequeña
         </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-slate-600">
+        <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
           Empieza gratis y sube de plan cuando lo necesites. En los planes de pago, candidatos y usuarios sin límite y sin permanencia.
         </p>
       </Reveal>
@@ -462,7 +462,7 @@ function Pricing() {
                 </div>
               ) : (
                 <Link to="/login" className="group mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.99]">
-                  {t.cta} <ArrowRight className="size-4 transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:translate-x-1" aria-hidden />
+                  {t.cta} <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
                 </Link>
               )}
             </div>
@@ -493,7 +493,7 @@ function Faq() {
     <section id="faq" className="bg-white">
       <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:py-24">
         <Reveal>
-          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-[2rem]">Todo lo que necesitas saber antes de empezar</h2>
+          <h2 className="text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Todo lo que necesitas saber antes de empezar</h2>
         </Reveal>
         <div className="mt-10 divide-y divide-slate-200 border-y border-slate-200 bg-white">
           {qs.map(([q, a], i) => (
@@ -516,15 +516,15 @@ function FinalCta() {
     <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
       <Reveal>
         <div className="overflow-hidden rounded-3xl bg-slate-900 px-8 py-14 text-center sm:px-16">
-          <h2 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          <h2 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
             Míralo funcionar antes de registrarte
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-slate-300">
+          <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-slate-300">
             No te pedimos que te fíes de una promesa. Entra, toca el panel con datos de ejemplo y compruébalo tú. Sin registro y sin tarjeta.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link to="/demo" className="group inline-flex h-12 items-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-slate-900 transition-transform hover:scale-[1.02] active:scale-[0.99]">
-              Ver la demo <ArrowRight className="size-4 transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:translate-x-1" aria-hidden />
+              Ver la demo <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
             </Link>
             <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-xl px-5 text-base font-semibold text-white ring-1 ring-white/25 hover:bg-white/10">
               Empezar
