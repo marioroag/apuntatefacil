@@ -167,7 +167,7 @@ function Sectors() {
   return (
     <section className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <p className="text-center text-[13px] font-semibold uppercase tracking-wider text-slate-500">
+        <p className="text-center text-[15px] font-medium text-slate-600">
           De la construcción a la logística, y cualquier oficio de a pie
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -211,7 +211,7 @@ function Compare() {
     <section className="bg-white">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
         <Reveal className="text-center">
-          <p className="text-[13px] font-semibold uppercase tracking-wider text-indigo-600">La misma vacante, dos conversaciones</p>
+          <p className="text-sm font-semibold text-indigo-600">La misma vacante, dos conversaciones</p>
           <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-[40px] sm:leading-[1.1]">
             Mira la diferencia en el propio chat
           </h2>
