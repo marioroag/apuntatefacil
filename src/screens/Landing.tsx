@@ -62,8 +62,8 @@ export function Landing() {
 // sólida. El nombre propio "Apúntate Fácil" se expone a lectores de pantalla con un
 // sr-only. Solo en la landing; el resto de la app usa el <Logo/> (solo el monograma).
 function BrandLockup({ compact = false }: { compact?: boolean }) {
-  const markSize = compact ? 'size-7' : 'size-[34px]'
-  const textSize = compact ? 'text-sm' : 'text-[22px]'
+  const markSize = compact ? 'size-7' : 'size-[32px]'
+  const textSize = compact ? 'text-sm' : 'text-[20px]'
   return (
     <span className="flex items-center gap-2">
       <img src={brandMark} alt="" className={`${markSize} shrink-0 object-contain`} />
