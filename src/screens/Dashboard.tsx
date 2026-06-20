@@ -269,7 +269,22 @@ export function Dashboard() {
   }, [all, campaign])
 
   if (!campaign) {
-    return <div className="p-8 text-slate-500">Puesto no encontrado.</div>
+    return (
+      <div className="grid h-full place-items-center px-6 py-16">
+        <div className="w-full max-w-md text-center">
+          <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+            <Briefcase className="size-6" aria-hidden />
+          </div>
+          <h1 className="mt-4 text-xl font-semibold text-slate-900">Puesto no encontrado</h1>
+          <p className="mt-1.5 text-sm text-slate-500">
+            Puede que se haya cerrado o que el enlace ya no sea válido.
+          </p>
+          <Link to={base} className={`${BTN_PRIMARY} mt-6`}>
+            Ir a mis puestos
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   const activeFilterCount = statusFilter.size + valueFilters.length + numberFilters.length + (ratingFilter > 0 ? 1 : 0)
