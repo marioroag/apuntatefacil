@@ -62,8 +62,8 @@ export function Landing() {
 // sólida. El nombre propio "Apúntate Fácil" se expone a lectores de pantalla con un
 // sr-only. Solo en la landing; el resto de la app usa el <Logo/> (solo el monograma).
 function BrandLockup({ compact = false }: { compact?: boolean }) {
-  const markSize = compact ? 'size-7' : 'size-9'
-  const textSize = compact ? 'text-sm' : 'text-[18px]'
+  const markSize = compact ? 'size-7' : 'size-[34px]'
+  const textSize = compact ? 'text-sm' : 'text-[22px]'
   return (
     <span className="flex items-center gap-2">
       <img src={brandMark} alt="" className={`${markSize} shrink-0 object-contain`} />
@@ -278,7 +278,7 @@ function Compare() {
                   <span className="font-semibold underline decoration-white/50 underline-offset-2">apuntatefacil.es/peon</span>
                 </div>
                 <ChatTime>10:44, dos minutos después</ChatTime>
-                <Bubble from="them">¡Hecho! ✅</Bubble>
+                <Bubble from="them">¡Hecho! 👍</Bubble>
 
                 <div className="mt-1.5 rounded-xl border border-green-200 bg-white p-3.5">
                   <p className="flex items-center gap-1.5 text-[13px] font-semibold text-green-700">

@@ -108,7 +108,7 @@
   .brand-wordmark {
     font-family: var(--font-brand);
     font-weight: 800;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.015em;
   }
 
   /* Quita la apariencia nativa de los campos de texto. Safari/iOS les pone su
