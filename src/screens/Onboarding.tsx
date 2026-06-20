@@ -139,7 +139,7 @@ export function Onboarding() {
           placeholder="Bar Pepe, Construcciones García..."
           autoFocus
           aria-invalid={!!error}
-          className={`h-11 w-full rounded-xl border bg-white px-3.5 text-base outline-none placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-500/15 ${error ? 'border-red-400' : 'border-slate-300 focus:border-indigo-500'}`}
+          className={`h-11 w-full rounded-xl border bg-white px-3.5 text-base outline-none placeholder:text-slate-500 focus:ring-4 focus:ring-indigo-500/15 ${error ? 'border-red-400' : 'border-slate-300 focus:border-indigo-500'}`}
         />
         {error && <p className="mt-1.5 text-[13px] font-medium text-red-600">{error}</p>}
         <button

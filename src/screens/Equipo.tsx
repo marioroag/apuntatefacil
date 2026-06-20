@@ -133,7 +133,7 @@ export function Equipo() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="compañero@empresa.com"
-              className="h-10 flex-1 rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+              className="h-10 flex-1 rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
             />
             <button
               type="submit"

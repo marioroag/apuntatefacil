@@ -199,7 +199,7 @@ export function CandidatePanel({
               onBlur={() => setNotes(candidate.id, notes)}
               rows={3}
               placeholder="Lo que hablasteis por teléfono, disponibilidad real, etc."
-              className="w-full resize-y rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+              className="w-full resize-y rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
             />
             <p className="mt-1 text-[12px] text-slate-400">Solo las ve tu equipo. No se envían al candidato.</p>
           </div>

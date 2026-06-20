@@ -61,7 +61,7 @@ export function ResetPassword() {
   }
 
   const inputClass = (invalid: boolean) =>
-    `h-11 w-full rounded-xl border bg-white px-3.5 text-base outline-none placeholder:text-slate-400 focus:ring-4 focus:ring-indigo-500/15 ${invalid ? 'border-red-400' : 'border-slate-300 focus:border-indigo-500'}`
+    `h-11 w-full rounded-xl border bg-white px-3.5 text-base outline-none placeholder:text-slate-500 focus:ring-4 focus:ring-indigo-500/15 ${invalid ? 'border-red-400' : 'border-slate-300 focus:border-indigo-500'}`
 
   return (
     <div className="grid min-h-svh place-items-center bg-slate-50 px-4">

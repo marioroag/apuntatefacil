@@ -31,7 +31,7 @@ export function validateField(field: FormField, value: FieldValue): string | nul
 }
 
 const inputBase =
-  'w-full rounded-xl border bg-white px-3.5 text-base text-slate-900 placeholder:text-slate-400 ' +
+  'w-full rounded-xl border bg-white px-3.5 text-base text-slate-900 placeholder:text-slate-500 ' +
   'transition-[border-color,box-shadow] duration-150 outline-none ' +
   'focus:border-[var(--accent)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--accent)_18%,transparent)]'
 

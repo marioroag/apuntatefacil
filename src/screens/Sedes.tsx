@@ -99,7 +99,7 @@ export function Sedes() {
               onKeyDown={(e) => e.key === 'Enter' && add()}
               aria-label="Nombre de la sede"
               placeholder="Nombre, ej: Valencia centro"
-              className="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1"
+              className="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1"
             />
             <input
               value={city}
@@ -107,7 +107,7 @@ export function Sedes() {
               onKeyDown={(e) => e.key === 'Enter' && add()}
               aria-label="Ciudad de la sede (opcional)"
               placeholder="Ciudad (opcional)"
-              className="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1"
+              className="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1"
             />
             <button onClick={add} disabled={busy || !name.trim()} className={`${BTN_PRIMARY} disabled:opacity-50`}>
               <Plus className="size-4" aria-hidden /> Añadir
@@ -241,7 +241,7 @@ function SedeCard({
             onChange={(e) => setCity(e.target.value)}
             aria-label="Ciudad de la sede (opcional)"
             placeholder="Ciudad (opcional)"
-            className="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1"
+            className="h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1"
           />
           <div className="flex gap-1.5">
             <button
