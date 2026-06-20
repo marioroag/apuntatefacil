@@ -12,6 +12,14 @@ import { TIERS } from '../lib/pricing'
 
 const SECTORS = ['Construcción', 'Logística', 'Limpieza', 'Reformas', 'Comercio', 'Cuidados']
 
+// Muestra mini de "la lista en una pantalla" para el feature-héroe: estados con su
+// paleta fija (nuevo slate, contactado azul, contratado verde), punto + texto.
+const FEATURE_MINI = [
+  { ini: 'LF', name: 'Lucía Fernández', role: 'Mozo/a almacén', label: 'Nuevo', pill: 'bg-slate-100 text-slate-700', dot: 'bg-slate-500' },
+  { ini: 'ME', name: 'Mohamed El Amrani', role: 'Peón albañil', label: 'Contactado', pill: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500' },
+  { ini: 'DR', name: 'David Romero', role: 'Oficial 1ª', label: 'Contratado', pill: 'bg-green-50 text-green-700', dot: 'bg-green-500' },
+]
+
 // Entrada sobria con animación CSS en montaje (fill 'both' deja el estado final;
 // reduced-motion la vuelve instantánea con el CSS global). No depende de
 // IntersectionObserver, así nada se queda invisible en un preview embebido.
@@ -332,6 +340,7 @@ function Features() {
     { icon: FileSpreadsheet, title: 'Descárgalo todo a Excel cuando quieras', body: 'Tus datos son tuyos. Te bajas la lista entera a Excel en cualquier momento, también si te das de baja, sin pedir permiso a nadie.' },
     { icon: InfinityIcon, title: 'Candidatos y usuarios sin límite', body: 'Reciban 20 respuestas o 200, las tienes todas. Y lo usa tu encargada o quien tú quieras, sin pagar por cada persona.' },
   ]
+  const [hero, ...rest] = items
   return (
     <section className="bg-white">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
@@ -341,8 +350,33 @@ function Features() {
           </h2>
         </Reveal>
         <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((it, i) => (
-            <Reveal key={it.title} delay={(i % 3) * 0.06}>
+          {/* Feature-héroe: ocupa 2x2 y MUESTRA la lista en vez de contarla */}
+          <Reveal className="sm:col-span-2 lg:row-span-2">
+            <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-card lg:p-8">
+              <span className="grid size-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
+                <hero.icon className="size-5" aria-hidden />
+              </span>
+              <h3 className="mt-4 text-xl font-semibold text-slate-900">{hero.title}</h3>
+              <p className="mt-1.5 max-w-md text-[15px] leading-relaxed text-slate-600">{hero.body}</p>
+              <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                {FEATURE_MINI.map((m, i) => (
+                  <div key={m.name} className={`flex items-center gap-3 px-3.5 py-2.5 ${i > 0 ? 'border-t border-slate-200/70' : ''}`}>
+                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">{m.ini}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-medium text-slate-800">{m.name}</span>
+                      <span className="block text-[11px] text-slate-500">{m.role}</span>
+                    </span>
+                    <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${m.pill}`}>
+                      <span className={`inline-block size-1.5 rounded-full ${m.dot}`} aria-hidden />
+                      {m.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+          {rest.map((it, i) => (
+            <Reveal key={it.title} delay={(i % 2) * 0.06}>
               <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
                 <span className="grid size-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
                   <it.icon className="size-5" aria-hidden />
