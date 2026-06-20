@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# impeccable skill snapshots (regenerated tool output)
+.impeccable/critique/
