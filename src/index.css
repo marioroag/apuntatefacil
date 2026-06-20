@@ -3,7 +3,8 @@
 /* ---------------------------------------------------------------------------
    Apúntate Fácil · tokens (doctrina "SaaS confiable")
    Acento = indigo-600 #4F46E5 (acción/nav/foco/selección, nunca estado).
-   Neutros = slate. Una sola sans. Una sola sombra por elevación. Radio 12px.
+   Neutros = slate. Inter en toda la app; Archivo solo en los titulares de la
+   landing (--font-heading). Una sola sombra por elevación. Radio 12px.
 --------------------------------------------------------------------------- */
 @theme {
   --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;

@@ -22,6 +22,9 @@ colors:
   status-discarded: "#CBD5E1"
   danger: "#DC2626"
 typography:
+  display:
+    fontFamily: "Archivo Variable, Inter Variable, system-ui, sans-serif"
+    note: "Solo titulares de la landing (h1/h2/h3, .landing-display). El resto de la app y todo el cuerpo siguen en Inter."
   headline:
     fontFamily: "Inter Variable, system-ui, sans-serif"
     fontSize: "1.25rem"
