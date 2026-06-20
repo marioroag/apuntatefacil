@@ -9,6 +9,7 @@ import { useAppBase } from '../lib/useAppBase'
 import { planHas } from '../lib/pricing'
 import { FeatureLocked } from '../components/FeatureLocked'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
+import { miles } from '../lib/format'
 import type { Campaign, Site } from '../lib/types'
 
 const STALE_DAYS = 7
@@ -30,6 +31,7 @@ export function Sedes() {
   const [busy, setBusy] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
   const [toDelete, setToDelete] = useState<Site | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   if (!demo && !planHas(company?.plan, 'sites'))
     return (
@@ -139,9 +141,12 @@ export function Sedes() {
               onEdit={() => setEditing(g.id)}
               onCancel={() => setEditing(null)}
               onSave={async (patch) => {
-                if (g.id) await renameSite(g.id, patch)
-                setEditing(null)
-                toast.success('Sede guardada')
+                if (!g.id) return
+                const ok = await renameSite(g.id, patch)
+                if (ok) {
+                  setEditing(null)
+                  toast.success('Sede guardada')
+                }
               }}
               onDelete={() => g.id && setToDelete({ id: g.id, name: g.name, city: g.city })}
             />
@@ -155,17 +160,22 @@ export function Sedes() {
       <ConfirmDialog
         open={!!toDelete}
         onClose={() => setToDelete(null)}
+        loading={deleting}
         onConfirm={async () => {
-          if (!toDelete) return
-          await deleteSite(toDelete.id)
-          toast.success('Sede eliminada')
-          setToDelete(null)
+          if (!toDelete || deleting) return
+          setDeleting(true)
+          const ok = await deleteSite(toDelete.id)
+          setDeleting(false)
+          if (ok) {
+            toast.success('Sede eliminada')
+            setToDelete(null)
+          }
         }}
         title="Eliminar sede"
         confirmLabel="Eliminar sede"
         confirmVariant="danger"
       >
-        <p className="text-sm leading-relaxed text-slate-600">
+        <p className="text-sm leading-relaxed text-slate-600 break-words">
           Vas a eliminar <strong className="font-semibold text-slate-900">{toDelete?.name}</strong>.{' '}
           {(() => {
             const n = toDelete ? count(toDelete.id) : 0
@@ -341,7 +351,7 @@ function SedeCard({
 function Stat({ n, label }: { n: number; label: string }) {
   return (
     <div className="rounded-lg bg-slate-50 px-3 py-2.5">
-      <p className="text-2xl font-semibold tabular-nums text-slate-900">{n}</p>
+      <p className="text-2xl font-semibold tabular-nums text-slate-900">{miles(n)}</p>
       <p className="mt-0.5 text-[12px] leading-tight text-slate-500">{label}</p>
     </div>
   )
@@ -350,7 +360,7 @@ function Stat({ n, label }: { n: number; label: string }) {
 function StatRow({ n, label }: { n: number; label: string }) {
   return (
     <div className="flex items-center gap-3 rounded-lg bg-slate-50 px-3.5 py-2">
-      <span className="w-9 shrink-0 text-2xl font-semibold tabular-nums text-slate-900">{n}</span>
+      <span className="min-w-9 shrink-0 text-2xl font-semibold tabular-nums text-slate-900">{miles(n)}</span>
       <span className="text-[13px] text-slate-600">{label}</span>
     </div>
   )

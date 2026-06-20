@@ -131,8 +131,8 @@ interface Store {
   // Sedes (Multi)
   sites: Site[]
   createSite: (input: { name: string; city: string }) => Promise<Site | null>
-  renameSite: (id: string, patch: { name: string; city: string }) => Promise<void>
-  deleteSite: (id: string) => Promise<void>
+  renameSite: (id: string, patch: { name: string; city: string }) => Promise<boolean>
+  deleteSite: (id: string) => Promise<boolean>
   // Marcas (Multi)
   brands: Brand[]
   createBrand: (input: Omit<Brand, 'id'>) => Promise<Brand | null>
@@ -543,12 +543,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     renameSite: async (id, patch) => {
       const prev = sites
       setSites((ss) => ss.map((s) => (s.id === id ? { ...s, ...patch } : s)))
-      if (companyId === 'demo') return
+      if (companyId === 'demo') return true
       const { error } = await supabase.from('sites').update({ name: patch.name, city: patch.city }).eq('id', id)
       if (error) {
         setSites(prev)
         toast.error('No se pudo guardar la sede.')
+        return false
       }
+      return true
     },
     deleteSite: async (id) => {
       const prevSites = sites
@@ -557,13 +559,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Los puestos de esa sede quedan "sin sede" (no se borran). En BD lo hace
       // el "on delete set null"; aquí reflejamos lo mismo en local.
       setCampaigns((cs) => cs.map((c) => (c.siteId === id ? { ...c, siteId: null } : c)))
-      if (companyId === 'demo') return
+      if (companyId === 'demo') return true
       const { error } = await supabase.from('sites').delete().eq('id', id)
       if (error) {
         setSites(prevSites)
         setCampaigns(prevCampaigns)
         toast.error('No se pudo eliminar la sede.')
+        return false
       }
+      return true
     },
 
     brands,

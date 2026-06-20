@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { planHas } from '../lib/pricing'
 import { FeatureLocked } from '../components/FeatureLocked'
+import { miles } from '../lib/format'
 import type { Candidate } from '../lib/types'
 
 const STALE_DAYS = 7
@@ -106,7 +107,7 @@ export function Resumen() {
               )}
             </Panel>
 
-            <Panel title="Nuevos sin revisar" right={nuevosTotal > 0 ? String(nuevosTotal) : undefined}>
+            <Panel title="Nuevos sin revisar" right={nuevosTotal > 0 ? miles(nuevosTotal) : undefined}>
               {topNuevos.length === 0 ? (
                 <p className="px-1 py-2 text-[13px] text-slate-500">Sin candidatos nuevos pendientes.</p>
               ) : (
@@ -160,7 +161,7 @@ function IntakeChart({ candidates }: { candidates: Candidate[] }) {
     <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
       <div className="flex items-baseline justify-between">
         <p className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</p>
-        <p className="text-[12px] text-slate-500 tabular-nums">{total} en total</p>
+        <p className="text-[12px] text-slate-500 tabular-nums">{miles(total)} en total</p>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-40 w-full sm:h-44" preserveAspectRatio="none" role="img" aria-label={`Candidatos recibidos por semana, ${total} en total`}>
         <path d={area} className="fill-indigo-600/10" />
@@ -221,7 +222,7 @@ function Kpi({ label, n }: { label: string; n: number }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
       <p className="text-[12px] text-slate-500">{label}</p>
-      <p className="mt-0.5 text-2xl font-semibold tabular-nums text-slate-900">{n}</p>
+      <p className="mt-0.5 text-2xl font-semibold tabular-nums text-slate-900">{miles(n)}</p>
     </div>
   )
 }
