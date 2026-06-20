@@ -4,7 +4,8 @@ import { Logo } from '../components/Logo'
 import { BRAND } from '../lib/brand'
 import { PRIVACY_DOC, TERMS_DOC, type LegalDoc } from '../lib/legal'
 
-const LAST_UPDATED = '14 de junio de 2026'
+const LAST_UPDATED = '20 de junio de 2026'
+const VERSION = '1.0'
 
 function LegalLayout({ doc, other }: { doc: LegalDoc; other: { to: string; label: string } }) {
   useEffect(() => {
@@ -20,9 +21,9 @@ function LegalLayout({ doc, other }: { doc: LegalDoc; other: { to: string; label
     <div className="min-h-svh bg-white text-slate-900">
       <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2" aria-label={BRAND}>
             <Logo className="size-7" />
-            <span className="text-[16px] font-bold tracking-tight">{BRAND}</span>
+            <span className="text-[16px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
           </Link>
           <nav className="flex items-center gap-1 text-sm" aria-label="Páginas legales">
             <Link to={other.to} className="rounded-lg px-3 py-2 font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
@@ -37,7 +38,7 @@ function LegalLayout({ doc, other }: { doc: LegalDoc; other: { to: string; label
 
       <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-[40px] sm:leading-[1.1]">{doc.title}</h1>
-        <p className="mt-3 text-sm text-slate-500">Última actualización: {LAST_UPDATED}</p>
+        <p className="mt-3 text-sm text-slate-500">Última actualización: {LAST_UPDATED} · Versión {VERSION}</p>
         <p className="mt-6 text-lg leading-relaxed text-slate-600">{doc.intro}</p>
 
         {doc.sections.map((section) => (
@@ -77,7 +78,7 @@ function LegalLayout({ doc, other }: { doc: LegalDoc; other: { to: string; label
         <div className="mx-auto flex max-w-3xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-6">
           <div className="flex items-center gap-2">
             <Logo className="size-6" />
-            <span className="text-sm font-bold tracking-tight">{BRAND}</span>
+            <span className="text-sm brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] text-slate-500">
             <Link to="/privacidad" className="hover:text-slate-800">Privacidad</Link>
