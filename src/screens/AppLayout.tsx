@@ -281,7 +281,7 @@ export function AppLayout() {
       <div className="flex items-center justify-between px-4 pt-4">
         <Link to="/" className="flex items-center gap-2" aria-label={`${BRAND}, ir al inicio`}>
           <Logo className="size-7" />
-          <span className="text-[15px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
+          <span className="text-[17px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
         </Link>
         <button
           onClick={() => setOpen(false)}
@@ -500,7 +500,7 @@ export function AppLayout() {
           </button>
           <Link to="/" className="flex items-center gap-2" aria-label={`${BRAND}, ir al inicio`}>
             <Logo className="size-6" />
-            <span className="text-sm brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
+            <span className="text-[17px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
           </Link>
         </div>
 

@@ -81,7 +81,15 @@
     --accent-contrast: #ffffff; /* texto legible sobre el acento (guarda AA) */
   }
 
-  html { -webkit-text-size-adjust: 100%; }
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* Scroll suave para las anclas de la landing (Cómo funciona, Precio, Preguntas).
+       reduced-motion lo desactiva más abajo con scroll-behavior: auto !important. */
+    scroll-behavior: smooth;
+  }
+
+  /* Las secciones ancladas caen bajo la nav sticky: margen al saltar a ellas. */
+  #como-funciona, #precio, #faq { scroll-margin-top: 5rem; }
 
   body {
     @apply bg-slate-50 text-slate-900 antialiased;

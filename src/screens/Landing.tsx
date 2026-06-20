@@ -275,7 +275,7 @@ function Compare() {
                 <Bubble from="them">Hola, ¿sigue libre lo del peón?</Bubble>
                 <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-indigo-600 px-3.5 py-2 text-[14px] leading-snug text-white">
                   ¡Hola! Sí 🙂 Apúntate aquí en 1 min y me llega todo:{' '}
-                  <span className="font-semibold underline decoration-white/50 underline-offset-2">apuntatefacil.es/peon</span>
+                  <span className="font-semibold underline decoration-white/50 underline-offset-2">apuntatefacil.com/peon</span>
                 </div>
                 <ChatTime>10:44, dos minutos después</ChatTime>
                 <Bubble from="them">¡Hecho! 👍</Bubble>
