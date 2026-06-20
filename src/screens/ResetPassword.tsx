@@ -4,7 +4,6 @@ import { ArrowLeft, Check, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/Logo'
-import { BRAND } from '../lib/brand'
 import { PWD_RULES, passwordValid } from '../lib/password'
 
 type Status = 'checking' | 'ready' | 'invalid'
@@ -73,7 +72,7 @@ export function ResetPassword() {
         <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-card">
           <div className="flex items-center gap-2.5">
             <Logo className="size-9" />
-            <span className="text-xl font-bold tracking-tight text-slate-900">{BRAND}</span>
+            <span className="text-xl brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
           </div>
 
           {status === 'checking' ? (

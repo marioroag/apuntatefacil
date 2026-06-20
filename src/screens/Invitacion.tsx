@@ -67,7 +67,7 @@ export function Invitacion() {
       <div className="w-full max-w-[400px]">
         <Link to="/" className="mb-6 flex items-center gap-2" aria-label={`${BRAND}, ir al inicio`}>
           <Logo className="size-8" />
-          <span className="text-[17px] font-bold tracking-tight text-slate-900">{BRAND}</span>
+          <span className="text-[17px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
         </Link>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-card">

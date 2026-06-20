@@ -4,7 +4,6 @@ import { ArrowLeft, Check, Eye, EyeOff, Loader2, Mail } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { setRememberMe } from '../lib/supabase'
 import { Logo } from '../components/Logo'
-import { BRAND } from '../lib/brand'
 import { PWD_RULES, passwordValid } from '../lib/password'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -139,7 +138,7 @@ export function Login() {
         <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-card">
           <div className="flex items-center gap-2.5">
             <Logo className="size-9" />
-            <span className="text-xl font-bold tracking-tight text-slate-900">{BRAND}</span>
+            <span className="text-xl brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
           </div>
 
           {view === 'confirm-sent' ? (

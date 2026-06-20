@@ -12,6 +12,7 @@ import { initials } from '../lib/format'
 import { seedDemoData } from '../lib/seedDemo'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
 import { TrialPausedDialog } from '../components/TrialPausedDialog'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
 import { ArrowRight } from 'lucide-react'
 import { planHas, PLAN_LABEL } from '../lib/pricing'
@@ -140,6 +141,7 @@ export function AppLayout() {
   const [open, setOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const [confirmReset, setConfirmReset] = useState(false)
 
   // Plan de Prueba con el puesto pausado por el tope de candidatos: avisamos una vez
   // por apertura del panel (vuelve a salir en cada recarga hasta que suba de plan).
@@ -508,7 +510,7 @@ export function AppLayout() {
             {/* Los dos accionables van juntos: saltan de línea como un bloque, sin
                 que "Crear mi cuenta" se quede solo en la línea de abajo. */}
             <span className="inline-flex items-center gap-2">
-              <button onClick={() => resetDemo()} className="font-semibold underline underline-offset-2 hover:text-indigo-900">
+              <button onClick={() => setConfirmReset(true)} className="font-semibold underline underline-offset-2 hover:text-indigo-900">
                 Reiniciar demo
               </button>
               <span aria-hidden className="h-3 w-px bg-indigo-200" />
@@ -527,6 +529,16 @@ export function AppLayout() {
 
       <NewCampaignWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
       <TrialPausedDialog open={pausedOpen} onClose={() => setPausedOpen(false)} />
+      <ConfirmDialog
+        open={confirmReset}
+        onClose={() => setConfirmReset(false)}
+        onConfirm={() => { setConfirmReset(false); resetDemo() }}
+        title="¿Reiniciar la demo?"
+        confirmLabel="Reiniciar"
+        confirmVariant="danger"
+      >
+        Se recargan los datos de ejemplo y se pierden los cambios que hayas hecho durante esta demo.
+      </ConfirmDialog>
     </div>
   )
 }
