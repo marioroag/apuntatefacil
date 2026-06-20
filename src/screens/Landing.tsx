@@ -9,6 +9,10 @@ import {
 import { BrowserMock } from '../components/BrowserMock'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { TIERS } from '../lib/pricing'
+// Archivo (variable) solo para los titulares de la landing: da carácter sobrio
+// e industrial frente al Inter por defecto. El cuerpo y toda la app siguen en
+// Inter. El woff2 solo se descarga cuando un titular de la landing lo usa.
+import '@fontsource-variable/archivo'
 
 const SECTORS = ['Construcción', 'Logística', 'Limpieza', 'Reformas', 'Comercio', 'Cuidados']
 
@@ -37,7 +41,7 @@ export function Landing() {
   if (!loading && session) return <Navigate to="/app" replace />
 
   return (
-    <div className="min-h-svh bg-white text-slate-900">
+    <div className="landing-display min-h-svh bg-white text-slate-900">
       <SkipLink />
       <TopNav />
       <main id="contenido">

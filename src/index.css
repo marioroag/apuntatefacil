@@ -7,6 +7,9 @@
 --------------------------------------------------------------------------- */
 @theme {
   --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Titulares de la landing (display): Archivo, sobrio e industrial. Cae a Inter
+     si aún no cargó (ambas presentes, salto mínimo). El cuerpo y la app son Inter. */
+  --font-heading: 'Archivo Variable', 'Inter Variable', system-ui, sans-serif;
 
   /* Una sola sombra por nivel de elevación. Nunca apilar. */
   --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -89,6 +92,12 @@
   /* Números siempre tabulares para que las columnas alineen. */
   table, .tnum, time, [data-num] {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Solo los titulares de la landing usan el display (Archivo). Acotado a la
+     página de marca: el resto de la app no se ve afectada. */
+  .landing-display :is(h1, h2, h3) {
+    font-family: var(--font-heading);
   }
 
   /* Quita la apariencia nativa de los campos de texto. Safari/iOS les pone su
