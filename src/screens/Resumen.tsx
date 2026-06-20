@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Briefcase, Building2, ChevronRight, Clock, PauseCircle } from 'lucide-react'
 import { useStore } from '../lib/store'
@@ -134,86 +134,172 @@ export function Resumen() {
   )
 }
 
-// --- Gráfica de área: candidatos recibidos por semana ----------------------
-// La ÚNICA dimensión temporal real del modelo es la fecha de alta del candidato
-// (submittedAt). No graficamos contrataciones ni embudo en el tiempo porque no
-// se guarda timestamp de cambio de estado: sería inventar una serie.
+// --- Gráfica de candidatos recibidos por semana ----------------------------
+// La ÚNICA dimensión temporal real del modelo es la fecha de alta (submittedAt):
+// no inventamos embudos en el tiempo. Semanas de CALENDARIO (lunes), trazo recto
+// (sin suavizar, que falsearía valores entre semanas), valores legibles en la
+// propia gráfica, semana en curso marcada, y tabla de datos para lectores de
+// pantalla y para quien quiera la cifra exacta de cada semana.
 function IntakeChart({ candidates }: { candidates: Candidate[] }) {
   const weeks = useMemo(() => weeklyIntake(candidates), [candidates])
-  if (weeks.length < 2) return null
+  if (weeks.length < 2) return <ChartPlaceholder />
+  return <IntakeChartBody weeks={weeks} />
+}
 
-  const W = 600
-  const H = 150
-  const padX = 14
-  const padTop = 12
-  const padBottom = 4
-  const innerH = H - padTop - padBottom
-  const max = Math.max(...weeks.map((w) => w.count), 1)
-  const x = (i: number) => padX + (i / (weeks.length - 1)) * (W - padX * 2)
-  const y = (v: number) => padTop + innerH - (v / max) * innerH
-  const pts = weeks.map((w, i) => ({ x: x(i), y: y(w.count) }))
-  const line = smoothPath(pts)
-  const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${(padTop + innerH).toFixed(1)} L${pts[0].x.toFixed(1)},${(padTop + innerH).toFixed(1)} Z`
-  const total = weeks.reduce((s, w) => s + w.count, 0)
-  const labelIdx = [0, Math.floor((weeks.length - 1) / 2), weeks.length - 1].filter((v, i, a) => a.indexOf(v) === i)
-
+function ChartPlaceholder() {
   return (
     <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
-      <div className="flex items-baseline justify-between">
-        <p className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</p>
-        <p className="text-[12px] text-slate-500 tabular-nums">{miles(total)} en total</p>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-40 w-full sm:h-44" preserveAspectRatio="none" role="img" aria-label={`Candidatos recibidos por semana, ${total} en total`}>
-        <path d={area} className="fill-indigo-600/10" />
-        <path d={line} fill="none" strokeWidth="2.5" vectorEffect="non-scaling-stroke" className="stroke-indigo-600" />
-        <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="3.5" strokeWidth="2" className="fill-indigo-600 stroke-white" />
-      </svg>
-      <div className="mt-1 flex justify-between text-[11px] text-slate-500">
-        {labelIdx.map((i) => (
-          <span key={i}>{weeks[i].label}</span>
-        ))}
+      <p className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</p>
+      <div className="mt-2 flex h-40 items-center justify-center rounded-lg border border-dashed border-slate-200">
+        <p className="max-w-xs px-6 text-center text-[13px] text-slate-500">La tendencia aparece en cuanto tengas 2 o más semanas de datos.</p>
       </div>
     </div>
   )
 }
 
-type Week = { count: number; label: string }
+function IntakeChartBody({ weeks }: { weeks: Week[] }) {
+  // El ancho real (medido) da coordenadas 1:1 sin distorsión: círculos redondos
+  // y texto legible dentro del SVG (preserveAspectRatio="none" los deformaba).
+  const ref = useRef<HTMLDivElement>(null)
+  const [w, setW] = useState(560)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => setW(Math.max(240, el.clientWidth))
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
-function weeklyIntake(candidates: Candidate[]): Week[] {
-  if (candidates.length === 0) return []
-  const WEEK = 7 * 86400000
-  const times = candidates.map((c) => new Date(c.submittedAt).getTime()).filter((t) => !Number.isNaN(t))
-  if (times.length === 0) return []
-  const min = Math.min(...times)
-  const max = Math.max(...times)
-  const n = Math.floor((max - min) / WEEK) + 1
-  const buckets: Week[] = Array.from({ length: n }, (_, i) => ({
-    count: 0,
-    label: new Date(min + i * WEEK).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
-  }))
-  for (const t of times) {
-    const idx = Math.min(n - 1, Math.floor((t - min) / WEEK))
-    buckets[idx].count++
-  }
-  return buckets
+  const n = weeks.length
+  const partialLast = weeks[n - 1].start === weekStartMonday(Date.now())
+  const complete = partialLast ? weeks.slice(0, -1) : weeks
+  const avg = complete.length
+    ? Math.round(complete.reduce((s, x) => s + x.count, 0) / complete.length)
+    : weeks[n - 1].count
+  const max = Math.max(...weeks.map((x) => x.count), 1)
+
+  const H = 180
+  const padL = 10
+  const padR = 10
+  const padTop = 24
+  const padBottom = 22
+  const innerH = H - padTop - padBottom
+  const x = (i: number) => padL + (i / (n - 1)) * (w - padL - padR)
+  const y = (v: number) => padTop + innerH - (v / max) * innerH
+  const baseY = padTop + innerH
+  const pts = weeks.map((wk, i) => ({ x: x(i), y: y(wk.count), v: wk.count }))
+  const seg = (p: { x: number; y: number }, i: number) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`
+  const solidPts = partialLast ? pts.slice(0, -1) : pts
+  const solidLine = solidPts.map(seg).join(' ')
+  const area = `${pts.map(seg).join(' ')} L${pts[n - 1].x.toFixed(1)} ${baseY} L${pts[0].x.toFixed(1)} ${baseY} Z`
+  const maxY = y(max)
+
+  // Etiquetas de eje X equiespaciadas (siempre primera y última).
+  const k = Math.min(n, w < 380 ? 3 : 6)
+  const labelIdx = [...new Set(Array.from({ length: k }, (_, j) => Math.round((j * (n - 1)) / (k - 1))))]
+  const labelEach = n <= 8
+
+  return (
+    <figure className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+      <figcaption className="flex items-baseline justify-between">
+        <span className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</span>
+        <span className="text-[12px] tabular-nums text-slate-500">media de {miles(avg)}/semana</span>
+      </figcaption>
+      <div ref={ref} className="mt-2">
+        <svg
+          viewBox={`0 0 ${w} ${H}`}
+          height={H}
+          className="w-full"
+          role="img"
+          aria-label={`Candidatos recibidos por semana. Media de ${avg} por semana, máximo ${max} en una semana.${partialLast ? ' La última semana está en curso.' : ''} Cifra de cada semana en la tabla "Ver datos por semana".`}
+        >
+          {/* Línea de máximo: da escala para leer las alturas. */}
+          <line x1={padL} y1={maxY} x2={w - padR} y2={maxY} className="stroke-slate-200" strokeDasharray="2 4" />
+          <text x={w - padR} y={maxY - 5} textAnchor="end" className="fill-slate-400 text-[10px] tabular-nums">{max}</text>
+          {/* Área + línea RECTA (honesta con datos discretos). */}
+          <path d={area} className="fill-indigo-600/10" />
+          <path d={solidLine} fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" className="stroke-indigo-600" />
+          {partialLast && n >= 2 && (
+            <path
+              d={`M${pts[n - 2].x.toFixed(1)} ${pts[n - 2].y.toFixed(1)} L${pts[n - 1].x.toFixed(1)} ${pts[n - 1].y.toFixed(1)}`}
+              fill="none" strokeWidth="2" strokeDasharray="3 3" strokeLinecap="round" className="stroke-indigo-400"
+            />
+          )}
+          {/* Puntos + valor encima (el del máximo ya lo da la línea de escala). */}
+          {pts.map((p, i) => {
+            const partial = partialLast && i === n - 1
+            return (
+              <g key={weeks[i].start}>
+                <circle cx={p.x} cy={p.y} r="2.5" strokeWidth="2" className={partial ? 'fill-white stroke-indigo-400' : 'fill-indigo-600 stroke-white'} />
+                {(labelEach || i === n - 1) && p.v !== max && (
+                  <text x={p.x} y={p.y - 8} textAnchor="middle" className={`text-[10px] tabular-nums ${partial ? 'fill-slate-400' : 'fill-slate-600'}`}>{p.v}</text>
+                )}
+              </g>
+            )
+          })}
+          {/* Eje X. */}
+          {labelIdx.map((i, j) => (
+            <text key={weeks[i].start} x={x(i)} y={H - 6} textAnchor={j === 0 ? 'start' : j === labelIdx.length - 1 ? 'end' : 'middle'} className="fill-slate-500 text-[11px]">{weeks[i].label}</text>
+          ))}
+        </svg>
+      </div>
+      {partialLast && <p className="mt-1 text-[11px] text-slate-400">La última semana (línea discontinua) está en curso.</p>}
+      <details className="group mt-3">
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[12px] font-medium text-indigo-700 marker:content-none hover:text-indigo-800">
+          <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden /> Ver datos por semana
+        </summary>
+        <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
+          <table className="w-full text-left text-[12px]">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th scope="col" className="px-3 py-1.5 font-medium">Semana</th>
+                <th scope="col" className="px-3 py-1.5 text-right font-medium">Candidatos</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {weeks.map((wk, i) => (
+                <tr key={wk.start}>
+                  <td className="px-3 py-1.5 text-slate-700">{wk.label}{partialLast && i === n - 1 ? ' (en curso)' : ''}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-slate-800">{wk.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </figure>
+  )
 }
 
-// Suaviza una polilínea con beziers (Catmull-Rom -> cúbicas) para una curva limpia.
-function smoothPath(pts: { x: number; y: number }[]): string {
-  if (pts.length < 2) return ''
-  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] ?? pts[i]
-    const p1 = pts[i]
-    const p2 = pts[i + 1]
-    const p3 = pts[i + 2] ?? p2
-    const c1x = p1.x + (p2.x - p0.x) / 6
-    const c1y = p1.y + (p2.y - p0.y) / 6
-    const c2x = p2.x - (p3.x - p1.x) / 6
-    const c2y = p2.y - (p3.y - p1.y) / 6
-    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`
+type Week = { start: number; count: number; label: string }
+
+// Inicio de la semana de calendario (lunes 00:00 local), robusto a cambios de hora.
+function weekStartMonday(t: number): number {
+  const d = new Date(t)
+  d.setHours(0, 0, 0, 0)
+  const dow = (d.getDay() + 6) % 7 // 0 = lunes
+  d.setDate(d.getDate() - dow)
+  return d.getTime()
+}
+
+function weeklyIntake(candidates: Candidate[]): Week[] {
+  const times = candidates.map((c) => new Date(c.submittedAt).getTime()).filter((t) => !Number.isNaN(t))
+  if (times.length === 0) return []
+  const first = weekStartMonday(Math.min(...times))
+  const last = weekStartMonday(Math.max(...times))
+  const buckets: Week[] = []
+  // Avanzar por días de calendario (DST-safe), una semana cada vez.
+  for (let d = new Date(first); d.getTime() <= last; d.setDate(d.getDate() + 7)) {
+    buckets.push({ start: d.getTime(), count: 0, label: new Date(d.getTime()).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) })
   }
-  return d
+  const idxByStart = new Map(buckets.map((b, i) => [b.start, i]))
+  for (const t of times) {
+    const i = idxByStart.get(weekStartMonday(t))
+    if (i !== undefined) buckets[i].count++
+  }
+  return buckets
 }
 
 // --- Tarjetas ---------------------------------------------------------------

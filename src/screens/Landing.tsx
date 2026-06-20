@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import brandMark from '../assets/brand-mark.png'
@@ -88,6 +88,13 @@ function TopNav() {
     ['Precio', '#precio'],
     ['Preguntas', '#faq'],
   ] as const
+  // Esc cierra el menú móvil (teclado en pantallas estrechas).
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6" aria-label="Principal">
@@ -116,18 +123,21 @@ function TopNav() {
         </button>
       </nav>
       {open && (
-        <div className="border-t border-slate-200 bg-white px-4 py-3 md:hidden">
+        <div className="border-t border-slate-200 bg-white px-4 py-3 md:hidden" style={{ animation: 'drop-in .18s var(--ease-out)' }}>
           {links.map(([label, href]) => (
-            <a key={href} href={href} onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100">
+            <a key={href} href={href} onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100 active:bg-slate-200">
               {label}
             </a>
           ))}
-          <Link to="/demo" onClick={() => setOpen(false)} className="mt-1 block rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100">
-            Ver la demo
-          </Link>
-          <Link to="/login" onClick={() => setOpen(false)} className="mt-1 flex h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white">
-            Empezar <ArrowRight className="size-4" aria-hidden />
-          </Link>
+          {/* Acciones separadas de los enlaces de sección (espeja el nav de escritorio). */}
+          <div className="mt-2 border-t border-slate-100 pt-2">
+            <Link to="/demo" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100 active:bg-slate-200">
+              Ver la demo
+            </Link>
+            <Link to="/login" onClick={() => setOpen(false)} className="mt-1 flex h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-transform active:scale-[0.99]">
+              Empezar <ArrowRight className="size-4" aria-hidden />
+            </Link>
+          </div>
         </div>
       )}
     </header>
