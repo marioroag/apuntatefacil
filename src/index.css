@@ -42,6 +42,32 @@
   100% { opacity: 1; transform: none; }
 }
 
+/* El sello "Resuelto" da un único pulso firme, como un cuño, en el momento
+   exacto en que la tarjeta resuelta entra en pantalla (scroll-driven). Verde,
+   no indigo: es el color de "contratado/resuelto" de la doctrina. Donde no hay
+   timelines de scroll (Firefox, Safari) el sello queda estático: 100% legible. */
+@keyframes resolved-stamp {
+  0% { transform: scale(0.9); }
+  55% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+/* El sello (span pequeño) vive dentro de una tarjeta overflow-hidden, que es su
+   propio scrollport: un view() anónimo ahí dentro nunca avanza. Nombramos la
+   timeline en la COLUMNA de la tarjeta resuelta (la Reveal, que sí está en el
+   flujo de la página) y el sello la consume. El rango va sobre la entrada de esa
+   columna alta, así el pulso cae justo cuando el sello asoma. */
+.resolved-card { view-timeline-name: --pp-resolved; view-timeline-axis: block; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .resolved-stamp {
+      transform-origin: center;
+      animation: resolved-stamp linear both;
+      animation-timeline: --pp-resolved;
+      animation-range: entry 10% entry 42%;
+    }
+  }
+}
+
 @layer base {
   :root {
     /* Acento dinámico: por defecto el indigo de marca. El formulario público

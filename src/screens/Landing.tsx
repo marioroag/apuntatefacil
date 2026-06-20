@@ -105,8 +105,8 @@ function TopNav() {
           <Link to="/demo" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
             Ver la demo
           </Link>
-          <Link to="/login" className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700">
-            Empezar <ArrowRight className="size-4" aria-hidden />
+          <Link to="/login" className="group ml-1 inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700">
+            Empezar <ArrowRight className="size-4 transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:translate-x-1" aria-hidden />
           </Link>
         </div>
         <button onClick={() => setOpen((o) => !o)} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden" aria-label="Menú" aria-expanded={open}>
@@ -146,8 +146,8 @@ function Hero() {
           Cada vacante recibe decenas de respuestas y se te van por el chat. Apúntate Fácil las recoge todas, ordenadas en un sitio: tú mandas un enlace y eliges sin perder a nadie.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
-          <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]">
-            Pruébalo gratis <ArrowRight className="size-4" aria-hidden />
+          <Link to="/login" className="group inline-flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]">
+            Pruébalo gratis <ArrowRight className="size-4 transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:translate-x-1" aria-hidden />
           </Link>
           <Link to="/demo" className="inline-flex h-12 items-center rounded-xl px-5 text-base font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
             Ver la demo
@@ -248,7 +248,7 @@ function Compare() {
           </Reveal>
 
           {/* Después: con Apúntate Fácil */}
-          <Reveal delay={0.08}>
+          <Reveal delay={0.08} className="resolved-card">
             <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-green-200 bg-white shadow-card">
               <div className="flex items-center gap-3 border-b border-green-100 px-4 py-3.5">
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-green-100 text-[12px] font-bold text-green-700">AN</span>
@@ -256,7 +256,7 @@ function Compare() {
                   <p className="truncate text-[15px] font-semibold text-slate-900">Antonio, respuesta al anuncio</p>
                   <p className="truncate text-[13px] text-slate-500">con {BRAND}</p>
                 </div>
-                <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[12px] font-semibold text-green-700 ring-1 ring-inset ring-green-200">Resuelto</span>
+                <span className="resolved-stamp shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[12px] font-semibold text-green-700 ring-1 ring-inset ring-green-200">Resuelto</span>
               </div>
               <div className="flex flex-1 flex-col gap-2.5 bg-green-50/50 px-4 py-5">
                 <ChatTime>Lunes, 10:42</ChatTime>
@@ -461,8 +461,8 @@ function Pricing() {
                   Próximamente
                 </div>
               ) : (
-                <Link to="/login" className="mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.99]">
-                  {t.cta} <ArrowRight className="size-4" aria-hidden />
+                <Link to="/login" className="group mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.99]">
+                  {t.cta} <ArrowRight className="size-4 transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:translate-x-1" aria-hidden />
                 </Link>
               )}
             </div>
@@ -523,8 +523,8 @@ function FinalCta() {
             No te pedimos que te fíes de una promesa. Entra, toca el panel con datos de ejemplo y compruébalo tú. Sin registro y sin tarjeta.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link to="/demo" className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-slate-900 transition-transform hover:scale-[1.02] active:scale-[0.99]">
-              Ver la demo <ArrowRight className="size-4" aria-hidden />
+            <Link to="/demo" className="group inline-flex h-12 items-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-slate-900 transition-transform hover:scale-[1.02] active:scale-[0.99]">
+              Ver la demo <ArrowRight className="size-4 transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:translate-x-1" aria-hidden />
             </Link>
             <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-xl px-5 text-base font-semibold text-white ring-1 ring-white/25 hover:bg-white/10">
               Empezar
