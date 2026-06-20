@@ -20,9 +20,11 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import {
   ArrowLeft,
+  Briefcase,
   Check,
   ChevronDown,
   ChevronUp,
+  CloudOff,
   Copy,
   ExternalLink,
   GripVertical,
@@ -43,7 +45,7 @@ import { SWATCHES, accentPassesWhite } from '../lib/colors'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
-import { BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
@@ -83,16 +85,39 @@ export function Builder() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [device, setDevice] = useState<'mobile' | 'desktop'>('mobile')
   const [previewOpen, setPreviewOpen] = useState(false) // vista previa a pantalla completa (móvil)
+  const [saveError, setSaveError] = useState(false) // el último autoguardado falló: el sello lo refleja y deja reintentar
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  if (!campaign) return <div className="p-8 text-slate-500">Puesto no encontrado.</div>
+  if (!campaign)
+    return (
+      <div className="grid h-full place-items-center px-6 py-16">
+        <div className="w-full max-w-md text-center">
+          <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+            <Briefcase className="size-6" aria-hidden />
+          </div>
+          <h1 className="mt-4 text-xl font-semibold text-slate-900">Puesto no encontrado</h1>
+          <p className="mt-1.5 text-sm text-slate-500">Puede que se haya cerrado o que el enlace ya no sea válido.</p>
+          <Link to={base} className={`${BTN_PRIMARY} mt-6`}>
+            Ir a mis puestos
+          </Link>
+        </div>
+      </div>
+    )
 
   const fields = campaign.fields
-  const setFields = (f: FormField[]) => updateFields(campaign.id, f)
+  // Cada cambio se autoguarda; el resultado alimenta el sello (verde = guardado,
+  // rojo = falló y se puede reintentar). NO revertimos en fallo: perderíamos lo
+  // que el merchant acaba de escribir; mejor mantenerlo y avisar de que no se guardó.
+  const setFields = (f: FormField[]) => {
+    void updateFields(campaign.id, f).then((ok) => setSaveError(!ok))
+  }
+  const retrySave = () => {
+    void updateFields(campaign.id, campaign.fields).then((ok) => setSaveError(!ok))
+  }
 
   const onDragEnd = (e: DragEndEvent) => {
     const { active, over } = e
@@ -123,7 +148,7 @@ export function Builder() {
           const current = getCampaign(campaign.id)?.fields ?? []
           const next = [...current]
           next.splice(idx, 0, removed)
-          updateFields(campaign.id, next)
+          void updateFields(campaign.id, next).then((ok) => setSaveError(!ok))
         },
       },
     })
@@ -147,9 +172,19 @@ export function Builder() {
             <p className="text-[13px] text-slate-500">Lo que ve quien abre tu enlace</p>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[12px] font-semibold text-green-700 ring-1 ring-inset ring-green-200" title="Tus cambios se guardan solos">
-          <Check className="size-3.5" aria-hidden /> Autoguardado
-        </span>
+        {saveError ? (
+          <button
+            onClick={retrySave}
+            className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold text-red-700 ring-1 ring-inset ring-red-200 transition hover:bg-red-100"
+            title="Tus cambios no se guardaron. Toca para reintentar."
+          >
+            <CloudOff className="size-3.5" aria-hidden /> Sin guardar, reintentar
+          </button>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-[12px] font-semibold text-green-700 ring-1 ring-inset ring-green-200" title="Tus cambios se guardan solos">
+            <Check className="size-3.5" aria-hidden /> Autoguardado
+          </span>
+        )}
       </div>
 
       <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

@@ -119,7 +119,7 @@ interface Store {
   setNotes: (candidateId: string, notes: string) => Promise<void>
   deleteCandidate: (candidateId: string) => Candidate | undefined
   restoreCandidate: (candidate: Candidate) => Promise<void>
-  updateFields: (campaignId: string, fields: FormField[]) => Promise<void>
+  updateFields: (campaignId: string, fields: FormField[]) => Promise<boolean>
   updateBranding: (campaignId: string, branding: Partial<Branding>) => Promise<void>
   updateCampaign: (campaignId: string, patch: Partial<Campaign>) => Promise<void>
   createCampaign: (input: NewCampaignInput) => Promise<Campaign | null>
@@ -378,9 +378,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     updateFields: async (campaignId, fields) => {
       setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, fields } : c)))
-      if (companyId === 'demo') return
+      if (companyId === 'demo') return true
       const { error } = await supabase.from('campaigns').update({ fields }).eq('id', campaignId)
-      if (error) toast.error('No se pudieron guardar los campos.')
+      if (error) {
+        toast.error('No se pudieron guardar los campos.')
+        return false
+      }
+      return true
     },
     updateBranding: async (campaignId, branding) => {
       let merged: Branding | undefined
