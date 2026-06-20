@@ -3,14 +3,15 @@
 /* ---------------------------------------------------------------------------
    Apúntate Fácil · tokens (doctrina "SaaS confiable")
    Acento = indigo-600 #4F46E5 (acción/nav/foco/selección, nunca estado).
-   Neutros = slate. Inter en toda la app; Archivo solo en los titulares de la
-   landing (--font-heading). Una sola sombra por elevación. Radio 12px.
+   Neutros = slate. Inter para cuerpo y datos densos; Manrope (marca, --font-brand)
+   en el wordmark y TODOS los titulares (landing y app). Una sombra. Radio 12px.
 --------------------------------------------------------------------------- */
 @theme {
   --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  /* Titulares de la landing (display): Archivo, sobrio e industrial. Cae a Inter
-     si aún no cargó (ambas presentes, salto mínimo). El cuerpo y la app son Inter. */
-  --font-heading: 'Archivo Variable', 'Inter Variable', system-ui, sans-serif;
+  /* Fuente de marca: Manrope (geométrica-humanista, voz de producto digital).
+     Wordmark "apúntate fácil" y titulares de la landing. Cae a Inter si aún no
+     cargó (ambas presentes, salto mínimo). El cuerpo y toda la app son Inter. */
+  --font-brand: 'Manrope Variable', 'Inter Variable', system-ui, sans-serif;
 
   /* Una sola sombra por nivel de elevación. Nunca apilar. */
   --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -95,10 +96,19 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Solo los titulares de la landing usan el display (Archivo). Acotado a la
-     página de marca: el resto de la app no se ve afectada. */
-  .landing-display :is(h1, h2, h3) {
-    font-family: var(--font-heading);
+  /* Todos los titulares usan la fuente de marca (Manrope), en la landing y en la
+     app. El cuerpo, las tablas y los datos densos siguen en Inter (body usa
+     --font-sans), que es la herramienta correcta para densidad y legibilidad. */
+  h1, h2, h3 {
+    font-family: var(--font-brand);
+  }
+  /* Wordmark "apuntatefacil": una palabra, minúsculas, sin tildes (estilo dominio,
+     producto digital), extrabold, tinta sólida (el color lo lleva el mark). El
+     nombre propio "Apúntate Fácil" se expone aparte a lectores de pantalla. */
+  .brand-wordmark {
+    font-family: var(--font-brand);
+    font-weight: 800;
+    letter-spacing: -0.025em;
   }
 
   /* Quita la apariencia nativa de los campos de texto. Safari/iOS les pone su

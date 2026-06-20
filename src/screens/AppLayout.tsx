@@ -279,7 +279,7 @@ export function AppLayout() {
       <div className="flex items-center justify-between px-4 pt-4">
         <Link to="/" className="flex items-center gap-2" aria-label={`${BRAND}, ir al inicio`}>
           <Logo className="size-7" />
-          <span className="text-[15px] font-bold tracking-tight text-slate-900">{BRAND}</span>
+          <span className="text-[15px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
         </Link>
         <button
           onClick={() => setOpen(false)}
@@ -496,9 +496,9 @@ export function AppLayout() {
           <button onClick={() => setOpen(true)} aria-label="Abrir menú" className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100">
             <Menu className="size-5" aria-hidden />
           </button>
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2" aria-label={`${BRAND}, ir al inicio`}>
             <Logo className="size-6" />
-            <span className="text-sm font-bold text-slate-900">{BRAND}</span>
+            <span className="text-sm brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
           </Link>
         </div>
 

@@ -4,6 +4,9 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { MotionConfig } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 import '@fontsource-variable/inter'
+// Manrope = fuente de MARCA (Apúntate Fácil): wordmark "apuntatefacil" y todos los
+// titulares, en la landing y en la app. El cuerpo y los datos densos siguen en Inter.
+import '@fontsource-variable/manrope'
 import './index.css'
 
 import { AuthProvider, DemoAuthProvider } from './lib/auth'

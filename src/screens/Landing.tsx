@@ -9,10 +9,6 @@ import {
 import { BrowserMock } from '../components/BrowserMock'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { TIERS } from '../lib/pricing'
-// Archivo (variable) solo para los titulares de la landing: da carácter sobrio
-// e industrial frente al Inter por defecto. El cuerpo y toda la app siguen en
-// Inter. El woff2 solo se descarga cuando un titular de la landing lo usa.
-import '@fontsource-variable/archivo'
 
 const SECTORS = ['Construcción', 'Logística', 'Limpieza', 'Reformas', 'Comercio', 'Cuidados']
 
@@ -20,7 +16,9 @@ const SECTORS = ['Construcción', 'Logística', 'Limpieza', 'Reformas', 'Comerci
 // paleta fija (nuevo slate, contactado azul, contratado verde), punto + texto.
 const FEATURE_MINI = [
   { ini: 'LF', name: 'Lucía Fernández', role: 'Mozo/a almacén', label: 'Nuevo', pill: 'bg-slate-100 text-slate-700', dot: 'bg-slate-500' },
+  { ini: 'SV', name: 'Sergio Vidal', role: 'Electricista', label: 'Nuevo', pill: 'bg-slate-100 text-slate-700', dot: 'bg-slate-500' },
   { ini: 'ME', name: 'Mohamed El Amrani', role: 'Peón albañil', label: 'Contactado', pill: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500' },
+  { ini: 'MG', name: 'Marta Gil', role: 'Carretillera', label: 'Entrevista', pill: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500' },
   { ini: 'DR', name: 'David Romero', role: 'Oficial 1ª', label: 'Contratado', pill: 'bg-green-50 text-green-700', dot: 'bg-green-500' },
 ]
 
@@ -41,7 +39,7 @@ export function Landing() {
   if (!loading && session) return <Navigate to="/app" replace />
 
   return (
-    <div className="landing-display min-h-svh bg-white text-slate-900">
+    <div className="min-h-svh bg-white text-slate-900">
       <SkipLink />
       <TopNav />
       <main id="contenido">
@@ -59,18 +57,18 @@ export function Landing() {
   )
 }
 
-// Lockup de marca de la landing: mark bicolor + "Apúntate" en tinta / "Fácil" en
-// índigo. Solo en la landing; el resto de la app sigue usando <Logo/>.
+// Lockup de marca de la landing: mark bicolor + wordmark "apuntatefacil" (una
+// palabra, minúsculas, sin tildes, estilo dominio) en Manrope extrabold, tinta
+// sólida. El nombre propio "Apúntate Fácil" se expone a lectores de pantalla con un
+// sr-only. Solo en la landing; el resto de la app usa el <Logo/> (solo el monograma).
 function BrandLockup({ compact = false }: { compact?: boolean }) {
   const markSize = compact ? 'size-7' : 'size-9'
   const textSize = compact ? 'text-sm' : 'text-[18px]'
   return (
     <span className="flex items-center gap-2">
       <img src={brandMark} alt="" className={`${markSize} shrink-0 object-contain`} />
-      <span className={`${textSize} font-bold tracking-tight`}>
-        <span className="text-slate-900">Apúntate </span>
-        <span className="text-indigo-600">Fácil</span>
-      </span>
+      <span className={`${textSize} brand-wordmark text-slate-900`} aria-hidden>apuntatefacil</span>
+      <span className="sr-only">{BRAND}</span>
     </span>
   )
 }
@@ -362,9 +360,9 @@ function Features() {
               </span>
               <h3 className="mt-4 text-xl font-semibold text-slate-900">{hero.title}</h3>
               <p className="mt-1.5 max-w-md text-[15px] leading-relaxed text-slate-600">{hero.body}</p>
-              <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+              <div className="mt-6 flex flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                 {FEATURE_MINI.map((m, i) => (
-                  <div key={m.name} className={`flex items-center gap-3 px-3.5 py-2.5 ${i > 0 ? 'border-t border-slate-200/70' : ''}`}>
+                  <div key={m.name} className={`flex flex-1 items-center gap-3 px-3.5 py-2.5 ${i > 0 ? 'border-t border-slate-200/70' : ''}`}>
                     <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">{m.ini}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] font-medium text-slate-800">{m.name}</span>
