@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   DndContext,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   closestCenter,
   useSensor,
@@ -42,6 +43,7 @@ import type { FieldValue } from '../components/FieldRenderer'
 import { FIELD_TYPE_META } from '../lib/types'
 import type { Campaign, FieldType, FormField } from '../lib/types'
 import { SWATCHES, accentPassesWhite } from '../lib/colors'
+import { FORM_WELCOME_DEFAULT, FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
@@ -203,7 +205,17 @@ export function Builder() {
             {/* Campos */}
             <section>
               <SectionTitle>Campos del formulario</SectionTitle>
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+              {/* Al empezar a arrastrar cerramos el editor abierto: si no, el <li> sortable
+                  incluye el cuerpo expandido y se arrastra un nodo muy alto y de altura
+                  variable, lo que rompe el reordenado de dnd-kit (closestCenter) y se ve mal.
+                  measuring.Always reasegura las medidas tras el colapso. */}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={() => setExpandedId(null)}
+                onDragEnd={onDragEnd}
+                measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+              >
                 <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
                   <ul className="space-y-2">
                     {fields.map((f, i) => (
@@ -465,13 +477,16 @@ function Branding({ campaign }: { campaign: Campaign }) {
     <section>
       <SectionTitle>Apariencia</SectionTitle>
       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5">
-        <LabeledInput label="Título del formulario" value={b.headline} onChange={(v) => updateBranding(campaign.id, { headline: v })} />
+        {/* Placeholders = texto por defecto: si el campo se deja vacío, el formulario usa
+            ese mismo texto (título -> nombre del puesto; agradecimiento -> fallback real). */}
+        <LabeledInput label="Título del formulario" value={b.headline} onChange={(v) => updateBranding(campaign.id, { headline: v })} placeholder={campaign.title} />
         <label className="block">
           <span className="mb-1 block text-[12px] font-medium text-slate-500">Mensaje de bienvenida</span>
           <textarea
             value={b.welcome}
             onChange={(e) => updateBranding(campaign.id, { welcome: e.target.value })}
             rows={2}
+            placeholder={FORM_WELCOME_DEFAULT}
             className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
           />
         </label>
@@ -481,6 +496,7 @@ function Branding({ campaign }: { campaign: Campaign }) {
             value={b.thanks}
             onChange={(e) => updateBranding(campaign.id, { thanks: e.target.value })}
             rows={2}
+            placeholder={FORM_THANKS_DEFAULT}
             className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
           />
         </label>

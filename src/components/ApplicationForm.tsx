@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { AlertCircle, Lock } from 'lucide-react'
 import type { Campaign } from '../lib/types'
 import { FieldRenderer } from './FieldRenderer'
@@ -41,6 +41,8 @@ export function ApplicationForm({
     '--accent': accent,
     '--accent-contrast': readableOn(accent),
   } as CSSProperties
+  // "Leer más" del aviso de privacidad: despliega una explicación honesta inline.
+  const [showPrivacy, setShowPrivacy] = useState(false)
 
   const errorList = campaign.fields
     .filter((f) => errors[f.id])
@@ -80,7 +82,7 @@ export function ApplicationForm({
           {campaign.branding.headline || campaign.title}
         </h1>
         {campaign.branding.welcome && (
-          <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{campaign.branding.welcome}</p>
+          <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">{campaign.branding.welcome}</p>
         )}
       </header>
 
@@ -135,7 +137,19 @@ export function ApplicationForm({
         <Lock className="mt-0.5 size-3 shrink-0" aria-hidden />
         <span>
           Tus datos se enviarán a {companyName} para este proceso de selección.{' '}
-          <button type="button" className="underline hover:text-slate-600">Leer más</button>
+          {!showPrivacy ? (
+            <button type="button" onClick={() => setShowPrivacy(true)} className="underline hover:text-slate-600">
+              Leer más
+            </button>
+          ) : (
+            <>
+              Solo {companyName} verá tu candidatura para este puesto: no la compartimos con terceros ni la
+              usamos para publicidad. Puedes pedir que actualicen o borren tus datos contactando con la empresa.{' '}
+              <button type="button" onClick={() => setShowPrivacy(false)} className="underline hover:text-slate-600">
+                Leer menos
+              </button>
+            </>
+          )}
         </span>
       </p>
 

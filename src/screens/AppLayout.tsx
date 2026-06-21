@@ -434,21 +434,36 @@ export function AppLayout() {
           </>
         ) : (
           <>
-            <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
-              <div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-[12px] font-bold text-white">
-                {initials(company.name)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold text-slate-800">{company.name}</p>
-                {isOwner ? (
-                  <Link to="/app/plan" className="block truncate text-[11px] text-slate-500 hover:text-indigo-600">
+            {/* Bloque del usuario: para el owner TODO el bloque (avatar + nombre +
+                subtítulo) lleva a gestionar el plan, no solo el texto. "Salir" queda
+                aparte (abajo), así no anidamos interactivos dentro del Link. */}
+            {isOwner ? (
+              <Link
+                to="/app/plan"
+                aria-label={`Gestionar plan ${PLAN_LABEL[company.plan] ?? 'Prueba'}`}
+                className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-slate-100"
+              >
+                <div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-[12px] font-bold text-white">
+                  {initials(company.name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold text-slate-800">{company.name}</p>
+                  <p className="truncate text-[11px] text-slate-500 group-hover:text-indigo-600">
                     Gestionar plan {PLAN_LABEL[company.plan] ?? 'Prueba'}
-                  </Link>
-                ) : (
+                  </p>
+                </div>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+                <div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-[12px] font-bold text-white">
+                  {initials(company.name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold text-slate-800">{company.name}</p>
                   <p className="truncate text-[11px] text-slate-500">Plan {PLAN_LABEL[company.plan] ?? 'Prueba'}</p>
-                )}
+                </div>
               </div>
-            </div>
+            )}
             <div className="mt-1">
               <button
                 onClick={() => signOut()}

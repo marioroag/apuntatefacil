@@ -8,6 +8,7 @@ import { validateField } from '../components/FieldRenderer'
 import type { FieldValue } from '../components/FieldRenderer'
 import { readableOn } from '../lib/colors'
 import { BRAND } from '../lib/brand'
+import { FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { brandAssetUrl } from '../lib/brandAsset'
 import type { Campaign } from '../lib/types'
 
@@ -215,9 +216,8 @@ function ThankYou({ campaign }: { campaign: PublicCampaign }) {
           <h1 ref={h1} tabIndex={-1} className="mt-4 text-[22px] font-bold tracking-tight text-slate-900 outline-none">
             Gracias, hemos recibido tu candidatura
           </h1>
-          <p className="mt-2 text-[15px] leading-relaxed text-slate-600">
-            {campaign.branding.thanks ||
-              'La empresa revisará tu candidatura y te contactará si encaja con el puesto.'}
+          <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">
+            {campaign.branding.thanks || FORM_THANKS_DEFAULT}
           </p>
         </div>
         <p className="mt-4 text-center text-[12px] text-slate-400">
