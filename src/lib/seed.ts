@@ -122,7 +122,6 @@ const campaigns: Campaign[] = [
     createdAt: '2026-05-18T09:00:00.000Z',
     milanunciosUrl: 'https://www.milanuncios.com/ofertas-de-empleo/peon-albanil-987654.htm',
     branding: {
-      headline: 'Peón de albañil, Valencia',
       welcome: 'Obra nueva y reforma en Valencia y alrededores. Déjanos tus datos y te llamamos en 24-48 h.',
       thanks: 'Recibido. Revisamos tu candidatura y te contactamos por teléfono. Mucha suerte.',
       accent: '#2f6db5',
@@ -151,7 +150,6 @@ const campaigns: Campaign[] = [
     createdAt: '2026-05-24T09:00:00.000Z',
     milanunciosUrl: 'https://www.milanuncios.com/ofertas-de-empleo/oficial-primera-654321.htm',
     branding: {
-      headline: 'Oficial de 1ª, Valencia',
       welcome: 'Buscamos oficial con experiencia para obra en marcha. Proyecto estable.',
       thanks: 'Gracias. Si encajas con el puesto, te llamamos esta misma semana.',
       accent: '#2f6db5',
@@ -179,7 +177,6 @@ const campaigns: Campaign[] = [
     status: 'activa',
     createdAt: '2026-05-30T09:00:00.000Z',
     branding: {
-      headline: 'Electricista, Valencia',
       welcome: 'Instalaciones en obra y mantenimiento. Cuéntanos tu experiencia.',
       thanks: 'Candidatura recibida. Te contactamos para concretar una entrevista.',
       accent: '#2f6db5',
@@ -209,7 +206,6 @@ const campaigns: Campaign[] = [
     createdAt: '2026-05-27T09:00:00.000Z',
     milanunciosUrl: 'https://www.milanuncios.com/ofertas-de-empleo/mozo-almacen-112233.htm',
     branding: {
-      headline: 'Mozo/a de almacén, Madrid',
       welcome: 'Centro logístico en Madrid, turnos rotativos. Cuéntanos tu disponibilidad.',
       thanks: 'Candidatura recibida. Te llamamos para una entrevista breve.',
       accent: '#0f766e',
@@ -237,7 +233,6 @@ const campaigns: Campaign[] = [
     createdAt: '2026-06-03T09:00:00.000Z',
     milanunciosUrl: 'https://www.milanuncios.com/ofertas-de-empleo/carretillero-445566.htm',
     branding: {
-      headline: 'Carretillero/a, Madrid',
       welcome: 'Manejo de carretilla en centro logístico. Turnos rotativos y contrato estable.',
       thanks: 'Gracias por escribirnos. Revisamos tu perfil y te llamamos.',
       accent: '#0f766e',
@@ -264,7 +259,6 @@ const campaigns: Campaign[] = [
     status: 'pausada',
     createdAt: '2026-06-06T09:00:00.000Z',
     branding: {
-      headline: 'Preparador/a de pedidos, Madrid',
       welcome: 'Picking con PDA en almacén. Turnos de mañana, tarde o noche.',
       thanks: 'Gracias. Revisamos tu candidatura y te contactamos.',
       accent: '#0f766e',

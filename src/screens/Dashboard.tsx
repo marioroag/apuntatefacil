@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   ArrowUpDown,
   Bell,
@@ -9,11 +9,13 @@ import {
   Building2,
   Check,
   ChevronDown,
+  Copy,
   Download,
   Filter,
   Globe,
   Inbox,
   Lock,
+  MoreHorizontal,
   PenLine,
   Plus,
   RefreshCw,
@@ -34,7 +36,7 @@ import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { CandidatePanel } from './CandidatePanel'
 import { exportCandidatesToExcel } from '../lib/export'
-import { relativeDate, initials, miles, formatPhone } from '../lib/format'
+import { relativeDate, initials, miles, formatPhone, candidateName } from '../lib/format'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { Brand, Campaign, Candidate, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey } from '../lib/types'
 import { planHas, type PlanFeature } from '../lib/pricing'
@@ -79,10 +81,11 @@ function numberFilterLabel(nf: NumberFilter): string {
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen, duplicateCampaign } = useStore()
   const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
+  const navigate = useNavigate()
   const campaign = getCampaign(campaignId!)
   // El encargado gestiona candidatos, pero NO edita el puesto (form/sede/marca):
   // esas escrituras van contra campaigns, que la RLS le bloquea.
@@ -139,8 +142,23 @@ export function Dashboard() {
   const [saveViewOpen, setSaveViewOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false) // hoja de ajustes del puesto (móvil)
+  const [duplicating, setDuplicating] = useState(false)
   // Feature avanzada que se intentó usar sin tenerla en el plan: abre el aviso.
   const [upgrade, setUpgrade] = useState<PlanFeature | null>(null)
+
+  // Duplicar el puesto: crea una copia (campos, apariencia y datos), sin candidatos,
+  // y abre su editor. El error, si lo hay, lo avisa el store.
+  const handleDuplicate = async () => {
+    if (duplicating || !campaign) return
+    setDuplicating(true)
+    const copy = await duplicateCampaign(campaign.id)
+    setDuplicating(false)
+    setSettingsOpen(false)
+    if (copy) {
+      toast.success('Puesto duplicado.')
+      navigate(`${base}/puestos/${copy.id}/formulario`)
+    }
+  }
 
   // Skeleton breve al cambiar de puesto (muestra el estado de carga real).
   useEffect(() => {
@@ -245,7 +263,7 @@ export function Dashboard() {
 
     list = [...list].sort((a, b) => {
       let cmp = 0
-      if (sort.key === 'nombre') cmp = answerStr(a, 'nombre').localeCompare(answerStr(b, 'nombre'))
+      if (sort.key === 'nombre') cmp = candidateName(a).localeCompare(candidateName(b))
       else if (sort.key === 'estado') cmp = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
       else cmp = a.submittedAt.localeCompare(b.submittedAt)
       return sort.dir === 'asc' ? cmp : -cmp
@@ -433,6 +451,12 @@ export function Dashboard() {
                 <span className="sm:hidden">Editar</span>
                 <span className="hidden sm:inline">Editar formulario</span>
               </Link>
+            )}
+            {/* Más acciones (escritorio): en móvil viven en "Ajustes del puesto". */}
+            {canManage && (
+              <span className="hidden sm:contents">
+                <PuestoMenu onDuplicate={handleDuplicate} duplicating={duplicating} />
+              </span>
             )}
           </div>
         </div>
@@ -678,6 +702,8 @@ export function Dashboard() {
           onSetBrand={applyBrand}
           onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
           onUpgrade={setUpgrade}
+          onDuplicate={handleDuplicate}
+          duplicating={duplicating}
         />
       )}
 
@@ -836,7 +862,7 @@ function CandidateTable({
       {/* --- Vista móvil: tarjetas (< md) --- */}
       <ul className="divide-y divide-slate-100 md:hidden" aria-label={`Candidatos de ${campaign.title}`}>
         {rows.map((c) => {
-          const name = answerStr(c, 'nombre') || 'Sin nombre'
+          const name = candidateName(c) || 'Sin nombre'
           const phone = answerStr(c, 'telefono')
           const m = STATUS_META[c.status]
           const sel = selected.has(c.id)
@@ -946,7 +972,7 @@ function CandidateTable({
         <tbody>
           {rows.map((c) => {
             const sel = selected.has(c.id)
-            const name = answerStr(c, 'nombre') || 'Sin nombre'
+            const name = candidateName(c) || 'Sin nombre'
             return (
               <tr
                 key={c.id}
@@ -1838,6 +1864,8 @@ function PuestoSettingsSheet({
   onSetBrand,
   onToggleNotify,
   onUpgrade,
+  onDuplicate,
+  duplicating,
 }: {
   open: boolean
   onClose: () => void
@@ -1851,6 +1879,8 @@ function PuestoSettingsSheet({
   onSetBrand: (brandId: string | null) => void
   onToggleNotify: () => void
   onUpgrade: (f: PlanFeature) => void
+  onDuplicate: () => void
+  duplicating: boolean
 }) {
   const notify = campaign.notifyNew !== false
   return (
@@ -1901,7 +1931,69 @@ function PuestoSettingsSheet({
                 </div>
                 <SettingSwitch checked={notify} onChange={onToggleNotify} label="Avisos por email" />
               </section>
+
+              <section>
+                <button
+                  onClick={onDuplicate}
+                  disabled={duplicating}
+                  className={`${BTN_SECONDARY} w-full disabled:opacity-60`}
+                >
+                  <Copy className="size-4 text-slate-400" aria-hidden />
+                  {duplicating ? 'Duplicando…' : 'Duplicar puesto'}
+                </button>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">Crea un puesto nuevo con los mismos campos y apariencia, sin candidatos.</p>
+              </section>
       </div>
     </BottomSheet>
+  )
+}
+
+// Menú "más acciones" del puesto (escritorio). Mismo patrón de popover que
+// SiteSelect/BrandSelect: cierre con click fuera y Escape, foco visible.
+function PuestoMenu({ onDuplicate, duplicating }: { onDuplicate: () => void; duplicating: boolean }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`${BTN_SECONDARY} px-2`}
+        title="Más acciones"
+        aria-label="Más acciones del puesto"
+      >
+        <MoreHorizontal className="size-4 text-slate-400" aria-hidden />
+      </button>
+      {open && (
+        <ul role="menu" className="absolute right-0 z-50 mt-1 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-pop">
+          <li role="none">
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false)
+                onDuplicate()
+              }}
+              disabled={duplicating}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              <Copy className="size-4 text-slate-400" aria-hidden />
+              {duplicating ? 'Duplicando…' : 'Duplicar puesto'}
+            </button>
+          </li>
+        </ul>
+      )}
+    </div>
   )
 }

@@ -161,6 +161,36 @@ export function Builder() {
     setExpandedId(nf.id)
   }
 
+  // Separar / unir el campo base de nombre. Al activar, renombra 'nombre' a
+  // "Nombre" y añade un 'apellidos' justo detrás; al desactivar, quita
+  // 'apellidos' y restaura "Nombre y apellidos".
+  const hasApellidos = fields.some((f) => f.id === 'apellidos')
+  const toggleNameSplit = (on: boolean) => {
+    const idx = fields.findIndex((f) => f.id === 'nombre')
+    if (idx === -1) return
+    if (on) {
+      if (hasApellidos) return
+      const next = fields.map((f) =>
+        f.id === 'nombre' ? { ...f, label: 'Nombre', placeholder: 'Tu nombre' } : f,
+      )
+      next.splice(idx + 1, 0, {
+        id: 'apellidos',
+        type: 'text',
+        label: 'Apellidos',
+        required: true,
+        system: true,
+        placeholder: 'Tus apellidos',
+      })
+      setFields(next)
+    } else {
+      setFields(
+        fields
+          .filter((f) => f.id !== 'apellidos')
+          .map((f) => (f.id === 'nombre' ? { ...f, label: 'Nombre y apellidos', placeholder: 'Tu nombre completo' } : f)),
+      )
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Cabecera */}
@@ -202,6 +232,9 @@ export function Builder() {
               <Smartphone className="size-4 text-slate-400" aria-hidden /> Ver la vista previa del formulario
             </button>
 
+            {/* Apariencia (datos del puesto: título, mensajes y aspecto) */}
+            <Branding key={campaign.id} campaign={campaign} />
+
             {/* Campos */}
             <section>
               <SectionTitle>Campos del formulario</SectionTitle>
@@ -229,6 +262,8 @@ export function Builder() {
                         onUpdate={(patch) => updateField(f.id, patch)}
                         onRemove={() => removeField(f.id)}
                         onMove={(dir) => move(f.id, dir)}
+                        nameSplit={hasApellidos}
+                        onToggleNameSplit={f.id === 'nombre' ? toggleNameSplit : undefined}
                       />
                     ))}
                   </ul>
@@ -255,9 +290,6 @@ export function Builder() {
                 })}
               </div>
             </section>
-
-            {/* Apariencia */}
-            <Branding key={campaign.id} campaign={campaign} />
 
             {/* Compartir */}
             <ShareCard campaign={campaign} />
@@ -331,6 +363,8 @@ function SortableFieldRow({
   onUpdate,
   onRemove,
   onMove,
+  nameSplit,
+  onToggleNameSplit,
 }: {
   field: FormField
   index: number
@@ -340,6 +374,9 @@ function SortableFieldRow({
   onUpdate: (patch: Partial<FormField>) => void
   onRemove: () => void
   onMove: (dir: -1 | 1) => void
+  // Solo para el campo base 'nombre': estado y acción de "separar nombre y apellidos".
+  nameSplit?: boolean
+  onToggleNameSplit?: (on: boolean) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
@@ -414,19 +451,36 @@ function SortableFieldRow({
               </button>
             )}
           </div>
+
+          {/* Solo en el campo base de nombre: dividir en nombre + apellidos. */}
+          {field.id === 'nombre' && onToggleNameSplit && (
+            <label className="flex cursor-pointer items-start gap-2 border-t border-slate-100 pt-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={!!nameSplit}
+                onChange={(e) => onToggleNameSplit(e.target.checked)}
+                className="mt-0.5 size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span>
+                Pedir nombre y apellidos por separado
+                <span className="mt-0.5 block text-[12px] text-slate-400">Crea dos campos obligatorios: Nombre y Apellidos.</span>
+              </span>
+            </label>
+          )}
         </div>
       )}
     </li>
   )
 }
 
-function LabeledInput({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+function LabeledInput({ label, value, onChange, onBlur, placeholder }: { label: string; value: string; onChange: (v: string) => void; onBlur?: () => void; placeholder?: string }) {
   return (
     <label className="block">
       <span className="mb-1 block text-[12px] font-medium text-slate-500">{label}</span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
         className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
       />
@@ -469,17 +523,29 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o:
 
 // --- Branding ---------------------------------------------------------------
 function Branding({ campaign }: { campaign: Campaign }) {
-  const { updateBranding } = useStore()
+  const { updateBranding, updateCampaign } = useStore()
   const b = campaign.branding
   const passes = accentPassesWhite(b.accent)
+  // Título único del puesto: se ve en el panel, la barra lateral y como cabecera
+  // del formulario. Es obligatorio, así que guardamos en vivo pero nunca vacío.
+  const [title, setTitle] = useState(campaign.title)
+  const onTitleChange = (v: string) => {
+    setTitle(v)
+    const t = v.trim()
+    if (t) void updateCampaign(campaign.id, { title: t })
+  }
+  const onTitleBlur = () => {
+    if (!title.trim()) setTitle(campaign.title)
+  }
 
   return (
     <section>
       <SectionTitle>Apariencia</SectionTitle>
       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5">
-        {/* Placeholders = texto por defecto: si el campo se deja vacío, el formulario usa
-            ese mismo texto (título -> nombre del puesto; agradecimiento -> fallback real). */}
-        <LabeledInput label="Título del formulario" value={b.headline} onChange={(v) => updateBranding(campaign.id, { headline: v })} placeholder={campaign.title} />
+        {/* El título se ve en el panel, en la barra lateral y como cabecera del
+            formulario. Editarlo aquí no cambia el enlace público.
+            Placeholders del resto = texto por defecto si el campo se deja vacío. */}
+        <LabeledInput label="Título del puesto" value={title} onChange={onTitleChange} onBlur={onTitleBlur} placeholder="Nombre del puesto" />
         <label className="block">
           <span className="mb-1 block text-[12px] font-medium text-slate-500">Mensaje de bienvenida</span>
           <textarea

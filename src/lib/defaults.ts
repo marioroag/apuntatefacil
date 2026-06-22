@@ -17,7 +17,6 @@ export const FORM_THANKS_DEFAULT = 'La empresa revisará tu candidatura y te con
 
 export function defaultBranding(accent: string): Branding {
   return {
-    headline: '',
     welcome: FORM_WELCOME_DEFAULT,
     thanks: 'Recibido. Revisamos tu candidatura y te contactamos. Gracias por escribirnos.',
     accent,

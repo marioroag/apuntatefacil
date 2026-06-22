@@ -79,7 +79,7 @@ export function ApplicationForm({
           </div>
         )}
         <h1 className="text-[25px] font-bold leading-tight tracking-tight text-slate-900">
-          {campaign.branding.headline || campaign.title}
+          {campaign.title}
         </h1>
         {campaign.branding.welcome && (
           <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">{campaign.branding.welcome}</p>

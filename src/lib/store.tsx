@@ -123,6 +123,9 @@ interface Store {
   updateBranding: (campaignId: string, branding: Partial<Branding>) => Promise<void>
   updateCampaign: (campaignId: string, patch: Partial<Campaign>) => Promise<void>
   createCampaign: (input: NewCampaignInput) => Promise<Campaign | null>
+  // Crea un puesto nuevo copiando campos, apariencia y datos del original (enlace
+  // propio, sin candidatos). Devuelve el puesto nuevo o null si falla.
+  duplicateCampaign: (campaignId: string) => Promise<Campaign | null>
   deleteCampaign: (campaignId: string) => Promise<void>
   // Vistas guardadas (Pro/Multi)
   savedViews: SavedView[]
@@ -466,6 +469,61 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           error?.message?.includes('PLAN_LIMIT_REACHED')
             ? 'Has llegado al límite de procesos de tu plan. Sube de plan para abrir otro.'
             : 'No se pudo crear el puesto.',
+        )
+        return null
+      }
+      const campaign = toCampaign(data as CampaignRow)
+      setCampaigns((cs) => [...cs, campaign])
+      return campaign
+    },
+    duplicateCampaign: async (campaignId) => {
+      const src = campaigns.find((c) => c.id === campaignId)
+      if (!src) return null
+      const title = `${src.title} (copia)`
+      const fields = src.fields.map((f) => ({ ...f }))
+      const branding = { ...src.branding }
+      if (companyId === 'demo') {
+        const campaign: Campaign = {
+          id: `demo_${Math.random().toString(36).slice(2, 9)}`,
+          slug: slugify(title),
+          title,
+          sector: src.sector,
+          location: src.location,
+          status: 'activa',
+          createdAt: new Date().toISOString(),
+          milanunciosUrl: src.milanunciosUrl,
+          fields,
+          branding,
+          siteId: src.siteId,
+          brandId: src.brandId,
+          notifyNew: src.notifyNew ?? true,
+        }
+        setCampaigns((cs) => [...cs, campaign])
+        return campaign
+      }
+      const { data, error } = await supabase
+        .from('campaigns')
+        .insert({
+          company_id: companyId,
+          slug: slugify(title),
+          title,
+          sector: src.sector,
+          location: src.location,
+          status: 'activa',
+          milanuncios_url: src.milanunciosUrl ?? null,
+          fields,
+          branding,
+          site_id: src.siteId,
+          brand_id: src.brandId,
+          notify_new: src.notifyNew ?? true,
+        })
+        .select('*')
+        .single()
+      if (error || !data) {
+        toast.error(
+          error?.message?.includes('PLAN_LIMIT_REACHED')
+            ? 'Has llegado al límite de procesos de tu plan. Sube de plan para abrir otro.'
+            : 'No se pudo duplicar el puesto.',
         )
         return null
       }

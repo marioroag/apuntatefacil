@@ -31,8 +31,6 @@ export interface FormField {
 }
 
 export interface Branding {
-  /** Texto que ve el candidato como cabecera del formulario. */
-  headline: string
   welcome: string
   thanks: string
   accent: string // hex; por defecto hereda el de la empresa

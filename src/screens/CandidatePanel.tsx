@@ -4,7 +4,7 @@ import { SlideOver } from '../components/ui/SlideOver'
 import { StatusSelect } from '../components/ui/StatusPill'
 import type { Campaign, Candidate } from '../lib/types'
 import { SOURCE_META } from '../lib/types'
-import { fullDateTime, initials, formatPhone } from '../lib/format'
+import { fullDateTime, initials, formatPhone, candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
 import { BTN_PRIMARY } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
@@ -52,7 +52,7 @@ export function CandidatePanel({
   }, [candidate?.id])
 
   const open = !!candidate
-  const name = candidate ? answerText(candidate.answers['nombre']) : ''
+  const name = candidate ? candidateName(candidate) || 'Sin nombre' : ''
   const phone = candidate ? (candidate.answers['telefono'] as string) : ''
   const waPhone = phone ? '34' + phone.replace(/\D/g, '') : ''
 

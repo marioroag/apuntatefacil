@@ -1,5 +1,7 @@
 // Formato locale ES: fechas dd/mm/aaaa (relativas < 7 días), miles con '.'.
 
+import type { Candidate } from './types'
+
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 export function relativeDate(iso: string, now = Date.now()): string {
@@ -56,6 +58,17 @@ export function formatPhone(raw: string): string {
     prefix = '+' // otro país: conserva el '+' y agrupa el resto
   }
   return prefix + (digits.match(/\d{1,3}/g) ?? []).join(' ')
+}
+
+// Nombre a mostrar del candidato. Combina el campo base 'nombre' con 'apellidos'
+// cuando el formulario los pide por separado; si no hay 'apellidos', devuelve solo
+// el nombre. Compatible con candidaturas antiguas (sin 'apellidos').
+export function candidateName(c: Candidate): string {
+  const part = (id: string) => {
+    const v = c.answers[id]
+    return typeof v === 'string' ? v.trim() : ''
+  }
+  return [part('nombre'), part('apellidos')].filter(Boolean).join(' ')
 }
 
 export function initials(name: string): string {

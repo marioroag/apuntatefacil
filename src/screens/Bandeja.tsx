@@ -6,7 +6,7 @@ import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { CandidatePanel } from './CandidatePanel'
-import { relativeDate, initials, formatPhone } from '../lib/format'
+import { relativeDate, initials, formatPhone, candidateName } from '../lib/format'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { useAppBase } from '../lib/useAppBase'
 import { planHas } from '../lib/pricing'
@@ -70,7 +70,7 @@ export function Bandeja() {
             <ul className="divide-y divide-slate-100 md:hidden" aria-label="Candidatos nuevos de todos los puestos">
               {nuevos.map((c) => {
                 const camp = getCampaign(c.campaignId)
-                const name = answer(c, 'nombre') || 'Sin nombre'
+                const name = candidateName(c) || 'Sin nombre'
                 const m = STATUS_META[c.status]
                 return (
                   // Botón del candidato (abrir) y pastilla de estado (cambiar y triar
@@ -129,7 +129,7 @@ export function Bandeja() {
                 <tbody>
                   {nuevos.map((c) => {
                     const camp = getCampaign(c.campaignId)
-                    const name = answer(c, 'nombre') || 'Sin nombre'
+                    const name = candidateName(c) || 'Sin nombre'
                     const phone = answer(c, 'telefono')
                     return (
                       <tr
