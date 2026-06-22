@@ -80,12 +80,12 @@ export function FieldRenderer({
 
   return (
     <div>
-      <label id={labelId} htmlFor={id} className="mb-1.5 block text-sm font-semibold text-slate-800">
+      <label id={labelId} htmlFor={id} className="mb-1.5 block break-words text-sm font-semibold text-slate-800">
         {field.label}
         {field.required && <span className="ml-0.5 text-red-500" aria-hidden>*</span>}
       </label>
       {field.helpText && (
-        <p id={descId} className="mb-1.5 text-[13px] text-slate-500">
+        <p id={descId} className="mb-1.5 break-words text-[13px] text-slate-500">
           {field.helpText}
         </p>
       )}
@@ -308,7 +308,7 @@ function SelectControl({
             >
               {sel && <span className="size-2.5 rounded-full bg-accent" />}
             </span>
-            {o}
+            <span className="min-w-0 break-words">{o}</span>
           </button>
         )
       })}
@@ -345,13 +345,13 @@ function MultiSelectControl({
             key={o}
             aria-pressed={sel}
             onClick={() => toggle(o)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
+            className={`inline-flex max-w-full items-center gap-1.5 break-words rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
               sel ? 'text-on-accent' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
             }`}
             style={sel ? { backgroundColor: 'var(--accent)', borderColor: 'var(--accent)' } : undefined}
           >
-            {sel && <Check className="size-3.5" aria-hidden />}
-            {o}
+            {sel && <Check className="size-3.5 shrink-0" aria-hidden />}
+            <span className="min-w-0 break-words">{o}</span>
           </button>
         )
       })}

@@ -75,14 +75,14 @@ export function ApplicationForm({
                 {companyName.slice(0, 1)}
               </span>
             )}
-            <span className="text-sm font-semibold text-slate-700">{companyName}</span>
+            <span className="min-w-0 break-words text-sm font-semibold text-slate-700">{companyName}</span>
           </div>
         )}
-        <h1 className="text-[25px] font-bold leading-tight tracking-tight text-slate-900">
+        <h1 className="break-words text-[25px] font-bold leading-tight tracking-tight text-slate-900">
           {campaign.title}
         </h1>
         {campaign.branding.welcome && (
-          <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">{campaign.branding.welcome}</p>
+          <p className="mt-2 whitespace-pre-line break-words text-[15px] leading-relaxed text-slate-600">{campaign.branding.welcome}</p>
         )}
       </header>
 
@@ -106,7 +106,7 @@ export function ApplicationForm({
                     target?.focus()
                     el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
                   }}
-                  className="text-left underline hover:text-red-700"
+                  className="break-words text-left underline hover:text-red-700"
                 >
                   {e.label}
                 </button>
@@ -135,7 +135,7 @@ export function ApplicationForm({
       {/* Aviso de privacidad honesto */}
       <p className="mt-5 flex items-start gap-1.5 text-[12px] leading-relaxed text-slate-400">
         <Lock className="mt-0.5 size-3 shrink-0" aria-hidden />
-        <span>
+        <span className="min-w-0 break-words">
           Tus datos se enviarán a {companyName} para este proceso de selección.{' '}
           {!showPrivacy ? (
             <button type="button" onClick={() => setShowPrivacy(true)} className="underline hover:text-slate-600">
