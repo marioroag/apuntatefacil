@@ -95,6 +95,15 @@ export interface Candidate {
   rating: number // 0..5 estrellas, 0 = sin valorar
   notes: string
   cvPath?: string // ruta del CV en Supabase Storage (bucket cvs), si lo adjuntó
+  tagIds: string[] // ids de las etiquetas que el empresario le ha puesto (ver Tag)
+}
+
+// Etiqueta: clasificación libre que pone el empresario sobre los candidatos. Es
+// vocabulario a nivel EMPRESA (se reutiliza entre puestos). El candidato nunca la
+// ve. Siempre se pinta en gris neutro: nunca color de estado ni el índigo de marca.
+export interface Tag {
+  id: string
+  name: string
 }
 
 export interface Company {
@@ -131,6 +140,9 @@ export interface SavedViewPayload {
   sort: { key: SortKey; dir: 'asc' | 'desc' }
   ratingFilter?: number
   numberFilters?: NumberFilter[]
+  // Ids de etiquetas seleccionadas. Universal (las etiquetas valen en cualquier
+  // puesto), como estados u orden: viaja también en vistas globales.
+  tagFilter?: string[]
 }
 
 export interface SavedView {

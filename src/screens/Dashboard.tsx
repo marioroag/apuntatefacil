@@ -38,8 +38,9 @@ import { CandidatePanel } from './CandidatePanel'
 import { exportCandidatesToExcel } from '../lib/export'
 import { relativeDate, initials, miles, formatPhone, candidateName } from '../lib/format'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
-import type { Brand, Campaign, Candidate, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey } from '../lib/types'
-import { planHas, type PlanFeature } from '../lib/pricing'
+import type { Brand, Campaign, Candidate, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
+import { planHas, TAGS_ENABLED, type PlanFeature } from '../lib/pricing'
+import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAppBase } from '../lib/useAppBase'
 import { MaskedPhone } from '../components/MaskedPhone'
@@ -83,7 +84,7 @@ function numberFilterLabel(nf: NumberFilter): string {
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen, duplicateCampaign } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen, duplicateCampaign, tags } = useStore()
   const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -93,6 +94,9 @@ export function Dashboard() {
   // esas escrituras van contra campaigns, que la RLS le bloquea.
   const isEncargado = role === 'encargado'
   const canManage = !isEncargado
+  // El encargado aplica/quita etiquetas existentes pero no crea ni gestiona el
+  // vocabulario (igual que en la RLS). owner/member sí.
+  const canManageTags = !isEncargado
   const canViews = planHas(company?.plan, 'savedViews')
   // Las pills de sede y marca SE MUESTRAN siempre que el rol gestione el puesto;
   // si el plan no incluye la feature, la pill abre el aviso de upgrade al pulsarla
@@ -106,6 +110,8 @@ export function Dashboard() {
   const [valueFilters, setValueFilters] = useState<{ fieldId: string; label: string; value: string }[]>([])
   const [numberFilters, setNumberFilters] = useState<NumberFilter[]>([])
   const [ratingFilter, setRatingFilter] = useState<number>(0)
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set()) // ids de etiqueta; OR dentro del grupo
+  const [manageTagsOpen, setManageTagsOpen] = useState(false)
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'fecha', dir: 'desc' })
   const [openId, setOpenId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -177,6 +183,7 @@ export function Dashboard() {
     setValueFilters([])
     setNumberFilters([])
     setRatingFilter(0)
+    setTagFilter(new Set())
     setSelected(new Set())
     setSelectMode(false)
     // Trae los candidatos nuevos de este puesto: la carga global solo ocurre al
@@ -275,6 +282,9 @@ export function Dashboard() {
     let list = base0.filter((c) => {
       if (statusFilter.size && !statusFilter.has(c.status)) return false
       if (ratingFilter > 0 && c.rating < ratingFilter) return false
+      // Etiquetas: OR dentro del grupo (basta tener UNA de las seleccionadas), AND
+      // con el resto de grupos (consistente con el comportamiento actual).
+      if (tagFilter.size && !c.tagIds.some((id) => tagFilter.has(id))) return false
       // valueFilters agrupados por campo: OR dentro del campo, AND entre campos
       const byField = new Map<string, string[]>()
       for (const vf of valueFilters) {
@@ -314,7 +324,7 @@ export function Dashboard() {
       })
     }
     return list
-  }, [all, campaign, dq, rpcIds, base, statusFilter, valueFilters, numberFilters, ratingFilter, sort])
+  }, [all, campaign, dq, rpcIds, base, statusFilter, valueFilters, numberFilters, ratingFilter, tagFilter, sort])
 
   // Dominio real (mín/máx) de cada pregunta numérica, para acotar sus sliders.
   const numberDomains = useMemo(() => {
@@ -350,7 +360,7 @@ export function Dashboard() {
     )
   }
 
-  const activeFilterCount = statusFilter.size + valueFilters.length + numberFilters.length + (ratingFilter > 0 ? 1 : 0)
+  const activeFilterCount = statusFilter.size + valueFilters.length + numberFilters.length + (ratingFilter > 0 ? 1 : 0) + tagFilter.size
   const cols = highlightFields(campaign)
   const openCandidate = openId ? all.find((c) => c.id === openId) ?? null : null
   // Primer tramo del enlace: marca del puesto si la tiene, si no el nombre de la empresa.
@@ -369,6 +379,7 @@ export function Dashboard() {
     setValueFilters(v.payload.valueFilters ?? [])
     setNumberFilters(v.payload.numberFilters ?? [])
     setRatingFilter(v.payload.ratingFilter ?? 0)
+    setTagFilter(new Set(v.payload.tagFilter ?? []))
     setSort(v.payload.sort ?? { key: 'fecha', dir: 'desc' })
   }
 
@@ -376,7 +387,7 @@ export function Dashboard() {
     const ok = await createSavedView({
       name,
       campaignId: scope === 'global' ? null : campaign.id,
-      payload: { search, statuses: [...statusFilter], valueFilters, numberFilters, ratingFilter, sort },
+      payload: { search, statuses: [...statusFilter], valueFilters, numberFilters, ratingFilter, tagFilter: [...tagFilter], sort },
     })
     setSaveViewOpen(false)
     if (ok) toast.success('Vista guardada')
@@ -404,11 +415,12 @@ export function Dashboard() {
     setValueFilters([])
     setNumberFilters([])
     setRatingFilter(0)
+    setTagFilter(new Set())
     setSearch('')
   }
 
   const doExport = async () => {
-    const name = await exportCandidatesToExcel(campaign, filtered)
+    const name = await exportCandidatesToExcel(campaign, filtered, tags)
     toast.success(`Excel listo, ${name}`)
   }
 
@@ -425,7 +437,7 @@ export function Dashboard() {
   const exportSelected = async () => {
     const subset = all.filter((c) => selected.has(c.id))
     if (subset.length === 0) return
-    const name = await exportCandidatesToExcel(campaign, subset)
+    const name = await exportCandidatesToExcel(campaign, subset, tags)
     toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
     exitSelect()
   }
@@ -601,6 +613,9 @@ export function Dashboard() {
             numberDomains={numberDomains}
             ratingFilter={ratingFilter}
             setRatingFilter={setRatingFilter}
+            tags={tags}
+            tagFilter={tagFilter}
+            setTagFilter={setTagFilter}
             count={activeFilterCount}
           />
 
@@ -623,7 +638,7 @@ export function Dashboard() {
       </div>
 
       {/* Chips de filtros activos */}
-      {(statusFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0 || ratingFilter > 0) && (
+      {(statusFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0 || ratingFilter > 0 || tagFilter.size > 0) && (
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <button onClick={clearFilters} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
             <X className="size-3.5" aria-hidden /> Limpiar
@@ -640,6 +655,13 @@ export function Dashboard() {
           {ratingFilter > 0 && (
             <Chip label={`Valoración: ${ratingFilter}+ ${'★'.repeat(ratingFilter)}`} onRemove={() => setRatingFilter(0)} />
           )}
+          {[...tagFilter].map((id) => {
+            const t = tags.find((x) => x.id === id)
+            if (!t) return null
+            return (
+              <Chip key={`t-${id}`} label={`Etiqueta: ${t.name}`} onRemove={() => setTagFilter((p) => { const n = new Set(p); n.delete(id); return n })} />
+            )
+          })}
         </div>
       )}
 
@@ -662,17 +684,33 @@ export function Dashboard() {
 
       {/* Barra de selección (escritorio): aparece al marcar filas con los checks. */}
       {selected.size > 0 && !loading && (
-        <div className="mt-3 hidden items-center gap-3 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm text-white shadow-card sm:flex">
+        <div className="mt-3 hidden items-center gap-2.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm text-white shadow-card sm:flex">
           <span className="font-semibold">{selected.size} seleccionados</span>
+          {TAGS_ENABLED && (
+            <div className="ml-auto flex items-center gap-2">
+              <BulkTagMenu
+                mode="add"
+                selectedIds={[...selected]}
+                canManage={canManageTags}
+                triggerClass="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
+              />
+              <BulkTagMenu
+                mode="remove"
+                selectedIds={[...selected]}
+                canManage={canManageTags}
+                triggerClass="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
+              />
+            </div>
+          )}
           <button
             onClick={async () => {
               // Exporta TODA la selección, también filas que un filtro posterior
               // haya ocultado (si no, exportaría menos de lo que dice la barra).
               const subset = all.filter((c) => selected.has(c.id))
-              const name = await exportCandidatesToExcel(campaign, subset)
+              const name = await exportCandidatesToExcel(campaign, subset, tags)
               toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
             }}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
+            className={`${TAGS_ENABLED ? '' : 'ml-auto '}inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25`}
           >
             <Download className="size-4" aria-hidden /> Exportar selección
           </button>
@@ -697,6 +735,7 @@ export function Dashboard() {
             campaign={campaign}
             cols={cols}
             rows={filtered}
+            tags={tags}
             sort={sort}
             onSort={toggleSort}
             selected={selected}
@@ -717,10 +756,15 @@ export function Dashboard() {
         candidate={openCandidate}
         maskPhone={maskPhone}
         onClose={() => setOpenId(null)}
+        onOpenManageTags={canManageTags ? () => setManageTagsOpen(true) : undefined}
         onDeleted={(c) =>
           toast.success('Candidato eliminado', { action: { label: 'Deshacer', onClick: () => restoreCandidate(c) } })
         }
       />
+
+      {TAGS_ENABLED && canManageTags && (
+        <ManageTagsModal open={manageTagsOpen} onClose={() => setManageTagsOpen(false)} />
+      )}
 
       <SaveViewDialog
         open={saveViewOpen}
@@ -760,31 +804,53 @@ export function Dashboard() {
           className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white px-4 pt-3 shadow-pop sm:hidden"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
-          <div className="mx-auto flex max-w-[1180px] items-center gap-2">
-            <button
-              type="button"
-              onClick={exitSelect}
-              aria-label="Cancelar selección"
-              className="-ml-1.5 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
-            >
-              <X className="size-5" aria-hidden />
-            </button>
-            <span className="text-sm font-semibold text-slate-900 tabular-nums">{selected.size} seleccionados</span>
-            <button
-              type="button"
-              onClick={toggleSelectAll}
-              className="ml-1 text-[13px] font-medium text-indigo-600 hover:text-indigo-700"
-            >
-              {allFilteredSelected ? 'Ninguno' : 'Todos'}
-            </button>
-            <button
-              type="button"
-              onClick={exportSelected}
-              disabled={selected.size === 0}
-              className={`${BTN_PRIMARY} ml-auto disabled:opacity-50`}
-            >
-              <Download className="size-4 text-indigo-200" aria-hidden /> Exportar
-            </button>
+          <div className="mx-auto max-w-[1180px] space-y-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={exitSelect}
+                aria-label="Cancelar selección"
+                className="-ml-1.5 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+              >
+                <X className="size-5" aria-hidden />
+              </button>
+              <span className="text-sm font-semibold text-slate-900 tabular-nums">{selected.size} seleccionados</span>
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="ml-auto text-[13px] font-medium text-indigo-600 hover:text-indigo-700"
+              >
+                {allFilteredSelected ? 'Ninguno' : 'Todos'}
+              </button>
+            </div>
+            <div className="flex items-center gap-2 [&>*]:flex-1 [&>*>button]:w-full">
+              {TAGS_ENABLED && (
+                <>
+                  <BulkTagMenu
+                    mode="add"
+                    selectedIds={[...selected]}
+                    canManage={canManageTags}
+                    placement="up"
+                    triggerClass={`${BTN_SECONDARY} justify-center disabled:opacity-50`}
+                  />
+                  <BulkTagMenu
+                    mode="remove"
+                    selectedIds={[...selected]}
+                    canManage={canManageTags}
+                    placement="up"
+                    triggerClass={`${BTN_SECONDARY} justify-center disabled:opacity-50`}
+                  />
+                </>
+              )}
+              <button
+                type="button"
+                onClick={exportSelected}
+                disabled={selected.size === 0}
+                className={`${BTN_PRIMARY} justify-center disabled:opacity-50`}
+              >
+                <Download className="size-4 text-indigo-200" aria-hidden /> Exportar
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -836,6 +902,7 @@ function CandidateTable({
   campaign,
   cols,
   rows,
+  tags,
   sort,
   onSort,
   selected,
@@ -848,6 +915,7 @@ function CandidateTable({
   campaign: Campaign
   cols: FormField[]
   rows: Candidate[]
+  tags: TagType[]
   sort: { key: SortKey; dir: 'asc' | 'desc' }
   onSort: (k: SortKey) => void
   selected: Set<string>
@@ -926,8 +994,9 @@ function CandidateTable({
           return (
             <li
               key={c.id}
-              className={`flex items-center gap-3 px-4 py-3 transition-colors ${selectMode && sel ? 'bg-indigo-50/70' : ''}`}
+              className={`px-4 py-3 transition-colors ${selectMode && sel ? 'bg-indigo-50/70' : ''}`}
             >
+             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={onTap}
@@ -982,6 +1051,12 @@ function CandidateTable({
                   {relativeDate(c.submittedAt)}
                 </time>
               </div>
+             </div>
+             {c.tagIds.length > 0 && (
+               <div className="pl-[3.25rem]">
+                 <TagCell tagIds={c.tagIds} tags={tags} />
+               </div>
+             )}
             </li>
           )
         })}
@@ -1039,11 +1114,14 @@ function CandidateTable({
                   />
                 </td>
                 <td className="px-3 py-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-600">
+                  <div className="flex items-start gap-2.5">
+                    <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-600">
                       {initials(name)}
                     </span>
-                    <span className="block max-w-[220px] truncate font-medium text-slate-900" title={name}>{name}</span>
+                    <div className="min-w-0">
+                      <span className="block max-w-[220px] truncate font-medium text-slate-900" title={name}>{name}</span>
+                      <TagCell tagIds={c.tagIds} tags={tags} />
+                    </div>
                   </div>
                 </td>
                 <td className="hidden px-3 py-2.5 text-sm text-slate-600 md:table-cell tnum">
@@ -1136,6 +1214,9 @@ function FilterMenu({
   numberDomains,
   ratingFilter,
   setRatingFilter,
+  tags,
+  tagFilter,
+  setTagFilter,
   count,
 }: {
   campaign: Campaign
@@ -1148,6 +1229,9 @@ function FilterMenu({
   numberDomains: Record<string, [number, number]>
   ratingFilter: number
   setRatingFilter: React.Dispatch<React.SetStateAction<number>>
+  tags: TagType[]
+  tagFilter: Set<string>
+  setTagFilter: React.Dispatch<React.SetStateAction<Set<string>>>
   count: number
 }) {
   const [open, setOpen] = useState(false)
@@ -1184,12 +1268,20 @@ function FilterMenu({
     })
   }
 
+  const toggleTag = (id: string) =>
+    setTagFilter((p) => {
+      const n = new Set(p)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+
   // Limpia solo los filtros (no la búsqueda); lo usa el pie de la hoja en móvil.
   const clearAll = () => {
     setStatusFilter(new Set())
     setValueFilters([])
     setNumberFilters([])
     setRatingFilter(0)
+    setTagFilter(new Set())
   }
 
   // Controles compartidos por el desplegable de escritorio y la hoja inferior de
@@ -1220,6 +1312,27 @@ function FilterMenu({
           </label>
         ))}
       </div>
+
+      {/* Etiquetas: justo debajo de Estado (ambos son clasificación del empresario).
+          Si la empresa aún no tiene etiquetas, el grupo se oculta (sin ruido). */}
+      {TAGS_ENABLED && tags.length > 0 && (
+        <div className="mb-4 sm:mb-3">
+          <p id="flt-tags" className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Etiquetas</p>
+          <div role="group" aria-labelledby="flt-tags" className="space-y-0.5">
+            {tags.map((t) => (
+              <label key={t.id} className={rowClass}>
+                <input
+                  type="checkbox"
+                  checked={tagFilter.has(t.id)}
+                  onChange={() => toggleTag(t.id)}
+                  className={checkClass}
+                />
+                <span className="min-w-0 truncate">{t.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {filterableFields(campaign).map((f) => (
         <div key={f.id} className="mb-4 sm:mb-3">

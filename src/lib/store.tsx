@@ -1,10 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Brand, Branding, Campaign, Candidate, CandidateStatus, FormField, SavedView, SavedViewPayload, Site } from './types'
+import type { Brand, Branding, Campaign, Candidate, CandidateStatus, FormField, SavedView, SavedViewPayload, Site, Tag } from './types'
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
-import { SEED, SEED_BRANDS } from './seed'
+import { SEED, SEED_BRANDS, SEED_TAGS } from './seed'
+
+// Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
+// quita espacios de los extremos y colapsa los interiores. La comparación de
+// duplicados es además case-insensitive.
+export function normalizeTagName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ')
+}
 
 // --- Mapeo BD (snake_case) <-> app (camelCase) -----------------------------
 type CampaignRow = {
@@ -64,7 +71,7 @@ const toBrand = (r: BrandRow): Brand => ({
   logoPath: r.logo_path ?? null,
   bannerPath: r.banner_path ?? null,
 })
-const toCandidate = (r: CandidateRow): Candidate => ({
+const toCandidate = (r: CandidateRow, tagIds: string[] = []): Candidate => ({
   id: r.id,
   campaignId: r.campaign_id,
   answers: r.answers ?? {},
@@ -74,7 +81,19 @@ const toCandidate = (r: CandidateRow): Candidate => ({
   notes: r.notes ?? '',
   cvPath: r.cv_path ?? undefined,
   submittedAt: r.created_at,
+  tagIds,
 })
+
+type TagRow = { id: string; name: string }
+const toTag = (r: TagRow): Tag => ({ id: r.id, name: r.name })
+type CandidateTagRow = { candidate_id: string; tag_id: string }
+// Agrupa las filas de candidate_tags en un mapa candidato -> ids de etiqueta. Una
+// sola consulta por lote (evita el N+1 de pedir las etiquetas candidato a candidato).
+function tagsByCandidate(rows: CandidateTagRow[]): Map<string, string[]> {
+  const m = new Map<string, string[]>()
+  for (const r of rows) m.set(r.candidate_id, [...(m.get(r.candidate_id) ?? []), r.tag_id])
+  return m
+}
 
 type SavedViewRow = {
   id: string
@@ -141,6 +160,22 @@ interface Store {
   createBrand: (input: Omit<Brand, 'id'>) => Promise<Brand | null>
   updateBrand: (id: string, patch: Partial<Omit<Brand, 'id'>>) => Promise<void>
   deleteBrand: (id: string) => Promise<void>
+  // Etiquetas (todos los planes). El vocabulario es de empresa; aplicar/quitar
+  // escribe la relación candidate_tags al instante (optimista, con rollback).
+  tags: Tag[]
+  // Nº de candidatos (visibles) que usan cada etiqueta. Para el modal de gestión.
+  tagUsage: (tagId: string) => number
+  // Crea una etiqueta nueva (owner/member). Si ya existe una igual (ignorando
+  // mayúsculas/espacios) la reutiliza en vez de duplicar. Null si falla.
+  createTag: (name: string) => Promise<Tag | null>
+  renameTag: (id: string, name: string) => Promise<boolean>
+  deleteTag: (id: string) => Promise<void>
+  restoreTag: (tag: Tag, candidateIds: string[]) => Promise<void>
+  applyTag: (candidateId: string, tagId: string) => Promise<void>
+  removeTag: (candidateId: string, tagId: string) => Promise<void>
+  // Acciones masivas (selección múltiple): aplica/quita una etiqueta a varios.
+  applyTagToMany: (candidateIds: string[], tagId: string) => Promise<void>
+  removeTagFromMany: (candidateIds: string[], tagId: string) => Promise<void>
   resetDemo: () => void
 }
 
@@ -161,7 +196,7 @@ function readSeen(): Record<string, string> {
   }
 }
 
-function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; savedViews: SavedView[]; sites: Site[]; brands: Brand[] } | null {
+function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; savedViews: SavedView[]; sites: Site[]; brands: Brand[]; tags: Tag[] } | null {
   try {
     const raw = localStorage.getItem(DEMO_KEY)
     if (!raw) return null
@@ -169,10 +204,12 @@ function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; save
     if (Array.isArray(parsed?.campaigns) && Array.isArray(parsed?.candidates))
       return {
         campaigns: parsed.campaigns,
-        candidates: parsed.candidates,
+        // Demos guardadas antes de las etiquetas no traen tagIds: lo rellenamos.
+        candidates: (parsed.candidates as Candidate[]).map((c) => ({ ...c, tagIds: c.tagIds ?? [] })),
         savedViews: Array.isArray(parsed.savedViews) ? parsed.savedViews : [],
         sites: Array.isArray(parsed.sites) ? parsed.sites : SEED.sites,
         brands: Array.isArray(parsed.brands) ? parsed.brands : SEED_BRANDS,
+        tags: Array.isArray(parsed.tags) ? parsed.tags : SEED_TAGS,
       }
   } catch {
     /* ignora storage corrupto */
@@ -191,6 +228,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [savedViews, setSavedViews] = useState<SavedView[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
+  const [tags, setTags] = useState<Tag[]>([])
   const [seen, setSeen] = useState<Record<string, string>>(() => readSeen())
   // Candidatos con una escritura optimista aún sin confirmar en el servidor. Un
   // refetch (reloadCandidatesFor) NO debe pisar su estado local con datos viejos
@@ -204,6 +242,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSavedViews([])
       setSites([])
       setBrands([])
+      setTags([])
       return
     }
     if (companyId === 'demo') {
@@ -215,27 +254,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSavedViews(saved?.savedViews ?? [])
       setSites(saved?.sites ?? SEED.sites)
       setBrands(saved?.brands ?? SEED_BRANDS)
+      setTags(saved?.tags ?? SEED_TAGS)
       setLoading(false)
       return
     }
     setLoading(true)
-    const [c1, c2, c3, c4, c5] = await Promise.all([
+    const [c1, c2, c3, c4, c5, c6, c7] = await Promise.all([
       supabase.from('campaigns').select('*').order('created_at', { ascending: true }),
       supabase.from('candidates').select('*').order('created_at', { ascending: false }),
       supabase.from('saved_views').select('id,campaign_id,name,payload').order('created_at', { ascending: true }),
       supabase.from('sites').select('id,name,city').order('name', { ascending: true }),
       supabase.from('brands').select('id,name,accent,welcome,thanks,show_logo,logo_path,banner_path').order('name', { ascending: true }),
+      supabase.from('tags').select('id,name').order('name', { ascending: true }),
+      // Relación candidato-etiqueta en UNA consulta por lote (la RLS la acota a lo visible).
+      supabase.from('candidate_tags').select('candidate_id,tag_id'),
     ])
     if (c1.error || c2.error) {
       toast.error('No pudimos cargar tus datos. Reintenta en unos segundos.')
     } else {
+      const tagMap = !c7.error && c7.data ? tagsByCandidate(c7.data as CandidateTagRow[]) : new Map<string, string[]>()
       setCampaigns((c1.data as CampaignRow[]).map(toCampaign))
-      setCandidates((c2.data as CandidateRow[]).map(toCandidate))
+      setCandidates((c2.data as CandidateRow[]).map((r) => toCandidate(r, tagMap.get(r.id) ?? [])))
     }
-    // Vistas, sedes y marcas son secundarias: si la tabla aún no existe o falla, no rompe el panel.
+    // Vistas, sedes, marcas y etiquetas son secundarias: si la tabla aún no existe o falla, no rompe el panel.
     setSavedViews(!c3.error && c3.data ? (c3.data as SavedViewRow[]).map(toSavedView) : [])
     setSites(!c4.error && c4.data ? (c4.data as SiteRow[]).map(toSite) : [])
     setBrands(!c5.error && c5.data ? (c5.data as BrandRow[]).map(toBrand) : [])
+    setTags(!c6.error && c6.data ? (c6.data as TagRow[]).map(toTag) : [])
     setLoading(false)
   }, [companyId, toast])
 
@@ -253,11 +298,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return
     }
     try {
-      localStorage.setItem(DEMO_KEY, JSON.stringify({ campaigns, candidates, savedViews, sites, brands }))
+      localStorage.setItem(DEMO_KEY, JSON.stringify({ campaigns, candidates, savedViews, sites, brands, tags }))
     } catch {
       /* cuota llena, ignora */
     }
-  }, [companyId, campaigns, candidates, savedViews, sites, brands])
+  }, [companyId, campaigns, candidates, savedViews, sites, brands, tags])
 
   const patchCandidateLocal = (id: string, patch: Partial<Candidate>) =>
     setCandidates((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)))
@@ -306,7 +351,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .eq('campaign_id', campaignId)
         .order('created_at', { ascending: false })
       if (error || !data) return -1
-      const fetched = (data as CandidateRow[]).map(toCandidate)
+      const rows = data as CandidateRow[]
+      // Etiquetas de estos candidatos, en una sola consulta por lote.
+      const { data: ctData } = await supabase
+        .from('candidate_tags')
+        .select('candidate_id,tag_id')
+        .in('candidate_id', rows.map((r) => r.id))
+      const tagMap = tagsByCandidate((ctData as CandidateTagRow[]) ?? [])
+      const fetched = rows.map((r) => toCandidate(r, tagMap.get(r.id) ?? []))
       // Cuántos vienen que no teníamos ya en local (para avisar "N nuevos").
       const knownIds = new Set(candidates.filter((c) => c.campaignId === campaignId).map((c) => c.id))
       const added = fetched.filter((f) => !knownIds.has(f.id)).length
@@ -375,6 +427,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           error.message?.includes('CANDIDATE_LIMIT_REACHED')
             ? 'Has llegado al límite de candidatos de tu plan. Sube de plan para recuperarlo.'
             : 'No se pudo deshacer.',
+        )
+        return
+      }
+      // Reaplica sus etiquetas (la relación candidate_tags se borró en cascada al
+      // eliminar el candidato). Si alguna falla, no bloquea el restablecimiento.
+      if (candidate.tagIds.length) {
+        await supabase.from('candidate_tags').insert(
+          candidate.tagIds.map((tagId) => ({ candidate_id: candidate.id, tag_id: tagId })),
         )
       }
     },
@@ -711,6 +771,146 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     },
 
+    tags,
+    tagUsage: (tagId) => candidates.filter((c) => c.tagIds.includes(tagId)).length,
+    createTag: async (name) => {
+      const clean = normalizeTagName(name)
+      if (!clean || clean.length > 40) return null
+      // Reutiliza si ya existe (ignorando mayúsculas): no duplica vocabulario.
+      const existing = tags.find((t) => t.name.toLowerCase() === clean.toLowerCase())
+      if (existing) return existing
+      if (companyId === 'demo') {
+        const tag: Tag = { id: `tag_${Math.random().toString(36).slice(2, 9)}`, name: clean }
+        setTags((ts) => [...ts, tag])
+        return tag
+      }
+      const { data, error } = await supabase
+        .from('tags')
+        .insert({ company_id: companyId, name: clean })
+        .select('id,name')
+        .single()
+      if (error || !data) {
+        // 23505: otra sesión la creó a la vez. Reléela y reutilízala en vez de fallar.
+        if (error?.code === '23505') {
+          const { data: rows } = await supabase.from('tags').select('id,name').eq('company_id', companyId)
+          const found = (rows as TagRow[] | null)?.find((t) => t.name.toLowerCase() === clean.toLowerCase())
+          if (found) {
+            const tag = toTag(found)
+            setTags((ts) => (ts.some((t) => t.id === tag.id) ? ts : [...ts, tag]))
+            return tag
+          }
+        }
+        toast.error('No se pudo crear la etiqueta.')
+        return null
+      }
+      const tag = toTag(data as TagRow)
+      setTags((ts) => [...ts, tag])
+      return tag
+    },
+    renameTag: async (id, name) => {
+      const clean = normalizeTagName(name)
+      if (!clean || clean.length > 40) return false
+      // Renombrar a un nombre que ya usa OTRA etiqueta sería un duplicado: lo evitamos.
+      if (tags.some((t) => t.id !== id && t.name.toLowerCase() === clean.toLowerCase())) {
+        toast.error('Ya tienes una etiqueta con ese nombre.')
+        return false
+      }
+      const prev = tags
+      setTags((ts) => ts.map((t) => (t.id === id ? { ...t, name: clean } : t)))
+      if (companyId === 'demo') return true
+      const { error } = await supabase.from('tags').update({ name: clean }).eq('id', id)
+      if (error) {
+        setTags(prev)
+        toast.error('No se pudo renombrar la etiqueta.')
+        return false
+      }
+      return true
+    },
+    deleteTag: async (id) => {
+      const prevTags = tags
+      const prevCands = candidates
+      setTags((ts) => ts.filter((t) => t.id !== id))
+      // Desaparece de todos los candidatos (en BD lo hace el on delete cascade).
+      setCandidates((cs) => cs.map((c) => (c.tagIds.includes(id) ? { ...c, tagIds: c.tagIds.filter((t) => t !== id) } : c)))
+      if (companyId === 'demo') return
+      const { error } = await supabase.from('tags').delete().eq('id', id)
+      if (error) {
+        setTags(prevTags)
+        setCandidates(prevCands)
+        toast.error('No se pudo eliminar la etiqueta.')
+      }
+    },
+    restoreTag: async (tag, candidateIds) => {
+      // Deshacer un borrado de etiqueta: recrea la etiqueta (mismo id) y la reaplica.
+      setTags((ts) => (ts.some((t) => t.id === tag.id) ? ts : [...ts, tag]))
+      setCandidates((cs) => cs.map((c) => (candidateIds.includes(c.id) && !c.tagIds.includes(tag.id) ? { ...c, tagIds: [...c.tagIds, tag.id] } : c)))
+      if (companyId === 'demo') return
+      const { error } = await supabase.from('tags').insert({ id: tag.id, company_id: companyId, name: tag.name })
+      if (error) {
+        setTags((ts) => ts.filter((t) => t.id !== tag.id))
+        setCandidates((cs) => cs.map((c) => (c.tagIds.includes(tag.id) ? { ...c, tagIds: c.tagIds.filter((t) => t !== tag.id) } : c)))
+        toast.error('No se pudo deshacer.')
+        return
+      }
+      if (candidateIds.length) {
+        await supabase.from('candidate_tags').insert(candidateIds.map((cid) => ({ candidate_id: cid, tag_id: tag.id })))
+      }
+    },
+    applyTag: async (candidateId, tagId) => {
+      const cand = candidates.find((c) => c.id === candidateId)
+      if (!cand || cand.tagIds.includes(tagId)) return
+      patchCandidateLocal(candidateId, { tagIds: [...cand.tagIds, tagId] })
+      if (companyId === 'demo') return
+      pendingCandidateWrites.current.add(candidateId)
+      const { error } = await supabase.from('candidate_tags').insert({ candidate_id: candidateId, tag_id: tagId })
+      pendingCandidateWrites.current.delete(candidateId)
+      if (error) {
+        patchCandidateLocal(candidateId, { tagIds: cand.tagIds })
+        toast.error('No se pudo aplicar la etiqueta.')
+      }
+    },
+    removeTag: async (candidateId, tagId) => {
+      const cand = candidates.find((c) => c.id === candidateId)
+      if (!cand || !cand.tagIds.includes(tagId)) return
+      patchCandidateLocal(candidateId, { tagIds: cand.tagIds.filter((t) => t !== tagId) })
+      if (companyId === 'demo') return
+      pendingCandidateWrites.current.add(candidateId)
+      const { error } = await supabase.from('candidate_tags').delete().eq('candidate_id', candidateId).eq('tag_id', tagId)
+      pendingCandidateWrites.current.delete(candidateId)
+      if (error) {
+        patchCandidateLocal(candidateId, { tagIds: cand.tagIds })
+        toast.error('No se pudo quitar la etiqueta.')
+      }
+    },
+    applyTagToMany: async (candidateIds, tagId) => {
+      const targets = candidates.filter((c) => candidateIds.includes(c.id) && !c.tagIds.includes(tagId))
+      if (!targets.length) return
+      const ids = targets.map((t) => t.id)
+      setCandidates((cs) => cs.map((c) => (ids.includes(c.id) ? { ...c, tagIds: [...c.tagIds, tagId] } : c)))
+      if (companyId === 'demo') return
+      ids.forEach((id) => pendingCandidateWrites.current.add(id))
+      const { error } = await supabase.from('candidate_tags').insert(ids.map((cid) => ({ candidate_id: cid, tag_id: tagId })))
+      ids.forEach((id) => pendingCandidateWrites.current.delete(id))
+      if (error) {
+        setCandidates((cs) => cs.map((c) => (ids.includes(c.id) ? { ...c, tagIds: c.tagIds.filter((t) => t !== tagId) } : c)))
+        toast.error('No se pudieron aplicar las etiquetas.')
+      }
+    },
+    removeTagFromMany: async (candidateIds, tagId) => {
+      const targets = candidates.filter((c) => candidateIds.includes(c.id) && c.tagIds.includes(tagId))
+      if (!targets.length) return
+      const ids = targets.map((t) => t.id)
+      setCandidates((cs) => cs.map((c) => (ids.includes(c.id) ? { ...c, tagIds: c.tagIds.filter((t) => t !== tagId) } : c)))
+      if (companyId === 'demo') return
+      ids.forEach((id) => pendingCandidateWrites.current.add(id))
+      const { error } = await supabase.from('candidate_tags').delete().eq('tag_id', tagId).in('candidate_id', ids)
+      ids.forEach((id) => pendingCandidateWrites.current.delete(id))
+      if (error) {
+        setCandidates((cs) => cs.map((c) => (ids.includes(c.id) ? { ...c, tagIds: [...c.tagIds, tagId] } : c)))
+        toast.error('No se pudieron quitar las etiquetas.')
+      }
+    },
+
     resetDemo: () => {
       try {
         localStorage.removeItem(DEMO_KEY)
@@ -722,8 +922,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSavedViews([])
       setSites(SEED.sites)
       setBrands(SEED_BRANDS)
+      setTags(SEED_TAGS)
     },
-  }), [loading, campaigns, candidates, savedViews, sites, brands, seen, companyId, reload, toast])
+  }), [loading, campaigns, candidates, savedViews, sites, brands, tags, seen, companyId, reload, toast])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

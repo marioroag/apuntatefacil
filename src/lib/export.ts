@@ -1,4 +1,4 @@
-import type { Campaign, Candidate } from './types'
+import type { Campaign, Candidate, Tag } from './types'
 import { STATUS_META, SOURCE_META } from './types'
 import { fullDateTime } from './format'
 
@@ -16,12 +16,14 @@ function answerToCell(v: Candidate['answers'][string] | undefined): string {
  * Exporta los candidatos (ya filtrados) de un puesto a un .xlsx real.
  * Las columnas salen de los campos del formulario, en su orden, más metadatos.
  */
-export async function exportCandidatesToExcel(campaign: Campaign, candidates: Candidate[]): Promise<string> {
+export async function exportCandidatesToExcel(campaign: Campaign, candidates: Candidate[], tags: Tag[] = []): Promise<string> {
   const XLSX = await import('xlsx')
+  const tagName = new Map(tags.map((t) => [t.id, t.name]))
   const header = [
     ...campaign.fields.map((f) => f.label),
     'Estado',
     'Valoración',
+    'Etiquetas',
     'Origen',
     'Recibida',
     'Notas',
@@ -31,6 +33,7 @@ export async function exportCandidatesToExcel(campaign: Campaign, candidates: Ca
     ...campaign.fields.map((f) => answerToCell(c.answers[f.id])),
     STATUS_META[c.status].label,
     c.rating ? '★'.repeat(c.rating) : '',
+    c.tagIds.map((id) => tagName.get(id)).filter(Boolean).join('; '),
     SOURCE_META[c.source].label,
     fullDateTime(c.submittedAt),
     c.notes ?? '',

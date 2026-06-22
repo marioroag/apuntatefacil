@@ -9,8 +9,9 @@ import { CandidatePanel } from './CandidatePanel'
 import { relativeDate, initials, formatPhone, candidateName } from '../lib/format'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { useAppBase } from '../lib/useAppBase'
-import { planHas } from '../lib/pricing'
+import { planHas, TAGS_ENABLED } from '../lib/pricing'
 import { FeatureLocked } from '../components/FeatureLocked'
+import { TagCell, ManageTagsModal } from '../components/Tags'
 import { STATUS_META } from '../lib/types'
 import type { Candidate } from '../lib/types'
 
@@ -25,14 +26,16 @@ function answer(c: Candidate, id: string): string {
 // Bandeja única (Pro/Multi): todos los candidatos en estado "nuevo" de TODOS los
 // puestos en una sola cola para triar de una vez, sin entrar puesto por puesto.
 export function Bandeja() {
-  const { candidates, getCampaign, setStatus, restoreCandidate } = useStore()
-  const { company } = useAuth()
+  const { candidates, getCampaign, setStatus, restoreCandidate, tags } = useStore()
+  const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
   const demo = base === '/demo'
   const maskPhone = demo
+  const canManageTags = role !== 'encargado'
   const [openId, setOpenId] = useState<string | null>(null)
   const [statusFor, setStatusFor] = useState<Candidate | null>(null) // cambiar estado (móvil)
+  const [manageTagsOpen, setManageTagsOpen] = useState(false)
 
   const nuevos = useMemo(
     () =>
@@ -75,7 +78,8 @@ export function Bandeja() {
                 return (
                   // Botón del candidato (abrir) y pastilla de estado (cambiar y triar
                   // sin abrir el detalle) como hermanos, no anidados.
-                  <li key={c.id} className="flex items-center gap-3 px-4 py-3">
+                  <li key={c.id} className="px-4 py-3">
+                   <div className="flex items-center gap-3">
                     <button
                       type="button"
                       onClick={() => setOpenId(c.id)}
@@ -109,6 +113,12 @@ export function Bandeja() {
                         {relativeDate(c.submittedAt)}
                       </time>
                     </div>
+                   </div>
+                   {c.tagIds.length > 0 && (
+                     <div className="pl-[3.25rem]">
+                       <TagCell tagIds={c.tagIds} tags={tags} />
+                     </div>
+                   )}
                   </li>
                 )
               })}
@@ -138,11 +148,14 @@ export function Bandeja() {
                         className="group cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50"
                       >
                         <td className="px-3 py-2.5">
-                          <div className="flex items-center gap-2.5">
-                            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-600">
+                          <div className="flex items-start gap-2.5">
+                            <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-600">
                               {initials(name)}
                             </span>
-                            <span className="block max-w-[220px] truncate font-medium text-slate-900" title={name}>{name}</span>
+                            <div className="min-w-0">
+                              <span className="block max-w-[220px] truncate font-medium text-slate-900" title={name}>{name}</span>
+                              <TagCell tagIds={c.tagIds} tags={tags} />
+                            </div>
                           </div>
                         </td>
                         <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -185,10 +198,15 @@ export function Bandeja() {
           candidate={openCandidate}
           maskPhone={maskPhone}
           onClose={() => setOpenId(null)}
+          onOpenManageTags={canManageTags ? () => setManageTagsOpen(true) : undefined}
           onDeleted={(c) =>
             toast.success('Candidato eliminado', { action: { label: 'Deshacer', onClick: () => restoreCandidate(c) } })
           }
         />
+      )}
+
+      {TAGS_ENABLED && canManageTags && (
+        <ManageTagsModal open={manageTagsOpen} onClose={() => setManageTagsOpen(false)} />
       )}
 
       <StatusPickerSheet

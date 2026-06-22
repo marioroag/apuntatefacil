@@ -66,6 +66,12 @@ export function planHas(plan: string | undefined | null, feature: PlanFeature): 
   return !!plan && (PLAN_FEATURES[plan]?.includes(feature) ?? false)
 }
 
+// Las Etiquetas son una primitiva de clasificación (como notas o valoración), no una
+// feature de escala: disponibles en TODOS los planes, incluido Prueba. No se gatea ni
+// se cobra por número de etiquetas. Único punto de configuración: si algún día se
+// quisiera como upsell a Pro+, este flag es el sitio donde cambiarlo.
+export const TAGS_ENABLED = true
+
 // Copy y plan mínimo de cada feature avanzada. Lo usan el aviso de upgrade
 // (modal) y la pantalla bloqueada para decir EXACTAMENTE qué falta y con qué
 // plan se desbloquea. La etiqueta empieza en minúscula con artículo para que

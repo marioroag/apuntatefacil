@@ -7,6 +7,7 @@ import type {
   AppData,
   FormField,
   Site,
+  Tag,
 } from './types'
 
 // PRNG determinista (mulberry32) para que los datos de ejemplo sean estables.
@@ -276,6 +277,41 @@ const campaigns: Campaign[] = [
 ]
 
 // ---------------------------------------------------------------------------
+// Etiquetas (vocabulario de la empresa demo)
+// ---------------------------------------------------------------------------
+// Clasificación libre que pondría un responsable real mientras tría. Monocromo:
+// la UI las pinta en gris (nunca color de estado). Sirven para enseñar el filtro.
+export const SEED_TAGS: Tag[] = [
+  { id: 'tag_buen_perfil', name: 'Buen perfil' },
+  { id: 'tag_recontactar', name: 'Recontactar' },
+  { id: 'tag_doc_ok', name: 'Documentación OK' },
+  { id: 'tag_cerca_obra', name: 'Cerca de la obra' },
+  { id: 'tag_no_encaja', name: 'No encaja ahora' },
+]
+
+// Etiquetas plausibles según la fase del candidato (no se ponen al azar puro: a
+// quien avanza se le suele etiquetar más). Devuelve 0..3 ids sin repetir.
+function tagsForStatus(status: CandidateStatus): string[] {
+  const out: string[] = []
+  const add = (id: string, p: number) => {
+    if (chance(p) && !out.includes(id)) out.push(id)
+  }
+  switch (status) {
+    case 'contratado':
+      add('tag_buen_perfil', 0.8); add('tag_doc_ok', 0.7); break
+    case 'entrevista':
+      add('tag_buen_perfil', 0.6); add('tag_doc_ok', 0.4); add('tag_cerca_obra', 0.3); break
+    case 'contactado':
+      add('tag_recontactar', 0.5); add('tag_cerca_obra', 0.3); add('tag_buen_perfil', 0.2); break
+    case 'descartado':
+      add('tag_no_encaja', 0.6); break
+    default: // nuevo
+      add('tag_buen_perfil', 0.15); add('tag_cerca_obra', 0.15); break
+  }
+  return out
+}
+
+// ---------------------------------------------------------------------------
 // Candidatos (envíos del formulario)
 // ---------------------------------------------------------------------------
 
@@ -443,6 +479,7 @@ for (const cmp of campaigns) {
       source: pick(SOURCES),
       rating: ratingFor(status),
       notes: noteFor(status),
+      tagIds: tagsForStatus(status),
     })
   }
 }

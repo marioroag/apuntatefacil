@@ -6,10 +6,13 @@ import type { Campaign, Candidate } from '../lib/types'
 import { SOURCE_META } from '../lib/types'
 import { fullDateTime, initials, formatPhone, candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
+import { useAuth } from '../lib/auth'
 import { BTN_PRIMARY } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { MaskedPhone } from '../components/MaskedPhone'
+import { TagSection } from '../components/Tags'
+import { TAGS_ENABLED } from '../lib/pricing'
 
 function answerText(v: Candidate['answers'][string] | undefined): string {
   if (v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) return 'Sin dato'
@@ -23,17 +26,23 @@ export function CandidatePanel({
   candidate,
   onClose,
   onDeleted,
+  onOpenManageTags,
   maskPhone = false,
 }: {
   campaign: Campaign
   candidate: Candidate | null
   onClose: () => void
   onDeleted: (c: Candidate) => void
+  onOpenManageTags?: () => void
   maskPhone?: boolean
 }) {
   const { setStatus, setRating, setNotes, deleteCandidate } = useStore()
+  const { role } = useAuth()
   const toast = useToast()
   const [notes, setLocalNotes] = useState('')
+  // El encargado aplica/quita etiquetas existentes, pero no crea ni gestiona
+  // vocabulario (igual que en la RLS): owner/member sí.
+  const canManageTags = role !== 'encargado'
 
   const viewCv = async () => {
     if (!candidate?.cvPath) return
@@ -154,6 +163,17 @@ export function CandidatePanel({
               ))}
             </div>
           </div>
+
+          {/* Etiquetas. Agrupadas arriba con lo que decide el empresario (estado,
+              valoración); debajo va lo que dijo el candidato (las respuestas). */}
+          {TAGS_ENABLED && (
+            <TagSection
+              candidateId={candidate.id}
+              tagIds={candidate.tagIds}
+              canManage={canManageTags}
+              onOpenManage={() => onOpenManageTags?.()}
+            />
+          )}
 
           {/* Respuestas */}
           <div>
