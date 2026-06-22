@@ -7,7 +7,7 @@ import { ApplicationForm } from '../components/ApplicationForm'
 import { validateField } from '../components/FieldRenderer'
 import type { FieldValue } from '../components/FieldRenderer'
 import { readableOn } from '../lib/colors'
-import { BRAND } from '../lib/brand'
+import { BRAND, publicFormPathPretty } from '../lib/brand'
 import { FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { brandAssetUrl } from '../lib/brandAsset'
 import type { Campaign } from '../lib/types'
@@ -54,6 +54,13 @@ export function PublicForm() {
         bannerUrl: brandAssetUrl(d.banner_path),
       })
       setState('ok')
+      // Embellece la barra con el título ACTUAL sin cambiar el enlace compartido
+      // (/<marca>/<slug> -> /<marca>/<slug>/<título>). replaceState directo: no es una
+      // navegación de React Router, solo cambia la URL visible. El enlace que se comparte
+      // sigue siendo el corto y estable.
+      if (typeof window !== 'undefined' && window.history?.replaceState) {
+        window.history.replaceState(null, '', publicFormPathPretty(d.slug, d.company_name, d.title))
+      }
     })
     return () => { alive = false }
   }, [slug])

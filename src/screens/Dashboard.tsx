@@ -310,7 +310,7 @@ export function Dashboard() {
   const openCandidate = openId ? all.find((c) => c.id === openId) ?? null : null
   // Primer tramo del enlace: marca del puesto si la tiene, si no el nombre de la empresa.
   const brandLabel = (campaign.brandId ? brands.find((b) => b.id === campaign.brandId)?.name : null) ?? company?.name
-  const publicUrl = publicFormUrlDisplay(campaign.slug, brandLabel, campaign.title)
+  const publicUrl = publicFormUrlDisplay(campaign.slug, brandLabel)
   const maskPhone = base === '/demo'
 
   // Vistas guardadas: las globales valen en todos los puestos; las de puesto, solo aquí.
@@ -392,7 +392,7 @@ export function Dashboard() {
       toast.show('En la demo el enlace es de muestra. Crea tu cuenta para tener un enlace que reciba candidaturas de verdad.')
       return
     }
-    const ok = await copyText(publicFormUrl(campaign.slug, brandLabel, campaign.title))
+    const ok = await copyText(publicFormUrl(campaign.slug, brandLabel))
     if (ok) toast.success('Enlace copiado')
     else toast.show('Copia el enlace manualmente: ' + publicUrl)
   }

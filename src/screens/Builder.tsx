@@ -630,8 +630,8 @@ function ShareCard({ campaign }: { campaign: Campaign }) {
   const { brands } = useStore()
   // Primer tramo del enlace: marca del puesto si la tiene, si no el nombre de la empresa.
   const brandLabel = (campaign.brandId ? brands.find((b) => b.id === campaign.brandId)?.name : null) ?? company?.name
-  const url = publicFormUrlDisplay(campaign.slug, brandLabel, campaign.title)
-  const full = publicFormUrl(campaign.slug, brandLabel, campaign.title)
+  const url = publicFormUrlDisplay(campaign.slug, brandLabel)
+  const full = publicFormUrl(campaign.slug, brandLabel)
   const disabled = campaign.fields.length === 0
 
   const demoNotice = () =>
@@ -664,7 +664,7 @@ function ShareCard({ campaign }: { campaign: Campaign }) {
               <ExternalLink className="size-3.5" aria-hidden /> Abrir formulario
             </button>
           ) : (
-            <a href={publicFormPath(campaign.slug, brandLabel, campaign.title)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700">
+            <a href={publicFormPath(campaign.slug, brandLabel)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700">
               <ExternalLink className="size-3.5" aria-hidden /> Abrir formulario
             </a>
           )}

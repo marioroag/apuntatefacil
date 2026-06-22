@@ -56,10 +56,12 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/invitacion" element={<Invitacion />} />
                 <Route path="/privacidad" element={<Privacidad />} />
                 <Route path="/terminos" element={<Terminos />} />
-                {/* Enlace público. El nuevo es legible: /<marca-o-empresa>/<slug>/<nombre>,
-                    donde el slug del medio es el id real (lo resuelve el RPC) y los otros dos
-                    tramos son decorativos. /a/:slug se mantiene para enlaces ya compartidos. */}
+                {/* Enlace público. Lo que se comparte es estable: /<marca>/<slug> (2 tramos);
+                    el slug del medio es el id real (lo resuelve el RPC), el resto es decorativo.
+                    Al abrirlo, PublicForm embellece la barra a /<marca>/<slug>/<título> (3 tramos),
+                    por eso esa ruta también existe. /a/:slug se mantiene para enlaces antiguos. */}
                 <Route path="/a/:slug" element={<PublicForm />} />
+                <Route path="/:brandSlug/:slug" element={<PublicForm />} />
                 <Route path="/:brandSlug/:slug/:formName" element={<PublicForm />} />
                 <Route
                   path="/app"
