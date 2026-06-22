@@ -263,7 +263,7 @@ export function AppLayout() {
               {isActive && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-indigo-600" aria-hidden />}
               <Briefcase className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
               <span className="min-w-0 flex-1 truncate">{c.title}</span>
-              {c.status === 'pausada' && <span className="shrink-0 text-[11px] font-medium text-slate-400">Pausado</span>}
+              {c.status !== 'activa' && <span className="shrink-0 text-[11px] font-medium text-slate-400">{c.status === 'pausada' ? 'Pausado' : 'Cerrado'}</span>}
               {count > 0 && (
                 <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700" title={`${count} nuevos`}>
                   {count}

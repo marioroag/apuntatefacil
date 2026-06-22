@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
+  Archive,
   ArrowUpDown,
   Bell,
   BellOff,
@@ -16,7 +17,9 @@ import {
   Inbox,
   Lock,
   MoreHorizontal,
+  Pause,
   PenLine,
+  Play,
   Plus,
   RefreshCw,
   Search,
@@ -34,11 +37,12 @@ import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { CandidatePanel } from './CandidatePanel'
 import { exportCandidatesToExcel } from '../lib/export'
 import { relativeDate, initials, miles, formatPhone, candidateName } from '../lib/format'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
-import type { Brand, Campaign, Candidate, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
+import type { Brand, Campaign, CampaignStatus, Candidate, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
 import { planHas, TAGS_ENABLED, type PlanFeature } from '../lib/pricing'
 import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
@@ -84,7 +88,7 @@ function numberFilterLabel(nf: NumberFilter): string {
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen, duplicateCampaign, tags } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign } = useStore()
   const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -151,6 +155,10 @@ export function Dashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false) // hoja de ajustes del puesto (móvil)
   const [duplicating, setDuplicating] = useState(false)
+  const [confirmClose, setConfirmClose] = useState(false)
+  const [closing, setClosing] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   // Feature avanzada que se intentó usar sin tenerla en el plan: abre el aviso.
   const [upgrade, setUpgrade] = useState<PlanFeature | null>(null)
 
@@ -165,6 +173,45 @@ export function Dashboard() {
     if (copy) {
       toast.success('Puesto duplicado.')
       navigate(`${base}/puestos/${copy.id}/formulario`)
+    }
+  }
+
+  // Pausar / reanudar (activa <-> pausada): nunca choca con el límite del plan.
+  const togglePause = async () => {
+    if (!campaign) return
+    const next = campaign.status === 'activa' ? 'pausada' : 'activa'
+    const ok = await updateCampaign(campaign.id, { status: next })
+    if (ok) toast.success(next === 'pausada' ? 'Puesto pausado. Deja de aceptar candidaturas.' : 'Puesto reactivado.')
+  }
+  // Reabrir un puesto cerrado vuelve a contar como proceso activo: updateCampaign
+  // revierte y avisa solo si el plan no da para más.
+  const reopen = async () => {
+    if (!campaign) return
+    const ok = await updateCampaign(campaign.id, { status: 'activa' })
+    if (ok) toast.success('Puesto reabierto.')
+  }
+  // Cerrar: deja de aceptar candidaturas y libera un cupo del plan (reversible).
+  const doClose = async () => {
+    if (!campaign) return
+    setClosing(true)
+    const ok = await updateCampaign(campaign.id, { status: 'cerrada' })
+    setClosing(false)
+    setConfirmClose(false)
+    setSettingsOpen(false)
+    if (ok) toast.success('Puesto cerrado. Liberaste un proceso de tu plan.')
+  }
+  // Eliminar: borrado real del puesto y sus candidaturas. Tras borrar, salimos al
+  // primer puesto disponible (la ruta índice redirige).
+  const doDelete = async () => {
+    if (!campaign) return
+    setDeleting(true)
+    const ok = await deleteCampaign(campaign.id)
+    setDeleting(false)
+    setConfirmDelete(false)
+    setSettingsOpen(false)
+    if (ok) {
+      toast.success('Puesto eliminado.')
+      navigate(base)
     }
   }
 
@@ -463,9 +510,9 @@ export function Dashboard() {
             En móvil las acciones son solo iconos; en sm+ recuperan su etiqueta. */}
         <div ref={titleRowRef} className="flex items-center gap-2.5">
           <h1 ref={titleRef} className="min-w-0 truncate text-xl font-semibold text-slate-900">{campaign.title}</h1>
-          {campaign.status === 'pausada' && (
+          {campaign.status !== 'activa' && (
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
-              Pausado
+              {campaign.status === 'pausada' ? 'Pausado' : 'Cerrado'}
             </span>
           )}
           <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
@@ -514,7 +561,17 @@ export function Dashboard() {
             {/* Más acciones (escritorio): en móvil viven en "Ajustes del puesto". */}
             {canManage && (
               <span className="hidden sm:contents">
-                <PuestoMenu onDuplicate={handleDuplicate} duplicating={duplicating} />
+                <PuestoMenu
+                  status={campaign.status}
+                  notifyOn={campaign.notifyNew !== false}
+                  onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
+                  onDuplicate={handleDuplicate}
+                  duplicating={duplicating}
+                  onPauseResume={togglePause}
+                  onReopen={reopen}
+                  onClosePuesto={() => setConfirmClose(true)}
+                  onDelete={() => setConfirmDelete(true)}
+                />
               </span>
             )}
           </div>
@@ -542,24 +599,6 @@ export function Dashboard() {
                 locked={!hasBrands}
                 onLocked={() => setUpgrade('brands')}
               />
-              <button
-                type="button"
-                onClick={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
-                aria-pressed={campaign.notifyNew !== false}
-                title={campaign.notifyNew !== false
-                  ? 'Recibes un email cada vez que entra un candidato nuevo. Toca para desactivarlo.'
-                  : 'No recibes emails de candidatos de este puesto. Toca para activarlo.'}
-                className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium transition-colors ${
-                  campaign.notifyNew !== false
-                    ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    : 'bg-white text-slate-400 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                {campaign.notifyNew !== false
-                  ? <Bell className="size-3.5 text-slate-400" aria-hidden />
-                  : <BellOff className="size-3.5" aria-hidden />}
-                {campaign.notifyNew !== false ? 'Avisos por email' : 'Avisos desactivados'}
-              </button>
             </div>
             {/* Móvil: un solo acceso que agrupa sede, marca y avisos en una hoja */}
             <button
@@ -795,8 +834,35 @@ export function Dashboard() {
           onUpgrade={setUpgrade}
           onDuplicate={handleDuplicate}
           duplicating={duplicating}
+          onPauseResume={togglePause}
+          onReopen={reopen}
+          onClosePuesto={() => setConfirmClose(true)}
+          onDelete={() => setConfirmDelete(true)}
         />
       )}
+
+      <ConfirmDialog
+        open={confirmClose}
+        onClose={() => setConfirmClose(false)}
+        title="Cerrar puesto"
+        confirmLabel="Cerrar puesto"
+        loading={closing}
+        onConfirm={doClose}
+      >
+        El formulario dejará de aceptar candidaturas y liberas un proceso de tu plan. Podrás reabrirlo cuando quieras.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Eliminar puesto"
+        confirmLabel="Eliminar"
+        confirmVariant="danger"
+        loading={deleting}
+        onConfirm={doDelete}
+      >
+        Se eliminará «{campaign.title}»{all.length > 0 ? ` y sus ${all.length} ${all.length === 1 ? 'candidatura' : 'candidaturas'}` : ''}. Esta acción no se puede deshacer.
+      </ConfirmDialog>
 
       {/* Barra de acción de selección (móvil): fija abajo, al alcance del pulgar. */}
       {selectMode && !loading && (
@@ -2026,6 +2092,10 @@ function PuestoSettingsSheet({
   onUpgrade,
   onDuplicate,
   duplicating,
+  onPauseResume,
+  onReopen,
+  onClosePuesto,
+  onDelete,
 }: {
   open: boolean
   onClose: () => void
@@ -2041,8 +2111,13 @@ function PuestoSettingsSheet({
   onUpgrade: (f: PlanFeature) => void
   onDuplicate: () => void
   duplicating: boolean
+  onPauseResume: () => void
+  onReopen: () => void
+  onClosePuesto: () => void
+  onDelete: () => void
 }) {
   const notify = campaign.notifyNew !== false
+  const status = campaign.status
   return (
     <BottomSheet open={open} onClose={onClose} title="Ajustes del puesto">
       <div className="space-y-5 px-4 py-4">
@@ -2092,25 +2167,82 @@ function PuestoSettingsSheet({
                 <SettingSwitch checked={notify} onChange={onToggleNotify} label="Avisos por email" />
               </section>
 
-              <section>
-                <button
-                  onClick={onDuplicate}
-                  disabled={duplicating}
-                  className={`${BTN_SECONDARY} w-full disabled:opacity-60`}
-                >
+              <section className="space-y-2">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Acciones</p>
+                <button onClick={onDuplicate} disabled={duplicating} className={`${BTN_SECONDARY} w-full disabled:opacity-60`}>
                   <Copy className="size-4 text-slate-400" aria-hidden />
                   {duplicating ? 'Duplicando…' : 'Duplicar puesto'}
                 </button>
-                <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">Crea un puesto nuevo con los mismos campos y apariencia, sin candidatos.</p>
+                {status !== 'cerrada' && (
+                  <button onClick={onPauseResume} className={`${BTN_SECONDARY} w-full`}>
+                    {status === 'activa' ? <Pause className="size-4 text-slate-400" aria-hidden /> : <Play className="size-4 text-slate-400" aria-hidden />}
+                    {status === 'activa' ? 'Pausar puesto' : 'Reanudar puesto'}
+                  </button>
+                )}
+                {status === 'cerrada' ? (
+                  <button onClick={onReopen} className={`${BTN_SECONDARY} w-full`}>
+                    <Play className="size-4 text-slate-400" aria-hidden />
+                    Reabrir puesto
+                  </button>
+                ) : (
+                  <button onClick={onClosePuesto} className={`${BTN_SECONDARY} w-full`}>
+                    <Archive className="size-4 text-slate-400" aria-hidden />
+                    Cerrar puesto
+                  </button>
+                )}
+                <button
+                  onClick={onDelete}
+                  className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[10px] bg-white px-3 text-sm font-medium text-red-600 shadow-[0_1px_2px_rgba(16,24,40,0.07)] ring-1 ring-inset ring-red-200 transition hover:bg-red-50 active:translate-y-px active:shadow-none pointer-coarse:min-h-11"
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                  Eliminar puesto
+                </button>
               </section>
       </div>
     </BottomSheet>
   )
 }
 
+// Interruptor decorativo (el estado lo comunica aria-checked del menuitem que lo
+// envuelve). Más pequeño que SettingSwitch para encajar en una fila de menú.
+function SwitchVisual({ on }: { on: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${on ? 'bg-indigo-600' : 'bg-slate-300'}`}
+    >
+      <span className={`inline-block size-4 transform rounded-full bg-white shadow transition-transform ${on ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+    </span>
+  )
+}
+
+const MENU_ITEM = 'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50'
+
 // Menú "más acciones" del puesto (escritorio). Mismo patrón de popover que
 // SiteSelect/BrandSelect: cierre con click fuera y Escape, foco visible.
-function PuestoMenu({ onDuplicate, duplicating }: { onDuplicate: () => void; duplicating: boolean }) {
+// Aloja el interruptor de avisos (no cierra el menú al cambiarlo) y las acciones
+// de ciclo de vida del puesto: duplicar, pausar/reanudar/reabrir, cerrar, eliminar.
+function PuestoMenu({
+  status,
+  notifyOn,
+  onToggleNotify,
+  onDuplicate,
+  duplicating,
+  onPauseResume,
+  onReopen,
+  onClosePuesto,
+  onDelete,
+}: {
+  status: CampaignStatus
+  notifyOn: boolean
+  onToggleNotify: () => void
+  onDuplicate: () => void
+  duplicating: boolean
+  onPauseResume: () => void
+  onReopen: () => void
+  onClosePuesto: () => void
+  onDelete: () => void
+}) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -2124,6 +2256,11 @@ function PuestoMenu({ onDuplicate, duplicating }: { onDuplicate: () => void; dup
       document.removeEventListener('keydown', onKey)
     }
   }, [open])
+  // Las acciones cierran el menú antes de ejecutarse; el interruptor de avisos no.
+  const run = (fn: () => void) => {
+    setOpen(false)
+    fn()
+  }
   return (
     <div className="relative inline-block" ref={ref}>
       <button
@@ -2137,19 +2274,53 @@ function PuestoMenu({ onDuplicate, duplicating }: { onDuplicate: () => void; dup
         <MoreHorizontal className="size-4 text-slate-400" aria-hidden />
       </button>
       {open && (
-        <ul role="menu" className="absolute right-0 z-50 mt-1 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-pop">
+        <ul role="menu" className="absolute right-0 z-50 mt-1 w-60 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-pop">
           <li role="none">
-            <button
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                onDuplicate()
-              }}
-              disabled={duplicating}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-            >
+            <button role="menuitemcheckbox" aria-checked={notifyOn} onClick={onToggleNotify} className={MENU_ITEM}>
+              {notifyOn ? <Bell className="size-4 text-slate-400" aria-hidden /> : <BellOff className="size-4 text-slate-400" aria-hidden />}
+              <span className="flex-1">Avisos por email</span>
+              <SwitchVisual on={notifyOn} />
+            </button>
+          </li>
+
+          <li role="none"><div className="my-1 border-t border-slate-100" /></li>
+
+          <li role="none">
+            <button role="menuitem" onClick={() => run(onDuplicate)} disabled={duplicating} className={`${MENU_ITEM} disabled:opacity-60`}>
               <Copy className="size-4 text-slate-400" aria-hidden />
               {duplicating ? 'Duplicando…' : 'Duplicar puesto'}
+            </button>
+          </li>
+          {status !== 'cerrada' && (
+            <li role="none">
+              <button role="menuitem" onClick={() => run(onPauseResume)} className={MENU_ITEM}>
+                {status === 'activa' ? <Pause className="size-4 text-slate-400" aria-hidden /> : <Play className="size-4 text-slate-400" aria-hidden />}
+                {status === 'activa' ? 'Pausar puesto' : 'Reanudar puesto'}
+              </button>
+            </li>
+          )}
+          {status === 'cerrada' ? (
+            <li role="none">
+              <button role="menuitem" onClick={() => run(onReopen)} className={MENU_ITEM}>
+                <Play className="size-4 text-slate-400" aria-hidden />
+                Reabrir puesto
+              </button>
+            </li>
+          ) : (
+            <li role="none">
+              <button role="menuitem" onClick={() => run(onClosePuesto)} className={MENU_ITEM}>
+                <Archive className="size-4 text-slate-400" aria-hidden />
+                Cerrar puesto
+              </button>
+            </li>
+          )}
+
+          <li role="none"><div className="my-1 border-t border-slate-100" /></li>
+
+          <li role="none">
+            <button role="menuitem" onClick={() => run(onDelete)} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50">
+              <Trash2 className="size-4" aria-hidden />
+              Eliminar puesto
             </button>
           </li>
         </ul>

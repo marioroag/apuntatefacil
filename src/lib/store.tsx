@@ -140,12 +140,12 @@ interface Store {
   restoreCandidate: (candidate: Candidate) => Promise<void>
   updateFields: (campaignId: string, fields: FormField[]) => Promise<boolean>
   updateBranding: (campaignId: string, branding: Partial<Branding>) => Promise<void>
-  updateCampaign: (campaignId: string, patch: Partial<Campaign>) => Promise<void>
+  updateCampaign: (campaignId: string, patch: Partial<Campaign>) => Promise<boolean>
   createCampaign: (input: NewCampaignInput) => Promise<Campaign | null>
   // Crea un puesto nuevo copiando campos, apariencia y datos del original (enlace
   // propio, sin candidatos). Devuelve el puesto nuevo o null si falla.
   duplicateCampaign: (campaignId: string) => Promise<Campaign | null>
-  deleteCampaign: (campaignId: string) => Promise<void>
+  deleteCampaign: (campaignId: string) => Promise<boolean>
   // Vistas guardadas (Pro/Multi)
   savedViews: SavedView[]
   createSavedView: (input: { name: string; campaignId: string | null; payload: SavedViewPayload }) => Promise<SavedView | null>
@@ -467,7 +467,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateCampaign: async (campaignId, patch) => {
       const prev = campaigns.find((c) => c.id === campaignId)
       setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, ...patch } : c)))
-      if (companyId === 'demo') return
+      if (companyId === 'demo') return true
       const dbPatch: Record<string, unknown> = {}
       if (patch.title !== undefined) dbPatch.title = patch.title
       if (patch.status !== undefined) dbPatch.status = patch.status
@@ -485,8 +485,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               ? 'Has llegado al límite de procesos de tu plan. Sube de plan para reactivar este.'
               : 'No se pudo guardar el puesto.',
           )
+          return false
         }
       }
+      return true
     },
 
     createCampaign: async (input) => {
@@ -607,13 +609,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const prevCands = candidates
       setCampaigns((cs) => cs.filter((c) => c.id !== campaignId))
       setCandidates((cs) => cs.filter((c) => c.campaignId !== campaignId))
-      if (companyId === 'demo') return
+      if (companyId === 'demo') return true
       const { error } = await supabase.from('campaigns').delete().eq('id', campaignId)
       if (error) {
         setCampaigns(prev)
         setCandidates(prevCands)
         toast.error('No se pudo eliminar el puesto.')
+        return false
       }
+      return true
     },
 
     savedViews,
