@@ -56,7 +56,11 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/invitacion" element={<Invitacion />} />
                 <Route path="/privacidad" element={<Privacidad />} />
                 <Route path="/terminos" element={<Terminos />} />
+                {/* Enlace público. El nuevo es legible: /<marca-o-empresa>/<slug>/<nombre>,
+                    donde el slug del medio es el id real (lo resuelve el RPC) y los otros dos
+                    tramos son decorativos. /a/:slug se mantiene para enlaces ya compartidos. */}
                 <Route path="/a/:slug" element={<PublicForm />} />
+                <Route path="/:brandSlug/:slug/:formName" element={<PublicForm />} />
                 <Route
                   path="/app"
                   element={

@@ -433,7 +433,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (companyId === 'demo') {
         const campaign: Campaign = {
           id: `demo_${Math.random().toString(36).slice(2, 9)}`,
-          slug: slugify(input.title),
+          slug: newSlug(),
           title: input.title,
           sector: input.sector,
           location: input.location,
@@ -449,21 +449,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setCampaigns((cs) => [...cs, campaign])
         return campaign
       }
-      const { data, error } = await supabase
-        .from('campaigns')
-        .insert({
-          company_id: companyId,
-          slug: slugify(input.title),
-          title: input.title,
-          sector: input.sector,
-          location: input.location,
-          status: 'activa',
-          milanuncios_url: input.milanunciosUrl ?? null,
-          fields: input.fields,
-          branding: input.branding,
-        })
-        .select('*')
-        .single()
+      // El slug es un id opaco aleatorio y UNIQUE; si (rarísimo) chocara, reintentamos con
+      // otro. Cualquier otro error (p. ej. límite de plan) no se reintenta.
+      let data: CampaignRow | null = null
+      let error: { message?: string; code?: string } | null = null
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const res = await supabase
+          .from('campaigns')
+          .insert({
+            company_id: companyId,
+            slug: newSlug(),
+            title: input.title,
+            sector: input.sector,
+            location: input.location,
+            status: 'activa',
+            milanuncios_url: input.milanunciosUrl ?? null,
+            fields: input.fields,
+            branding: input.branding,
+          })
+          .select('*')
+          .single()
+        data = res.data as CampaignRow | null
+        error = res.error
+        if (!error) break
+        if (res.error?.code === '23505') continue // colisión de slug: reintenta con otro id
+        break
+      }
       if (error || !data) {
         toast.error(
           error?.message?.includes('PLAN_LIMIT_REACHED')
@@ -485,7 +496,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (companyId === 'demo') {
         const campaign: Campaign = {
           id: `demo_${Math.random().toString(36).slice(2, 9)}`,
-          slug: slugify(title),
+          slug: newSlug(),
           title,
           sector: src.sector,
           location: src.location,
@@ -505,7 +516,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .from('campaigns')
         .insert({
           company_id: companyId,
-          slug: slugify(title),
+          slug: newSlug(),
           title,
           sector: src.sector,
           location: src.location,
@@ -723,15 +734,10 @@ export function useStore(): Store {
   return s
 }
 
-// slug url-safe a partir del título, con sufijo aleatorio para unicidad.
-export function slugify(title: string): string {
-  const base = title
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-  const rand = Math.random().toString(36).slice(2, 7)
-  return `${base || 'puesto'}-${rand}`
+// Id corto y opaco para el slug público de un puesto nuevo. No deriva del título: el
+// título va aparte en la URL como tramo legible (ver publicFormPath en brand.ts). Con
+// 36^10 ≈ 3.6e15 combinaciones la colisión es ínfima, y createCampaign reintenta si la
+// hubiera (el slug es UNIQUE en la BD).
+export function newSlug(): string {
+  return (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 10)
 }

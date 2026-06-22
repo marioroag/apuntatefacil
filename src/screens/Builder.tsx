@@ -44,7 +44,7 @@ import { FIELD_TYPE_META } from '../lib/types'
 import type { Campaign, FieldType, FormField } from '../lib/types'
 import { SWATCHES, accentPassesWhite } from '../lib/colors'
 import { FORM_WELCOME_DEFAULT, FORM_THANKS_DEFAULT } from '../lib/defaults'
-import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
+import { publicFormPath, publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
@@ -626,8 +626,12 @@ function Branding({ campaign }: { campaign: Campaign }) {
 function ShareCard({ campaign }: { campaign: Campaign }) {
   const toast = useToast()
   const demo = useAppBase() === '/demo'
-  const url = publicFormUrlDisplay(campaign.slug)
-  const full = publicFormUrl(campaign.slug)
+  const { company } = useAuth()
+  const { brands } = useStore()
+  // Primer tramo del enlace: marca del puesto si la tiene, si no el nombre de la empresa.
+  const brandLabel = (campaign.brandId ? brands.find((b) => b.id === campaign.brandId)?.name : null) ?? company?.name
+  const url = publicFormUrlDisplay(campaign.slug, brandLabel, campaign.title)
+  const full = publicFormUrl(campaign.slug, brandLabel, campaign.title)
   const disabled = campaign.fields.length === 0
 
   const demoNotice = () =>
@@ -660,7 +664,7 @@ function ShareCard({ campaign }: { campaign: Campaign }) {
               <ExternalLink className="size-3.5" aria-hidden /> Abrir formulario
             </button>
           ) : (
-            <a href={`/a/${campaign.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700">
+            <a href={publicFormPath(campaign.slug, brandLabel, campaign.title)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700">
               <ExternalLink className="size-3.5" aria-hidden /> Abrir formulario
             </a>
           )}

@@ -41,7 +41,7 @@ export type CampaignStatus = 'activa' | 'pausada' | 'cerrada'
 
 export interface Campaign {
   id: string
-  slug: string // parte del enlace público /a/:slug
+  slug: string // id del puesto en el enlace público /<marca>/<slug>/<nombre>
   title: string
   sector: string
   location: string
