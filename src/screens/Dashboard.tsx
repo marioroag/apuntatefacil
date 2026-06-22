@@ -47,6 +47,8 @@ import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
 import { UpgradeDialog } from '../components/UpgradeDialog'
 import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
+import { supabase } from '../lib/supabase'
+import { searchScore } from '../lib/search'
 
 function answerStr(c: Candidate, fieldId: string): string {
   const v = c.answers[fieldId]
@@ -226,16 +228,53 @@ export function Dashboard() {
 
   const all = useMemo(() => (campaign ? candidatesFor(campaign.id) : []), [campaign, candidatesFor])
 
+  // Búsqueda tolerante: el input actualiza `search` al instante; lo debouncamos a `dq`.
+  const [dq, setDq] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDq(search.trim()), 250)
+    return () => clearTimeout(t)
+  }, [search])
+
+  // Real: RPC nativo de Postgres (tolerante + rankeado). Demo / fallback: búsqueda JS.
+  // rpcIds = IDs rankeados del servidor; null = sin búsqueda, RPC pendiente o fallido.
+  const [rpcIds, setRpcIds] = useState<string[] | null>(null)
+  useEffect(() => {
+    if (base === '/demo' || !campaign || !dq) {
+      setRpcIds(null)
+      return
+    }
+    let alive = true
+    supabase.rpc('search_candidates', { p_campaign_id: campaign.id, p_query: dq }).then(({ data, error }) => {
+      if (!alive) return
+      setRpcIds(error || !data ? null : (data as { id: string }[]).map((r) => r.id))
+    })
+    return () => {
+      alive = false
+    }
+  }, [dq, campaign?.id, base])
+
   const filtered = useMemo(() => {
     if (!campaign) return []
-    const q = search.trim().toLowerCase()
-    let list = all.filter((c) => {
+    // Búsqueda tolerante: base = IDs rankeados (RPC en real; JS en demo o como fallback
+    // instantáneo mientras llega/si falla el RPC). Sin query, todos los candidatos.
+    let relevance: Map<string, number> | null = null
+    let base0 = all
+    if (dq) {
+      const ids =
+        base !== '/demo' && rpcIds !== null
+          ? rpcIds
+          : all
+              .map((c) => [c, searchScore(c, dq)] as const)
+              .filter(([, s]) => s > 0)
+              .sort((a, b) => b[1] - a[1])
+              .map(([c]) => c.id)
+      relevance = new Map(ids.map((id, i) => [id, i]))
+      base0 = all.filter((c) => relevance!.has(c.id))
+    }
+
+    let list = base0.filter((c) => {
       if (statusFilter.size && !statusFilter.has(c.status)) return false
       if (ratingFilter > 0 && c.rating < ratingFilter) return false
-      if (q) {
-        const hay = campaign.fields.some((f) => answerStr(c, f.id).toLowerCase().includes(q))
-        if (!hay) return false
-      }
       // valueFilters agrupados por campo: OR dentro del campo, AND entre campos
       const byField = new Map<string, string[]>()
       for (const vf of valueFilters) {
@@ -261,15 +300,21 @@ export function Dashboard() {
       return true
     })
 
-    list = [...list].sort((a, b) => {
-      let cmp = 0
-      if (sort.key === 'nombre') cmp = candidateName(a).localeCompare(candidateName(b))
-      else if (sort.key === 'estado') cmp = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
-      else cmp = a.submittedAt.localeCompare(b.submittedAt)
-      return sort.dir === 'asc' ? cmp : -cmp
-    })
+    // Orden: por relevancia cuando hay búsqueda y el orden está en su valor por defecto
+    // (fecha desc); si el usuario elige una columna, manda su orden.
+    if (relevance && sort.key === 'fecha' && sort.dir === 'desc') {
+      list = [...list].sort((a, b) => relevance!.get(a.id)! - relevance!.get(b.id)!)
+    } else {
+      list = [...list].sort((a, b) => {
+        let cmp = 0
+        if (sort.key === 'nombre') cmp = candidateName(a).localeCompare(candidateName(b))
+        else if (sort.key === 'estado') cmp = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
+        else cmp = a.submittedAt.localeCompare(b.submittedAt)
+        return sort.dir === 'asc' ? cmp : -cmp
+      })
+    }
     return list
-  }, [all, campaign, search, statusFilter, valueFilters, numberFilters, ratingFilter, sort])
+  }, [all, campaign, dq, rpcIds, base, statusFilter, valueFilters, numberFilters, ratingFilter, sort])
 
   // Dominio real (mín/máx) de cada pregunta numérica, para acotar sus sliders.
   const numberDomains = useMemo(() => {
