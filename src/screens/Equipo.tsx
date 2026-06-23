@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { Building2, Copy, Loader2, Mail, Pencil, Trash2, UserPlus, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
@@ -19,7 +20,7 @@ const ROLE_LABEL: Record<string, string> = { owner: 'Propietario', member: 'Miem
 export function Equipo() {
   const toast = useToast()
   const { sites } = useStore()
-  const { company } = useAuth()
+  const { company, role: myRole } = useAuth() // mi rol en el equipo ACTIVO
   const canManagers = planHas(company?.plan, 'managers') && sites.length > 0
   const siteName = (id: string) => sites.find((s) => s.id === id)?.name ?? 'sede'
 
@@ -131,6 +132,11 @@ export function Equipo() {
     setRemoving(null)
     toast.success('Miembro eliminado del equipo')
   }
+
+  // La pestaña Equipo es SOLO del propietario del equipo activo. Si cambias a un equipo
+  // donde eres miembro/encargado mientras estás aquí, te saca (la ruta no se reevalúa sola
+  // al cambiar de empresa, y el enlace del menú ya está oculto para no-owners).
+  if (myRole && myRole !== 'owner') return <Navigate to="/app" replace />
 
   return (
     <div className="mx-auto max-w-[820px] px-4 py-6 sm:px-6 lg:px-8">
