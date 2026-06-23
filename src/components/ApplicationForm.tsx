@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from 'react'
-import { AlertCircle, Check, Lock } from 'lucide-react'
+import { AlertCircle, Check, Loader2, Lock } from 'lucide-react'
 import type { Campaign } from '../lib/types'
 import { FieldRenderer } from './FieldRenderer'
 import type { FieldValue } from './FieldRenderer'
@@ -17,7 +17,7 @@ export function ApplicationForm({
   onBlur,
   onFile,
   onSubmit,
-  submitting,
+  submitPhase = 'idle',
   companyName,
   logoUrl,
   bannerUrl,
@@ -33,7 +33,7 @@ export function ApplicationForm({
   onBlur?: (fieldId: string) => void
   onFile?: (fieldId: string, file: File | null) => void
   onSubmit?: () => void
-  submitting?: boolean
+  submitPhase?: 'idle' | 'uploading' | 'submitting'
   companyName: string
   logoUrl?: string | null
   bannerUrl?: string | null
@@ -54,6 +54,14 @@ export function ApplicationForm({
   const errorList = campaign.fields
     .filter((f) => errors[f.id])
     .map((f) => ({ id: f.id, label: f.label, msg: errors[f.id] }))
+
+  const busy = submitPhase !== 'idle'
+  const submitLabel =
+    submitPhase === 'uploading'
+      ? 'Subiendo archivo...'
+      : submitPhase === 'submitting'
+        ? 'Enviando candidatura...'
+        : 'Enviar candidatura'
 
   return (
     <form
@@ -192,13 +200,21 @@ export function ApplicationForm({
         </p>
       )}
 
+      {busy && (
+        <p role="status" aria-live="polite" className="sr-only">
+          {submitPhase === 'uploading' ? 'Subiendo archivo' : 'Enviando candidatura'}
+        </p>
+      )}
+
       <button
         type="submit"
-        disabled={submitting || preview}
-        className="on-accent mt-4 flex w-full items-center justify-center rounded-xl text-base font-semibold text-on-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(18,22,34,0.24)] ring-1 ring-inset ring-black/10 transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-[1.06] active:translate-y-px disabled:opacity-70"
+        disabled={busy || preview}
+        aria-busy={busy}
+        className="on-accent mt-4 flex w-full items-center justify-center gap-2 rounded-xl text-base font-semibold text-on-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(18,22,34,0.24)] ring-1 ring-inset ring-black/10 transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-[1.06] active:translate-y-px disabled:opacity-70"
         style={{ backgroundColor: accent, height: 52 }}
       >
-        {submitting ? 'Enviando...' : 'Enviar candidatura'}
+        {busy && <Loader2 className="size-5 shrink-0 animate-spin" aria-hidden />}
+        {submitLabel}
       </button>
       {preview && (
         <p className="mt-2 text-center text-[12px] text-slate-500">Vista previa, lo que verá el candidato</p>

@@ -78,6 +78,12 @@ export function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
+/** Candidato en estado "nuevo" recibido en las últimas 48 h (prioridad de contacto). */
+export function isFreshNuevo(c: Pick<Candidate, 'status' | 'submittedAt'>, now = Date.now()): boolean {
+  if (c.status !== 'nuevo') return false
+  return now - new Date(c.submittedAt).getTime() < 48 * 60 * 60 * 1000
+}
+
 // Pluralización mínima en español
 export function plural(n: number, singular: string, plural: string): string {
   return `${miles(n)} ${n === 1 ? singular : plural}`

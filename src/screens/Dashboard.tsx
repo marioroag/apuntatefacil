@@ -1,10 +1,9 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   Archive,
   ArrowUpDown,
-  Bell,
-  BellOff,
   Bookmark,
   Briefcase,
   Building2,
@@ -17,7 +16,6 @@ import {
   Inbox,
   Loader2,
   Lock,
-  MoreHorizontal,
   Pause,
   PenLine,
   Play,
@@ -32,7 +30,6 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
@@ -42,9 +39,9 @@ import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { CandidatePanel } from './CandidatePanel'
 import { exportCandidatesToExcel } from '../lib/export'
-import { relativeDate, initials, miles, formatPhone, candidateName } from '../lib/format'
+import { relativeDate, initials, miles, formatPhone, candidateName, isFreshNuevo } from '../lib/format'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
-import type { Brand, Campaign, CampaignStatus, Candidate, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
+import type { Brand, Campaign, Candidate, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
 import { planHas, TAGS_ENABLED, type PlanFeature } from '../lib/pricing'
 import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
@@ -508,8 +505,7 @@ export function Dashboard() {
     <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8">
       {/* Cabecera del puesto */}
       <header className="mb-5">
-        {/* Título + acciones en la MISMA línea (las acciones a la derecha con ml-auto).
-            En móvil las acciones son solo iconos; en sm+ recuperan su etiqueta. */}
+        {/* Título + acciones: solo Compartir y Editar visibles; el resto en Ajustes del puesto. */}
         <div ref={titleRowRef} className="flex items-center gap-2.5">
           <h1 ref={titleRef} className="min-w-0 truncate text-[22px] font-semibold leading-tight tracking-[-0.02em] text-slate-900">{campaign.title}</h1>
           {campaign.status !== 'activa' && (
@@ -518,26 +514,6 @@ export function Dashboard() {
             </span>
           )}
           <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
-            {/* Solo escritorio: en móvil se refresca tirando hacia abajo (PullToRefresh).
-                El wrapper controla la visibilidad para no chocar con el inline-flex del botón. */}
-            <span className="hidden sm:contents">
-              <button
-                onClick={async () => {
-                  const r = await refresh()
-                  if (r.message) r.ok ? toast.show(r.message) : toast.error(r.message)
-                }}
-                disabled={refreshing}
-                className={`${BTN_SECONDARY} disabled:opacity-60`}
-                title="Refrescar candidatos"
-                aria-label="Refrescar candidatos"
-              >
-                <RefreshCw className={`size-4 text-slate-400 ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
-                Refrescar
-              </button>
-            </span>
-            {/* En móvil llevan etiqueta corta ("Compartir"/"Editar") pero compacta
-                (h-8, texto e icono más pequeños) para no empujar ni truncar el título;
-                en sm+ recuperan su tamaño y etiqueta completa. */}
             <button
               onClick={copyLink}
               className={`${BTN_SECONDARY} max-sm:h-8 max-sm:gap-1 max-sm:px-2.5 max-sm:text-[12px]`}
@@ -560,57 +536,19 @@ export function Dashboard() {
                 <span className="hidden sm:inline">Editar formulario</span>
               </Link>
             )}
-            {/* Más acciones (escritorio): en móvil viven en "Ajustes del puesto". */}
-            {canManage && (
-              <span className="hidden sm:contents">
-                <PuestoMenu
-                  status={campaign.status}
-                  notifyOn={campaign.notifyNew !== false}
-                  onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
-                  onDuplicate={handleDuplicate}
-                  duplicating={duplicating}
-                  onPauseResume={togglePause}
-                  onReopen={reopen}
-                  onClosePuesto={() => setConfirmClose(true)}
-                  onDelete={() => setConfirmDelete(true)}
-                />
-              </span>
-            )}
           </div>
         </div>
         <p className="mt-1 text-sm text-slate-500">
           {[campaign.sector, campaign.location].map((s) => s?.trim()).filter(Boolean).join(', ')}
         </p>
         {canManage && (
-          <>
-            {/* Escritorio: pills de sede, marca y avisos en línea (caben de sobra) */}
-            <div className="mt-2.5 hidden flex-wrap items-center gap-2 sm:flex">
-              <SiteSelect
-                sites={sites}
-                value={campaign.siteId}
-                onChange={(siteId) => updateCampaign(campaign.id, { siteId })}
-                base={base}
-                locked={!hasSites}
-                onLocked={() => setUpgrade('sites')}
-              />
-              <BrandSelect
-                brands={brands}
-                value={campaign.brandId}
-                onChange={applyBrand}
-                base={base}
-                locked={!hasBrands}
-                onLocked={() => setUpgrade('brands')}
-              />
-            </div>
-            {/* Móvil: un solo acceso que agrupa sede, marca y avisos en una hoja */}
-            <button
-              type="button"
-              onClick={() => setSettingsOpen(true)}
-              className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-200 sm:hidden"
-            >
-              <SlidersHorizontal className="size-3.5 text-slate-400" aria-hidden /> Ajustes del puesto
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
+          >
+            <SlidersHorizontal className="size-3.5 text-slate-400" aria-hidden /> Ajustes del puesto
+          </button>
         )}
       </header>
 
@@ -626,16 +564,31 @@ export function Dashboard() {
 
       {/* Barra de filtros */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full sm:min-w-[200px] sm:flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
-          <input
-            type="search"
-            aria-label="Buscar candidatos"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, teléfono..."
-            className="h-9 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
-          />
+        <div className="flex min-w-0 w-full flex-1 items-center gap-2 sm:min-w-[200px]">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            <input
+              type="search"
+              aria-label="Buscar candidatos"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nombre, teléfono..."
+              className="h-9 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              const r = await refresh()
+              if (r.message) r.ok ? toast.show(r.message) : toast.error(r.message)
+            }}
+            disabled={refreshing}
+            className={`${BTN_SECONDARY} max-sm:hidden shrink-0 disabled:opacity-60`}
+            title="Refrescar candidatos"
+            aria-label="Refrescar candidatos"
+          >
+            <RefreshCw className={`size-4 text-slate-400 ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
+          </button>
         </div>
 
         {/* Acciones: en móvil reparten el ancho de la fila a partes iguales (limpio,
@@ -1067,7 +1020,14 @@ function CandidateTable({
           const name = candidateName(c) || 'Sin nombre'
           const phone = answerStr(c, 'telefono')
           const m = STATUS_META[c.status]
+          const fresh = isFreshNuevo(c)
           const sel = selected.has(c.id)
+          const statusChipClass = `${m.chip} inline-flex items-center gap-1 rounded-full ring-1 ring-inset ${
+            fresh
+              ? 'gap-1.5 px-2.5 py-1 text-[13px] font-bold ring-2 ring-slate-400'
+              : 'gap-1 px-2 py-0.5 text-[12px] font-semibold'
+          }`
+          const statusDotClass = `${fresh ? 'size-2' : 'size-1.5'} rounded-full ${m.dot}`
           // Tap: en modo selección alterna; si no, abre el detalle. El guard
           // longPressed evita que el click tras la pulsación larga lo deshaga.
           const onTap = () => {
@@ -1081,7 +1041,7 @@ function CandidateTable({
           return (
             <li
               key={c.id}
-              className={`px-4 py-3 transition-colors ${selectMode && sel ? 'bg-indigo-50/70' : ''}`}
+              className={`px-4 py-3 transition-colors ${selectMode && sel ? 'bg-indigo-50/70' : fresh ? 'bg-slate-50/80' : ''}`}
             >
              <div className="flex items-center gap-3">
               <button
@@ -1118,23 +1078,26 @@ function CandidateTable({
               </button>
               <div className="flex shrink-0 flex-col items-end gap-1.5">
                 {selectMode ? (
-                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ring-1 ring-inset ${m.chip}`}>
-                    <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
+                  <span className={statusChipClass}>
+                    <span className={statusDotClass} aria-hidden />
                     {m.label}
                   </span>
                 ) : (
                   <button
                     type="button"
                     onClick={() => setStatusFor(c)}
-                    aria-label={`Estado: ${m.label}. Tocar para cambiar`}
-                    className={`inline-flex items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[12px] font-semibold ring-1 ring-inset transition-[filter] ${m.chip} active:brightness-95`}
+                    aria-label={`Estado: ${m.label}${fresh ? ', recién llegado' : ''}. Tocar para cambiar`}
+                    className={`${statusChipClass} pr-1.5 transition-[filter] active:brightness-95`}
                   >
-                    <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
+                    <span className={statusDotClass} aria-hidden />
                     {m.label}
                     <ChevronDown className="size-3 opacity-60" aria-hidden />
                   </button>
                 )}
-                <time dateTime={c.submittedAt} className="num text-[11px] text-slate-500">
+                <time
+                  dateTime={c.submittedAt}
+                  className={`num text-[11px] ${fresh ? 'font-semibold text-slate-700' : 'text-slate-500'}`}
+                >
                   {relativeDate(c.submittedAt)}
                 </time>
               </div>
@@ -1292,6 +1255,47 @@ function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
         <X className="size-3" aria-hidden />
       </button>
     </span>
+  )
+}
+
+function FilterPanelHeader({
+  count,
+  onClear,
+  variant,
+}: {
+  count: number
+  onClear: () => void
+  variant: 'dropdown' | 'sheet'
+}) {
+  const activeText = count === 1 ? '1 activo' : count > 1 ? `${count} activos` : null
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2.5">
+      <p className="min-w-0 truncate text-sm font-semibold text-slate-900">
+        {variant === 'dropdown' ? (
+          <>
+            Filtros
+            {activeText && (
+              <>
+                <span className="font-normal text-slate-400"> · </span>
+                <span className="num font-medium text-slate-600">{activeText}</span>
+              </>
+            )}
+          </>
+        ) : activeText ? (
+          <span className="num font-medium text-slate-600">{activeText}</span>
+        ) : (
+          <span className="font-normal text-slate-500">Sin filtros activos</span>
+        )}
+      </p>
+      <button
+        type="button"
+        onClick={onClear}
+        disabled={count === 0}
+        className="shrink-0 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-40"
+      >
+        Limpiar
+      </button>
+    </div>
   )
 }
 
@@ -1500,8 +1504,9 @@ function FilterMenu({
 
       {/* Escritorio: desplegable anclado al botón */}
       {open && (
-        <div className="absolute left-0 z-50 mt-1 hidden max-h-[60vh] w-72 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-pop sm:block">
-          {controls}
+        <div className="absolute left-0 z-50 mt-1 hidden max-h-[60vh] w-72 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-pop sm:flex">
+          <FilterPanelHeader count={count} onClear={clearAll} variant="dropdown" />
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">{controls}</div>
         </div>
       )}
 
@@ -1511,17 +1516,17 @@ function FilterMenu({
         onClose={() => setOpen(false)}
         title="Filtros"
         footer={
-          <div className="flex items-center gap-2 border-t border-slate-200 px-4 py-3">
-            <button onClick={clearAll} disabled={count === 0} className={`${BTN_SECONDARY} flex-1 disabled:opacity-50`}>
-              Limpiar
-            </button>
-            <button onClick={() => setOpen(false)} className={`${BTN_PRIMARY} flex-1`}>
+          <div className="border-t border-slate-200 px-4 py-3">
+            <button onClick={() => setOpen(false)} className={`${BTN_PRIMARY} w-full`}>
               Ver resultados
             </button>
           </div>
         }
       >
-        <div className="px-4 py-3">{controls}</div>
+        <div className="sticky top-0 z-10">
+          <FilterPanelHeader count={count} onClear={clearAll} variant="sheet" />
+        </div>
+        <div className="px-4 pb-3">{controls}</div>
       </BottomSheet>
     </div>
   )
@@ -1887,186 +1892,7 @@ function SaveViewDialog({
   )
 }
 
-// Selector de sede del puesto (Multi). Asigna el puesto a una sede o lo deja sin sede.
-function SiteSelect({
-  sites,
-  value,
-  onChange,
-  base,
-  locked = false,
-  onLocked,
-}: {
-  sites: Site[]
-  value: string | null
-  onChange: (siteId: string | null) => void
-  base: string
-  locked?: boolean
-  onLocked?: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-  const current = sites.find((s) => s.id === value)
-  return (
-    <div className="relative inline-block" ref={ref}>
-      <button
-        onClick={() => (locked ? onLocked?.() : setOpen((o) => !o))}
-        aria-haspopup={locked ? 'dialog' : 'listbox'}
-        aria-expanded={locked ? undefined : open}
-        className="inline-flex h-7 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
-      >
-        <Building2 className="size-3.5 text-slate-400" aria-hidden />
-        {current ? current.name : 'Sin sede'}
-        <ChevronDown className="size-3 opacity-60" aria-hidden />
-      </button>
-      {open && !locked && (
-        <ul role="listbox" className="absolute left-0 z-50 mt-1 max-h-[50vh] w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-pop">
-          <li>
-            <button
-              role="option"
-              aria-selected={!value}
-              onClick={() => {
-                onChange(null)
-                setOpen(false)
-              }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-            >
-              <span className="flex-1">Sin sede</span>
-              {!value && <Check className="size-4 text-indigo-600" aria-hidden />}
-            </button>
-          </li>
-          {sites.map((s) => (
-            <li key={s.id}>
-              <button
-                role="option"
-                aria-selected={s.id === value}
-                onClick={() => {
-                  onChange(s.id)
-                  setOpen(false)
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <Building2 className="size-3.5 shrink-0 text-slate-400" aria-hidden />
-                <span className="flex-1 truncate">{s.name}</span>
-                {s.id === value && <Check className="size-4 shrink-0 text-indigo-600" aria-hidden />}
-              </button>
-            </li>
-          ))}
-          <li className="mt-1 border-t border-slate-100 pt-1">
-            <Link to={`${base}/sedes`} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">
-              <Plus className="size-3.5" aria-hidden /> Gestionar sedes
-            </Link>
-          </li>
-        </ul>
-      )}
-    </div>
-  )
-}
-
-// Selector de marca del puesto (Multi). Al elegir una marca se aplica su apariencia.
-function BrandSelect({
-  brands,
-  value,
-  onChange,
-  base,
-  locked = false,
-  onLocked,
-}: {
-  brands: Brand[]
-  value: string | null
-  onChange: (brandId: string | null) => void
-  base: string
-  locked?: boolean
-  onLocked?: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-  const current = brands.find((b) => b.id === value)
-  return (
-    <div className="relative inline-block" ref={ref}>
-      <button
-        onClick={() => (locked ? onLocked?.() : setOpen((o) => !o))}
-        aria-haspopup={locked ? 'dialog' : 'listbox'}
-        aria-expanded={locked ? undefined : open}
-        className="inline-flex h-7 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
-      >
-        {current ? (
-          <span className="size-2.5 rounded-full" style={{ backgroundColor: current.accent }} aria-hidden />
-        ) : (
-          <Tag className="size-3.5 text-slate-400" aria-hidden />
-        )}
-        {current ? current.name : 'Sin marca'}
-        <ChevronDown className="size-3 opacity-60" aria-hidden />
-      </button>
-      {open && !locked && (
-        <ul role="listbox" className="absolute left-0 z-50 mt-1 max-h-[50vh] w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-pop">
-          <li>
-            <button
-              role="option"
-              aria-selected={!value}
-              onClick={() => {
-                onChange(null)
-                setOpen(false)
-              }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-            >
-              <span className="flex-1">Sin marca</span>
-              {!value && <Check className="size-4 text-indigo-600" aria-hidden />}
-            </button>
-          </li>
-          {brands.map((b) => (
-            <li key={b.id}>
-              <button
-                role="option"
-                aria-selected={b.id === value}
-                onClick={() => {
-                  onChange(b.id)
-                  setOpen(false)
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-              >
-                <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: b.accent }} aria-hidden />
-                <span className="flex-1 truncate">{b.name}</span>
-                {b.id === value && <Check className="size-4 shrink-0 text-indigo-600" aria-hidden />}
-              </button>
-            </li>
-          ))}
-          <li className="mt-1 border-t border-slate-100 pt-1">
-            <Link to={`${base}/marcas`} className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50">
-              <Plus className="size-3.5" aria-hidden /> Gestionar marcas
-            </Link>
-          </li>
-        </ul>
-      )}
-    </div>
-  )
-}
-
-// --- Ajustes del puesto (hoja inferior, solo móvil) ------------------------
-// Agrupa sede, marca y avisos en una hoja para no romper la cabecera con pills
-// que no caben en una línea. Las opciones se eligen como chips (no desplegables
-// anidados, que se recortarían dentro del scroll de la hoja).
+// --- Ajustes del puesto (hoja con sede, marca, avisos y acciones del puesto) ---
 function SettingSwitch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
     <button
@@ -2082,24 +1908,82 @@ function SettingSwitch({ checked, onChange, label }: { checked: boolean; onChang
   )
 }
 
-function SettingChip({ selected, onClick, label, dot, Icon }: { selected: boolean; onClick: () => void; label: string; dot?: string; Icon?: LucideIcon }) {
+function SettingSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: string | null
+  onChange: (value: string | null) => void
+  options: { value: string | null; label: string; leading?: ReactNode }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const labelId = useRef(`setting-select-${Math.random().toString(36).slice(2, 9)}`).current
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const current = options.find((o) => o.value === value) ?? options[0]
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={selected}
-      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-2 text-[13px] font-medium transition-colors ${
-        selected ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-      }`}
-    >
-      {dot !== undefined ? (
-        <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: dot }} aria-hidden />
-      ) : Icon ? (
-        <Icon className={`size-3.5 shrink-0 ${selected ? 'text-indigo-500' : 'text-slate-400'}`} aria-hidden />
-      ) : null}
-      <span className="truncate">{label}</span>
-      {selected && <Check className="size-3.5 shrink-0" aria-hidden />}
-    </button>
+    <div ref={ref} className="relative">
+      <span id={labelId} className="mb-1.5 block text-sm font-medium text-slate-800">
+        {label}
+      </span>
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-labelledby={labelId}
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-9 w-full items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-left text-sm text-slate-900 shadow-[0_1px_2px_rgba(18,22,34,0.04)] transition-shadow hover:bg-slate-50 focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/15"
+      >
+        {current.leading}
+        <span className="min-w-0 flex-1 truncate">{current.label}</span>
+        <ChevronDown className="size-4 shrink-0 text-slate-400 opacity-60" aria-hidden />
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          aria-labelledby={labelId}
+          className="absolute z-50 mt-1 max-h-[min(240px,40vh)] w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-pop"
+        >
+          {options.map((opt) => {
+            const sel = opt.value === value
+            return (
+              <li key={opt.value ?? '__none'}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={sel}
+                  onClick={() => {
+                    onChange(opt.value)
+                    setOpen(false)
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  {opt.leading}
+                  <span className="min-w-0 flex-1 truncate">{opt.label}</span>
+                  {sel && <Check className="size-4 shrink-0 text-indigo-600" aria-hidden />}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -2113,6 +1997,81 @@ function LockedSetting({ onClick, text }: { onClick: () => void; text: string })
       <span className="flex-1">{text}</span>
       <span className="shrink-0 font-semibold text-indigo-700">Ver planes</span>
     </button>
+  )
+}
+
+function PuestoSettingsDialog({
+  open,
+  onClose,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  children: ReactNode
+}) {
+  const panelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const opener = document.activeElement as HTMLElement | null
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const t = window.setTimeout(() => panelRef.current?.focus(), 50)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+      window.clearTimeout(t)
+      opener?.focus?.()
+    }
+  }, [open, onClose])
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 hidden sm:grid place-items-center p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="puesto-settings-title"
+        >
+          <motion.div
+            className="absolute inset-0 bg-slate-900/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
+            onClick={onClose}
+          />
+          <motion.div
+            ref={panelRef}
+            tabIndex={-1}
+            className="relative flex max-h-[min(85vh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white shadow-pop outline-none"
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 6 }}
+            transition={{ duration: 0.18, ease: [0, 0, 0.2, 1] }}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
+              <h2 id="puesto-settings-title" className="text-lg font-semibold text-slate-900">
+                Ajustes del puesto
+              </h2>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Cerrar"
+                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="size-5" aria-hidden />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   )
 }
 
@@ -2157,42 +2116,59 @@ function PuestoSettingsSheet({
 }) {
   const notify = campaign.notifyNew !== false
   const status = campaign.status
-  return (
-    <BottomSheet open={open} onClose={onClose} title="Ajustes del puesto">
-      <div className="space-y-5 px-4 py-4">
-              <section>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Sede</p>
+  const body = (
+    <div className="space-y-5 px-4 py-4 sm:px-5 sm:py-5">
+              <section className="space-y-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Organización</p>
                 {hasSites ? (
-                  <>
-                    <div className="flex flex-wrap gap-2">
-                      <SettingChip selected={!campaign.siteId} onClick={() => onSetSite(null)} label="Sin sede" Icon={Building2} />
-                      {sites.map((s) => (
-                        <SettingChip key={s.id} selected={campaign.siteId === s.id} onClick={() => onSetSite(s.id)} label={s.name} Icon={Building2} />
-                      ))}
-                    </div>
-                    <Link to={`${base}/sedes`} onClick={onClose} className="mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700">
+                  <div>
+                    <SettingSelect
+                      label="Sede"
+                      value={campaign.siteId}
+                      onChange={onSetSite}
+                      options={[
+                        {
+                          value: null,
+                          label: 'Sin sede',
+                          leading: <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />,
+                        },
+                        ...sites.map((s) => ({
+                          value: s.id,
+                          label: s.name,
+                          leading: <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />,
+                        })),
+                      ]}
+                    />
+                    <Link to={`${base}/sedes`} onClick={onClose} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700">
                       <Plus className="size-3.5" aria-hidden /> Gestionar sedes
                     </Link>
-                  </>
+                  </div>
                 ) : (
                   <LockedSetting onClick={() => { onUpgrade('sites'); onClose() }} text="Organiza tus puestos por sede con el plan Multi." />
                 )}
-              </section>
-
-              <section>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Marca</p>
                 {hasBrands ? (
-                  <>
-                    <div className="flex flex-wrap gap-2">
-                      <SettingChip selected={!campaign.brandId} onClick={() => onSetBrand(null)} label="Sin marca" Icon={Tag} />
-                      {brands.map((b) => (
-                        <SettingChip key={b.id} selected={campaign.brandId === b.id} onClick={() => onSetBrand(b.id)} label={b.name} dot={b.accent} />
-                      ))}
-                    </div>
-                    <Link to={`${base}/marcas`} onClick={onClose} className="mt-2.5 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700">
+                  <div>
+                    <SettingSelect
+                      label="Marca"
+                      value={campaign.brandId}
+                      onChange={onSetBrand}
+                      options={[
+                        {
+                          value: null,
+                          label: 'Sin marca',
+                          leading: <Tag className="size-4 shrink-0 text-slate-400" aria-hidden />,
+                        },
+                        ...brands.map((b) => ({
+                          value: b.id,
+                          label: b.name,
+                          leading: <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: b.accent }} aria-hidden />,
+                        })),
+                      ]}
+                    />
+                    <Link to={`${base}/marcas`} onClick={onClose} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700">
                       <Plus className="size-3.5" aria-hidden /> Gestionar marcas
                     </Link>
-                  </>
+                  </div>
                 ) : (
                   <LockedSetting onClick={() => { onUpgrade('brands'); onClose() }} text="Aplica la identidad de tus marcas con el plan Multi." />
                 )}
@@ -2234,133 +2210,16 @@ function PuestoSettingsSheet({
                   Eliminar puesto
                 </button>
               </section>
-      </div>
-    </BottomSheet>
-  )
-}
-
-// Interruptor decorativo (el estado lo comunica aria-checked del menuitem que lo
-// envuelve). Más pequeño que SettingSwitch para encajar en una fila de menú.
-function SwitchVisual({ on }: { on: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${on ? 'bg-indigo-600' : 'bg-slate-300'}`}
-    >
-      <span className={`inline-block size-4 transform rounded-full bg-white shadow transition-transform ${on ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
-    </span>
-  )
-}
-
-const MENU_ITEM = 'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50'
-
-// Menú "más acciones" del puesto (escritorio). Mismo patrón de popover que
-// SiteSelect/BrandSelect: cierre con click fuera y Escape, foco visible.
-// Aloja el interruptor de avisos (no cierra el menú al cambiarlo) y las acciones
-// de ciclo de vida del puesto: duplicar, pausar/reanudar/reabrir, cerrar, eliminar.
-function PuestoMenu({
-  status,
-  notifyOn,
-  onToggleNotify,
-  onDuplicate,
-  duplicating,
-  onPauseResume,
-  onReopen,
-  onClosePuesto,
-  onDelete,
-}: {
-  status: CampaignStatus
-  notifyOn: boolean
-  onToggleNotify: () => void
-  onDuplicate: () => void
-  duplicating: boolean
-  onPauseResume: () => void
-  onReopen: () => void
-  onClosePuesto: () => void
-  onDelete: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-  // Las acciones cierran el menú antes de ejecutarse; el interruptor de avisos no.
-  const run = (fn: () => void) => {
-    setOpen(false)
-    fn()
-  }
-  return (
-    <div className="relative inline-block" ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className={`${BTN_SECONDARY} px-2`}
-        title="Más acciones"
-        aria-label="Más acciones del puesto"
-      >
-        <MoreHorizontal className="size-4 text-slate-400" aria-hidden />
-      </button>
-      {open && (
-        <ul role="menu" className="absolute right-0 z-50 mt-1 w-60 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-pop">
-          <li role="none">
-            <button role="menuitemcheckbox" aria-checked={notifyOn} onClick={onToggleNotify} className={MENU_ITEM}>
-              {notifyOn ? <Bell className="size-4 text-slate-400" aria-hidden /> : <BellOff className="size-4 text-slate-400" aria-hidden />}
-              <span className="flex-1">Avisos por email</span>
-              <SwitchVisual on={notifyOn} />
-            </button>
-          </li>
-
-          <li role="none"><div className="my-1 border-t border-slate-100" /></li>
-
-          <li role="none">
-            <button role="menuitem" onClick={() => run(onDuplicate)} disabled={duplicating} className={`${MENU_ITEM} disabled:opacity-60`}>
-              <Copy className="size-4 text-slate-400" aria-hidden />
-              {duplicating ? 'Duplicando…' : 'Duplicar puesto'}
-            </button>
-          </li>
-          {status !== 'cerrada' && (
-            <li role="none">
-              <button role="menuitem" onClick={() => run(onPauseResume)} className={MENU_ITEM}>
-                {status === 'activa' ? <Pause className="size-4 text-slate-400" aria-hidden /> : <Play className="size-4 text-slate-400" aria-hidden />}
-                {status === 'activa' ? 'Pausar puesto' : 'Reanudar puesto'}
-              </button>
-            </li>
-          )}
-          {status === 'cerrada' ? (
-            <li role="none">
-              <button role="menuitem" onClick={() => run(onReopen)} className={MENU_ITEM}>
-                <Play className="size-4 text-slate-400" aria-hidden />
-                Reabrir puesto
-              </button>
-            </li>
-          ) : (
-            <li role="none">
-              <button role="menuitem" onClick={() => run(onClosePuesto)} className={MENU_ITEM}>
-                <Archive className="size-4 text-slate-400" aria-hidden />
-                Cerrar puesto
-              </button>
-            </li>
-          )}
-
-          <li role="none"><div className="my-1 border-t border-slate-100" /></li>
-
-          <li role="none">
-            <button role="menuitem" onClick={() => run(onDelete)} className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50">
-              <Trash2 className="size-4" aria-hidden />
-              Eliminar puesto
-            </button>
-          </li>
-        </ul>
-      )}
     </div>
+  )
+  return (
+    <>
+      <BottomSheet open={open} onClose={onClose} title="Ajustes del puesto">
+        {body}
+      </BottomSheet>
+      <PuestoSettingsDialog open={open} onClose={onClose}>
+        {body}
+      </PuestoSettingsDialog>
+    </>
   )
 }

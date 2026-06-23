@@ -53,13 +53,13 @@ export const PLAN_LABEL: Record<string, string> = {
 // Capacidades por plan. Es el ÚNICO interruptor de las features avanzadas: una
 // feature Pro/Multi solo aparece si el plan la incluye aquí. Esencial nunca
 // pierde un básico; estas son capacidades NETO-NUEVAS que se desbloquean al subir.
-export type PlanFeature = 'bandeja' | 'savedViews' | 'sites' | 'brands' | 'managers'
+export type PlanFeature = 'savedViews' | 'sites' | 'brands' | 'managers'
 
 export const PLAN_FEATURES: Record<string, PlanFeature[]> = {
   trial: [],
   esencial: [],
-  pro: ['bandeja', 'savedViews', 'brands'],
-  multi: ['bandeja', 'savedViews', 'sites', 'brands', 'managers'],
+  pro: ['savedViews', 'brands'],
+  multi: ['savedViews', 'sites', 'brands', 'managers'],
 }
 
 export function planHas(plan: string | undefined | null, feature: PlanFeature): boolean {
@@ -78,11 +78,6 @@ export const TAGS_ENABLED = true
 // encaje a media frase ("Desbloquea la Bandeja con Pro"); se capitaliza al
 // inicio de oración en el componente.
 export const FEATURE_COPY: Record<PlanFeature, { label: string; blurb: string; minPlan: 'pro' | 'multi' }> = {
-  bandeja: {
-    label: 'la Bandeja',
-    blurb: 'Reúne los candidatos nuevos de todos tus puestos en una sola lista.',
-    minPlan: 'pro',
-  },
   savedViews: {
     label: 'las vistas guardadas',
     blurb: 'Guarda tus combinaciones de filtros y vuelve a aplicarlas en un clic.',
@@ -127,6 +122,7 @@ export const TIERS: Tier[] = [
       'Candidatos ilimitados',
       'Usuarios del equipo ilimitados',
       'Formulario de candidatura a tu medida',
+      'Vista general y Bandeja de candidatos nuevos',
       'Filtros, notas y valoraciones',
       'Exporta a Excel cuando quieras',
       'Soporte humano, te responde una persona',
@@ -145,7 +141,6 @@ export const TIERS: Tier[] = [
     features: [
       'Todo lo de Esencial',
       'Hasta 10 procesos a la vez',
-      'Bandeja: los nuevos de todos tus puestos en una lista',
       'Guarda tus vistas de filtros y reaplícalas',
       'Una marca con logo, banner y colores en el formulario',
     ],

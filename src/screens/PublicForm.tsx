@@ -26,7 +26,7 @@ export function PublicForm() {
   const [values, setValues] = useState<Record<string, FieldValue>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [files, setFiles] = useState<Record<string, File>>({})
-  const [submitting, setSubmitting] = useState(false)
+  const [submitPhase, setSubmitPhase] = useState<'idle' | 'uploading' | 'submitting'>('idle')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
   const [consent, setConsent] = useState(false)
@@ -134,17 +134,17 @@ export function PublicForm() {
       return
     }
     setSubmitError(null)
-    setSubmitting(true)
 
     // Sube el primer CV adjunto (si hay) al bucket cvs.
     let cvPath: string | null = null
     const fileEntry = Object.values(files)[0]
     if (fileEntry) {
+      setSubmitPhase('uploading')
       const ext = fileEntry.name.split('.').pop()?.toLowerCase() || 'pdf'
       const path = `${campaign.slug}/${crypto.randomUUID()}.${ext}`
       const up = await supabase.storage.from('cvs').upload(path, fileEntry, { upsert: false })
       if (up.error) {
-        setSubmitting(false)
+        setSubmitPhase('idle')
         setSubmitError('No pudimos subir tu CV. Inténtalo de nuevo o quítalo para continuar.')
         formTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         return
@@ -152,13 +152,14 @@ export function PublicForm() {
       cvPath = up.data.path
     }
 
+    setSubmitPhase('submitting')
     const { data: candidateId, error } = await supabase.rpc('submit_application', {
       p_slug: campaign.slug,
       p_answers: values,
       p_source: 'enlace',
       p_cv_path: cvPath,
     })
-    setSubmitting(false)
+    setSubmitPhase('idle')
     if (error) {
       // El CV ya se subió antes del RPC: si la candidatura se rechaza, lo borramos
       // para no dejar ficheros huérfanos (con PII) sin candidato que los referencie.
@@ -200,7 +201,7 @@ export function PublicForm() {
             onBlur={onBlur}
             onFile={onFile}
             onSubmit={submit}
-            submitting={submitting}
+            submitPhase={submitPhase}
             companyName={campaign.companyName}
             logoUrl={campaign.logoUrl}
             bannerUrl={campaign.bannerUrl}

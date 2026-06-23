@@ -6,7 +6,7 @@ import { FEATURE_COPY, PLAN_LABEL, type PlanFeature } from '../lib/pricing'
 // Aviso al intentar usar una feature que el plan actual no incluye. Dice qué
 // falta y con qué plan se desbloquea; confirmar lleva a la pantalla de planes.
 // La etiqueta y el plan mínimo salen de FEATURE_COPY; se pueden sobreescribir
-// (p. ej. "Vista general" comparte la feature `sites` con "Sedes").
+// (p. ej. etiqueta distinta a la de FEATURE_COPY cuando haga falta).
 export function UpgradeDialog({
   open,
   onClose,

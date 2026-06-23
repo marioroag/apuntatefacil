@@ -9,8 +9,7 @@ import { CandidatePanel } from './CandidatePanel'
 import { relativeDate, initials, formatPhone, candidateName } from '../lib/format'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { useAppBase } from '../lib/useAppBase'
-import { planHas, TAGS_ENABLED } from '../lib/pricing'
-import { FeatureLocked } from '../components/FeatureLocked'
+import { TAGS_ENABLED } from '../lib/pricing'
 import { TagCell, ManageTagsModal } from '../components/Tags'
 import { STATUS_META } from '../lib/types'
 import type { Candidate } from '../lib/types'
@@ -23,11 +22,11 @@ function answer(c: Candidate, id: string): string {
   return String(v)
 }
 
-// Bandeja única (Pro/Multi): todos los candidatos en estado "nuevo" de TODOS los
-// puestos en una sola cola para triar de una vez, sin entrar puesto por puesto.
+// Bandeja única: todos los candidatos en estado "nuevo" de TODOS los puestos
+// en una sola cola para triar de una vez, sin entrar puesto por puesto.
 export function Bandeja() {
   const { candidates, getCampaign, setStatus, restoreCandidate, tags } = useStore()
-  const { company, role } = useAuth()
+  const { role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
   const demo = base === '/demo'
@@ -44,10 +43,6 @@ export function Bandeja() {
         .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
     [candidates],
   )
-
-  // La bandeja es una capacidad Pro/Multi. La demo la enseña (plan multi); en /app,
-  // si el plan no la incluye se muestra bloqueada (acceso directo por URL).
-  if (!demo && !planHas(company?.plan, 'bandeja')) return <FeatureLocked feature="bandeja" />
 
   const openCandidate = openId ? candidates.find((c) => c.id === openId) ?? null : null
   const openCampaign = openCandidate ? getCampaign(openCandidate.campaignId) ?? null : null

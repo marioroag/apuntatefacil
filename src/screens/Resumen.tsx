@@ -2,31 +2,17 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Briefcase, Building2, ChevronRight, Clock, PauseCircle } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
-import { planHas } from '../lib/pricing'
-import { FeatureLocked } from '../components/FeatureLocked'
 import { miles } from '../lib/format'
 import type { Candidate } from '../lib/types'
 
 const STALE_DAYS = 7
 
-// Vista general (Multi): panel "home" con el pulso global de todos los puestos.
+// Vista general: panel "home" con el pulso global de todos los puestos.
 // Solo lectura. El detalle por sede y su gestión viven en la pestaña Sedes.
 export function Resumen() {
   const { campaigns, candidates, newCountFor } = useStore()
-  const { company } = useAuth()
   const base = useAppBase()
-  const demo = base === '/demo'
-
-  if (!demo && !planHas(company?.plan, 'sites'))
-    return (
-      <FeatureLocked
-        feature="sites"
-        featureLabel="la Vista general"
-        blurb="Un vistazo a cómo van todos tus puestos: candidatos, nuevos sin revisar y contratados."
-      />
-    )
 
   const staleCut = Date.now() - STALE_DAYS * 86400000
   const nuevosTotal = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)

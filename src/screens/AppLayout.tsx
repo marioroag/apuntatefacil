@@ -70,9 +70,8 @@ export function FirstCampaignRedirect() {
         <Loader2 className="size-6 animate-spin text-slate-400" aria-hidden />
       </div>
     )
-  const first = campaigns[0]
-  if (!first) return <EmptyCompany />
-  return <Navigate to={`${base}/puestos/${first.id}`} replace />
+  if (campaigns.length === 0) return <EmptyCompany />
+  return <Navigate to={`${base}/resumen`} replace />
 }
 
 function EmptyCompany() {
@@ -304,8 +303,6 @@ export function AppLayout() {
   // el cliente descubre el límite al intentar usar las cosas en su contexto (pill
   // de sede/marca, crear puesto, vistas guardadas), no con tabs bloqueadas. El
   // encargado ve sus datos (acotados por RLS) pero no gestiona estructura ni equipo.
-  const showBandeja = planHas(company.plan, 'bandeja')
-  const showResumen = planHas(company.plan, 'sites') // Vista general (todos los roles, acotada)
   const showSedes = planHas(company.plan, 'sites') // Sedes: todos los roles ven sus sedes (acotadas por RLS); crear/editar/borrar va gateado dentro por rol
   const showBrands = planHas(company.plan, 'brands') && !isEncargado // gestionar marcas
   const showEquipo = !demo && isOwner // gestión de equipo: solo el propietario
@@ -379,28 +376,24 @@ export function AppLayout() {
         </div>
       )}
 
-      {showResumen && (
-        <div className={`px-3 ${canCreate ? 'pt-2' : 'pt-5'}`}>
-          <SideNavItem
-            to={`${base}/resumen`}
-            Icon={LayoutGrid}
-            label="Vista general"
-            onNavigate={() => setOpen(false)}
-          />
-        </div>
-      )}
+      <div className={`px-3 ${canCreate ? 'pt-2' : 'pt-5'}`}>
+        <SideNavItem
+          to={`${base}/resumen`}
+          Icon={LayoutGrid}
+          label="Vista general"
+          onNavigate={() => setOpen(false)}
+        />
+      </div>
 
-      {showBandeja && (
-        <div className="px-3 pt-2">
-          <SideNavItem
-            to={`${base}/bandeja`}
-            Icon={Inbox}
-            label="Bandeja"
-            count={totalNuevos}
-            onNavigate={() => setOpen(false)}
-          />
-        </div>
-      )}
+      <div className="px-3 pt-2">
+        <SideNavItem
+          to={`${base}/bandeja`}
+          Icon={Inbox}
+          label="Bandeja"
+          count={totalNuevos}
+          onNavigate={() => setOpen(false)}
+        />
+      </div>
 
       {showSedes && (
         <div className="px-3 pt-2">
@@ -531,7 +524,7 @@ export function AppLayout() {
                     setActiveCompany(id)
                     setOpen(false) // cerrar el drawer móvil, como el resto de acciones del menú
                     // Vamos a la base: el store entra en "cargando" de golpe (loadedCompanyId aún
-                    // es el viejo) y FirstCampaignRedirect lleva al primer puesto del nuevo equipo
+                    // es el viejo) y el redirect de /app lleva a Vista general del nuevo equipo
                     // cuando llegan sus datos. Evita quedar en un :id que ya no existe.
                     navigate(base)
                   }}
