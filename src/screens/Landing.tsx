@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import {
@@ -493,6 +493,40 @@ function Pricing() {
   )
 }
 
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false)
+  const panelId = useId()
+  return (
+    <div className="border-b border-slate-200 last:border-b-0">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full cursor-pointer items-center justify-between gap-4 px-4 py-4 text-left text-[17px] font-semibold text-slate-900 sm:px-5"
+      >
+        {q}
+        <span
+          aria-hidden
+          className={`grid size-6 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${open ? 'rotate-45' : ''}`}
+        >
+          +
+        </span>
+      </button>
+      <div
+        id={panelId}
+        role="region"
+        aria-hidden={!open}
+        className={`grid transition-[grid-template-rows] duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+      >
+        <div className="overflow-hidden">
+          <p className="px-4 pb-4 text-[15px] leading-relaxed text-slate-600 sm:px-5">{a}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Faq() {
   const qs: [string, string][] = [
     ['¿Tengo que cambiar cómo pongo mi anuncio?', 'No. Sigues publicando en Milanuncios igual que ahora. Lo único que cambia es que, a quien te conteste, en vez de liarte en el chat le mandas un enlace.'],
@@ -510,15 +544,9 @@ function Faq() {
         <Reveal>
           <h2 className="text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Todo lo que necesitas saber antes de empezar</h2>
         </Reveal>
-        <div className="mt-10 divide-y divide-slate-200 border-y border-slate-200 bg-white">
+        <div className="mt-10 overflow-hidden border-y border-slate-200 bg-white">
           {qs.map(([q, a], i) => (
-            <details key={i} className="group px-4 py-4 sm:px-5">
-              <summary className="flex cursor-pointer items-center justify-between gap-4 text-[17px] font-semibold text-slate-900 marker:content-none">
-                {q}
-                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 transition-transform group-open:rotate-45">+</span>
-              </summary>
-              <p className="mt-2.5 text-[15px] leading-relaxed text-slate-600">{a}</p>
-            </details>
+            <FaqItem key={i} q={q} a={a} />
           ))}
         </div>
       </div>
