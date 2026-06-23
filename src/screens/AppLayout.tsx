@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Briefcase, Building2, ChevronDown, ExternalLink, Inbox, LayoutGrid, Loader2, LogOut, Menu, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
+import { Briefcase, Building2, Check, ChevronDown, ExternalLink, Inbox, LayoutGrid, Loader2, LogOut, Menu, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
@@ -132,9 +132,79 @@ function EmptyCompany() {
   )
 }
 
+// Cambiador de equipos (solo si el usuario pertenece a 2+ empresas). Va al pie del
+// sidebar, así que el desplegable abre hacia ARRIBA.
+function CompanySwitcher({
+  companies,
+  activeId,
+  onSwitch,
+}: {
+  companies: { id: string; name: string }[]
+  activeId: string
+  onSwitch: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const active = companies.find((c) => c.id === activeId)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100"
+      >
+        <div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-[12px] font-bold text-white">
+          {initials(active?.name ?? '')}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-semibold text-slate-800">{active?.name}</p>
+          <p className="truncate text-[11px] text-slate-500">Cambiar de equipo</p>
+        </div>
+        <ChevronDown className="size-4 shrink-0 text-slate-400" aria-hidden />
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-pop"
+        >
+          {companies.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={c.id === activeId}
+                onClick={() => {
+                  onSwitch(c.id)
+                  setOpen(false)
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100"
+              >
+                <div className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-900 text-[11px] font-bold text-white">
+                  {initials(c.name)}
+                </div>
+                <span className="min-w-0 flex-1 truncate text-[13px] text-slate-800">{c.name}</span>
+                {c.id === activeId && <Check className="size-4 shrink-0 text-indigo-600" aria-hidden />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export function AppLayout() {
   const { campaigns, newCountFor, newSinceFor, resetDemo, sites } = useStore()
-  const { company, signOut, role } = useAuth()
+  const { company, companies, setActiveCompany, signOut, role } = useAuth()
   const { campaignId } = useParams()
   const base = useAppBase()
   const demo = base === '/demo'
@@ -437,7 +507,19 @@ export function AppLayout() {
             {/* Bloque del usuario: para el owner TODO el bloque (avatar + nombre +
                 subtítulo) lleva a gestionar el plan, no solo el texto. "Salir" queda
                 aparte (abajo), así no anidamos interactivos dentro del Link. */}
-            {isOwner ? (
+            {companies.length > 1 ? (
+              <>
+                <CompanySwitcher companies={companies} activeId={company.id} onSwitch={setActiveCompany} />
+                {isOwner && (
+                  <Link
+                    to="/app/plan"
+                    className="mt-0.5 block truncate rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:text-indigo-600"
+                  >
+                    Gestionar plan {PLAN_LABEL[company.plan] ?? 'Prueba'}
+                  </Link>
+                )}
+              </>
+            ) : isOwner ? (
               <Link
                 to="/app/plan"
                 aria-label={`Gestionar plan ${PLAN_LABEL[company.plan] ?? 'Prueba'}`}

@@ -32,14 +32,15 @@ export function Equipo() {
   const [editing, setEditing] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!company) return
     const [m, i] = await Promise.all([
-      supabase.rpc('list_members'),
-      supabase.from('invitations').select('id,email,token,created_at,role').eq('status', 'pending').order('created_at', { ascending: false }),
+      supabase.rpc('list_company_members', { p_company_id: company.id }),
+      supabase.from('invitations').select('id,email,token,created_at,role').eq('status', 'pending').eq('company_id', company.id).order('created_at', { ascending: false }),
     ])
     if (!m.error && m.data) setMembers(m.data as Member[])
     if (!i.error && i.data) setInvites(i.data as Invitation[])
     setLoading(false)
-  }, [])
+  }, [company])
   useEffect(() => {
     load()
   }, [load])

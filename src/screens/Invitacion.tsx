@@ -49,13 +49,14 @@ export function Invitacion() {
   const accept = async () => {
     setBusy(true)
     setError(null)
-    const { error } = await supabase.rpc('accept_invitation', { p_token: token })
+    const { data, error } = await supabase.rpc('accept_invitation', { p_token: token })
     setBusy(false)
     if (error) {
       setError(error.message || 'No se pudo aceptar la invitación.')
       return
     }
-    await refreshCompany()
+    // Entra directo al equipo recién aceptado (lo pone como empresa activa).
+    await refreshCompany((data as { company_id?: string } | null)?.company_id)
     navigate('/app')
   }
 

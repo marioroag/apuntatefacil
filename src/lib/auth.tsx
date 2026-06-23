@@ -14,15 +14,23 @@ export interface Company {
   cancel_at_period_end: boolean // suscripción marcada para cancelarse al final del periodo
 }
 
+// Empresa + el rol del usuario en ella (lo devuelve el RPC my_companies).
+type CompanyWithRole = Company & { role: string }
+
+// Empresa activa elegida (multi-equipo), por dispositivo. Si no es válida, se cae a la primera.
+const ACTIVE_COMPANY_KEY = 'apuntatefacil.activeCompany'
+
 type AuthResult = { error?: string; needsConfirmation?: boolean }
 
 interface AuthApi {
   loading: boolean // carga inicial de sesión
   session: Session | null
   user: User | null
-  company: Company | null
+  company: Company | null // empresa ACTIVA
+  companies: Company[] // todas las empresas del usuario (para el cambiador de equipos)
   companyLoading: boolean
-  role: string | null // rol del usuario en su empresa: owner | member | encargado
+  role: string | null // rol del usuario en la empresa ACTIVA: owner | member | encargado
+  setActiveCompany: (id: string) => void // cambia de equipo
   signInWithGoogle: () => Promise<void>
   signUpWithPassword: (email: string, password: string) => Promise<AuthResult>
   signInWithPassword: (email: string, password: string) => Promise<AuthResult>
@@ -31,7 +39,7 @@ interface AuthApi {
   resendConfirmation: (email: string) => Promise<{ error?: string }>
   signOut: () => Promise<void>
   createCompany: (name: string, accent?: string) => Promise<{ error?: string }>
-  refreshCompany: () => Promise<Company | null>
+  refreshCompany: (preferId?: string) => Promise<Company | null>
 }
 
 const Ctx = createContext<AuthApi | null>(null)
@@ -61,59 +69,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
+  const [companies, setCompanies] = useState<CompanyWithRole[]>([])
   const [companyLoading, setCompanyLoading] = useState(false)
   const [role, setRole] = useState<string | null>(null)
 
-  const loadCompany = useCallback(async (uid: string | undefined): Promise<Company | null> => {
+  // Carga TODAS las empresas del usuario (con su rol) y fija la ACTIVA: la guardada en
+  // localStorage si sigue siendo válida (o preferId, p. ej. tras aceptar una invitación);
+  // si no, la primera. Reemplaza al antiguo "coge la empresa más antigua".
+  const loadCompanies = useCallback(async (uid: string | undefined, preferId?: string): Promise<Company | null> => {
     if (!uid) {
+      setCompanies([])
       setCompany(null)
       setRole(null)
       return null
     }
     setCompanyLoading(true)
-    // RLS solo devuelve las empresas del usuario, así que con seleccionar basta.
-    const { data } = await supabase
-      .from('companies')
-      .select('id,name,accent,plan,subscription_status,billing_interval,cancel_at_period_end')
-      .order('created_at', { ascending: true })
-      .limit(1)
-    const c = data && data[0] ? (data[0] as Company) : null
-    setCompany(c)
-    if (c) {
-      const { data: m } = await supabase
-        .from('memberships')
-        .select('role')
-        .eq('company_id', c.id)
-        .eq('user_id', uid)
-        .maybeSingle()
-      setRole((m as { role?: string } | null)?.role ?? null)
-    } else {
-      setRole(null)
-    }
+    const { data } = await supabase.rpc('my_companies')
+    const list = (data as CompanyWithRole[] | null) ?? []
+    setCompanies(list)
+    const stored = preferId ?? (typeof localStorage !== 'undefined' ? localStorage.getItem(ACTIVE_COMPANY_KEY) : null)
+    const active = list.find((c) => c.id === stored) ?? list[0] ?? null
+    if (active && typeof localStorage !== 'undefined') localStorage.setItem(ACTIVE_COMPANY_KEY, active.id)
+    setCompany(active)
+    setRole(active?.role ?? null)
     setCompanyLoading(false)
-    return c
+    return active
   }, [])
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setLoading(false)
-      loadCompany(data.session?.user?.id)
+      loadCompanies(data.session?.user?.id)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
-      loadCompany(s?.user?.id)
+      loadCompanies(s?.user?.id)
     })
     return () => sub.subscription.unsubscribe()
-  }, [loadCompany])
+  }, [loadCompanies])
 
   const api: AuthApi = {
     loading,
     session,
     user: session?.user ?? null,
     company,
+    companies,
     companyLoading,
     role,
+    setActiveCompany: (id: string) => {
+      const c = companies.find((x) => x.id === id)
+      if (!c) return
+      if (typeof localStorage !== 'undefined') localStorage.setItem(ACTIVE_COMPANY_KEY, id)
+      setCompany(c)
+      setRole(c.role)
+    },
     signInWithGoogle: async () => {
       await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -159,6 +169,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut: async () => {
       await supabase.auth.signOut()
       setCompany(null)
+      setCompanies([])
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(ACTIVE_COMPANY_KEY)
     },
     createCompany: async (name, accent) => {
       const { error } = await supabase.rpc('create_company', {
@@ -166,10 +178,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         p_accent: accent ?? '#374cce',
       })
       if (error) return { error: error.message }
-      await loadCompany(session?.user?.id)
+      await loadCompanies(session?.user?.id)
       return {}
     },
-    refreshCompany: async () => loadCompany(session?.user?.id),
+    refreshCompany: async (preferId?: string) => loadCompanies(session?.user?.id, preferId),
   }
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>
@@ -202,8 +214,10 @@ export function DemoAuthProvider({ children }: { children: ReactNode }) {
     session: { user: { id: 'demo-user', email: 'demo@apuntatefacil.com' } } as unknown as Session,
     user: { id: 'demo-user', email: 'demo@apuntatefacil.com' } as unknown as User,
     company: DEMO_COMPANY,
+    companies: [DEMO_COMPANY],
     companyLoading: false,
     role: 'owner',
+    setActiveCompany: () => {},
     signInWithGoogle: async () => {},
     signUpWithPassword: async () => ({}),
     signInWithPassword: async () => ({}),
