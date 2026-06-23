@@ -4,6 +4,7 @@ import { ArrowLeft, Check, Eye, EyeOff, Loader2, Mail } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { setRememberMe } from '../lib/supabase'
 import { Logo } from '../components/Logo'
+import { Checkbox } from '../components/ui/Checkbox'
 import { PWD_RULES, passwordValid } from '../lib/password'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -290,11 +291,9 @@ export function Login() {
 
                 <div className="mt-3 flex items-center justify-between gap-3">
                   <label className="flex cursor-pointer select-none items-center gap-2 text-[13px] text-slate-600">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={remember}
                       onChange={(e) => { setRemember(e.target.checked); setRememberMe(e.target.checked) }}
-                      className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500/30"
                     />
                     Recordarme
                   </label>

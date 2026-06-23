@@ -4,6 +4,7 @@ import { Check, ImagePlus, Loader2, Pencil, Plus, Tag, Trash2, X } from 'lucide-
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
+import { Checkbox } from '../components/ui/Checkbox'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { FeatureLocked } from '../components/FeatureLocked'
 import { useAppBase } from '../lib/useAppBase'
@@ -307,7 +308,7 @@ function BrandEditor({
       />
 
       <label className="mt-4 flex cursor-pointer items-center gap-2.5">
-        <input type="checkbox" checked={showLogo} onChange={(e) => setShowLogo(e.target.checked)} className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+        <Checkbox checked={showLogo} onChange={(e) => setShowLogo(e.target.checked)} />
         <span className="text-sm text-slate-700">Mostrar el logo en el formulario</span>
       </label>
 

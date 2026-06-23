@@ -36,6 +36,7 @@ import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
+import { Checkbox } from '../components/ui/Checkbox'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -1039,10 +1040,6 @@ function CandidateTable({
   }
   const allSel = rows.length > 0 && rows.every((r) => selected.has(r.id))
   const someSel = rows.some((r) => selected.has(r.id))
-  const headRef = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (headRef.current) headRef.current.indeterminate = someSel && !allSel
-  }, [someSel, allSel])
 
   const toggleAll = () => {
     setSelected(allSel ? new Set() : new Set(rows.map((r) => r.id)))
@@ -1159,13 +1156,11 @@ function CandidateTable({
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/60">
             <th scope="col" className="w-10 px-3 py-2.5">
-              <input
-                ref={headRef}
-                type="checkbox"
+              <Checkbox
                 checked={allSel}
+                indeterminate={someSel && !allSel}
                 onChange={toggleAll}
                 aria-label="Seleccionar todos"
-                className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
             </th>
             <SortHead k="nombre">Candidato</SortHead>
@@ -1194,12 +1189,10 @@ function CandidateTable({
                 }`}
               >
                 <td className="relative px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={sel}
                     onChange={() => toggleOne(c.id)}
                     aria-label={`Seleccionar ${name}`}
-                    className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
                 </td>
                 <td className="px-3 py-3">
@@ -1387,15 +1380,13 @@ function FilterMenu({
   // móvil. Las filas son cómodas al tacto (≥44px) en móvil y compactas en sm+.
   const rowClass =
     'flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2.5 text-[15px] text-slate-700 hover:bg-slate-50 sm:gap-2 sm:px-1.5 sm:py-1 sm:text-sm'
-  const checkClass = 'size-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 sm:size-4'
   const controls = (
     <>
       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Estado</p>
       <div className="mb-4 space-y-0.5 sm:mb-3">
         {STATUS_ORDER.map((s) => (
           <label key={s} className={rowClass}>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={statusFilter.has(s)}
               onChange={() =>
                 setStatusFilter((p) => {
@@ -1404,7 +1395,6 @@ function FilterMenu({
                   return n
                 })
               }
-              className={checkClass}
             />
             <span className={`size-2 rounded-full ${STATUS_META[s].dot}`} aria-hidden />
             {STATUS_META[s].label}
@@ -1420,11 +1410,9 @@ function FilterMenu({
           <div role="group" aria-labelledby="flt-tags" className="space-y-0.5">
             {tags.map((t) => (
               <label key={t.id} className={rowClass}>
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={tagFilter.has(t.id)}
                   onChange={() => toggleTag(t.id)}
-                  className={checkClass}
                 />
                 <span className="min-w-0 truncate">{t.name}</span>
               </label>
@@ -1439,11 +1427,9 @@ function FilterMenu({
           <div role="group" aria-labelledby={`flt-${f.id}`} className="space-y-0.5">
             {(f.type === 'boolean' ? ['Sí', 'No'] : f.options ?? []).map((opt) => (
               <label key={opt} className={rowClass}>
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={hasValue(f.id, opt)}
                   onChange={() => toggleValue(f, opt)}
-                  className={checkClass}
                 />
                 {opt}
               </label>

@@ -39,6 +39,7 @@ import {
 import { useStore } from '../lib/store'
 import { brandAssetUrl } from '../lib/brandAsset'
 import { useToast } from '../components/ui/Toast'
+import { Checkbox } from '../components/ui/Checkbox'
 import { ApplicationForm } from '../components/ApplicationForm'
 import type { FieldValue } from '../components/FieldRenderer'
 import { FIELD_TYPE_META } from '../lib/types'
@@ -492,11 +493,9 @@ function SortableFieldRow({
 
           <div className="flex items-center justify-between pt-1">
             <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={field.required}
                 onChange={(e) => onUpdate({ required: e.target.checked })}
-                className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
               />
               Obligatorio
             </label>
@@ -512,11 +511,10 @@ function SortableFieldRow({
           {/* Solo en el campo base de nombre: dividir en nombre + apellidos. */}
           {field.id === 'nombre' && onToggleNameSplit && (
             <label className="flex cursor-pointer items-start gap-2 border-t border-slate-100 pt-3 text-sm text-slate-700">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={!!nameSplit}
                 onChange={(e) => onToggleNameSplit(e.target.checked)}
-                className="mt-0.5 size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                className="mt-0.5"
               />
               <span>
                 Pedir nombre y apellidos por separado
@@ -666,11 +664,9 @@ function Branding({ campaign }: { campaign: Campaign }) {
         </div>
 
         <label className="flex cursor-pointer items-center gap-2 pt-1 text-sm text-slate-700">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={b.showLogo}
             onChange={(e) => updateBranding(campaign.id, { showLogo: e.target.checked })}
-            className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
           />
           Mostrar nombre de la empresa arriba
         </label>
