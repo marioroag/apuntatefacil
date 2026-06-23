@@ -1501,10 +1501,15 @@ function FilterMenu({
       <button
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className={BTN_SECONDARY}
+        className={`${BTN_SECONDARY} relative`}
       >
         <Filter className="size-4 text-slate-400" aria-hidden /> Filtros
-        {count > 0 && <span className="rounded-full bg-indigo-600 px-1.5 text-[11px] font-bold text-white tabular-nums">{count}</span>}
+        {/* Badge en la esquina: absoluto, no altera el ancho del botón. */}
+        {count > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold leading-none text-white tabular-nums ring-2 ring-white">
+            {count}
+          </span>
+        )}
       </button>
 
       {/* Escritorio: desplegable anclado al botón */}
@@ -1741,9 +1746,6 @@ function SavedViewsMenu({
         className={BTN_SECONDARY}
       >
         <Bookmark className="size-4 text-slate-400" aria-hidden /> Vistas
-        {views.length > 0 && (
-          <span className="rounded-full bg-slate-100 px-1.5 text-[11px] font-bold tabular-nums text-slate-500">{views.length}</span>
-        )}
       </button>
 
       {/* Escritorio: desplegable anclado al botón */}
