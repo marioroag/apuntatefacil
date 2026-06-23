@@ -389,6 +389,7 @@ function FieldRowHeader({
   onToggle,
   onMove,
   handleProps,
+  rowProps,
   overlay = false,
 }: {
   field: FormField
@@ -398,19 +399,23 @@ function FieldRowHeader({
   onToggle?: () => void
   onMove?: (dir: -1 | 1) => void
   handleProps?: Record<string, unknown>
+  rowProps?: Record<string, unknown>
   overlay?: boolean
 }) {
   const meta = FIELD_TYPE_META[field.type]
   const noFocus = overlay ? { tabIndex: -1 } : undefined
   return (
-    <div className="flex items-center gap-1.5 px-2 py-2">
-      {/* Asa de arrastre (ratón y táctil). touch-none: al agarrar el asa el navegador no
-          scrollea, lo gestiona el TouchSensor. En móvil quedan además los botones subir/bajar
-          como alternativa. select-none evita el menú de selección de iOS al mantener pulsado. */}
+    // rowProps lleva el activador TÁCTIL (onTouchStart) en TODA la fila: en móvil, mantener
+    // pulsado cualquier campo lo agarra para reordenar. select-none evita el menú de selección
+    // de iOS al mantener pulsado. No ponemos touch-action:none: el swipe sigue scrolleando y el
+    // delay del TouchSensor distingue arrastre de scroll (dnd-kit corta el scroll al activar).
+    <div {...(rowProps as React.HTMLAttributes<HTMLDivElement>)} className="flex select-none items-center gap-1.5 px-2 py-2">
+      {/* Asa: arrastre con ratón y foco de teclado. El táctil del asa ya lo cubre la fila
+          (rowProps), así que aquí no hace falta touch-none. */}
       <button
         {...(handleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
         {...noFocus}
-        className={`touch-none select-none rounded-lg p-1.5 hover:bg-slate-100 ${
+        className={`rounded-lg p-1.5 hover:bg-slate-100 ${
           overlay ? 'cursor-grabbing text-slate-500' : 'cursor-grab text-slate-300 hover:text-slate-500 active:cursor-grabbing'
         }`}
         aria-label={`Reordenar ${field.label}, posición ${index + 1} de ${total}`}
@@ -466,6 +471,10 @@ function SortableFieldRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
+  // Separamos el activador táctil del resto: el asa lleva ratón (onMouseDown) + teclado
+  // (onKeyDown); la fila entera lleva solo el táctil (onTouchStart), para poder agarrar
+  // cualquier campo manteniendo pulsado en móvil sin hacerla arrastrable con ratón.
+  const { onTouchStart, ...pointerKeyListeners } = listeners ?? {}
 
   return (
     <li
@@ -480,7 +489,8 @@ function SortableFieldRow({
         expanded={expanded}
         onToggle={onToggle}
         onMove={onMove}
-        handleProps={{ ...attributes, ...listeners }}
+        handleProps={{ ...attributes, ...pointerKeyListeners }}
+        rowProps={{ onTouchStart }}
       />
 
       {expanded && (
