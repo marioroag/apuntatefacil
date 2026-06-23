@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Navigate, Outlet, useParams } from 'react-router-dom'
+import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Briefcase, Building2, Check, ChevronDown, ExternalLink, Inbox, LayoutGrid, Loader2, LogOut, Menu, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -203,10 +203,11 @@ function CompanySwitcher({
 }
 
 export function AppLayout() {
-  const { campaigns, newCountFor, newSinceFor, resetDemo, sites } = useStore()
+  const { campaigns, newCountFor, newSinceFor, resetDemo, sites, loading } = useStore()
   const { company, companies, setActiveCompany, signOut, role } = useAuth()
   const { campaignId } = useParams()
   const base = useAppBase()
+  const navigate = useNavigate()
   const demo = base === '/demo'
   const [open, setOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -439,7 +440,15 @@ export function AppLayout() {
         </div>
       )}
 
-      {groupBySite ? (
+      {loading ? (
+        // Transición (carga inicial o cambio de equipo): skeleton en lugar de los puestos del
+        // equipo anterior, para que header, lista y contenido se revelen a la vez al terminar.
+        <div className="flex-1 space-y-0.5 overflow-y-auto px-2 pt-4" role="status" aria-label="Cargando puestos">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-9 rounded-lg skeleton" />
+          ))}
+        </div>
+      ) : groupBySite ? (
         <div className="flex-1 overflow-y-auto px-2 pt-4">
           {sites.map((s) => {
             const items = campaigns.filter((c) => c.siteId === s.id)
@@ -509,7 +518,19 @@ export function AppLayout() {
                 aparte (abajo), así no anidamos interactivos dentro del Link. */}
             {companies.length > 1 ? (
               <>
-                <CompanySwitcher companies={companies} activeId={company.id} onSwitch={setActiveCompany} />
+                <CompanySwitcher
+                  companies={companies}
+                  activeId={company.id}
+                  onSwitch={(id) => {
+                    if (id === company.id) return
+                    setActiveCompany(id)
+                    setOpen(false) // cerrar el drawer móvil, como el resto de acciones del menú
+                    // Vamos a la base: el store entra en "cargando" de golpe (loadedCompanyId aún
+                    // es el viejo) y FirstCampaignRedirect lleva al primer puesto del nuevo equipo
+                    // cuando llegan sus datos. Evita quedar en un :id que ya no existe.
+                    navigate(base)
+                  }}
+                />
                 {isOwner && (
                   <Link
                     to="/app/plan"

@@ -223,6 +223,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const companyId = company?.id
 
   const [loading, setLoading] = useState(false)
+  // Empresa cuyos datos hay AHORA en memoria. Si difiere de la empresa activa, estamos en
+  // una transición (cambio de equipo): el panel debe verse cargando, no con los datos del
+  // equipo anterior. Ver `dataLoading` más abajo.
+  const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null)
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [savedViews, setSavedViews] = useState<SavedView[]>([])
@@ -234,8 +238,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // refetch (reloadCandidatesFor) NO debe pisar su estado local con datos viejos
   // del servidor mientras la escritura está en vuelo.
   const pendingCandidateWrites = useRef<Set<string>>(new Set())
+  // Secuencia de cargas: con cambios de equipo rápidos solo la última recarga escribe su
+  // resultado (una respuesta vieja no debe pisar los datos del equipo recién elegido).
+  const loadSeq = useRef(0)
 
   const reload = useCallback(async () => {
+    // Toda invocación invalida cualquier carga en vuelo anterior, también las que terminan en un
+    // early-return (logout -> companyId undefined, demo): así una respuesta tardía del equipo
+    // anterior no resucita sus datos en memoria tras salir.
+    const seq = ++loadSeq.current
     if (!companyId) {
       setCampaigns([])
       setCandidates([])
@@ -243,6 +254,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSites([])
       setBrands([])
       setTags([])
+      setLoadedCompanyId(null)
       return
     }
     if (companyId === 'demo') {
@@ -255,6 +267,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSites(saved?.sites ?? SEED.sites)
       setBrands(saved?.brands ?? SEED_BRANDS)
       setTags(saved?.tags ?? SEED_TAGS)
+      setLoadedCompanyId('demo')
       setLoading(false)
       return
     }
@@ -272,8 +285,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // filas de candidatos de otra empresa simplemente no casan con los cargados aquí).
       supabase.from('candidate_tags').select('candidate_id,tag_id'),
     ])
+    if (seq !== loadSeq.current) return // un cambio de equipo más nuevo ya está cargando
     if (c1.error || c2.error) {
       toast.error('No pudimos cargar tus datos. Reintenta en unos segundos.')
+      // Sin datos válidos de ESTA empresa: vaciamos para no revelar los del equipo anterior
+      // bajo la identidad del nuevo (mismo resultado que una carga inicial fallida: panel vacío
+      // + toast). Recuperable recargando o volviendo a entrar al equipo.
+      setCampaigns([])
+      setCandidates([])
     } else {
       const tagMap = !c7.error && c7.data ? tagsByCandidate(c7.data as CandidateTagRow[]) : new Map<string, string[]>()
       setCampaigns((c1.data as CampaignRow[]).map(toCampaign))
@@ -284,6 +303,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSites(!c4.error && c4.data ? (c4.data as SiteRow[]).map(toSite) : [])
     setBrands(!c5.error && c5.data ? (c5.data as BrandRow[]).map(toBrand) : [])
     setTags(!c6.error && c6.data ? (c6.data as TagRow[]).map(toTag) : [])
+    setLoadedCompanyId(companyId)
     setLoading(false)
   }, [companyId, toast])
 
@@ -321,8 +341,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // loading expuesto = recarga en curso O cambio de empresa aún sin sus datos. El segundo
+  // término es true en el MISMO render en que cambia la empresa activa, así el panel pasa a
+  // "cargando" de golpe, sin un frame enseñando los puestos del equipo anterior. (Demo no
+  // tiene cambiador, se excluye para que no parpadee en su carga inicial.)
+  const dataLoading = loading || (companyId != null && companyId !== 'demo' && loadedCompanyId !== companyId)
+
   const store = useMemo<Store>(() => ({
-    loading,
+    loading: dataLoading,
     campaigns,
     candidates,
     getCampaign: (id) => campaigns.find((c) => c.id === id),
@@ -931,7 +957,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setBrands(SEED_BRANDS)
       setTags(SEED_TAGS)
     },
-  }), [loading, campaigns, candidates, savedViews, sites, brands, tags, seen, companyId, reload, toast])
+  }), [dataLoading, campaigns, candidates, savedViews, sites, brands, tags, seen, companyId, reload, toast])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }
