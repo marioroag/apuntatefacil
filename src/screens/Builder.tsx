@@ -273,6 +273,11 @@ export function Builder() {
                 onDragEnd={onDragEnd}
                 onDragCancel={() => setActiveId(null)}
                 measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+                // layoutShiftCompensation:false evita que el DragOverlay derive (se escape hacia
+                // arriba) durante el autoscroll. Por defecto dnd-kit compensa los cambios de layout
+                // mientras autoscrollea, y esa compensación acumula un desfase en Safari (en Chrome
+                // no se nota): la fila arrastrada se separa del cursor y el soltado cae descuadrado.
+                autoScroll={{ layoutShiftCompensation: false }}
               >
                 <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
                   <ul className="space-y-2">
