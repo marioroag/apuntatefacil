@@ -130,10 +130,10 @@ export function ApplicationForm({
         ))}
       </div>
 
-      <p className="mt-4 text-[13px] text-slate-400">Los campos con * son obligatorios</p>
+      <p className="mt-4 text-[13px] text-slate-500">Los campos con * son obligatorios</p>
 
       {/* Aviso de privacidad honesto */}
-      <p className="mt-5 flex items-start gap-1.5 text-[12px] leading-relaxed text-slate-400">
+      <p className="mt-5 flex items-start gap-1.5 text-[12px] leading-relaxed text-slate-500">
         <Lock className="mt-0.5 size-3 shrink-0" aria-hidden />
         <span className="min-w-0 break-words">
           Tus datos se enviarán a {companyName} para este proceso de selección.{' '}
@@ -156,13 +156,13 @@ export function ApplicationForm({
       <button
         type="submit"
         disabled={submitting || preview}
-        className="on-accent mt-4 flex w-full items-center justify-center rounded-xl text-base font-semibold text-on-accent transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.99] disabled:opacity-70"
+        className="on-accent mt-4 flex w-full items-center justify-center rounded-xl text-base font-semibold text-on-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(18,22,34,0.24)] ring-1 ring-inset ring-black/10 transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-[1.06] active:translate-y-px disabled:opacity-70"
         style={{ backgroundColor: accent, height: 52 }}
       >
         {submitting ? 'Enviando...' : 'Enviar candidatura'}
       </button>
       {preview && (
-        <p className="mt-2 text-center text-[12px] text-slate-400">Vista previa, lo que verá el candidato</p>
+        <p className="mt-2 text-center text-[12px] text-slate-500">Vista previa, lo que verá el candidato</p>
       )}
     </form>
   )

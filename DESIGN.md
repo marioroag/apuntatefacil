@@ -1,54 +1,54 @@
 ---
 name: Apúntate Fácil
-description: SaaS de contratación sobrio y de confianza, índigo sobre slate, una sola sombra por elevación
+description: SaaS de contratación nítido y premium ("Instrumento de precisión"): Geist, ultramarine sobre grafito, una sola sombra por elevación
 colors:
-  accent: "#4F46E5"
-  accent-hover: "#4338CA"
-  accent-bright: "#6366F1"
-  accent-wash: "#EEF2FF"
-  ink: "#0F172A"
-  ink-strong: "#1E293B"
-  ink-secondary: "#475569"
-  ink-tertiary: "#64748B"
+  accent: "#374CCE"
+  accent-hover: "#2D3FB0"
+  accent-bright: "#4761F0"
+  accent-wash: "#EEF2FE"
+  ink: "#131822"
+  ink-strong: "#242833"
+  ink-secondary: "#50545E"
+  ink-tertiary: "#6F727C"
   surface: "#FFFFFF"
-  bg-app: "#F8FAFC"
-  fill-muted: "#F1F5F9"
-  border: "#E2E8F0"
-  border-strong: "#CBD5E1"
-  status-new: "#64748B"
+  bg-app: "#F9FAFB"
+  fill-muted: "#F4F5F7"
+  border: "#E5E7EB"
+  border-strong: "#D1D4DB"
+  status-new: "#6F727C"
   status-contacted: "#3B82F6"
   status-interview: "#F59E0B"
   status-hired: "#22C55E"
-  status-discarded: "#CBD5E1"
+  status-discarded: "#D1D4DB"
   danger: "#DC2626"
 typography:
   display:
-    fontFamily: "Manrope Variable, Inter Variable, system-ui, sans-serif"
+    fontFamily: "Geist Variable, system-ui, sans-serif"
     note: "Marca (landing y app): wordmark 'apuntatefacil' (.brand-wordmark, extrabold, tinta) y TODOS los titulares (h1/h2/h3). El cuerpo, las tablas y los datos densos siguen en Inter."
   headline:
-    fontFamily: "Inter Variable, system-ui, sans-serif"
+    fontFamily: "Geist Variable, system-ui, sans-serif"
     fontSize: "1.25rem"
     fontWeight: 600
     lineHeight: 1.35
     letterSpacing: "-0.01em"
   title:
-    fontFamily: "Inter Variable, system-ui, sans-serif"
+    fontFamily: "Geist Variable, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 600
     lineHeight: 1.4
   body:
-    fontFamily: "Inter Variable, system-ui, sans-serif"
+    fontFamily: "Geist Variable, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.5
     fontFeature: "'tnum' 1, 'cv05' 1"
   label:
-    fontFamily: "Inter Variable, system-ui, sans-serif"
+    fontFamily: "Geist Variable, system-ui, sans-serif"
     fontSize: "0.8125rem"
     fontWeight: 500
     lineHeight: 1.3
   overline:
-    fontFamily: "Inter Variable, system-ui, sans-serif"
+    fontFamily: "Geist Variable, system-ui, sans-serif"
     fontSize: "0.6875rem"
     fontWeight: 600
     letterSpacing: "0.05em"
@@ -101,6 +101,8 @@ components:
 
 # Design System: Apúntate Fácil
 
+> Migrado al sistema nuevo "Instrumento de precisión" (jun 2026): **tipografía Geist** (familia única, sin mono), **acento ultramarine `#374CCE`** (solo acción/nav/foco/selección; el uso decorativo se neutraliza a slate), **neutros grafito**, radios por rol (inputs/tarjetas 10px, botones 8px), botón con relieve (`lib/buttons.ts`) y logo SVG. Los tokens (frontmatter, arriba) ya reflejan el sistema nuevo; parte de la prosa narrativa aún menciona el viejo (índigo/Inter) y se regenerará con `/impeccable document`. Fuente de verdad: `CLAUDE.md`.
+
 ## 1. Overview
 
 **Creative North Star: "La mesa de trabajo despejada"**
@@ -112,7 +114,7 @@ La densidad es la de una herramienta de trabajo: tablas con muchas filas, panele
 Este sistema rechaza explícitamente el molde de SaaS de plantilla (rejillas de cards idénticas, eyebrow tracked sobre cada sección, plantilla hero-métrica, degradados de IA), todo lo que huela a ganga (`.99`, urgencia, gradientes chillones), lo infantil (mascotas, emojis, colores de caramelo) y cualquier dark pattern. La calidad se demuestra en la contención y el detalle, no en efectos.
 
 **Key Characteristics:**
-- Un solo acento (índigo `#4F46E5`) y neutros slate; color = significado, nunca decoración.
+- Un solo acento (índigo `#374CCE`) y neutros slate; color = significado, nunca decoración.
 - Jerarquía por peso y color antes que por tamaño; una sola familia (Inter).
 - Plano por defecto, una sola sombra por elevación, bordes que hacen el trabajo.
 - Estado de candidato = punto de color **+** texto, con paleta propia que nunca usa el índigo.
@@ -123,19 +125,19 @@ Este sistema rechaza explícitamente el molde de SaaS de plantilla (rejillas de 
 Un único acento índigo de confianza sobre una escala neutra slate; el color solo aparece donde hay significado.
 
 ### Primary
-- **Índigo de confianza** (`#4F46E5`): el acento de marca. Aparece SOLO en lo accionable: botón primario, nav activo, anillo de foco, selección y el acento configurable del formulario público. Profundo y sereno, dice "fiable" sin gritar. Variantes: hover/active `#4338CA`, brillo superior del relieve `#6366F1`, lavado de fondo (nav activo, tinte de foco) `#EEF2FF`.
+- **Índigo de confianza** (`#374CCE`): el acento de marca. Aparece SOLO en lo accionable: botón primario, nav activo, anillo de foco, selección y el acento configurable del formulario público. Profundo y sereno, dice "fiable" sin gritar. Variantes: hover/active `#2D3FB0`, brillo superior del relieve `#4761F0`, lavado de fondo (nav activo, tinte de foco) `#EEF2FE`.
 
 ### Neutral
-- **Tinta** (`#0F172A`, slate-900): texto principal. **Tinta fuerte** (`#1E293B`, slate-800): texto de botón secundario y énfasis. **Tinta secundaria** (`#475569`, slate-600): subtítulos y texto de apoyo legible. **Tinta terciaria** (`#64748B`, slate-500): metadatos, placeholders con significado. Todo texto con significado cumple ≥ 4.5:1.
-- **Superficie** (`#FFFFFF`): tarjetas, paneles, inputs. **Fondo de app** (`#F8FAFC`, slate-50): el lienzo bajo las superficies, una segunda capa neutra. **Relleno tenue** (`#F1F5F9`, slate-100): chips neutros, filas en hover, mini-stats. **Borde** (`#E2E8F0`, slate-200): divisores y contornos de tarjeta. **Borde fuerte** (`#CBD5E1`, slate-300): contorno de input.
+- **Tinta** (`#131822`, slate-900): texto principal. **Tinta fuerte** (`#242833`, slate-800): texto de botón secundario y énfasis. **Tinta secundaria** (`#50545E`, slate-600): subtítulos y texto de apoyo legible. **Tinta terciaria** (`#6F727C`, slate-500): metadatos, placeholders con significado. Todo texto con significado cumple ≥ 4.5:1.
+- **Superficie** (`#FFFFFF`): tarjetas, paneles, inputs. **Fondo de app** (`#F9FAFB`, slate-50): el lienzo bajo las superficies, una segunda capa neutra. **Relleno tenue** (`#F4F5F7`, slate-100): chips neutros, filas en hover, mini-stats. **Borde** (`#E5E7EB`, slate-200): divisores y contornos de tarjeta. **Borde fuerte** (`#D1D4DB`, slate-300): contorno de input.
 
 ### Tertiary (paleta de estado, semántica y fija)
 Los cinco estados de candidato tienen color propio y **nunca** usan el índigo de marca:
-- **Nuevo** (`#64748B`, slate): a la espera, neutro. **Contactado** (`#3B82F6`, azul). **Entrevista** (`#F59E0B`, ámbar). **Contratado** (`#22C55E`, verde): el único hito celebrable. **Descartado** (`#CBD5E1`, slate apagado): rutina y reversible, **nunca rojo**.
+- **Nuevo** (`#6F727C`, slate): a la espera, neutro. **Contactado** (`#3B82F6`, azul). **Entrevista** (`#F59E0B`, ámbar). **Contratado** (`#22C55E`, verde): el único hito celebrable. **Descartado** (`#D1D4DB`, slate apagado): rutina y reversible, **nunca rojo**.
 - **Peligro** (`#DC2626`, red-600): SOLO errores reales y acciones destructivas, con borde + icono, nunca solo color.
 
 ### Named Rules
-**La regla del acento único.** El índigo `#4F46E5` se reserva a acción, navegación activa, foco y selección. Nunca para estado ni para decorar. Es el error número uno a evitar: un índigo decorativo destruye su significado.
+**La regla del acento único.** El índigo `#374CCE` se reserva a acción, navegación activa, foco y selección. Nunca para estado ni para decorar. Es el error número uno a evitar: un índigo decorativo destruye su significado.
 
 **La regla "estado no es marca".** Los estados de candidato usan su paleta fija (slate / azul / ámbar / verde / slate). Si un estado aparece en índigo, está mal. Descartar es rutina: nunca rojo, nunca shake.
 
@@ -161,7 +163,7 @@ Los cinco estados de candidato tienen color propio y **nunca** usan el índigo d
 
 ## 4. Elevation
 
-Plano por defecto. La profundidad la dan los bordes y la capa de fondo (`#F8FAFC` bajo superficies blancas), no las sombras. Cuando hace falta elevación hay **exactamente dos** sombras, y nunca se apilan.
+Plano por defecto. La profundidad la dan los bordes y la capa de fondo (`#F9FAFB` bajo superficies blancas), no las sombras. Cuando hace falta elevación hay **exactamente dos** sombras, y nunca se apilan.
 
 ### Shadow Vocabulary
 - **Reposo de tarjeta** (`box-shadow: 0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04)`): tarjetas y paneles asentados sobre el fondo. Apenas perceptible, da peso sin dramatismo.
@@ -177,9 +179,9 @@ Familiar y de confianza: vocabulario estándar, cero affordances inventadas. La 
 
 ### Buttons
 - **Shape:** esquinas de 10px (`rounded-[10px]`), altura fija 36px (`h-9`).
-- **Primary:** relieve índigo. Degradado `#6366F1 → #4F46E5`, texto blanco 600, anillo interior `rgba(67,56,202,0.5)`, brillo superior + sombra ínfima. Padding `0 16px`.
-- **Hover / Active:** hover oscurece el degradado a `#4338CA`; active baja 1px (`translateY(1px)`) y cambia a sombra interior. Foco: `outline: 2px solid #4F46E5` con `outline-offset: 2px`.
-- **Secondary:** superficie blanca con borde `rgba(203,213,225,0.7)`, texto tinta fuerte `#1E293B` 500, sombra de reposo mínima. Hover a `#F8FAFC`, active baja 1px. Es la acción de menor peso, no un botón fantasma plano.
+- **Primary:** relieve índigo. Degradado `#4761F0 → #374CCE`, texto blanco 600, anillo interior `rgba(67,56,202,0.5)`, brillo superior + sombra ínfima. Padding `0 16px`.
+- **Hover / Active:** hover oscurece el degradado a `#2D3FB0`; active baja 1px (`translateY(1px)`) y cambia a sombra interior. Foco: `outline: 2px solid #374CCE` con `outline-offset: 2px`.
+- **Secondary:** superficie blanca con borde `rgba(203,213,225,0.7)`, texto tinta fuerte `#242833` 500, sombra de reposo mínima. Hover a `#F9FAFB`, active baja 1px. Es la acción de menor peso, no un botón fantasma plano.
 
 ### Chips
 - **Style:** píldora (`rounded-full`), `bg-{estado}-50` + `text-{estado}-700` + anillo interior `ring-{estado}-200`. Punto de color a la izquierda + etiqueta.
@@ -187,19 +189,19 @@ Familiar y de confianza: vocabulario estándar, cero affordances inventadas. La 
 
 ### Cards / Containers
 - **Corner Style:** 12px (`rounded-xl`).
-- **Background:** superficie blanca sobre fondo `#F8FAFC`.
+- **Background:** superficie blanca sobre fondo `#F9FAFB`.
 - **Shadow Strategy:** `shadow-card` en reposo (ver Elevation). Nunca `shadow-pop` salvo que floten de verdad.
-- **Border:** 1px `#E2E8F0` siempre; el borde hace tanto trabajo como la sombra.
+- **Border:** 1px `#E5E7EB` siempre; el borde hace tanto trabajo como la sombra.
 - **Internal Padding:** 16–20px (`p-4` / `p-5`). Tarjetas anidadas: prohibidas.
 
 ### Inputs / Fields
-- **Style:** 12px de radio, borde `#CBD5E1`, fondo blanco, alto 40px en panel (48px y fuente 16px en el formulario público para evitar el zoom de iOS).
-- **Focus:** borde a `#4F46E5` + halo `0 0 0 4px rgba(79,70,229,0.15)`. Nunca se quita el outline.
+- **Style:** 12px de radio, borde `#D1D4DB`, fondo blanco, alto 40px en panel (48px y fuente 16px en el formulario público para evitar el zoom de iOS).
+- **Focus:** borde a `#374CCE` + halo `0 0 0 4px rgba(79,70,229,0.15)`. Nunca se quita el outline.
 - **Error / Disabled:** error con borde + icono `#DC2626` (nunca solo color); validación al blur y al enviar, jamás al teclear. En un envío fallido **nunca** se borra lo que el candidato escribió ni su CV.
 
 ### Navigation
-- **Style:** menú lateral blanco (240px) con borde derecho `#E2E8F0`; en móvil, drawer deslizante con overlay. Ítems de 36px, radio 12px.
-- **States:** inactivo `text-slate-600` con icono `#94A3B8`; hover `bg-slate-100`; **activo** `bg-#EEF2FF` + texto tinta 600 + icono índigo. Los puestos se agrupan por sede bajo cabeceras overline.
+- **Style:** menú lateral blanco (240px) con borde derecho `#E5E7EB`; en móvil, drawer deslizante con overlay. Ítems de 36px, radio 12px.
+- **States:** inactivo `text-slate-600` con icono `#94A3B8`; hover `bg-slate-100`; **activo** `bg-#EEF2FE` + texto tinta 600 + icono índigo. Los puestos se agrupan por sede bajo cabeceras overline.
 
 ### Signature: el FieldRenderer WYSIWYG
 Un único componente pinta a la vez la preview del constructor de formularios y el formulario público real. Si tocas uno, tocas los dos: no existe una versión "bonita" distinta del producto. El acento configurable del cliente pasa por una guarda de contraste AA (`src/lib/colors.ts`): si el blanco no llega a 4.5:1 sobre su color, el texto del botón pasa a tinta oscura automáticamente.
@@ -210,7 +212,7 @@ El detalle de un candidato abre en un SlideOver (panel lateral con `shadow-pop`)
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** reservar el índigo `#4F46E5` a acción, nav activo, foco y selección; para todo lo demás, slate.
+- **Do** reservar el índigo `#374CCE` a acción, nav activo, foco y selección; para todo lo demás, slate.
 - **Do** comunicar el estado con punto de color **+** texto, usando la paleta fija de estado (slate / azul / ámbar / verde / slate), nunca el índigo.
 - **Do** construir jerarquía con peso (400/500/600) y color antes que con tamaño; una sola familia, Inter, con `tabular-nums` en todo número.
 - **Do** mantener plano por defecto: borde + `shadow-card` en reposo, `shadow-pop` solo en lo que flota de verdad, una sola sombra por elevación.

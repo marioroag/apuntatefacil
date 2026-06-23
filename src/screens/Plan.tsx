@@ -52,7 +52,7 @@ export function Plan() {
   if (companyLoading) {
     return (
       <div className="grid min-h-svh place-items-center bg-slate-50" role="status" aria-label="Cargando">
-        <Loader2 className="size-6 animate-spin text-slate-400" aria-hidden />
+        <Loader2 className="size-6 animate-spin text-slate-500" aria-hidden />
       </div>
     )
   }
@@ -232,7 +232,7 @@ export function Plan() {
               <ul className="mt-5 flex-1 space-y-2">
                 {t.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-slate-700">
-                    <Check className="mt-0.5 size-4 shrink-0 text-indigo-600" aria-hidden /> {f}
+                    <Check className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden /> {f}
                   </li>
                 ))}
               </ul>
@@ -272,7 +272,7 @@ export function Plan() {
             Cancelar suscripción
           </button>
         ))}
-        <p className="text-center text-[13px] text-slate-400">
+        <p className="text-center text-[13px] text-slate-500">
           {pendingCancel
             ? 'Tu plan se cancelará al final del periodo ya pagado. Reanúdalo cuando quieras para seguir.'
             : subscribed
@@ -313,7 +313,7 @@ export function Plan() {
                 Tenías programada la cancelación al final del periodo. Al cambiar de plan, tu suscripción se reactiva y seguirá renovándose.
               </p>
             )}
-            <p className="mt-3 text-[13px] text-slate-400">Después seguirás pagando {dialog.price} € {dialog.annual ? 'al año' : 'al mes'} (IVA aparte). Puedes cancelar cuando quieras.</p>
+            <p className="mt-3 text-[13px] text-slate-500">Después seguirás pagando {dialog.price} € {dialog.annual ? 'al año' : 'al mes'} (IVA aparte). Puedes cancelar cuando quieras.</p>
           </>
         )}
       </ConfirmDialog>
@@ -332,7 +332,7 @@ export function Plan() {
         <p>
           Mantienes tu plan actual hasta el final del periodo ya pagado y, a partir de ahí, pasas al plan de <strong className="font-semibold text-slate-900">Prueba</strong>. No se te cobrará nada más.
         </p>
-        <p className="mt-2 text-[13px] text-slate-400">Tus datos siguen siendo tuyos: puedes exportarlos a Excel cuando quieras.</p>
+        <p className="mt-2 text-[13px] text-slate-500">Tus datos siguen siendo tuyos: puedes exportarlos a Excel cuando quieras.</p>
       </ConfirmDialog>
     </div>
   )

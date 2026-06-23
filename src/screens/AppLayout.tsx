@@ -50,7 +50,7 @@ function SideNavItem({
           <Icon className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
           <span className="flex-1">{label}</span>
           {count > 0 && (
-            <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700" title={`${count} nuevos`}>
+            <span className="num shrink-0 rounded-full bg-slate-200 px-1.5 text-[11px] font-bold text-slate-700" title={`${count} nuevos`}>
               {count}
             </span>
           )}
@@ -98,7 +98,7 @@ function EmptyCompany() {
   return (
     <div className="grid h-full place-items-center px-6">
       <div className="w-full max-w-md text-center">
-        <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
+        <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
           <Inbox className="size-6" aria-hidden />
         </div>
         <h1 className="mt-4 text-xl font-semibold text-slate-900">Empieza tu primer puesto</h1>
@@ -263,9 +263,9 @@ export function AppLayout() {
               {isActive && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-indigo-600" aria-hidden />}
               <Briefcase className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
               <span className="min-w-0 flex-1 truncate">{c.title}</span>
-              {c.status !== 'activa' && <span className="shrink-0 text-[11px] font-medium text-slate-400">{c.status === 'pausada' ? 'Pausado' : 'Cerrado'}</span>}
+              {c.status !== 'activa' && <span className="shrink-0 text-[11px] font-medium text-slate-500">{c.status === 'pausada' ? 'Pausado' : 'Cerrado'}</span>}
               {count > 0 && (
-                <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700" title={`${count} nuevos`}>
+                <span className="num shrink-0 rounded-full bg-slate-200 px-1.5 text-[11px] font-bold text-slate-700" title={`${count} nuevos`}>
                   {count}
                 </span>
               )}
@@ -384,7 +384,7 @@ export function AppLayout() {
                 >
                   <ChevronDown className={`size-3.5 shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} aria-hidden />
                   <span className="min-w-0 flex-1 truncate text-left">{s.name}</span>
-                  <span className="tabular-nums">{items.length}</span>
+                  <span className="num">{items.length}</span>
                 </button>
                 {!isCollapsed && <ul className="space-y-0.5">{items.map(renderPuesto)}</ul>}
               </div>
@@ -403,7 +403,7 @@ export function AppLayout() {
                 >
                   <ChevronDown className={`size-3.5 shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} aria-hidden />
                   <span className="min-w-0 flex-1 truncate text-left">Sin sede</span>
-                  <span className="tabular-nums">{sinSede.length}</span>
+                  <span className="num">{sinSede.length}</span>
                 </button>
                 {!isCollapsed && <ul className="space-y-0.5">{sinSede.map(renderPuesto)}</ul>}
               </div>

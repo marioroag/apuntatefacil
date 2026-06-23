@@ -442,7 +442,7 @@ function FileControl({
   if (value) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-slate-300 bg-white px-3.5 py-3">
-        <Paperclip className="size-4 shrink-0 text-slate-400" aria-hidden />
+        <Paperclip className="size-4 shrink-0 text-slate-500" aria-hidden />
         <span className="flex-1 truncate text-base text-slate-800">{value}</span>
         <button
           type="button"
@@ -473,7 +473,7 @@ function FileControl({
           error || localErr ? 'border-red-400' : 'border-slate-300'
         }`}
       >
-        <Paperclip className="size-5 text-slate-400" aria-hidden />
+        <Paperclip className="size-5 text-slate-500" aria-hidden />
         <span className="text-sm font-medium text-slate-700">Sube tu CV</span>
         <span className="text-[13px] text-slate-500">PDF o Word, hasta 8 MB</span>
       </button>

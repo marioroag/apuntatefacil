@@ -18,7 +18,7 @@ import type { Brand } from '../lib/types'
 type BrandValues = Omit<Brand, 'id'>
 const MAX_IMG = 2 * 1024 * 1024 // 2 MB
 
-function emptyBrand(accent = '#4f46e5'): BrandValues {
+function emptyBrand(accent = '#374cce'): BrandValues {
   const d = defaultBranding(accent)
   return { name: '', accent, welcome: d.welcome, thanks: d.thanks, showLogo: true, logoPath: null, bannerPath: null }
 }
@@ -79,7 +79,7 @@ export function Marcas() {
       <div className="mt-4 space-y-2">
         {brands.length === 0 && !creating ? (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-            <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+            <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
               <Tag className="size-6" aria-hidden />
             </div>
             <p className="mt-3 text-sm text-slate-500">Aún no tienes marcas. Crea la primera arriba.</p>
@@ -159,10 +159,10 @@ function BrandCard({ brand, count, onEdit, onDelete }: { brand: Brand; count: nu
         <p className="truncate font-medium text-slate-900">{brand.name}</p>
         <p className="text-[13px] text-slate-500">{count} {count === 1 ? 'puesto' : 'puestos'}</p>
       </div>
-      <button onClick={onEdit} aria-label={`Editar ${brand.name}`} className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+      <button onClick={onEdit} aria-label={`Editar ${brand.name}`} className="grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
         <Pencil className="size-4" aria-hidden />
       </button>
-      <button onClick={onDelete} aria-label={`Eliminar ${brand.name}`} className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600">
+      <button onClick={onDelete} aria-label={`Eliminar ${brand.name}`} className="grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600">
         <Trash2 className="size-4" aria-hidden />
       </button>
     </div>
@@ -239,7 +239,7 @@ function BrandEditor({
         placeholder="ej: La Tagliatella"
         className="mt-1.5 h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
       />
-      <p className="mt-1 text-[12px] text-slate-400">Es lo que ve el candidato en el formulario.</p>
+      <p className="mt-1 text-[12px] text-slate-500">Es lo que ve el candidato en el formulario.</p>
 
       <p className="mt-4 text-sm font-semibold text-slate-800">Color de la marca</p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -267,7 +267,7 @@ function BrandEditor({
           <Plus className="relative size-3.5 text-white drop-shadow" aria-hidden />
           <input
             type="color"
-            value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : '#4f46e5'}
+            value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : '#374cce'}
             onChange={(e) => setAccent(e.target.value)}
             aria-label="Elegir un color personalizado"
             className="absolute inset-0 size-full cursor-pointer opacity-0"
@@ -275,14 +275,14 @@ function BrandEditor({
         </label>
       </div>
       <div className="mt-2.5 flex items-center gap-2.5">
-        <span className="inline-flex h-9 items-center rounded-xl px-4 text-sm font-semibold" style={{ backgroundColor: isValidHex(accent) ? accent : '#4f46e5', color: readableOn(isValidHex(accent) ? accent : '#4f46e5') }}>
+        <span className="inline-flex h-9 items-center rounded-xl px-4 text-sm font-semibold" style={{ backgroundColor: isValidHex(accent) ? accent : '#374cce', color: readableOn(isValidHex(accent) ? accent : '#374cce') }}>
           Botón de ejemplo
         </span>
         {!passes && <span className="text-[12px] text-slate-500">Ajustamos el texto a tinta para que se lea bien.</span>}
       </div>
 
       <p className="mt-4 text-sm font-semibold text-slate-800">Imágenes de marca</p>
-      <p className="text-[12px] text-slate-400">Se ven en el formulario que rellena el candidato. Máximo 2 MB.</p>
+      <p className="text-[12px] text-slate-500">Se ven en el formulario que rellena el candidato. Máximo 2 MB.</p>
       <div className="mt-2 flex flex-wrap items-start gap-3">
         <AssetField label="Foto de perfil" shape="logo" url={brandAssetUrl(logoPath)} busy={uploading === 'logo'} onPick={(f) => upload(f, 'logo')} onRemove={() => setLogoPath(null)} />
         <AssetField label="Banner" shape="banner" url={brandAssetUrl(bannerPath)} busy={uploading === 'banner'} onPick={(f) => upload(f, 'banner')} onRemove={() => setBannerPath(null)} />
@@ -350,7 +350,7 @@ function AssetField({
           onClick={() => inputRef.current?.click()}
           disabled={busy}
           aria-label={url ? `Cambiar ${label}` : `Subir ${label}`}
-          className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-400 transition-colors hover:bg-white/40 hover:text-slate-600"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-500 transition-colors hover:bg-white/40 hover:text-slate-600"
         >
           {busy ? (
             <Loader2 className="size-5 animate-spin" aria-hidden />

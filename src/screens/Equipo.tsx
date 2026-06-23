@@ -156,19 +156,19 @@ export function Equipo() {
               )}
             </div>
           )}
-          <p className="mt-2 text-[12px] text-slate-400">Le llega un email con un enlace para unirse. También puedes copiar el enlace y enviárselo tú.</p>
+          <p className="mt-2 text-[12px] text-slate-500">Le llega un email con un enlace para unirse. También puedes copiar el enlace y enviárselo tú.</p>
         </form>
       )}
 
       {loading ? (
         <div className="mt-6 grid place-items-center py-10" role="status" aria-label="Cargando">
-          <Loader2 className="size-6 animate-spin text-slate-400" aria-hidden />
+          <Loader2 className="size-6 animate-spin text-slate-500" aria-hidden />
         </div>
       ) : (
         <>
           {invites.length > 0 && (
             <section className="mt-6">
-              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Invitaciones pendientes</h2>
+              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Invitaciones pendientes</h2>
               <div className="space-y-2">
                 {invites.map((inv) => (
                   <div key={inv.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-card">
@@ -185,7 +185,7 @@ export function Equipo() {
                       <Copy className="size-3.5" aria-hidden /> Enlace
                     </button>
                     {isOwner && (
-                      <button onClick={() => revoke(inv.id)} aria-label={`Revocar invitación de ${inv.email}`} className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600">
+                      <button onClick={() => revoke(inv.id)} aria-label={`Revocar invitación de ${inv.email}`} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600">
                         <Trash2 className="size-4" aria-hidden />
                       </button>
                     )}
@@ -196,7 +196,7 @@ export function Equipo() {
           )}
 
           <section className="mt-6">
-            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               {members.length} {members.length === 1 ? 'miembro' : 'miembros'}
             </h2>
             <div className="space-y-2">
@@ -216,7 +216,7 @@ export function Equipo() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-slate-900">
-                        {m.email} {m.is_self && <span className="text-[12px] font-normal text-slate-400">(tú)</span>}
+                        {m.email} {m.is_self && <span className="text-[12px] font-normal text-slate-500">(tú)</span>}
                       </p>
                       {m.role === 'encargado' && m.site_ids.length > 0 && (
                         <p className="truncate text-[12px] text-slate-500">{m.site_ids.map(siteName).join(', ')}</p>
@@ -226,7 +226,7 @@ export function Equipo() {
                       {ROLE_LABEL[m.role] ?? m.role}
                     </span>
                     {isOwner && !m.is_self && m.role !== 'owner' && canManagers && (
-                      <button onClick={() => setEditing(m.user_id)} aria-label={`Editar acceso de ${m.email}`} className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                      <button onClick={() => setEditing(m.user_id)} aria-label={`Editar acceso de ${m.email}`} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
                         <Pencil className="size-4" aria-hidden />
                       </button>
                     )}
@@ -265,7 +265,7 @@ function SedePicker({ sites, selected, onToggle }: { sites: { id: string; name: 
   return (
     <div className="mt-2 rounded-xl border border-slate-200 p-2.5">
       <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-slate-600">
-        <Building2 className="size-3.5 text-slate-400" aria-hidden /> Sedes que gestiona
+        <Building2 className="size-3.5 text-slate-500" aria-hidden /> Sedes que gestiona
       </p>
       <div className="flex flex-wrap gap-1.5">
         {sites.map((s) => {

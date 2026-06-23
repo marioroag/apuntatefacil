@@ -66,7 +66,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
             transition={{ duration: 0.18 }} onClick={onClose}
           />
           <motion.div
-            className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-pop"
+            className="relative w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-pop"
             initial={{ opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
@@ -74,10 +74,10 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
           >
             {atLimit ? (
               <div className="relative p-6 text-center">
-                <button onClick={onClose} aria-label="Cerrar" className="absolute right-3 top-3 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                <button onClick={onClose} aria-label="Cerrar" className="absolute right-3 top-3 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700">
                   <X className="size-5" aria-hidden />
                 </button>
-                <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
+                <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
                   <Lock className="size-6" aria-hidden />
                 </div>
                 <h2 id="wizard-title" className="mt-4 text-lg font-semibold text-slate-900">
@@ -107,7 +107,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                     <h2 id="wizard-title" className="text-lg font-semibold text-slate-900">Nuevo puesto</h2>
                     <p className="mt-0.5 text-[13px] text-slate-500">Elige un punto de partida. Podrás cambiarlo todo después.</p>
                   </div>
-                  <button onClick={onClose} aria-label="Cerrar" className="-mr-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                  <button onClick={onClose} aria-label="Cerrar" className="-mr-1 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700">
                     <X className="size-5" aria-hidden />
                   </button>
                 </div>

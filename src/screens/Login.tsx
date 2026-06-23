@@ -142,13 +142,13 @@ export function Login() {
           </div>
 
           {view === 'confirm-sent' ? (
-            <div className="mt-6 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-center">
-              <Mail className="mx-auto size-6 text-indigo-600" aria-hidden />
+            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <Mail className="mx-auto size-6 text-slate-500" aria-hidden />
               <p className="mt-2 text-sm font-semibold text-slate-900">Te hemos enviado un email para confirmar tu cuenta</p>
               <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
                 Lo enviamos a <strong>{email}</strong>. Ábrelo y pulsa el enlace para activar tu cuenta y entrar.
               </p>
-              {note && <p className="mt-2 text-[12px] font-medium text-indigo-700">{note}</p>}
+              {note && <p className="mt-2 text-[12px] font-medium text-slate-600">{note}</p>}
               <div className="mt-3 flex flex-col gap-1.5">
                 <button onClick={onResend} disabled={busy} className="text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-60">
                   Reenviar email
@@ -159,8 +159,8 @@ export function Login() {
               </div>
             </div>
           ) : view === 'reset-sent' ? (
-            <div className="mt-6 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-center">
-              <Mail className="mx-auto size-6 text-indigo-600" aria-hidden />
+            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+              <Mail className="mx-auto size-6 text-slate-500" aria-hidden />
               <p className="mt-2 text-sm font-semibold text-slate-900">Revisa tu email</p>
               <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
                 Si existe una cuenta con <strong>{email}</strong>, te hemos enviado un enlace para crear una contraseña nueva.
@@ -187,7 +187,7 @@ export function Login() {
                   className={inputClass(!!error)}
                 />
                 {error && <p className="mt-1.5 text-[13px] font-medium text-red-600">{error}</p>}
-                <button type="submit" disabled={busy} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-70">
+                <button type="submit" disabled={busy} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px disabled:opacity-70">
                   {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Enviando...</> : 'Enviar enlace'}
                 </button>
               </form>
@@ -223,14 +223,14 @@ export function Login() {
 
               <button
                 onClick={() => { setRememberMe(remember); signInWithGoogle() }}
-                className="mt-5 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-800 transition-colors hover:bg-slate-50 active:scale-[0.99]"
+                className="mt-5 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-[0_1px_2px_rgba(18,22,34,0.06)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-slate-50 active:translate-y-px"
               >
                 <GoogleIcon /> Continuar con Google
               </button>
 
               <div className="my-5 flex items-center gap-3">
                 <span className="h-px flex-1 bg-slate-200" />
-                <span className="text-[12px] font-medium text-slate-400">o con tu email</span>
+                <span className="text-[12px] font-medium text-slate-500">o con tu email</span>
                 <span className="h-px flex-1 bg-slate-200" />
               </div>
 
@@ -264,7 +264,7 @@ export function Login() {
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
                     aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                    className="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-slate-400 hover:text-slate-700"
+                    className="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:text-slate-700"
                   >
                     {showPassword ? <EyeOff className="size-[18px]" aria-hidden /> : <Eye className="size-[18px]" aria-hidden />}
                   </button>
@@ -275,7 +275,7 @@ export function Login() {
                     {PWD_RULES.map((r) => {
                       const ok = r.test(password)
                       return (
-                        <li key={r.label} className={`flex items-center gap-2 text-[12px] ${ok ? 'text-indigo-600' : 'text-slate-400'}`}>
+                        <li key={r.label} className={`flex items-center gap-2 text-[12px] ${ok ? 'font-medium text-slate-800' : 'text-slate-500'}`}>
                           {ok ? (
                             <Check className="size-3.5 shrink-0" aria-hidden />
                           ) : (
@@ -320,13 +320,13 @@ export function Login() {
                 <button
                   type="submit"
                   disabled={busy || (mode === 'signup' && !passwordValid(password))}
-                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60"
+                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px disabled:opacity-60"
                 >
                   {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> {mode === 'signin' ? 'Entrando...' : 'Creando cuenta...'}</> : mode === 'signin' ? 'Entrar' : 'Crear cuenta'}
                 </button>
               </form>
 
-              <p className="mt-4 text-center text-[12px] leading-relaxed text-slate-400">
+              <p className="mt-4 text-center text-[12px] leading-relaxed text-slate-500">
                 Tu contraseña se guarda cifrada, nunca la vemos en claro. Al continuar aceptas nuestras{' '}
                 <Link to="/terminos" className="font-medium text-slate-500 hover:text-slate-700">condiciones</Link>.
               </p>

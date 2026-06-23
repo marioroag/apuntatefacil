@@ -1,24 +1,74 @@
 @import 'tailwindcss';
 
 /* ---------------------------------------------------------------------------
-   Apúntate Fácil · tokens (doctrina "SaaS confiable")
-   Acento = indigo-600 #4F46E5 (acción/nav/foco/selección, nunca estado).
-   Neutros = slate. Inter para cuerpo y datos densos; Manrope (marca, --font-brand)
-   en el wordmark y TODOS los titulares (landing y app). Una sombra. Radio 12px.
+   Apúntate Fácil · sistema de diseño "Instrumento de precisión"
+   ---------------------------------------------------------------------------
+   Reinvención visual total (carácter Linear: preciso, nítido, alto contraste).
+   La IDENTIDAD entera sale de tokens; nada se decide al vuelo.
+
+   - Tipografía: Geist (familia única, jerarquía por peso). Los DATOS (recuentos,
+     fechas, teléfonos) van en la misma sans con cifras TABULARES: alinean en
+     columna sin la textura "mono".
+   - Color: neutros GRAFITO (slate reasignado a un gris frío casi neutro) +
+     un único acento ULTRAMARINE (indigo reasignado a #374cce). El acento solo
+     aparece en acción / nav activo / foco / selección, NUNCA en estado.
+     Reasignamos las rampas `slate` e `indigo` de Tailwind en @theme: así cada
+     utilidad existente (bg-indigo-600, text-slate-900, border-slate-200, ...)
+     pinta la identidad nueva sin tocar miles de className. Las rampas de estado
+     (blue / amber / green / red) se quedan: su semántica vale y rinde AA.
+   - Profundidad: el borde a 1px hace el trabajo; una sola sombra muy contenida.
+   - Radios más ajustados (tarjeta 10px) para el tacto "instrumento".
 --------------------------------------------------------------------------- */
 @theme {
-  --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  /* Fuente de marca: Manrope (geométrica-humanista, voz de producto digital).
-     Wordmark "apúntate fácil" y titulares de la landing. Cae a Inter si aún no
-     cargó (ambas presentes, salto mínimo). El cuerpo y toda la app son Inter. */
-  --font-brand: 'Manrope Variable', 'Inter Variable', system-ui, sans-serif;
+  /* Familia única de producto (Geist) para titulares, cuerpo, etiquetas y datos.
+     Cae a system-ui si aún no cargó. El cuerpo y la app son la misma familia;
+     la jerarquía la da el peso y el color, no la elección de fuente. */
+  --font-sans: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-brand: 'Geist Variable', system-ui, sans-serif;
 
-  /* Una sola sombra por nivel de elevación. Nunca apilar. */
-  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-pop: 0 8px 24px rgba(15, 23, 42, 0.12);
+  /* --- Neutros GRAFITO (reasignan `slate`) ---------------------------------
+     Gris frío casi neutro (menos azul que slate): backdrop sobrio para que el
+     único acento mande. Las luminancias replican slate, así el suelo AA del
+     sistema se conserva (texto secundario 7.6:1, terciario 4.8:1, tinta 17:1). */
+  --color-slate-50:  #f9fafb;
+  --color-slate-100: #f4f5f7;
+  --color-slate-200: #e5e7eb;
+  --color-slate-300: #d1d4db;
+  --color-slate-400: #9c9fa9;
+  --color-slate-500: #6f727c;
+  --color-slate-600: #50545e;
+  --color-slate-700: #3c404a;
+  --color-slate-800: #242833;
+  --color-slate-900: #131822;
+  --color-slate-950: #070a13;
 
-  /* Curvas y duraciones únicas */
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  /* --- Acento ULTRAMARINE (reasigna `indigo`) ------------------------------
+     Más azul y más profundo que el viejo índigo: "tinta premium", no caramelo.
+     Claramente distinto del azul de estado "contactado" (cielo). 600 = acción. */
+  --color-indigo-50:  #eef2fe;
+  --color-indigo-100: #dfe7ff;
+  --color-indigo-200: #c5d4fd;
+  --color-indigo-300: #9fb6fd;
+  --color-indigo-400: #6e8cf9;
+  --color-indigo-500: #4761f0;
+  --color-indigo-600: #374cce;
+  --color-indigo-700: #2d3fb0;
+  --color-indigo-800: #263690;
+  --color-indigo-900: #223072;
+  --color-indigo-950: #131c4a;
+
+  /* Radios: tarjeta/panel/input a 10px (más ajustado = más "instrumento").
+     Los botones fijan 8px en su propia clase; las pills siguen en 9999px. */
+  --radius-xl: 0.625rem; /* 10px (era 12) */
+
+  /* Una sola sombra por nivel de elevación. Nunca apilar.
+     Reposo: lift premium muy contenido sobre el borde a 1px.
+     Flotante: SOLO superficies que de verdad flotan (dropdowns, paneles, modales). */
+  --shadow-card: 0 1px 2px rgba(18, 22, 34, 0.05), 0 2px 6px -2px rgba(18, 22, 34, 0.08);
+  --shadow-pop: 0 16px 40px -12px rgba(18, 22, 34, 0.20), 0 6px 16px -8px rgba(18, 22, 34, 0.12);
+
+  /* Curvas y duraciones. ease-out exponencial (sin rebote) para el tacto preciso. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 
@@ -75,9 +125,9 @@
 
 @layer base {
   :root {
-    /* Acento dinámico: por defecto el indigo de marca. El formulario público
+    /* Acento dinámico: por defecto el ultramarine de marca. El formulario público
        y la preview del builder lo sobreescriben con el color del cliente. */
-    --accent: #4f46e5;
+    --accent: #374cce;
     --accent-contrast: #ffffff; /* texto legible sobre el acento (guarda AA) */
   }
 
@@ -95,7 +145,8 @@
     @apply bg-slate-50 text-slate-900 antialiased;
     margin: 0;
     font-family: var(--font-sans);
-    font-feature-settings: 'tnum' 1, 'cv05' 1;
+    /* Cifras tabulares globales: cualquier número/fecha/teléfono alinea en columna. */
+    font-feature-settings: 'tnum' 1;
     font-synthesis-weight: none;
   }
 
@@ -104,19 +155,27 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Todos los titulares usan la fuente de marca (Manrope), en la landing y en la
-     app. El cuerpo, las tablas y los datos densos siguen en Inter (body usa
-     --font-sans), que es la herramienta correcta para densidad y legibilidad. */
+  /* Todos los titulares usan la fuente de marca (Geist), en la landing y en la
+     app. La jerarquía la dan el peso y el color, no el tamaño. Un pelín de
+     tracking negativo le da a Geist el filo nítido de titular premium. */
   h1, h2, h3 {
     font-family: var(--font-brand);
+    letter-spacing: -0.012em;
   }
   /* Wordmark "apuntatefacil": una palabra, minúsculas, sin tildes (estilo dominio,
      producto digital), extrabold, tinta sólida (el color lo lleva el mark). El
      nombre propio "Apúntate Fácil" se expone aparte a lectores de pantalla. */
   .brand-wordmark {
     font-family: var(--font-brand);
-    font-weight: 800;
-    letter-spacing: -0.015em;
+    font-weight: 700;
+    letter-spacing: -0.022em;
+  }
+
+  /* DATOS: recuentos, fechas, teléfonos, importes. En la sans de producto, con
+     cifras TABULARES para que las columnas alineen sin recurrir a una mono. */
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
   }
 
   /* Quita la apariencia nativa de los campos de texto. Safari/iOS les pone su
@@ -175,7 +234,7 @@
     box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
   }
 
-  ::selection { background: #e0e7ff; }
+  ::selection { background: #dfe7ff; }
 }
 
 @layer utilities {
@@ -189,7 +248,7 @@
   .text-on-accent { color: var(--accent-contrast); }
 
   .skeleton {
-    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background: linear-gradient(90deg, #e5e7eb 25%, #f4f5f7 50%, #e5e7eb 75%);
     background-size: 960px 100%;
     animation: var(--animate-shimmer);
   }
@@ -197,17 +256,21 @@
   /* Pomo de un slider de rango: dos inputs superpuestos; solo el pomo captura el
      puntero (la pista es transparente y no interactiva). */
   .range-thumb { -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none; }
-  .range-thumb:focus { outline: none; }
+  /* El input ocupa toda la pista (transparente): un outline de caja quedaría feo.
+     Suprimimos solo la caja y damos el foco visible AL POMO, que es lo que se ve. */
+  .range-thumb:focus-visible { outline: none; }
+  .range-thumb:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 1px rgba(15,23,42,0.15), 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); }
+  .range-thumb:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 1px rgba(15,23,42,0.15), 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); }
   .range-thumb::-webkit-slider-thumb {
     -webkit-appearance: none; pointer-events: auto;
     width: 16px; height: 16px; border-radius: 9999px;
-    background: #4f46e5; border: 2px solid #fff;
+    background: var(--accent); border: 2px solid #fff;
     box-shadow: 0 0 0 1px rgba(15,23,42,0.15); cursor: pointer;
   }
   .range-thumb::-moz-range-thumb {
     pointer-events: auto;
     width: 16px; height: 16px; border: 2px solid #fff; border-radius: 9999px;
-    background: #4f46e5; box-shadow: 0 0 0 1px rgba(15,23,42,0.15); cursor: pointer;
+    background: var(--accent); box-shadow: 0 0 0 1px rgba(15,23,42,0.15); cursor: pointer;
   }
   .range-thumb::-webkit-slider-runnable-track { background: transparent; }
   .range-thumb::-moz-range-track { background: transparent; }
@@ -221,7 +284,7 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .skeleton { background: #e2e8f0; }
+  .skeleton { background: #e5e7eb; }
 }
 
 /* En forced-colors la sombra deja de verse: reforzar con borde. */

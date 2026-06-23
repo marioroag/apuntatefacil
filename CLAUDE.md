@@ -35,16 +35,17 @@ npx tsc --noEmit # sin errores de tipos
 
 Datos demo: una ETT con 4 puestos de 4 sectores y ~50 candidatos en `localStorage` (clave `apuntatefacil.demo.v1`). Persisten entre recargas. Reinicio: borrar la clave o `resetDemo()`.
 
-## Doctrina visual "SaaS confiable" (NO cambiar sin debate)
-Sobria y profesional tipo Linear/Notion/Stripe. **Multisector**: nunca debe oler a construcción (cero cascos, naranjas de obra, mascotas).
+## Doctrina visual "Instrumento de precisión" (NO cambiar sin debate)
+Sobria, nítida y premium, carácter Linear (registro "SaaS confiable"). **Multisector**: nunca debe oler a construcción (cero cascos, naranjas de obra, mascotas). La identidad vieja (índigo `#4F46E5` + Inter/Manrope + slate) está **retirada**: Mario aprobó el remake total (jun 2026). Tokens en `src/index.css`; botones en `src/lib/buttons.ts`.
 
-- **Acento índigo `#4F46E5` SOLO para acción, nav activo, foco y selección. NUNCA para estado ni decorativo.** Este es el error nº1 a evitar.
-- **5 estados de candidato, paleta propia y fija** (nunca el índigo de marca): nuevo = slate, contactado = azul, entrevista = ámbar, contratado = verde, descartado = slate apagado (**nunca rojo**: descartar es rutina y es reversible). Estado = punto de color **+** texto, nunca solo color. Mapa en `src/lib/types.ts` (`STATUS_META`).
-- **Neutros slate**: fondo app `#F8FAFC`, superficies `#FFFFFF`, borde `#E2E8F0`, texto `#0F172A` / secundario `#475569` / terciario `#64748B`. Texto con significado siempre ≥ 4.5:1.
-- **Rojo `#DC2626` solo** para errores reales y acciones destructivas (borde + icono, nunca solo color).
-- **Tipografía**: una sola sans (Inter variable autoalojada). Jerarquía por peso/color antes que por tamaño. `tabular-nums` global en cualquier número/fecha/teléfono.
-- **Radios**: 12px (botones, tarjetas, inputs, paneles), 999px (pills, chips, avatares), 8px (controles pequeños).
-- **Una sola sombra por elevación**: `shadow-card` para tarjetas; `shadow-pop` solo para overlays reales (dropdowns, paneles, modales). Nunca apilar sombras. Sin gradientes (salvo el barrido del skeleton).
+- **Acento ULTRAMARINE `#374cce` SOLO para acción, nav activo, foco y selección. NUNCA para estado ni decorativo.** Es el error nº1. El uso decorativo del acento (eyebrows, iconos de feature, círculos de paso, checks) se neutraliza a slate/tinta; el acento se reserva a CTAs/enlaces + el plan "Recomendado". (Reasignado sobre la rampa `indigo` de Tailwind en `@theme`, así cada `bg-indigo-*`/`text-indigo-*` pinta el ultramarine.)
+- **5 estados de candidato, paleta propia y fija** (nunca el acento de marca): nuevo = slate, contactado = azul, entrevista = ámbar, contratado = verde, descartado = slate apagado (**nunca rojo**: descartar es rutina y es reversible). Estado = punto de color **+** texto, nunca solo color. Mapa en `src/lib/types.ts` (`STATUS_META`).
+- **Neutros GRAFITO** (rampa `slate` reasignada en `@theme`, OKLCH, AA verificado): fondo app `#f9fafb`, superficies `#FFFFFF`, borde `#e5e7eb`, texto `#131822` / secundario `#50545e` / terciario `#6f727c`. Texto con significado siempre ≥ 4.5:1 (`slate-400` NO vale para texto con significado, solo iconos).
+- **Rojo `#DC2626` solo** para errores reales y acciones destructivas (borde + icono, nunca solo color; `BTN_DANGER`).
+- **Tipografía**: una sola familia, **Geist** (variable, autoalojada). Jerarquía por peso/color antes que por tamaño. `tabular-nums` global (clase `.num`) en cualquier número/fecha/teléfono. **Sin monospace para datos** (se probó Geist Mono y Mario lo descartó).
+- **Radios por rol** (consistencia absoluta): inputs/campos/tarjetas/paneles/modales **10px** (`rounded-xl`); botones y controles pequeños **8px** (`rounded-lg`); pills/chips/avatares 999px. Las superficies externas (landing, formulario público) pueden usar 16px en sus tarjetas grandes.
+- **Botón "instrumento"**: relieve nítido (filo de luz interior + anillo 1px + sombra mínima), press = `translate-y-px` (nunca `scale`). Constantes `BTN_PRIMARY/SECONDARY/DANGER/_LG/_SM` en `lib/buttons.ts`. **Logo** = SVG inline (baldosa ultramarine + "A") en `src/components/Logo.tsx`, no PNG.
+- **Una sola sombra por elevación**: `shadow-card` para tarjetas; `shadow-pop` solo para overlays reales (dropdowns, paneles, modales). Nunca apilar sombras. **Sin gradientes** (salvo el barrido del skeleton).
 - **Un único `FieldRenderer`** (`src/components/FieldRenderer.tsx`) pinta **a la vez** la preview del builder y el formulario público: WYSIWYG real. Si tocas uno, tocas los dos. No hacer una versión "bonita" distinta del producto.
 - **Formulario público mobile-first**: una columna, max 480px, inputs 48px alto y **16px de fuente** (evita zoom iOS), targets ≥ 44px. Validación **al blur y al enviar, nunca al teclear**. **Nunca borrar lo que el candidato escribió** (ni el CV) en un envío fallido. Teclados correctos (`type=tel/email/number`, `inputmode`).
 - **Acento configurable del cliente** con **guarda de contraste AA** (`src/lib/colors.ts`): si el blanco no llega a 4.5:1 sobre su color, el texto del botón pasa a tinta oscura automáticamente.

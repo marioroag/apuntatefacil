@@ -58,7 +58,7 @@ export function Onboarding() {
           </div>
           {children}
         </div>
-        <p className="mt-4 text-center text-[13px] text-slate-400">
+        <p className="mt-4 text-center text-[13px] text-slate-500">
           {user?.email},{' '}
           <button onClick={() => signOut()} className="font-medium text-slate-500 underline hover:text-slate-700">
             Cerrar sesión
@@ -73,7 +73,7 @@ export function Onboarding() {
     return (
       <Shell>
         <div className="grid place-items-center py-8" role="status" aria-label="Cargando">
-          <Loader2 className="size-6 animate-spin text-slate-400" aria-hidden />
+          <Loader2 className="size-6 animate-spin text-slate-500" aria-hidden />
         </div>
       </Shell>
     )
@@ -84,7 +84,7 @@ export function Onboarding() {
     return (
       <Shell>
         <div className="mt-5 flex items-center gap-2.5">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
             <Users className="size-5" aria-hidden />
           </span>
           <div>

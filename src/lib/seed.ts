@@ -487,7 +487,7 @@ for (const cmp of campaigns) {
 candidates.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
 
 export const SEED: AppData = {
-  company: { name: 'Tu empresa', plan: 'multi', accent: '#4F46E5' },
+  company: { name: 'Tu empresa', plan: 'multi', accent: '#374cce' },
   sites,
   campaigns,
   candidates,

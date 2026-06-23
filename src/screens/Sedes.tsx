@@ -121,7 +121,7 @@ export function Sedes() {
       {/* Tarjetas expandidas por sede */}
       {!hasContent ? (
         <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-          <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+          <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
             <Building2 className="size-6" aria-hidden />
           </div>
           <p className="mt-3 text-sm text-slate-500">
@@ -277,10 +277,10 @@ function SedeCard({
           </div>
           {manageable && (
             <div className="flex shrink-0 items-center gap-1">
-              <button onClick={onEdit} aria-label={`Editar ${group.name}`} className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 pointer-coarse:size-11">
+              <button onClick={onEdit} aria-label={`Editar ${group.name}`} className="grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 pointer-coarse:size-11">
                 <Pencil className="size-4" aria-hidden />
               </button>
-              <button onClick={onDelete} aria-label={`Eliminar ${group.name}`} className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 pointer-coarse:size-11">
+              <button onClick={onDelete} aria-label={`Eliminar ${group.name}`} className="grid size-9 place-items-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600 pointer-coarse:size-11">
                 <Trash2 className="size-4" aria-hidden />
               </button>
             </div>
@@ -313,10 +313,10 @@ function SedeCard({
                   to={`${base}/puestos/${c.id}${n > 0 ? '?estado=nuevo' : ''}`}
                   className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5 transition-colors active:bg-slate-100"
                 >
-                  <Briefcase className="size-4 shrink-0 text-slate-400" aria-hidden />
+                  <Briefcase className="size-4 shrink-0 text-slate-500" aria-hidden />
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-700">{c.title}</span>
                   {n > 0 && (
-                    <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700">{n}</span>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[11px] font-bold tabular-nums text-slate-700">{n}</span>
                   )}
                   <ChevronRight className="size-4 shrink-0 text-slate-300" aria-hidden />
                 </Link>
@@ -333,10 +333,10 @@ function SedeCard({
                   to={`${base}/puestos/${c.id}${n > 0 ? '?estado=nuevo' : ''}`}
                   className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
                 >
-                  <Briefcase className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+                  <Briefcase className="size-3.5 shrink-0 text-slate-500" aria-hidden />
                   <span className="max-w-[160px] truncate">{c.title}</span>
                   {n > 0 && (
-                    <span className="rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700">{n}</span>
+                    <span className="rounded-full bg-slate-100 px-1.5 text-[11px] font-bold tabular-nums text-slate-700">{n}</span>
                   )}
                 </Link>
               )

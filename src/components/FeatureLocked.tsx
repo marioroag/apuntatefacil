@@ -27,7 +27,7 @@ export function FeatureLocked({
   return (
     <div className="grid h-full place-items-center px-6 py-16">
       <div className="w-full max-w-md text-center">
-        <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
+        <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
           <Lock className="size-6" aria-hidden />
         </div>
         <h1 className="mt-4 text-xl font-semibold text-slate-900">{cap(name)}</h1>

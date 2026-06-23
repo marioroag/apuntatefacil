@@ -92,7 +92,7 @@ export function Bandeja() {
                         <p className="truncate text-[15px] font-medium text-slate-900">{name}</p>
                         {camp && (
                           <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-1.5 pr-2 text-[12px] font-medium text-slate-600">
-                            <Briefcase className="size-3 shrink-0 text-slate-400" aria-hidden />
+                            <Briefcase className="size-3 shrink-0 text-slate-500" aria-hidden />
                             <span className="truncate">{camp.title}</span>
                           </span>
                         )}
@@ -109,7 +109,7 @@ export function Bandeja() {
                         {m.label}
                         <ChevronDown className="size-3 opacity-60" aria-hidden />
                       </button>
-                      <time dateTime={c.submittedAt} className="text-[11px] text-slate-400 tabular-nums">
+                      <time dateTime={c.submittedAt} className="text-[11px] text-slate-500 tabular-nums">
                         {relativeDate(c.submittedAt)}
                       </time>
                     </div>
@@ -164,11 +164,11 @@ export function Bandeja() {
                               to={`${base}/puestos/${camp.id}`}
                               className="inline-flex max-w-[220px] items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
                             >
-                              <Briefcase className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+                              <Briefcase className="size-3.5 shrink-0 text-slate-500" aria-hidden />
                               <span className="truncate">{camp.title}</span>
                             </Link>
                           ) : (
-                            <span className="text-[12px] text-slate-400">–</span>
+                            <span className="text-[12px] text-slate-500">–</span>
                           )}
                         </td>
                         <td className="hidden px-3 py-2.5 text-sm text-slate-600 md:table-cell tnum">
@@ -222,7 +222,7 @@ export function Bandeja() {
 function EmptyInbox() {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-card">
-      <div className="grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+      <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
         <Inbox className="size-6" aria-hidden />
       </div>
       <h3 className="mt-4 text-lg font-semibold text-slate-900">Todo al día</h3>

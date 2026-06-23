@@ -47,7 +47,7 @@ export function accentPassesWhite(accent: string): boolean {
 }
 
 export const SWATCHES = [
-  '#4f46e5', // indigo (marca)
+  '#374cce', // ultramarine (marca)
   '#0f766e', // teal
   '#b91c1c', // rojo
   '#c2410c', // naranja

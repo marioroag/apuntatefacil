@@ -73,7 +73,7 @@ export function Invitacion() {
         <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-card">
           {loading || state === 'loading' ? (
             <div className="grid place-items-center py-6" role="status" aria-label="Cargando">
-              <Loader2 className="size-6 animate-spin text-slate-400" aria-hidden />
+              <Loader2 className="size-6 animate-spin text-slate-500" aria-hidden />
             </div>
           ) : !session ? (
             <>
@@ -83,7 +83,7 @@ export function Invitacion() {
               </p>
               <Link
                 to={loginHref}
-                className="mt-5 flex h-11 w-full items-center justify-center rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+                className="mt-5 flex h-11 w-full items-center justify-center rounded-xl bg-indigo-600 text-sm font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px"
               >
                 Iniciar sesión para continuar
               </Link>
@@ -117,7 +117,7 @@ export function Invitacion() {
                 <button
                   onClick={accept}
                   disabled={busy}
-                  className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
+                  className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px disabled:opacity-60"
                 >
                   {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
                   Unirme al equipo

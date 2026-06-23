@@ -18,7 +18,7 @@ export function BrowserMock({ className = '', dropIn = false }: { className?: st
         <span className="size-2.5 rounded-full bg-slate-300" />
         <span className="size-2.5 rounded-full bg-slate-300" />
         <span className="size-2.5 rounded-full bg-slate-300" />
-        <div className="ml-2 flex-1 rounded-md bg-white px-3 py-1 text-[11px] text-slate-400 ring-1 ring-slate-200">
+        <div className="ml-2 flex-1 rounded-lg bg-white px-3 py-1 text-[11px] text-slate-500 ring-1 ring-slate-200">
           apuntatefacil.com/app/puestos
         </div>
       </div>
@@ -49,7 +49,7 @@ export function BrowserMock({ className = '', dropIn = false }: { className?: st
                     </span>
                     <div className="min-w-0">
                       <div className="truncate text-[13px] font-medium text-slate-800">{r.name}</div>
-                      <div className="text-[11px] text-slate-400">{r.sector}</div>
+                      <div className="text-[11px] text-slate-500">{r.sector}</div>
                     </div>
                   </div>
                 </td>
@@ -60,7 +60,7 @@ export function BrowserMock({ className = '', dropIn = false }: { className?: st
                     {m.label}
                   </span>
                 </td>
-                <td className="px-2 py-2.5 pr-4 text-right text-[11px] text-slate-400">{r.when}</td>
+                <td className="px-2 py-2.5 pr-4 text-right text-[11px] text-slate-500">{r.when}</td>
               </tr>
             )
           })}

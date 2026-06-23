@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import brandMark from '../assets/brand-mark.png'
 import {
   ArrowRight, Check, FileSpreadsheet, Filter, Infinity as InfinityIcon,
   Link2, ListChecks, Megaphone, Menu, PhoneCall, Sliders, X,
 } from 'lucide-react'
 import { BrowserMock } from '../components/BrowserMock'
+import { Logo } from '../components/Logo'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { TIERS } from '../lib/pricing'
+import { BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
 
 const SECTORS = ['Construcción', 'Logística', 'Limpieza', 'Reformas', 'Comercio', 'Cuidados']
 
@@ -62,11 +63,11 @@ export function Landing() {
 // sólida. El nombre propio "Apúntate Fácil" se expone a lectores de pantalla con un
 // sr-only. Solo en la landing; el resto de la app usa el <Logo/> (solo el monograma).
 function BrandLockup({ compact = false }: { compact?: boolean }) {
-  const markSize = compact ? 'size-7' : 'size-[32px]'
+  const markSize = compact ? 'size-7' : 'size-8'
   const textSize = compact ? 'text-sm' : 'text-[20px]'
   return (
     <span className="flex items-center gap-2">
-      <img src={brandMark} alt="" className={`${markSize} shrink-0 object-contain`} />
+      <Logo className={markSize} />
       <span className={`${textSize} brand-wordmark text-slate-900`} aria-hidden>apuntatefacil</span>
       <span className="sr-only">{BRAND}</span>
     </span>
@@ -114,7 +115,7 @@ function TopNav() {
           <Link to="/demo" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
             Ver la demo
           </Link>
-          <Link to="/login" className="group ml-1 inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-indigo-700">
+          <Link to="/login" className={`${BTN_PRIMARY} group ml-1`}>
             Empezar <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
         </div>
@@ -134,7 +135,7 @@ function TopNav() {
             <Link to="/demo" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100 active:bg-slate-200">
               Ver la demo
             </Link>
-            <Link to="/login" onClick={() => setOpen(false)} className="mt-1 flex h-11 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-transform active:scale-[0.99]">
+            <Link to="/login" onClick={() => setOpen(false)} className={`${BTN_PRIMARY} mt-1 w-full`}>
               Empezar <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>
@@ -148,27 +149,27 @@ function Hero() {
   return (
     <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 pb-12 pt-14 sm:px-6 lg:grid-cols-[1.04fr_1fr] lg:pb-20 lg:pt-24">
       <div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-[13px] font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-100">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[13px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
           Para quien contrata por Milanuncios
         </span>
-        <h1 className="mt-4 text-balance text-[34px] font-bold leading-[1.07] tracking-tight text-slate-900 sm:text-[52px]">
+        <h1 className="mt-4 text-balance text-[34px] font-[680] leading-[1.06] tracking-[-0.03em] text-slate-900 sm:text-[52px]">
           Un mensaje es todo lo que necesitas para contratar
         </h1>
         <p className="mt-5 max-w-xl text-pretty text-lg leading-relaxed text-slate-600">
           Cada vacante recibe decenas de respuestas y se te van por el chat. Apúntate Fácil las recoge todas, ordenadas en un sitio: tú mandas un enlace y eliges sin perder a nadie.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
-          <Link to="/login" className="group inline-flex h-12 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.98]">
+          <Link to="/login" className={`${BTN_PRIMARY_LG} group`}>
             Pruébalo gratis <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
-          <Link to="/demo" className="inline-flex h-12 items-center rounded-xl px-5 text-base font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50">
+          <Link to="/demo" className={BTN_SECONDARY_LG}>
             Ver la demo
           </Link>
         </div>
         <p className="mt-4 text-sm text-slate-500">Empieza gratis, sin tarjeta. Sin permanencia.</p>
       </div>
       <div className="relative">
-        <div className="absolute -inset-4 -z-10 rounded-3xl bg-gradient-to-tr from-indigo-50 to-transparent" aria-hidden />
+        <div className="absolute -inset-4 -z-10 rounded-2xl bg-slate-50" aria-hidden />
         <BrowserMock dropIn />
       </div>
     </section>
@@ -200,7 +201,7 @@ function Bubble({ children, from, muted = false }: { children: React.ReactNode; 
     return (
       <div
         className={`max-w-[82%] self-start rounded-2xl rounded-tl-md px-3.5 py-2 text-[14px] leading-snug ring-1 ${
-          muted ? 'bg-slate-100 italic text-slate-400 ring-slate-200/70' : 'bg-white text-slate-700 ring-slate-200'
+          muted ? 'bg-slate-100 italic text-slate-500 ring-slate-200/70' : 'bg-white text-slate-700 ring-slate-200'
         }`}
       >
         {children}
@@ -215,7 +216,7 @@ function Bubble({ children, from, muted = false }: { children: React.ReactNode; 
 }
 
 function ChatTime({ children }: { children: React.ReactNode }) {
-  return <p className="py-1 text-center text-[12px] text-slate-400">{children}</p>
+  return <p className="py-1 text-center text-[12px] text-slate-500">{children}</p>
 }
 
 function Compare() {
@@ -223,7 +224,7 @@ function Compare() {
     <section className="bg-white">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
         <Reveal className="text-center">
-          <p className="text-sm font-semibold text-indigo-600">La misma vacante, dos conversaciones</p>
+          <p className="text-sm font-semibold text-slate-500">La misma vacante, dos conversaciones</p>
           <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-[40px] sm:leading-[1.1]">
             Mira la diferencia en el propio chat
           </h2>
@@ -253,7 +254,7 @@ function Compare() {
                 <ChatTime>11:58, más de una hora después</ChatTime>
                 <Bubble from="them">si carnet B</Bubble>
                 <Bubble from="you">¿De qué zona eres? ¿Puedes empezar mañana a las 8?</Bubble>
-                <p className="self-end pr-1 text-[12px] text-slate-400">Visto ✓✓, sin respuesta</p>
+                <p className="self-end pr-1 text-[12px] text-slate-500">Visto ✓✓, sin respuesta</p>
                 <Bubble from="them" muted>…y lo mismo con otros 37 candidatos</Bubble>
               </div>
             </div>
@@ -273,9 +274,9 @@ function Compare() {
               <div className="flex flex-1 flex-col gap-2.5 bg-green-50/50 px-4 py-5">
                 <ChatTime>Lunes, 10:42</ChatTime>
                 <Bubble from="them">Hola, ¿sigue libre lo del peón?</Bubble>
-                <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-indigo-600 px-3.5 py-2 text-[14px] leading-snug text-white">
+                <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-slate-200/80 px-3.5 py-2 text-[14px] leading-snug text-slate-700">
                   ¡Hola! Sí 🙂 Apúntate aquí en 1 min y me llega todo:{' '}
-                  <span className="font-semibold underline decoration-white/50 underline-offset-2">apuntatefacil.com/peon</span>
+                  <span className="font-semibold underline decoration-slate-400 underline-offset-2">apuntatefacil.com/peon</span>
                 </div>
                 <ChatTime>10:44, dos minutos después</ChatTime>
                 <Bubble from="them">¡Hecho! 👍</Bubble>
@@ -327,7 +328,7 @@ function HowItWorks() {
             {steps.map((s, i) => (
               <Reveal key={s.title} delay={i * 0.08}>
                 <div className="text-center lg:text-left">
-                  <div className="mx-auto grid size-10 place-items-center rounded-full bg-indigo-600 text-white ring-8 ring-slate-50 lg:mx-0">
+                  <div className="mx-auto grid size-10 place-items-center rounded-full bg-slate-900 text-white ring-8 ring-slate-50 lg:mx-0">
                     <s.icon className="size-5" aria-hidden />
                     <span className="sr-only">Paso {i + 1}</span>
                   </div>
@@ -365,7 +366,7 @@ function Features() {
           {/* Feature-héroe: ocupa 2x2 y MUESTRA la lista en vez de contarla */}
           <Reveal className="sm:col-span-2 lg:row-span-2">
             <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-card lg:p-8">
-              <span className="grid size-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
+              <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
                 <hero.icon className="size-5" aria-hidden />
               </span>
               <h3 className="mt-4 text-xl font-semibold text-slate-900">{hero.title}</h3>
@@ -390,7 +391,7 @@ function Features() {
           {rest.map((it, i) => (
             <Reveal key={it.title} delay={(i % 2) * 0.06}>
               <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-                <span className="grid size-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600">
+                <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
                   <it.icon className="size-5" aria-hidden />
                 </span>
                 <h3 className="mt-4 text-[17px] font-semibold text-slate-900">{it.title}</h3>
@@ -464,16 +465,16 @@ function Pricing() {
               <ul className="mt-5 flex-1 space-y-2.5">
                 {t.features.map((feat) => (
                   <li key={feat} className="flex items-start gap-2.5 text-[15px] text-slate-700">
-                    <Check className="mt-0.5 size-4 shrink-0 text-indigo-600" aria-hidden /> {feat}
+                    <Check className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden /> {feat}
                   </li>
                 ))}
               </ul>
               {t.available === false ? (
-                <div className="mt-7 flex h-12 w-full items-center justify-center rounded-xl bg-slate-100 text-base font-semibold text-slate-400">
+                <div className="mt-7 flex h-12 w-full items-center justify-center rounded-lg bg-slate-100 text-base font-semibold text-slate-500">
                   Próximamente
                 </div>
               ) : (
-                <Link to="/login" className="group mt-7 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-base font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.99]">
+                <Link to="/login" className={`${BTN_PRIMARY_LG} group mt-7 w-full`}>
                   {t.cta} <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
                 </Link>
               )}
@@ -535,10 +536,10 @@ function FinalCta() {
             No te pedimos que te fíes de una promesa. Entra, toca el panel con datos de ejemplo y compruébalo tú. Sin registro y sin tarjeta.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link to="/demo" className="group inline-flex h-12 items-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-slate-900 transition-transform hover:scale-[1.02] active:scale-[0.99]">
+            <Link to="/demo" className="group inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 text-base font-semibold text-slate-900 shadow-[0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-slate-100 active:translate-y-px">
               Ver la demo <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
             </Link>
-            <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-xl px-5 text-base font-semibold text-white ring-1 ring-white/25 hover:bg-white/10">
+            <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-lg px-5 text-base font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10">
               Empezar
             </Link>
           </div>

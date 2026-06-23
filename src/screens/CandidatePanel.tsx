@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, MessageCircle, Phone, Star, Trash2 } from 'lucide-react'
+import { FileText, Loader2, MessageCircle, Phone, Star, Trash2 } from 'lucide-react'
 import { SlideOver } from '../components/ui/SlideOver'
 import { StatusSelect } from '../components/ui/StatusPill'
 import type { Campaign, Candidate } from '../lib/types'
@@ -7,7 +7,7 @@ import { SOURCE_META } from '../lib/types'
 import { fullDateTime, initials, formatPhone, candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { BTN_PRIMARY } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { MaskedPhone } from '../components/MaskedPhone'
@@ -40,13 +40,18 @@ export function CandidatePanel({
   const { role } = useAuth()
   const toast = useToast()
   const [notes, setLocalNotes] = useState('')
+  const [cvLoading, setCvLoading] = useState(false)
   // El encargado aplica/quita etiquetas existentes, pero no crea ni gestiona
   // vocabulario (igual que en la RLS): owner/member sí.
   const canManageTags = role !== 'encargado'
 
   const viewCv = async () => {
-    if (!candidate?.cvPath) return
+    if (!candidate?.cvPath || cvLoading) return
+    // Firmar la URL es una ida al servidor: damos estado de carga para que el clic
+    // no parezca muerto en una red lenta.
+    setCvLoading(true)
     const { data, error } = await supabase.storage.from('cvs').createSignedUrl(candidate.cvPath, 120)
+    setCvLoading(false)
     if (error || !data?.signedUrl) {
       toast.error('No se pudo abrir el CV.')
       return
@@ -72,7 +77,7 @@ export function CandidatePanel({
       title={
         candidate && (
           <div className="flex items-center gap-3">
-            <div className="grid size-10 shrink-0 place-items-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
+            <div className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-bold text-slate-600 ring-1 ring-inset ring-slate-200">
               {initials(name)}
             </div>
             <div className="min-w-0">
@@ -95,8 +100,8 @@ export function CandidatePanel({
             >
               <Trash2 className="size-4" aria-hidden /> Eliminar
             </button>
-            <span className="text-[13px] text-slate-400">
-              {SOURCE_META[candidate.source].label}, {fullDateTime(candidate.submittedAt)}
+            <span className="text-[12px] text-slate-500">
+              {SOURCE_META[candidate.source].label} · <span className="num">{fullDateTime(candidate.submittedAt)}</span>
             </span>
           </div>
         )
@@ -128,14 +133,14 @@ export function CandidatePanel({
                   <button
                     type="button"
                     onClick={() => toast.show('En la demo solo puedes mirar. Crea tu cuenta para llamar o escribir a tus candidatos.')}
-                    className={BTN_PRIMARY}
+                    className={BTN_SECONDARY}
                   >
-                    <MessageCircle className="size-3.5 text-indigo-200" aria-hidden /> WhatsApp
+                    <MessageCircle className="size-3.5 text-slate-400" aria-hidden /> WhatsApp
                   </button>
                 ) : (
                   waPhone && (
-                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className={BTN_PRIMARY}>
-                      <MessageCircle className="size-3.5 text-indigo-200" aria-hidden /> WhatsApp
+                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className={BTN_SECONDARY}>
+                      <MessageCircle className="size-3.5 text-slate-400" aria-hidden /> WhatsApp
                     </a>
                   )
                 )
@@ -153,7 +158,7 @@ export function CandidatePanel({
                   onClick={() => setRating(candidate.id, candidate.rating === n ? 0 : n)}
                   aria-label={`${n} de 5 estrellas`}
                   aria-pressed={candidate.rating >= n}
-                  className="rounded-md p-0.5 text-slate-300 transition-colors hover:text-amber-400"
+                  className="rounded-lg p-0.5 text-slate-300 transition-colors hover:text-amber-400"
                 >
                   <Star
                     className={`size-5 ${candidate.rating >= n ? 'fill-amber-400 text-amber-400' : ''}`}
@@ -177,21 +182,27 @@ export function CandidatePanel({
 
           {/* Respuestas */}
           <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               Respuestas del formulario
             </p>
-            <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200">
+            <dl className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
               {campaign.fields.map((f) => (
                 <div key={f.id} className="grid grid-cols-[42%_58%] gap-3 px-3.5 py-2.5">
                   <dt className="break-words text-[13px] text-slate-500">{f.label}</dt>
-                  <dd className="break-words text-sm font-medium text-slate-800">
+                  <dd className={`break-words text-sm font-medium text-slate-900 ${['phone', 'number', 'date'].includes(f.type) ? 'num' : ''}`}>
                     {f.type === 'file' && candidate.cvPath ? (
                       <button
                         type="button"
                         onClick={viewCv}
-                        className="inline-flex items-start gap-1.5 text-left font-medium text-indigo-600 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-700 hover:decoration-indigo-500"
+                        disabled={cvLoading}
+                        aria-busy={cvLoading || undefined}
+                        className="inline-flex items-start gap-1.5 text-left font-medium text-indigo-600 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-700 hover:decoration-indigo-500 disabled:opacity-70"
                       >
-                        <FileText className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                        {cvLoading ? (
+                          <Loader2 className="mt-0.5 size-3.5 shrink-0 animate-spin" aria-hidden />
+                        ) : (
+                          <FileText className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                        )}
                         <span className="break-words">{answerText(candidate.answers[f.id])}</span>
                       </button>
                     ) : maskPhone && f.id === 'telefono' && candidate.answers[f.id] ? (
@@ -219,9 +230,9 @@ export function CandidatePanel({
               onBlur={() => setNotes(candidate.id, notes)}
               rows={3}
               placeholder="Lo que hablasteis por teléfono, disponibilidad real, etc."
-              className="w-full resize-y rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+              className="w-full resize-y rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
             />
-            <p className="mt-1 text-[12px] text-slate-400">Solo las ve tu equipo. No se envían al candidato.</p>
+            <p className="mt-1 text-[12px] text-slate-500">Solo las ve tu equipo. No se envían al candidato.</p>
           </div>
         </div>
       )}

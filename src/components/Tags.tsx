@@ -4,7 +4,7 @@ import type { Tag } from '../lib/types'
 import { useStore, normalizeTagName } from '../lib/store'
 import { useToast } from './ui/Toast'
 import { ConfirmDialog } from './ui/ConfirmDialog'
-import { BTN_SECONDARY } from '../lib/buttons'
+import { BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 
 // ---------------------------------------------------------------------------
 // Etiquetas: clasificación libre del empresario. SIEMPRE en gris neutro (slate):
@@ -46,7 +46,7 @@ export function TagChip({
         onRemove ? (size === 'xs' ? 'pr-0.5' : 'pr-1') : ''
       } ${pad}`}
     >
-      {glyph && <TagIcon className="size-3 shrink-0 text-slate-400" aria-hidden />}
+      {glyph && <TagIcon className="size-3 shrink-0 text-slate-500" aria-hidden />}
       <span className="truncate">{name}</span>
       {onRemove && (
         <button
@@ -220,7 +220,7 @@ export function TagPicker({
   return (
     <div ref={wrapRef} className="relative">
       <div className="relative">
-        <TagIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+        <TagIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" aria-hidden />
         <input
           ref={inputRef}
           type="text"
@@ -285,7 +285,7 @@ export function TagPicker({
                     isActive ? 'bg-slate-100' : 'hover:bg-slate-100'
                   }`}
                 >
-                  <TagIcon className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+                  <TagIcon className="size-3.5 shrink-0 text-slate-500" aria-hidden />
                   <span className="truncate">{opt.tag.name}</span>
                 </button>
               </li>
@@ -355,7 +355,7 @@ function InfoTooltip({ text }: { text: string }) {
         onMouseLeave={() => setShow(false)}
         onFocus={() => setShow(true)}
         onBlur={() => setShow(false)}
-        className="grid size-4 place-items-center rounded-full text-slate-400 hover:text-slate-600 focus-visible:text-slate-600"
+        className="grid size-4 place-items-center rounded-full text-slate-500 hover:text-slate-600 focus-visible:text-slate-600"
       >
         <Info className="size-3.5" aria-hidden />
       </button>
@@ -424,7 +424,7 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
   return (
     <div className="fixed inset-0 z-[55] grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="managetags-title">
       <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
-      <div className="relative flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-pop">
+      <div className="relative flex max-h-[80vh] w-full max-w-md flex-col rounded-xl bg-white shadow-pop">
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
           <div>
             <h2 id="managetags-title" className="text-lg font-semibold text-slate-900">{COPY.manage}</h2>
@@ -433,7 +433,7 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="-mr-1 shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="-mr-1 shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
           >
             <X className="size-5" aria-hidden />
           </button>
@@ -467,7 +467,7 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
                           maxLength={40}
                           className="h-9 min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
                         />
-                        <button onClick={saveEdit} className="shrink-0 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-[13px] font-semibold text-white hover:bg-indigo-700">
+                        <button onClick={saveEdit} className={`${BTN_PRIMARY_SM} shrink-0`}>
                           Guardar
                         </button>
                         <button onClick={() => setEditId(null)} className="shrink-0 rounded-lg px-2 py-1.5 text-[13px] font-medium text-slate-500 hover:bg-slate-100">
@@ -477,14 +477,14 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
                     ) : (
                       <>
                         <TagChip name={t.name} glyph />
-                        <span className="ml-auto shrink-0 text-[12px] tabular-nums text-slate-400">
+                        <span className="ml-auto shrink-0 text-[12px] tabular-nums text-slate-500">
                           {usage} {usage === 1 ? 'candidato' : 'candidatos'}
                         </span>
                         <button
                           onClick={() => startEdit(t)}
                           aria-label={`${COPY.rename} ${t.name}`}
                           title={COPY.rename}
-                          className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700"
+                          className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
                         >
                           <Pencil className="size-3.5" aria-hidden />
                         </button>
@@ -492,7 +492,7 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
                           onClick={() => setConfirm(t)}
                           aria-label={`${COPY.remove} ${t.name}`}
                           title={COPY.remove}
-                          className="shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                          className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600"
                         >
                           <Trash2 className="size-3.5" aria-hidden />
                         </button>
@@ -625,9 +625,9 @@ export function BulkTagMenu({
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
                 >
                   {mode === 'add' ? (
-                    <TagIcon className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+                    <TagIcon className="size-3.5 shrink-0 text-slate-500" aria-hidden />
                   ) : (
-                    <X className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+                    <X className="size-3.5 shrink-0 text-slate-500" aria-hidden />
                   )}
                   <span className="truncate">{t.name}</span>
                 </button>

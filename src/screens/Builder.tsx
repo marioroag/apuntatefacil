@@ -98,7 +98,7 @@ export function Builder() {
     return (
       <div className="grid h-full place-items-center px-6 py-16">
         <div className="w-full max-w-md text-center">
-          <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+          <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
             <Briefcase className="size-6" aria-hidden />
           </div>
           <h1 className="mt-4 text-xl font-semibold text-slate-900">Puesto no encontrado</h1>
@@ -196,7 +196,7 @@ export function Builder() {
       {/* Cabecera */}
       <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
-          <Link to={`${base}/puestos/${campaign.id}`} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Volver al puesto">
+          <Link to={`${base}/puestos/${campaign.id}`} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700" aria-label="Volver al puesto">
             <ArrowLeft className="size-5" aria-hidden />
           </Link>
           <div className="min-w-0">
@@ -229,7 +229,7 @@ export function Builder() {
               onClick={() => setPreviewOpen(true)}
               className={`${BTN_SECONDARY} w-full lg:hidden`}
             >
-              <Smartphone className="size-4 text-slate-400" aria-hidden /> Ver la vista previa del formulario
+              <Smartphone className="size-4 text-slate-500" aria-hidden /> Ver la vista previa del formulario
             </button>
 
             {/* Apariencia (datos del puesto: título, mensajes y aspecto) */}
@@ -283,7 +283,7 @@ export function Builder() {
                       onClick={() => addField(t)}
                       className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm text-slate-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50/50"
                     >
-                      <Plus className="size-3.5 shrink-0 text-indigo-500" aria-hidden />
+                      <Plus className="size-3.5 shrink-0 text-slate-500" aria-hidden />
                       <span className="min-w-0 flex-1 truncate font-medium">{m.label}</span>
                     </button>
                   )
@@ -332,7 +332,7 @@ export function Builder() {
                 type="button"
                 onClick={() => setPreviewOpen(false)}
                 aria-label="Cerrar vista previa"
-                className="-mr-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                className="-mr-1 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
               >
                 <X className="size-5" aria-hidden />
               </button>
@@ -350,7 +350,7 @@ export function Builder() {
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="mb-2.5 text-[13px] font-semibold uppercase tracking-wider text-slate-400">{children}</h2>
+  return <h2 className="mb-2.5 text-[13px] font-semibold uppercase tracking-wider text-slate-500">{children}</h2>
 }
 
 // --- Fila de campo (sortable) ----------------------------------------------
@@ -394,7 +394,7 @@ function SortableFieldRow({
         <button
           {...attributes}
           {...listeners}
-          className="hidden cursor-grab touch-none rounded-md p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing sm:block"
+          className="hidden cursor-grab touch-none rounded-lg p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing sm:block"
           aria-label={`Reordenar ${field.label}, posición ${index + 1} de ${total}`}
         >
           <GripVertical className="size-4" aria-hidden />
@@ -402,18 +402,18 @@ function SortableFieldRow({
 
         <button onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-50">
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">{field.label}</span>
-          <span className="hidden shrink-0 text-[12px] text-slate-400 sm:inline">{meta.label}</span>
+          <span className="hidden shrink-0 text-[12px] text-slate-500 sm:inline">{meta.label}</span>
           {/* "Obligatorio" inline solo en sm+: en móvil ocupa demasiado y ya aparece
               en el editor desplegado. */}
           {field.required && <span className="hidden shrink-0 rounded bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-500 sm:inline">Obligatorio</span>}
-          <ChevronDown className={`size-4 shrink-0 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
+          <ChevronDown className={`size-4 shrink-0 text-slate-500 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
         </button>
 
         <div className="flex shrink-0 items-center">
-          <button onClick={() => onMove(-1)} disabled={index === 0} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 disabled:opacity-30" aria-label="Subir campo">
+          <button onClick={() => onMove(-1)} disabled={index === 0} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" aria-label="Subir campo">
             <ChevronUp className="size-4" aria-hidden />
           </button>
-          <button onClick={() => onMove(1)} disabled={index === total - 1} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 disabled:opacity-30" aria-label="Bajar campo">
+          <button onClick={() => onMove(1)} disabled={index === total - 1} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" aria-label="Bajar campo">
             <ChevronDown className="size-4" aria-hidden />
           </button>
         </div>
@@ -444,7 +444,7 @@ function SortableFieldRow({
               Obligatorio
             </label>
             {field.system ? (
-              <span className="text-[12px] text-slate-400">Campo base, no se puede borrar</span>
+              <span className="text-[12px] text-slate-500">Campo base, no se puede borrar</span>
             ) : (
               <button onClick={onRemove} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-medium text-slate-500 hover:bg-red-50 hover:text-red-600">
                 <Trash2 className="size-3.5" aria-hidden /> Eliminar campo
@@ -463,7 +463,7 @@ function SortableFieldRow({
               />
               <span>
                 Pedir nombre y apellidos por separado
-                <span className="mt-0.5 block text-[12px] text-slate-400">Crea dos campos obligatorios: Nombre y Apellidos.</span>
+                <span className="mt-0.5 block text-[12px] text-slate-500">Crea dos campos obligatorios: Nombre y Apellidos.</span>
               </span>
             </label>
           )}
@@ -503,7 +503,7 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o:
             <button
               onClick={() => onChange(options.filter((_, j) => j !== i))}
               disabled={options.length <= 1}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
               aria-label={`Quitar opción ${o}`}
             >
               <X className="size-4" aria-hidden />
@@ -594,7 +594,7 @@ function Branding({ campaign }: { campaign: Campaign }) {
               <Plus className="relative size-3.5 text-white drop-shadow" aria-hidden />
               <input
                 type="color"
-                value={/^#[0-9a-fA-F]{6}$/.test(b.accent) ? b.accent : '#4f46e5'}
+                value={/^#[0-9a-fA-F]{6}$/.test(b.accent) ? b.accent : '#374cce'}
                 onChange={(e) => updateBranding(campaign.id, { accent: e.target.value })}
                 aria-label="Elegir un color personalizado"
                 className="absolute inset-0 size-full cursor-pointer opacity-0"
@@ -669,7 +669,7 @@ function ShareCard({ campaign }: { campaign: Campaign }) {
             </a>
           )}
         </div>
-        <p className="mt-2.5 text-[12px] leading-relaxed text-slate-400">
+        <p className="mt-2.5 text-[12px] leading-relaxed text-slate-500">
           {demo
             ? 'En la demo el enlace es solo de muestra y no recibe candidaturas. Con tu cuenta, cada respuesta entra en tu panel.'
             : 'Comparte este enlace con quien responda a tu anuncio. Cualquiera con el enlace puede enviar una candidatura a este puesto.'}
@@ -688,7 +688,7 @@ function DeviceToggle({ device, setDevice }: { device: 'mobile' | 'desktop'; set
           key={d}
           onClick={() => setDevice(d)}
           aria-pressed={device === d}
-          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] font-medium ${device === d ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[13px] font-medium ${device === d ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
         >
           <Icon className="size-3.5" aria-hidden />
           {d === 'mobile' ? 'Móvil' : 'Escritorio'}

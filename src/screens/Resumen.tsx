@@ -118,9 +118,9 @@ export function Resumen() {
                         to={`${base}/puestos/${c.id}?estado=nuevo`}
                         className="flex items-center gap-2.5 py-2.5 transition-colors hover:bg-slate-50"
                       >
-                        <Briefcase className="size-4 shrink-0 text-slate-400" aria-hidden />
+                        <Briefcase className="size-4 shrink-0 text-slate-500" aria-hidden />
                         <span className="min-w-0 flex-1 truncate text-sm text-slate-800">{c.title}</span>
-                        <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 text-[11px] font-bold tabular-nums text-indigo-700">{n}</span>
+                        <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[11px] font-bold tabular-nums text-slate-700">{n}</span>
                       </Link>
                     </li>
                   ))}
@@ -219,12 +219,12 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
           <line x1={padL} y1={maxY} x2={w - padR} y2={maxY} className="stroke-slate-200" strokeDasharray="2 4" />
           <text x={w - padR} y={maxY - 5} textAnchor="end" className="fill-slate-400 text-[10px] tabular-nums">{max}</text>
           {/* Área + línea RECTA (honesta con datos discretos). */}
-          <path d={area} className="fill-indigo-600/10" />
-          <path d={solidLine} fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" className="stroke-indigo-600" />
+          <path d={area} className="fill-slate-700/10" />
+          <path d={solidLine} fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" className="stroke-slate-700" />
           {partialLast && n >= 2 && (
             <path
               d={`M${pts[n - 2].x.toFixed(1)} ${pts[n - 2].y.toFixed(1)} L${pts[n - 1].x.toFixed(1)} ${pts[n - 1].y.toFixed(1)}`}
-              fill="none" strokeWidth="2" strokeDasharray="3 3" strokeLinecap="round" className="stroke-indigo-400"
+              fill="none" strokeWidth="2" strokeDasharray="3 3" strokeLinecap="round" className="stroke-slate-400"
             />
           )}
           {/* Puntos + valor encima (el del máximo ya lo da la línea de escala). */}
@@ -232,7 +232,7 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
             const partial = partialLast && i === n - 1
             return (
               <g key={weeks[i].start}>
-                <circle cx={p.x} cy={p.y} r="2.5" strokeWidth="2" className={partial ? 'fill-white stroke-indigo-400' : 'fill-indigo-600 stroke-white'} />
+                <circle cx={p.x} cy={p.y} r="2.5" strokeWidth="2" className={partial ? 'fill-white stroke-slate-400' : 'fill-slate-700 stroke-white'} />
                 {(labelEach || i === n - 1) && p.v !== max && (
                   <text x={p.x} y={p.y - 8} textAnchor="middle" className={`text-[10px] tabular-nums ${partial ? 'fill-slate-400' : 'fill-slate-600'}`}>{p.v}</text>
                 )}
@@ -245,7 +245,7 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
           ))}
         </svg>
       </div>
-      {partialLast && <p className="mt-1 text-[11px] text-slate-400">La última semana (línea discontinua) está en curso.</p>}
+      {partialLast && <p className="mt-1 text-[11px] text-slate-500">La última semana (línea discontinua) está en curso.</p>}
       <details className="group mt-3">
         <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[12px] font-medium text-indigo-700 marker:content-none hover:text-indigo-800">
           <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden /> Ver datos por semana
@@ -328,7 +328,7 @@ function Panel({ title, right, children }: { title: string; right?: string; chil
 function Empty({ text }: { text: string }) {
   return (
     <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-      <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+      <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
         <Building2 className="size-6" aria-hidden />
       </div>
       <p className="mt-3 text-sm text-slate-500">{text}</p>

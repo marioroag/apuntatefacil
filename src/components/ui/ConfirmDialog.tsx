@@ -78,7 +78,7 @@ export function ConfirmDialog({
           <motion.div
             ref={panelRef}
             tabIndex={-1}
-            className="relative w-full max-w-[420px] rounded-2xl bg-white p-6 shadow-pop outline-none"
+            className="relative w-full max-w-[420px] rounded-xl bg-white p-6 shadow-pop outline-none"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 6 }}

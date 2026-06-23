@@ -77,7 +77,7 @@ export function PublicForm() {
     const paused = campaign?.status === 'pausada'
     return (
       <CenteredCard>
-        <div className="grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+        <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
           <Link2Off className="size-6" aria-hidden />
         </div>
         <h1 className="mt-4 text-xl font-semibold text-slate-900">
@@ -195,7 +195,7 @@ export function PublicForm() {
             bannerUrl={campaign.bannerUrl}
           />
         </div>
-        <p className="mt-4 text-center text-[12px] text-slate-400">Formulario con {BRAND}</p>
+        <p className="mt-4 text-center text-[12px] text-slate-500">Formulario con {BRAND}</p>
       </div>
     </div>
   )
@@ -227,7 +227,7 @@ function ThankYou({ campaign }: { campaign: PublicCampaign }) {
             {campaign.branding.thanks || FORM_THANKS_DEFAULT}
           </p>
         </div>
-        <p className="mt-4 text-center text-[12px] text-slate-400">
+        <p className="mt-4 text-center text-[12px] text-slate-500">
           Formulario con {BRAND}, enviado a {campaign.companyName}
         </p>
       </div>

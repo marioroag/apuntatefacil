@@ -15,6 +15,7 @@ import {
   Filter,
   Globe,
   Inbox,
+  Loader2,
   Lock,
   MoreHorizontal,
   Pause,
@@ -50,7 +51,7 @@ import { useAppBase } from '../lib/useAppBase'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
 import { UpgradeDialog } from '../components/UpgradeDialog'
-import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
+import { BTN_DANGER, BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
 import { supabase } from '../lib/supabase'
 import { searchScore } from '../lib/search'
@@ -392,7 +393,7 @@ export function Dashboard() {
     return (
       <div className="grid h-full place-items-center px-6 py-16">
         <div className="w-full max-w-md text-center">
-          <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+          <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
             <Briefcase className="size-6" aria-hidden />
           </div>
           <h1 className="mt-4 text-xl font-semibold text-slate-900">Puesto no encontrado</h1>
@@ -503,13 +504,13 @@ export function Dashboard() {
 
   return (
     <PullToRefresh onRefresh={refresh}>
-    <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8">
       {/* Cabecera del puesto */}
       <header className="mb-5">
         {/* Título + acciones en la MISMA línea (las acciones a la derecha con ml-auto).
             En móvil las acciones son solo iconos; en sm+ recuperan su etiqueta. */}
         <div ref={titleRowRef} className="flex items-center gap-2.5">
-          <h1 ref={titleRef} className="min-w-0 truncate text-xl font-semibold text-slate-900">{campaign.title}</h1>
+          <h1 ref={titleRef} className="min-w-0 truncate text-[22px] font-semibold leading-tight tracking-[-0.02em] text-slate-900">{campaign.title}</h1>
           {campaign.status !== 'activa' && (
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
               {campaign.status === 'pausada' ? 'Pausado' : 'Cerrado'}
@@ -576,13 +577,13 @@ export function Dashboard() {
             )}
           </div>
         </div>
-        <p className="mt-0.5 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-slate-500">
           {[campaign.sector, campaign.location].map((s) => s?.trim()).filter(Boolean).join(', ')}
         </p>
         {canManage && (
           <>
             {/* Escritorio: pills de sede, marca y avisos en línea (caben de sobra) */}
-            <div className="mt-2 hidden flex-wrap items-center gap-2 sm:flex">
+            <div className="mt-2.5 hidden flex-wrap items-center gap-2 sm:flex">
               <SiteSelect
                 sites={sites}
                 value={campaign.siteId}
@@ -628,11 +629,11 @@ export function Dashboard() {
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
           <input
             type="search"
-            role="searchbox"
+            aria-label="Buscar candidatos"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nombre, teléfono..."
-            className="h-9 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+            className="h-9 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
           />
         </div>
 
@@ -707,8 +708,20 @@ export function Dashboard() {
       {/* Línea de contexto + entrada al modo selección (móvil) */}
       <div className="mt-3 flex items-center gap-3">
         <p className="text-[13px] text-slate-500" role="status">
-          {loading ? 'Cargando candidatos' : `${miles(filtered.length)} ${filtered.length === 1 ? 'candidato' : 'candidatos'}`}
-          {!loading && activeFilterCount > 0 && `, ${activeFilterCount} ${activeFilterCount === 1 ? 'filtro activo' : 'filtros activos'}`}
+          {loading ? (
+            'Cargando candidatos'
+          ) : (
+            <>
+              <span className="num font-medium text-slate-700">{miles(filtered.length)}</span>{' '}
+              {filtered.length === 1 ? 'candidato' : 'candidatos'}
+              {activeFilterCount > 0 && (
+                <>
+                  {', '}
+                  <span className="num">{activeFilterCount}</span> {activeFilterCount === 1 ? 'filtro activo' : 'filtros activos'}
+                </>
+              )}
+            </>
+          )}
         </p>
         {!loading && filtered.length > 0 && !selectMode && (
           <button
@@ -870,7 +883,7 @@ export function Dashboard() {
           className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white px-4 pt-3 shadow-pop sm:hidden"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
-          <div className="mx-auto max-w-[1180px] space-y-2">
+          <div className="mx-auto max-w-[1240px] space-y-2">
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -936,26 +949,37 @@ function StatusSummary({
   onToggle: (s: CandidateStatus) => void
 }) {
   const counts = STATUS_ORDER.map((s) => ({ s, n: all.filter((c) => c.status === s).length }))
+  const total = all.length
   return (
-    // Solo escritorio: en móvil se oculta (el filtro por estado vive en Filtros).
-    <div className="hidden gap-2 sm:grid sm:grid-cols-3 lg:grid-cols-5">
+    // Lectura de instrumento: una sola superficie segmentada por hairlines, no 5
+    // tarjetas sueltas. Cada segmento es un filtro por estado (toggle). Solo
+    // escritorio: en móvil el filtro por estado vive en Filtros.
+    <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card sm:grid sm:grid-cols-5 sm:divide-x sm:divide-slate-200">
       {counts.map(({ s, n }) => {
         const active = statusFilter.has(s)
         const m = STATUS_META[s]
+        const pct = total > 0 ? Math.round((n / total) * 100) : 0
         return (
           <button
             key={s}
             onClick={() => onToggle(s)}
             aria-pressed={active}
-            className={`flex items-center gap-2.5 rounded-xl border bg-white px-3.5 py-2.5 text-left transition-colors ${
-              active ? 'border-indigo-300 ring-1 ring-indigo-200' : 'border-slate-200 hover:bg-slate-50'
+            title={`${m.label}: ${n} de ${total} (${pct}%). Filtrar.`}
+            className={`group relative flex flex-col gap-1.5 px-4 py-3.5 text-left transition-colors duration-150 ${
+              active ? 'bg-indigo-50/70' : 'hover:bg-slate-50'
             }`}
           >
-            <span className={`size-2.5 rounded-full ${m.dot}`} aria-hidden />
-            <span className="flex-1">
-              <span className="block text-xl font-semibold tabular-nums text-slate-900">{n}</span>
-              <span className="block text-[13px] text-slate-500">{m.label}</span>
+            <span className="flex items-center gap-2">
+              <span className={`size-2 rounded-full ${m.dot}`} aria-hidden />
+              <span className="text-[12px] font-medium text-slate-600">{m.label}</span>
             </span>
+            <span className="num text-2xl font-semibold leading-none tracking-[-0.01em] text-slate-900">{n}</span>
+            {/* Proporción: hairline de fondo + tramo lleno del color del estado. */}
+            <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate-100" aria-hidden>
+              <span className={`block h-full rounded-full ${m.dot} transition-[width] duration-500 ease-[var(--ease-out)]`} style={{ width: `${pct}%` }} />
+            </span>
+            {/* Acento de "filtro activo" en la base del segmento. */}
+            {active && <span className="absolute inset-x-0 bottom-0 h-[2px] rounded-t-full bg-indigo-600" aria-hidden />}
           </button>
         )
       })}
@@ -1089,7 +1113,7 @@ function CandidateTable({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-medium text-slate-900">{name}</p>
                   {phone && (
-                    <p className="mt-0.5 truncate text-sm text-slate-500 tabular-nums">
+                    <p className="num mt-0.5 truncate text-sm text-slate-500">
                       {maskPhone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone)}
                     </p>
                   )}
@@ -1113,7 +1137,7 @@ function CandidateTable({
                     <ChevronDown className="size-3 opacity-60" aria-hidden />
                   </button>
                 )}
-                <time dateTime={c.submittedAt} className="text-[11px] text-slate-400 tabular-nums">
+                <time dateTime={c.submittedAt} className="num text-[11px] text-slate-500">
                   {relativeDate(c.submittedAt)}
                 </time>
               </div>
@@ -1165,12 +1189,11 @@ function CandidateTable({
               <tr
                 key={c.id}
                 onClick={() => onOpen(c.id)}
-                className={`group cursor-pointer border-b border-slate-100 transition-colors last:border-0 ${
-                  sel ? 'bg-indigo-50/60' : 'hover:bg-slate-50'
+                className={`group cursor-pointer border-b border-slate-100 transition-colors duration-150 last:border-0 ${
+                  sel ? 'bg-indigo-50/70' : 'hover:bg-slate-50'
                 }`}
               >
-                <td className="relative px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                  {sel && <span className="absolute inset-y-1 left-0 w-0.5 rounded-full bg-indigo-600" aria-hidden />}
+                <td className="relative px-3 py-3" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     checked={sel}
@@ -1179,34 +1202,44 @@ function CandidateTable({
                     className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
                 </td>
-                <td className="px-3 py-2.5">
-                  <div className="flex items-start gap-2.5">
-                    <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-600">
+                <td className="px-3 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[12.5px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
                       {initials(name)}
                     </span>
                     <div className="min-w-0">
-                      <span className="block max-w-[220px] truncate font-medium text-slate-900" title={name}>{name}</span>
+                      {/* El nombre es el activador accesible de la ficha: <button> real,
+                          alcanzable por teclado (la fila entera sigue siendo clicable con
+                          ratón). stopPropagation evita el doble disparo con el onClick de la fila. */}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
+                        className="block max-w-[240px] truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
+                        title={name}
+                      >
+                        {name}
+                      </button>
                       <TagCell tagIds={c.tagIds} tags={tags} />
                     </div>
                   </div>
                 </td>
-                <td className="hidden px-3 py-2.5 text-sm text-slate-600 md:table-cell tnum">
-                  <span className="block max-w-[150px] truncate">
+                <td className="hidden px-3 py-3 text-[13px] text-slate-600 md:table-cell">
+                  <span className="num block max-w-[150px] truncate">
                     {maskPhone && answerStr(c, 'telefono')
                       ? <MaskedPhone value={formatPhone(answerStr(c, 'telefono'))} />
                       : (formatPhone(answerStr(c, 'telefono')) || '–')}
                   </span>
                 </td>
                 {cols.map((f) => (
-                  <td key={f.id} className="hidden px-3 py-2.5 text-sm text-slate-600 lg:table-cell">
+                  <td key={f.id} className={`hidden px-3 py-3 text-[13px] text-slate-600 lg:table-cell ${f.type === 'number' ? 'num' : ''}`}>
                     <span className="block max-w-[200px] truncate" title={answerStr(c, f.id) || undefined}>{answerStr(c, f.id) || '–'}</span>
                   </td>
                 ))}
-                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                   <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
                 </td>
-                <td className="px-3 py-2.5 text-right text-sm text-slate-500">
-                  <time dateTime={c.submittedAt}>{relativeDate(c.submittedAt)}</time>
+                <td className="whitespace-nowrap px-3 py-3 text-right text-[13px] text-slate-500">
+                  <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
                 </td>
               </tr>
             )
@@ -1357,7 +1390,7 @@ function FilterMenu({
   const checkClass = 'size-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 sm:size-4'
   const controls = (
     <>
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Estado</p>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Estado</p>
       <div className="mb-4 space-y-0.5 sm:mb-3">
         {STATUS_ORDER.map((s) => (
           <label key={s} className={rowClass}>
@@ -1383,7 +1416,7 @@ function FilterMenu({
           Si la empresa aún no tiene etiquetas, el grupo se oculta (sin ruido). */}
       {TAGS_ENABLED && tags.length > 0 && (
         <div className="mb-4 sm:mb-3">
-          <p id="flt-tags" className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Etiquetas</p>
+          <p id="flt-tags" className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Etiquetas</p>
           <div role="group" aria-labelledby="flt-tags" className="space-y-0.5">
             {tags.map((t) => (
               <label key={t.id} className={rowClass}>
@@ -1402,7 +1435,7 @@ function FilterMenu({
 
       {filterableFields(campaign).map((f) => (
         <div key={f.id} className="mb-4 sm:mb-3">
-          <p id={`flt-${f.id}`} className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{f.label}</p>
+          <p id={`flt-${f.id}`} className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{f.label}</p>
           <div role="group" aria-labelledby={`flt-${f.id}`} className="space-y-0.5">
             {(f.type === 'boolean' ? ['Sí', 'No'] : f.options ?? []).map((opt) => (
               <label key={opt} className={rowClass}>
@@ -1429,7 +1462,7 @@ function FilterMenu({
         return (
           <div key={f.id} className="mb-4 sm:mb-3">
             <div className="mb-2 flex items-baseline justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{f.label}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{f.label}</p>
               <span className="text-[12px] font-medium tabular-nums text-slate-600">{from} – {to}</span>
             </div>
             <RangeSlider min={lo} max={hi} from={from} to={to} onChange={(nFrom, nTo) => setRange(f, lo, hi, nFrom, nTo)} />
@@ -1438,7 +1471,7 @@ function FilterMenu({
       })}
 
       <div>
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Valoración mínima</p>
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Valoración mínima</p>
         <div className="flex gap-0.5" role="group" aria-label="Filtrar por valoración mínima">
           {[1, 2, 3, 4, 5].map((n) => (
             <button
@@ -1447,7 +1480,7 @@ function FilterMenu({
               onClick={() => setRatingFilter(ratingFilter === n ? 0 : n)}
               aria-label={`${n} estrella${n > 1 ? 's' : ''} o más`}
               aria-pressed={ratingFilter >= n}
-              className="rounded-md p-1.5 text-slate-300 transition-colors hover:text-amber-400 sm:p-0.5"
+              className="rounded-lg p-1.5 text-slate-300 transition-colors hover:text-amber-400 sm:p-0.5"
             >
               <Star
                 className={`size-7 sm:size-5 ${ratingFilter >= n ? 'fill-amber-400 text-amber-400' : ''}`}
@@ -1457,7 +1490,7 @@ function FilterMenu({
           ))}
         </div>
         {ratingFilter > 0 && (
-          <p className="mt-1 text-[12px] text-slate-400">{ratingFilter} estrella{ratingFilter > 1 ? 's' : ''} o más</p>
+          <p className="mt-1 text-[12px] text-slate-500">{ratingFilter} estrella{ratingFilter > 1 ? 's' : ''} o más</p>
         )}
       </div>
     </>
@@ -1503,8 +1536,9 @@ function FilterMenu({
   )
 }
 
-function ExportButton({ count, total, onExport }: { count: number; total: number; onExport: () => void }) {
+function ExportButton({ count, total, onExport }: { count: number; total: number; onExport: () => void | Promise<void> }) {
   const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!open) return
@@ -1513,6 +1547,18 @@ function ExportButton({ count, total, onExport }: { count: number; total: number
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
   const filtered = count !== total
+  // El primer export carga el chunk de xlsx (~400KB): mostramos "Generando…" para
+  // que el clic no parezca muerto en una red lenta. Mismo patrón que "Duplicando…".
+  const run = async () => {
+    if (busy) return
+    setBusy(true)
+    try {
+      await onExport()
+    } finally {
+      setBusy(false)
+      setOpen(false)
+    }
+  }
 
   return (
     <div className="relative" ref={ref}>
@@ -1534,14 +1580,16 @@ function ExportButton({ count, total, onExport }: { count: number; total: number
             </strong>
             {filtered ? ' (los filtrados)' : ''} a un archivo Excel.
           </p>
-          <button
-            onClick={() => {
-              onExport()
-              setOpen(false)
-            }}
-            className={`${BTN_PRIMARY} mt-2.5 w-full`}
-          >
-            <Check className="size-4" aria-hidden /> Descargar Excel
+          <button onClick={run} disabled={busy} className={`${BTN_PRIMARY} mt-2.5 w-full disabled:opacity-70`}>
+            {busy ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden /> Generando…
+              </>
+            ) : (
+              <>
+                <Check className="size-4" aria-hidden /> Descargar Excel
+              </>
+            )}
           </button>
         </div>
       )}
@@ -1551,19 +1599,22 @@ function ExportButton({ count, total, onExport }: { count: number; total: number
 
 // --- Estados ----------------------------------------------------------------
 function SkeletonRows({ cols }: { cols: number }) {
+  // Replica la rejilla real de la fila (checkbox · avatar 36px · nombre, y a la
+  // derecha teléfono/columnas/estado/fecha) para que el paso a datos no salte.
   return (
-    <div role="status" aria-label="Cargando candidatos" className="divide-y divide-slate-100">
+    <div role="status" aria-label="Cargando candidatos">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 px-3 py-3">
-          <div className="size-8 shrink-0 rounded-full skeleton" />
-          <div className="h-3.5 w-40 rounded skeleton" />
-          <div className="ml-auto hidden gap-8 md:flex">
+        <div key={i} className="flex items-center gap-3 border-b border-slate-100 px-3 py-3 last:border-0">
+          <div className="size-4 shrink-0 rounded skeleton" />
+          <div className="size-9 shrink-0 rounded-full skeleton" />
+          <div className="h-3.5 w-44 rounded skeleton" />
+          <div className="ml-auto hidden items-center gap-8 md:flex">
             <div className="h-3 w-24 rounded skeleton" />
             {Array.from({ length: cols }).map((_, j) => (
-              <div key={j} className="h-3 w-16 rounded skeleton" />
+              <div key={j} className="h-3 w-14 rounded skeleton" />
             ))}
-            <div className="h-5 w-20 rounded-full skeleton" />
-            <div className="h-3 w-16 rounded skeleton" />
+            <div className="h-6 w-24 rounded-full skeleton" />
+            <div className="h-3 w-20 rounded skeleton" />
           </div>
         </div>
       ))}
@@ -1574,7 +1625,7 @@ function SkeletonRows({ cols }: { cols: number }) {
 function EmptyFirstUse({ publicUrl, onCopy }: { publicUrl: string; onCopy: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-      <div className="grid size-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
+      <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
         <Inbox className="size-6" aria-hidden />
       </div>
       <h3 className="mt-4 text-lg font-semibold text-slate-900">Aún no hay candidatos</h3>
@@ -1585,7 +1636,7 @@ function EmptyFirstUse({ publicUrl, onCopy }: { publicUrl: string; onCopy: () =>
           trunque (en una columna items-center, sin ancho fijo, no truncaría y se
           saldría). El enlace va discreto (más pequeño y tenue): manda la acción. */}
       <div className="mt-4 flex w-full max-w-md items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-3.5 pr-1.5">
-        <span className="min-w-0 flex-1 truncate text-[13px] text-slate-400">{publicUrl}</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-slate-500">{publicUrl}</span>
         <button onClick={onCopy} className={`${BTN_PRIMARY_SM} shrink-0`}>
           Copiar enlace
         </button>
@@ -1598,7 +1649,7 @@ function EmptyNoResults({ search, hasFilters, onClear }: { search: string; hasFi
   const onlySearch = !!search && !hasFilters
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-      <div className="grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-400">
+      <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
         <SearchX className="size-6" aria-hidden />
       </div>
       <h3 className="mt-4 text-lg font-semibold text-slate-900">Ningún candidato coincide</h3>
@@ -1673,7 +1724,7 @@ function SavedViewsMenu({
             <button
               onClick={() => onDelete(v.id)}
               aria-label={`Eliminar vista ${v.name}`}
-              className="mr-1 grid size-9 shrink-0 place-items-center rounded-md text-slate-400 opacity-100 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
+              className="mr-1 grid size-9 shrink-0 place-items-center rounded-lg text-slate-400 opacity-100 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
             >
               <Trash2 className="size-4 sm:size-3.5" aria-hidden />
             </button>
@@ -1711,7 +1762,7 @@ function SavedViewsMenu({
               <Plus className="size-4" aria-hidden /> Guardar vista actual
             </button>
             {!canSave && (
-              <p className="px-2.5 pb-1 pt-0.5 text-[11px] text-slate-400">Aplica un filtro o una búsqueda para poder guardarla.</p>
+              <p className="px-2.5 pb-1 pt-0.5 text-[11px] text-slate-500">Aplica un filtro o una búsqueda para poder guardarla.</p>
             )}
           </div>
         </div>
@@ -1735,7 +1786,7 @@ function SavedViewsMenu({
               <Plus className="size-4" aria-hidden /> Guardar vista actual
             </button>
             {!canSave && (
-              <p className="mt-2 text-center text-[12px] text-slate-400">Aplica un filtro o una búsqueda para poder guardarla.</p>
+              <p className="mt-2 text-center text-[12px] text-slate-500">Aplica un filtro o una búsqueda para poder guardarla.</p>
             )}
           </div>
         }
@@ -1791,7 +1842,7 @@ function SaveViewDialog({
   return (
     <div className="fixed inset-0 z-[55] grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="saveview-title">
       <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-pop">
+      <div className="relative w-full max-w-md rounded-xl bg-white p-5 shadow-pop">
         <h2 id="saveview-title" className="text-lg font-semibold text-slate-900">Guardar vista</h2>
         <p className="mt-0.5 text-[13px] text-slate-500">
           Ponle nombre a esta combinación de filtros para reaplicarla de un clic.
@@ -1805,7 +1856,7 @@ function SaveViewDialog({
           onKeyDown={(e) => e.key === 'Enter' && submit()}
           autoFocus
           placeholder="ej: sin contactar esta semana"
-          className="mt-1.5 h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+          className="mt-1.5 h-9 w-full rounded-xl border border-slate-300 px-3 text-sm text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
         />
 
         <div className="mt-4">
@@ -2122,7 +2173,7 @@ function PuestoSettingsSheet({
     <BottomSheet open={open} onClose={onClose} title="Ajustes del puesto">
       <div className="space-y-5 px-4 py-4">
               <section>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Sede</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Sede</p>
                 {hasSites ? (
                   <>
                     <div className="flex flex-wrap gap-2">
@@ -2141,7 +2192,7 @@ function PuestoSettingsSheet({
               </section>
 
               <section>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Marca</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Marca</p>
                 {hasBrands ? (
                   <>
                     <div className="flex flex-wrap gap-2">
@@ -2168,7 +2219,7 @@ function PuestoSettingsSheet({
               </section>
 
               <section className="space-y-2">
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Acciones</p>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Acciones</p>
                 <button onClick={onDuplicate} disabled={duplicating} className={`${BTN_SECONDARY} w-full disabled:opacity-60`}>
                   <Copy className="size-4 text-slate-400" aria-hidden />
                   {duplicating ? 'Duplicando…' : 'Duplicar puesto'}
@@ -2190,10 +2241,7 @@ function PuestoSettingsSheet({
                     Cerrar puesto
                   </button>
                 )}
-                <button
-                  onClick={onDelete}
-                  className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-[10px] bg-white px-3 text-sm font-medium text-red-600 shadow-[0_1px_2px_rgba(16,24,40,0.07)] ring-1 ring-inset ring-red-200 transition hover:bg-red-50 active:translate-y-px active:shadow-none pointer-coarse:min-h-11"
-                >
+                <button onClick={onDelete} className={`${BTN_DANGER} w-full`}>
                   <Trash2 className="size-4" aria-hidden />
                   Eliminar puesto
                 </button>

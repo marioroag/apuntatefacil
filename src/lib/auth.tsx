@@ -163,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     createCompany: async (name, accent) => {
       const { error } = await supabase.rpc('create_company', {
         p_name: name,
-        p_accent: accent ?? '#4F46E5',
+        p_accent: accent ?? '#374cce',
       })
       if (error) return { error: error.message }
       await loadCompany(session?.user?.id)
@@ -188,7 +188,7 @@ export function useAuth(): AuthApi {
 export const DEMO_COMPANY: Company = {
   id: 'demo',
   name: 'Tu empresa',
-  accent: '#4F46E5',
+  accent: '#374cce',
   plan: 'multi',
   subscription_status: null,
   billing_interval: null,

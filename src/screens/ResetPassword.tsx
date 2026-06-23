@@ -111,7 +111,7 @@ export function ResetPassword() {
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
                     aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                    className="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-slate-400 hover:text-slate-700"
+                    className="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:text-slate-700"
                   >
                     {showPassword ? <EyeOff className="size-[18px]" aria-hidden /> : <Eye className="size-[18px]" aria-hidden />}
                   </button>
@@ -121,7 +121,7 @@ export function ResetPassword() {
                   {PWD_RULES.map((r) => {
                     const ok = r.test(password)
                     return (
-                      <li key={r.label} className={`flex items-center gap-2 text-[12px] ${ok ? 'text-indigo-600' : 'text-slate-400'}`}>
+                      <li key={r.label} className={`flex items-center gap-2 text-[12px] ${ok ? 'text-indigo-600' : 'text-slate-500'}`}>
                         {ok ? (
                           <Check className="size-3.5 shrink-0" aria-hidden />
                         ) : (
@@ -150,7 +150,7 @@ export function ResetPassword() {
                 <button
                   type="submit"
                   disabled={busy || !passwordValid(password)}
-                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60"
+                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px disabled:opacity-60"
                 >
                   {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Guardando...</> : 'Guardar y entrar'}
                 </button>

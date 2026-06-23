@@ -51,7 +51,7 @@ function LegalLayout({ doc, other }: { doc: LegalDoc; other: { to: string; label
                 <ul key={i} className="mt-4 space-y-2.5">
                   {block.items.map((item, j) => (
                     <li key={j} className="flex gap-3 text-[15px] leading-relaxed text-slate-600">
-                      <span className="mt-2 size-1.5 shrink-0 rounded-full bg-indigo-400" aria-hidden />
+                      <span className="mt-2 size-1.5 shrink-0 rounded-full bg-slate-300" aria-hidden />
                       <span>{item}</span>
                     </li>
                   ))}

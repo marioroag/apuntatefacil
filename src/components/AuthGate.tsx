@@ -7,7 +7,7 @@ import { Onboarding } from '../screens/Onboarding'
 function FullSpinner() {
   return (
     <div className="grid min-h-svh place-items-center bg-slate-50" role="status" aria-label="Cargando">
-      <Loader2 className="size-6 animate-spin text-slate-400" aria-hidden />
+      <Loader2 className="size-6 animate-spin text-slate-500" aria-hidden />
     </div>
   )
 }

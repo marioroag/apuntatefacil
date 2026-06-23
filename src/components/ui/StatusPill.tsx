@@ -35,6 +35,21 @@ export function StatusSelect({
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const m = STATUS_META[status]
 
+  // Hito de marca: al pasar a "contratado" (y SOLO entonces) la pill da un único
+  // pulso sobrio, como un cuño. Es el único estado celebrable de la doctrina;
+  // "descartado" solo cambia de color. reduced-motion lo neutraliza globalmente.
+  const prevStatus = useRef(status)
+  const [celebrate, setCelebrate] = useState(false)
+  useEffect(() => {
+    if (prevStatus.current !== 'contratado' && status === 'contratado') {
+      setCelebrate(true)
+      const t = setTimeout(() => setCelebrate(false), 460)
+      prevStatus.current = status
+      return () => clearTimeout(t)
+    }
+    prevStatus.current = status
+  }, [status])
+
   // El menú va en un portal con posición fija (no absolute) para que NO lo recorte el
   // overflow de la tarjeta/scroll de la lista. Se calcula desde el botón, abriendo hacia
   // abajo o hacia arriba según el hueco, y alineado a izquierda/derecha.
@@ -88,7 +103,7 @@ export function StatusSelect({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ring-1 ring-inset transition-colors ${m.chip} hover:brightness-[0.97]`}
+        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ring-1 ring-inset transition-colors ${m.chip} hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
       >
         <span className={`size-2 rounded-full ${m.dot}`} aria-hidden />
         {m.label}
