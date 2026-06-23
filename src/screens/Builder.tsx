@@ -6,7 +6,8 @@ import {
   DragOverlay,
   KeyboardSensor,
   MeasuringStrategy,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -92,8 +93,12 @@ export function Builder() {
   const [previewOpen, setPreviewOpen] = useState(false) // vista previa a pantalla completa (móvil)
   const [saveError, setSaveError] = useState(false) // el último autoguardado falló: el sello lo refleja y deja reintentar
 
+  // Sensores por dispositivo: ratón arrastra al mover 5px (ágil); táctil exige mantener
+  // pulsada el asa un instante antes de arrastrar (el delay distingue arrastre de scroll y
+  // hace el reordenado fiable en móvil); teclado como alternativa accesible.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
@@ -399,12 +404,13 @@ function FieldRowHeader({
   const noFocus = overlay ? { tabIndex: -1 } : undefined
   return (
     <div className="flex items-center gap-1.5 px-2 py-2">
-      {/* Asa de arrastre: solo escritorio. En móvil el reordenar va con los
-          botones subir/bajar (el arrastre táctil es poco fiable). */}
+      {/* Asa de arrastre (ratón y táctil). touch-none: al agarrar el asa el navegador no
+          scrollea, lo gestiona el TouchSensor. En móvil quedan además los botones subir/bajar
+          como alternativa. select-none evita el menú de selección de iOS al mantener pulsado. */}
       <button
         {...(handleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
         {...noFocus}
-        className={`hidden touch-none rounded-lg p-1 hover:bg-slate-100 sm:block ${
+        className={`touch-none select-none rounded-lg p-1.5 hover:bg-slate-100 ${
           overlay ? 'cursor-grabbing text-slate-500' : 'cursor-grab text-slate-300 hover:text-slate-500 active:cursor-grabbing'
         }`}
         aria-label={`Reordenar ${field.label}, posición ${index + 1} de ${total}`}
