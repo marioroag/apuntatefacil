@@ -129,7 +129,10 @@ export function Sedes() {
           </p>
         </div>
       ) : (
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        // grid-cols-1 explícito en móvil: sin él la columna es un track `auto` que se dimensiona al
+        // contenido de la tarjeta y puede crecer más que el contenedor (desbordamiento). Con
+        // minmax(0,1fr) la tarjeta se acota al ancho disponible y su contenido trunca como debe.
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {groups.map((g) => (
             <SedeCard
               key={g.id ?? '__none__'}

@@ -203,7 +203,7 @@ export function Plan() {
         </div>
       </div>
 
-      <div className="mt-8 grid items-stretch gap-5 lg:grid-cols-3">
+      <div className="mt-8 grid grid-cols-1 items-stretch gap-5 lg:grid-cols-3">
         {TIERS.map((t) => {
           const samePlan = current === t.id
           // Mismo plan + mismo periodo = el plan actual. Mismo plan + otro periodo =

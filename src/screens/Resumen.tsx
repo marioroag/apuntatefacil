@@ -83,7 +83,7 @@ export function Resumen() {
           <IntakeChart candidates={candidates} />
 
           {/* Piden atención + Nuevos sin revisar */}
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Panel title="Piden atención">
               {atencion.length === 0 ? (
                 <p className="px-1 py-2 text-[13px] text-slate-500">Todo al día, nada pendiente.</p>
