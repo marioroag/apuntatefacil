@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { BrowserMock } from '../components/BrowserMock'
 import { Logo } from '../components/Logo'
+import { BetaBadge } from '../components/BetaBadge'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { TIERS } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
@@ -69,6 +70,7 @@ function BrandLockup({ compact = false }: { compact?: boolean }) {
     <span className="flex items-center gap-2">
       <Logo className={markSize} />
       <span className={`${textSize} brand-wordmark text-slate-900`} aria-hidden>apuntatefacil</span>
+      <BetaBadge />
       <span className="sr-only">{BRAND}</span>
     </span>
   )

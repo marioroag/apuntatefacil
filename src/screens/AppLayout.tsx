@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { BRAND } from '../lib/brand'
 import { Logo } from '../components/Logo'
+import { BetaBadge } from '../components/BetaBadge'
 import { initials } from '../lib/format'
 import { seedDemoData } from '../lib/seedDemo'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
@@ -213,6 +214,9 @@ export function AppLayout() {
   const [wizardOpen, setWizardOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [confirmReset, setConfirmReset] = useState(false)
+  const [betaBannerOpen, setBetaBannerOpen] = useState(
+    () => typeof localStorage !== 'undefined' && !localStorage.getItem('apuntatefacil.beta-banner-dismissed')
+  )
 
   // Plan de Prueba con el puesto pausado por el tope de candidatos: avisamos una vez
   // por apertura del panel (vuelve a salir en cada recarga hasta que suba de plan).
@@ -353,6 +357,7 @@ export function AppLayout() {
         <Link to="/" className="flex items-center gap-2" aria-label={`${BRAND}, ir al inicio`}>
           <Logo className="size-7" />
           <span className="text-[17px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
+          <BetaBadge />
         </Link>
         <button
           onClick={() => setOpen(false)}
@@ -619,6 +624,7 @@ export function AppLayout() {
           <Link to="/" className="flex items-center gap-2" aria-label={`${BRAND}, ir al inicio`}>
             <Logo className="size-6" />
             <span className="text-[17px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
+            <BetaBadge />
           </Link>
         </div>
 
@@ -636,6 +642,19 @@ export function AppLayout() {
                 Crear mi cuenta
               </Link>
             </span>
+          </div>
+        )}
+        {!demo && betaBannerOpen && (
+          <div className="flex items-center justify-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-1.5 text-center text-[12px] text-slate-500">
+            <BetaBadge />
+            <span>Estás en la versión beta. Si algo no va bien, escríbenos y lo arreglamos.</span>
+            <button
+              onClick={() => { setBetaBannerOpen(false); localStorage.setItem('apuntatefacil.beta-banner-dismissed', '1') }}
+              className="ml-1 rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
+              aria-label="Cerrar aviso de beta"
+            >
+              <X className="size-3.5" aria-hidden />
+            </button>
           </div>
         )}
         <main id="contenido" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
