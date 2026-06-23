@@ -26,3 +26,6 @@ dist-ssr
 
 # impeccable skill snapshots (regenerated tool output)
 .impeccable/critique/
+
+# Documento de trabajo local (no se versiona)
+CONTEXTO-PRODUCTO.md
