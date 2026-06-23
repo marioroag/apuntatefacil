@@ -259,14 +259,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return
     }
     setLoading(true)
+    // Acotamos a la empresa ACTIVA (company_id). La RLS sola no basta: para un usuario en
+    // varios equipos devolvería datos de TODOS, sumándolos. Con esto ves solo el equipo activo.
     const [c1, c2, c3, c4, c5, c6, c7] = await Promise.all([
-      supabase.from('campaigns').select('*').order('created_at', { ascending: true }),
-      supabase.from('candidates').select('*').order('created_at', { ascending: false }),
-      supabase.from('saved_views').select('id,campaign_id,name,payload').order('created_at', { ascending: true }),
-      supabase.from('sites').select('id,name,city').order('name', { ascending: true }),
-      supabase.from('brands').select('id,name,accent,welcome,thanks,show_logo,logo_path,banner_path').order('name', { ascending: true }),
-      supabase.from('tags').select('id,name').order('name', { ascending: true }),
-      // Relación candidato-etiqueta en UNA consulta por lote (la RLS la acota a lo visible).
+      supabase.from('campaigns').select('*').eq('company_id', companyId).order('created_at', { ascending: true }),
+      supabase.from('candidates').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
+      supabase.from('saved_views').select('id,campaign_id,name,payload').eq('company_id', companyId).order('created_at', { ascending: true }),
+      supabase.from('sites').select('id,name,city').eq('company_id', companyId).order('name', { ascending: true }),
+      supabase.from('brands').select('id,name,accent,welcome,thanks,show_logo,logo_path,banner_path').eq('company_id', companyId).order('name', { ascending: true }),
+      supabase.from('tags').select('id,name').eq('company_id', companyId).order('name', { ascending: true }),
+      // Relación candidato-etiqueta en UNA consulta por lote (la RLS la acota a lo visible; las
+      // filas de candidatos de otra empresa simplemente no casan con los cargados aquí).
       supabase.from('candidate_tags').select('candidate_id,tag_id'),
     ])
     if (c1.error || c2.error) {
