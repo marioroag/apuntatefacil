@@ -9,10 +9,11 @@ import {
   MouseSensor,
   TouchSensor,
   closestCenter,
+  pointerWithin,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import type { DragEndEvent } from '@dnd-kit/core'
+import type { CollisionDetection, DragEndEvent } from '@dnd-kit/core'
 import {
   SortableContext,
   arrayMove,
@@ -79,6 +80,16 @@ function defaultLabel(type: FieldType): string {
     date: 'Elige una fecha',
     file: 'Adjunta tu CV',
   }[type]
+}
+
+// Detección de colisión basada en el CURSOR. closestCenter compara el centro de la tarjeta
+// arrastrada con los campos, y durante el autoscroll ese centro queda desfasado del ratón, así
+// que el destino caía una fila por encima del cursor. pointerWithin usa la posición real del
+// cursor: el destino es el campo que está justo debajo del ratón. Si el cursor cae en el hueco
+// entre dos campos (o en arrastre por teclado, sin cursor), recurrimos a closestCenter.
+const cursorCollision: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args)
+  return pointerCollisions.length > 0 ? pointerCollisions : closestCenter(args)
 }
 
 export function Builder() {
@@ -257,7 +268,7 @@ export function Builder() {
                   measuring.Always reasegura las medidas tras el colapso. */}
               <DndContext
                 sensors={sensors}
-                collisionDetection={closestCenter}
+                collisionDetection={cursorCollision}
                 onDragStart={(e) => { setExpandedId(null); setActiveId(String(e.active.id)) }}
                 onDragEnd={onDragEnd}
                 onDragCancel={() => setActiveId(null)}
