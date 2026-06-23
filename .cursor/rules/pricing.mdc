@@ -1,0 +1,19 @@
+---
+description: Estrategia y reglas de pricing (premium, "los mejores")
+globs: src/lib/pricing.ts,src/screens/Plan.tsx,src/screens/Landing.tsx
+alwaysApply: false
+---
+
+# Pricing (decidido: premium, no el más barato)
+
+Editable en `src/lib/pricing.ts`. Good-better-best con **números redondos** (prestigio + honesto +
+citable; el `.99` grita ganga).
+
+- **Esencial 150 €/mes** (2 procesos activos), **Pro 250 €/mes** (10 procesos), **Multi 450 €/mes**
+  (ilimitado, multi-local, ETT). Anual = ×10 (2 meses gratis). Cifras fechadas a junio 2026.
+- Diferencia por **procesos/anuncios activos**, **NUNCA por nº de candidatos** (no estrangular en
+  plena oleada) ni por usuario (castigaría al bar de 1-2 personas). **Usuarios siempre ilimitados.**
+- Chapa del plan Pro: **"Recomendado"** (ver regla de copy: nada de prueba social inventada).
+- En la landing, **ancla el coste real ANTES del precio**, como dos verdades: hacerlo **a mano**
+  (56 candidatos/vacante, horas, perfiles perdidos) frente a **pagando** (InfoJobs 295-369 €/oferta,
+  empresa de selección 15-20% del salario, mala contratación hasta 3 sueldos). Sin jerga tipo "ATS".

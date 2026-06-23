@@ -1,0 +1,60 @@
+---
+description: Doctrina visual "Instrumento de precisión" (Linear / SaaS confiable). NO cambiar sin debate.
+globs: src/**/*.tsx,src/**/*.css
+alwaysApply: false
+---
+
+# Doctrina visual: "Instrumento de precisión"
+
+Sobria, nítida y premium, carácter Linear (registro "SaaS confiable"). **Multisector**: nunca
+debe oler a construcción (cero cascos, naranjas de obra, mascotas). Tokens en `src/index.css`;
+botones en `src/lib/buttons.ts`; logo en `src/components/Logo.tsx` (SVG inline, no PNG).
+
+## Acento (el error nº1)
+- Acento **ULTRAMARINE `#374cce` SOLO para acción, nav activo, foco y selección. NUNCA para
+  estado ni decorativo.** Eyebrows, iconos de feature, círculos de paso, checks decorativos →
+  neutralizados a slate/tinta. El acento se reserva a CTAs/enlaces + el plan "Recomendado".
+- Está reasignado sobre la rampa `indigo` de Tailwind en `@theme`, así que `bg-indigo-*` /
+  `text-indigo-*` pintan el ultramarine.
+
+## Estados de candidato (paleta propia y fija, NUNCA el acento de marca)
+5 estados: **nuevo = slate, contactado = azul, entrevista = ámbar, contratado = verde,
+descartado = slate apagado** (nunca rojo: descartar es rutina y reversible). Estado = punto de
+color **+** texto, nunca solo color. Mapa en `src/lib/types.ts` (`STATUS_META`).
+
+## Neutros, rojo, tipografía
+- Neutros **GRAFITO** (rampa `slate` reasignada, OKLCH, AA): fondo app `#f9fafb`, superficies
+  `#FFFFFF`, borde `#e5e7eb`, texto `#131822` / secundario `#50545e` / terciario `#6f727c`.
+  Texto con significado siempre ≥ 4.5:1 (`slate-400` NO vale para texto con significado).
+- **Rojo `#DC2626` solo** para errores reales y acciones destructivas (borde + icono, nunca solo
+  color; `BTN_DANGER`).
+- Tipografía: una sola familia, **Geist** (variable, autoalojada). Jerarquía por peso/color antes
+  que por tamaño. `tabular-nums` (clase `.num`) en cualquier número/fecha/teléfono. Sin monospace
+  para datos.
+
+## Radios por rol (consistencia absoluta)
+- inputs/campos/tarjetas/paneles/modales **10px** (`rounded-xl`)
+- botones y controles pequeños **8px** (`rounded-lg`)
+- pills/chips/avatares 999px
+- superficies externas (landing, formulario público) pueden usar 16px en tarjetas grandes
+
+## Botones, sombras, movimiento
+- Botón "instrumento": relieve nítido (filo de luz interior + anillo 1px + sombra mínima),
+  press = `translate-y-px` (nunca `scale`). Constantes `BTN_PRIMARY/SECONDARY/DANGER/_LG/_SM`
+  en `src/lib/buttons.ts`.
+- **Una sola sombra por elevación**: `shadow-card` para tarjetas; `shadow-pop` solo para overlays
+  reales (dropdowns, paneles, modales). Nunca apilar sombras. **Sin gradientes** (salvo el barrido
+  del skeleton).
+- Movimiento corto y sobrio (120/180/240ms), solo `transform`/`opacity`. Sin springs ni rebotes.
+  El verde "contratado" es el único hito con un pulse sutil; "descartado" solo cambia de color.
+  Respeta `prefers-reduced-motion`.
+
+## Componentes y accesibilidad (suelo)
+- Hay un componente `Checkbox` de marca en `src/components/ui/Checkbox.tsx` (acento ultramarine);
+  úsalo, no `<input type=checkbox>` nativo (sin `@tailwindcss/forms`, el nativo sale fuera de marca).
+- Foco visible con `:focus-visible` (nunca quitar el outline sin reemplazo visible). `<button>`/`<a>`
+  reales. `<table>` semántica con `aria-sort`. Drag-to-reorder SIEMPRE con alternativa de teclado y
+  botones subir/bajar.
+- Detalle del candidato = panel lateral (SlideOver), nunca modal a pantalla completa que tape la lista.
+- Un único `FieldRenderer` (`src/components/FieldRenderer.tsx`) pinta a la vez la preview del builder
+  y el formulario público (WYSIWYG real): si tocas uno, tocas los dos.

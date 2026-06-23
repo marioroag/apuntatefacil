@@ -1,0 +1,24 @@
+---
+description: Reglas de copy, glosario congelado y "cero dark patterns" (toda la app)
+globs: src/**/*.tsx
+alwaysApply: false
+---
+
+# Copy (toda la app)
+
+- **Sin guion largo (—)** en nada visible. Usa comas, dos puntos o puntos.
+- Español con **tuteo** consistente. **Sentence case** en headings, botones y labels. Labels
+  verbo-primero (1-3 palabras).
+- **Glosario congelado** (usa exactamente estos términos): **puesto** (no vacante/oferta/campaña),
+  **candidato**, **candidatura** (el envío), **enlace** (no link), **estado**, **exportar**,
+  **formulario**. Estados: nuevo / contactado / entrevista / descartado / contratado.
+
+# Cero dark patterns (es el posicionamiento de la marca)
+
+- Sin urgencia/escasez falsa. Sin prueba social inventada (testimonios, contadores, logos de
+  clientes que no existen). Sin confirmshaming. Sin preselecciones.
+- Las casillas de consentimiento van **SIN marcar** por defecto (además, premarcarlas es ilegal
+  en RGPD).
+- La chapa del plan Pro es **"Recomendado"**, NUNCA "el más elegido" (sin usuarios reales sería
+  prueba social inventada).
+- Test antes de escribir algo: "¿funcionaría igual si el usuario supiera cómo está hecho?".

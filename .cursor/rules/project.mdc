@@ -1,0 +1,53 @@
+---
+description: Visión general, stack, alcance y principios de trabajo de Apúntate Fácil
+alwaysApply: true
+---
+
+# Apúntate Fácil (apuntatefacil.com)
+
+Web app para automatizar la contratación a través de Milanuncios y similares. **Multisector**
+(construcción, logística, hostelería, limpieza, comercio, ETTs). La empresa pone su anuncio
+como siempre; a quien responde le manda **un enlace** en vez de chatear; el enlace abre un
+**formulario personalizable**; cada envío entra en su **base de datos** de candidatos, que
+filtra y exporta a Excel. Marca definitiva: **Apúntate Fácil**, definida en un único sitio:
+`src/lib/brand.ts`.
+
+## Stack
+- Frontend: **Vite + React + TypeScript + Tailwind** (Tailwind v4, tokens en `src/index.css` con `@theme`; sin `tailwind.config`).
+- Backend: **Supabase** (Postgres + Auth + Storage + RLS). Edge functions en `supabase/functions/` (Deno).
+- Router: react-router. Animación: framer-motion (corta y sobria). Iconos: lucide-react.
+- Deploy: Vercel.
+
+## Alcance: 4 superficies. NO añadir features fuera de esto sin hablarlo
+| Ruta | Qué es |
+| --- | --- |
+| `/` | Landing de marketing |
+| `/app/puestos/:id` | Panel: base de datos de candidatos (filtros, estados, detalle, export Excel) |
+| `/app/puestos/:id/formulario` | Constructor del formulario (drag & drop) + preview en vivo |
+| `/a/:slug` y `/:marca/:slug` | Formulario público que rellena el candidato (mobile-first) |
+
+## Arrancar y VERIFICAR
+```bash
+npm install
+supabase start         # Postgres + Auth + Storage + Studio (Docker)
+cp .env.example .env.local
+npm run dev            # http://localhost:5173
+npm run build          # debe quedar verde (tsc -b + vite build)
+```
+- Migraciones en `supabase/migrations/`. Tras tocar esquema: `supabase db reset`. Tras tocar `config.toml`: `supabase stop && supabase start`.
+- Datos demo (una ETT, 4 sectores, ~50 candidatos) en `localStorage` (`apuntatefacil.demo.v1`), rutas `/demo/*`.
+
+## Principios de trabajo (Mario tiene un listón de diseño MUY alto)
+- **Mismo rigor en el cambio pequeño que en el grande**, también en follow-ups cortos.
+- **Verificar siempre en navegador** cualquier cambio observable: capturar, mirarlo, probar
+  interacciones y **rehacer si no cumple**. No dar nada por bueno sin verlo.
+- `npm run build` y `npx tsc --noEmit` verdes antes de cerrar.
+- El sistema de diseño está formalizado: para piezas nuevas, ejecuta la MISMA doctrina (ver
+  reglas de diseño y copy), no inventes otra dirección.
+
+## Gotchas de verificación (no perder el tiempo)
+- El **preview/entorno de pruebas es Chrome**: NO reproduce bugs específicos de Safari/WebKit
+  ni el gesto de drag de dnd-kit (eventos sintéticos no disparan los sensores). Para esos casos,
+  pide verificación en navegador real o aplica una solución determinista; no despliegues a ciegas.
+- `IntersectionObserver` no dispara callbacks en el preview embebido (rompe `whileInView` de
+  framer-motion): para reveals usa **animación CSS en montaje**, no IO.
