@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { planHas } from '../lib/pricing'
 import { initials, relativeDate } from '../lib/format'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 
 type Member = { user_id: string; email: string; role: string; is_self: boolean; site_ids: string[] }
 type Invitation = { id: string; email: string; token: string; created_at: string; role: string }
@@ -30,6 +31,8 @@ export function Equipo() {
   const [siteSel, setSiteSel] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
+  const [removing, setRemoving] = useState<Member | null>(null) // miembro pendiente de confirmar borrado
+  const [removeBusy, setRemoveBusy] = useState(false)
 
   const load = useCallback(async () => {
     if (!company) return
@@ -113,6 +116,20 @@ export function Equipo() {
     setEditing(null)
     await load()
     toast.success('Acceso actualizado')
+  }
+
+  const removeMember = async () => {
+    if (!removing || !company) return
+    setRemoveBusy(true)
+    const { error } = await supabase.rpc('remove_member', { p_company_id: company.id, p_user_id: removing.user_id })
+    setRemoveBusy(false)
+    if (error) {
+      toast.error(error.message || 'No se pudo eliminar al miembro.')
+      return
+    }
+    setMembers((ms) => ms.filter((m) => m.user_id !== removing.user_id))
+    setRemoving(null)
+    toast.success('Miembro eliminado del equipo')
   }
 
   return (
@@ -231,6 +248,11 @@ export function Equipo() {
                         <Pencil className="size-4" aria-hidden />
                       </button>
                     )}
+                    {isOwner && !m.is_self && m.role !== 'owner' && (
+                      <button onClick={() => setRemoving(m)} aria-label={`Eliminar a ${m.email} del equipo`} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600">
+                        <Trash2 className="size-4" aria-hidden />
+                      </button>
+                    )}
                   </div>
                 ),
               )}
@@ -238,6 +260,22 @@ export function Equipo() {
           </section>
         </>
       )}
+
+      <ConfirmDialog
+        open={!!removing}
+        onClose={() => setRemoving(null)}
+        onConfirm={removeMember}
+        title="Eliminar del equipo"
+        confirmLabel="Eliminar"
+        confirmVariant="danger"
+        loading={removeBusy}
+      >
+        <p className="text-sm text-slate-600">
+          ¿Seguro que quieres eliminar a{' '}
+          <strong className="font-semibold text-slate-800">{removing?.email}</strong> del equipo?
+          Perderá el acceso a los candidatos de esta empresa. Puedes volver a invitarle cuando quieras.
+        </p>
+      </ConfirmDialog>
     </div>
   )
 }
