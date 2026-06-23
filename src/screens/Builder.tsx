@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   MeasuringStrategy,
   PointerSensor,
@@ -85,6 +86,7 @@ export function Builder() {
   const base = useAppBase()
   const campaign = getCampaign(campaignId!)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null) // fila que se arrastra ahora (para el DragOverlay)
   const [device, setDevice] = useState<'mobile' | 'desktop'>('mobile')
   const [previewOpen, setPreviewOpen] = useState(false) // vista previa a pantalla completa (móvil)
   const [saveError, setSaveError] = useState(false) // el último autoguardado falló: el sello lo refleja y deja reintentar
@@ -122,6 +124,7 @@ export function Builder() {
   }
 
   const onDragEnd = (e: DragEndEvent) => {
+    setActiveId(null)
     const { active, over } = e
     if (over && active.id !== over.id) {
       const oldI = fields.findIndex((f) => f.id === active.id)
@@ -136,6 +139,10 @@ export function Builder() {
     if (j < 0 || j >= fields.length) return
     setFields(arrayMove(fields, i, j))
   }
+
+  // Campo que se arrastra ahora mismo, para pintarlo en el DragOverlay idéntico a su fila.
+  const activeIndex = activeId ? fields.findIndex((f) => f.id === activeId) : -1
+  const activeField = activeIndex >= 0 ? fields[activeIndex] : null
   const updateField = (id: string, patch: Partial<FormField>) =>
     setFields(fields.map((f) => (f.id === id ? { ...f, ...patch } : f)))
   const removeField = (id: string) => {
@@ -245,8 +252,9 @@ export function Builder() {
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragStart={() => setExpandedId(null)}
+                onDragStart={(e) => { setExpandedId(null); setActiveId(String(e.active.id)) }}
                 onDragEnd={onDragEnd}
+                onDragCancel={() => setActiveId(null)}
                 measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
               >
                 <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
@@ -268,6 +276,16 @@ export function Builder() {
                     ))}
                   </ul>
                 </SortableContext>
+                {/* La fila arrastrada se pinta en un overlay (portal a nivel de viewport),
+                    inmune al scroll del contenedor: no se separa del cursor al autoscrollear
+                    y closestCenter (que usa el rect del elemento activo) calcula bien el destino. */}
+                <DragOverlay>
+                  {activeField ? (
+                    <div className="overflow-hidden rounded-xl border border-indigo-300 bg-white shadow-pop">
+                      <FieldRowHeader field={activeField} index={activeIndex} total={fields.length} expanded={false} overlay />
+                    </div>
+                  ) : null}
+                </DragOverlay>
               </DndContext>
             </section>
 
@@ -353,6 +371,67 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="mb-2.5 text-[13px] font-semibold uppercase tracking-wider text-slate-500">{children}</h2>
 }
 
+// Cabecera (colapsada) de una fila de campo: asa de arrastre, etiqueta/tipo y botones
+// subir/bajar. La pintan la fila sortable real y el DragOverlay, así lo que arrastras es
+// idéntico a la fila (WYSIWYG, una sola fuente). En el overlay va estático (`overlay`):
+// sin handlers y sin foco, es solo el reflejo visual que sigue al cursor.
+function FieldRowHeader({
+  field,
+  index,
+  total,
+  expanded,
+  onToggle,
+  onMove,
+  handleProps,
+  overlay = false,
+}: {
+  field: FormField
+  index: number
+  total: number
+  expanded: boolean
+  onToggle?: () => void
+  onMove?: (dir: -1 | 1) => void
+  handleProps?: Record<string, unknown>
+  overlay?: boolean
+}) {
+  const meta = FIELD_TYPE_META[field.type]
+  const noFocus = overlay ? { tabIndex: -1 } : undefined
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-2">
+      {/* Asa de arrastre: solo escritorio. En móvil el reordenar va con los
+          botones subir/bajar (el arrastre táctil es poco fiable). */}
+      <button
+        {...(handleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+        {...noFocus}
+        className={`hidden touch-none rounded-lg p-1 hover:bg-slate-100 sm:block ${
+          overlay ? 'cursor-grabbing text-slate-500' : 'cursor-grab text-slate-300 hover:text-slate-500 active:cursor-grabbing'
+        }`}
+        aria-label={`Reordenar ${field.label}, posición ${index + 1} de ${total}`}
+      >
+        <GripVertical className="size-4" aria-hidden />
+      </button>
+
+      <button onClick={onToggle} {...noFocus} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-50">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">{field.label}</span>
+        <span className="hidden shrink-0 text-[12px] text-slate-500 sm:inline">{meta.label}</span>
+        {/* "Obligatorio" inline solo en sm+: en móvil ocupa demasiado y ya aparece
+            en el editor desplegado. */}
+        {field.required && <span className="hidden shrink-0 rounded bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-500 sm:inline">Obligatorio</span>}
+        <ChevronDown className={`size-4 shrink-0 text-slate-500 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
+      </button>
+
+      <div className="flex shrink-0 items-center">
+        <button onClick={() => onMove?.(-1)} disabled={index === 0} {...noFocus} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" aria-label="Subir campo">
+          <ChevronUp className="size-4" aria-hidden />
+        </button>
+        <button onClick={() => onMove?.(1)} disabled={index === total - 1} {...noFocus} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" aria-label="Bajar campo">
+          <ChevronDown className="size-4" aria-hidden />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // --- Fila de campo (sortable) ----------------------------------------------
 function SortableFieldRow({
   field,
@@ -380,44 +459,22 @@ function SortableFieldRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
-  const meta = FIELD_TYPE_META[field.type]
 
   return (
     <li
       ref={setNodeRef}
       style={style}
-      className={`overflow-hidden rounded-xl border bg-white ${isDragging ? 'border-indigo-300 shadow-pop' : 'border-slate-200'}`}
+      className={`overflow-hidden rounded-xl border bg-white ${isDragging ? 'border-indigo-300 opacity-50' : 'border-slate-200'}`}
     >
-      <div className="flex items-center gap-1.5 px-2 py-2">
-        {/* Asa de arrastre: solo escritorio. En móvil el reordenar va con los
-            botones subir/bajar (el arrastre táctil es poco fiable). */}
-        <button
-          {...attributes}
-          {...listeners}
-          className="hidden cursor-grab touch-none rounded-lg p-1 text-slate-300 hover:bg-slate-100 hover:text-slate-500 active:cursor-grabbing sm:block"
-          aria-label={`Reordenar ${field.label}, posición ${index + 1} de ${total}`}
-        >
-          <GripVertical className="size-4" aria-hidden />
-        </button>
-
-        <button onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left hover:bg-slate-50">
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">{field.label}</span>
-          <span className="hidden shrink-0 text-[12px] text-slate-500 sm:inline">{meta.label}</span>
-          {/* "Obligatorio" inline solo en sm+: en móvil ocupa demasiado y ya aparece
-              en el editor desplegado. */}
-          {field.required && <span className="hidden shrink-0 rounded bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-500 sm:inline">Obligatorio</span>}
-          <ChevronDown className={`size-4 shrink-0 text-slate-500 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
-        </button>
-
-        <div className="flex shrink-0 items-center">
-          <button onClick={() => onMove(-1)} disabled={index === 0} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" aria-label="Subir campo">
-            <ChevronUp className="size-4" aria-hidden />
-          </button>
-          <button onClick={() => onMove(1)} disabled={index === total - 1} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" aria-label="Bajar campo">
-            <ChevronDown className="size-4" aria-hidden />
-          </button>
-        </div>
-      </div>
+      <FieldRowHeader
+        field={field}
+        index={index}
+        total={total}
+        expanded={expanded}
+        onToggle={onToggle}
+        onMove={onMove}
+        handleProps={{ ...attributes, ...listeners }}
+      />
 
       {expanded && (
         <div className="space-y-3 border-t border-slate-100 bg-slate-50/50 px-3 py-3">
