@@ -799,6 +799,7 @@ function Preview({ campaign }: { campaign: Campaign }) {
   const { brands } = useStore()
   const brand = campaign.brandId ? brands.find((b) => b.id === campaign.brandId) : null
   const [values, setValues] = useState<Record<string, FieldValue>>({})
+  const [consent, setConsent] = useState(false)
   return (
     <ApplicationForm
       campaign={campaign}
@@ -808,6 +809,8 @@ function Preview({ campaign }: { campaign: Campaign }) {
       companyName={brand?.name ?? company?.name ?? ''}
       logoUrl={brandAssetUrl(brand?.logoPath)}
       bannerUrl={brandAssetUrl(brand?.bannerPath)}
+      consent={consent}
+      onConsentChange={setConsent}
       preview
     />
   )

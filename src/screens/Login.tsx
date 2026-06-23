@@ -56,6 +56,7 @@ export function Login() {
   const [unconfirmed, setUnconfirmed] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const [remember, setRemember] = useState(true)
+  const [accepted, setAccepted] = useState(false) // términos + privacidad (obligatorio solo en el alta)
 
   const switchMode = (m: Mode) => {
     setMode(m)
@@ -81,6 +82,10 @@ export function Login() {
     }
     if (mode === 'signin' && password.length === 0) {
       setError('Escribe tu contraseña.')
+      return
+    }
+    if (mode === 'signup' && !accepted) {
+      setError('Marca la casilla para aceptar los términos y la política de privacidad.')
       return
     }
     setError(null)
@@ -308,6 +313,18 @@ export function Login() {
                   )}
                 </div>
 
+                {mode === 'signup' && (
+                  <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-[13px] leading-relaxed text-slate-600">
+                    <Checkbox checked={accepted} onChange={(e) => { setAccepted(e.target.checked); setError(null) }} className="mt-px" />
+                    <span>
+                      Acepto los{' '}
+                      <Link to="/terminos" target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 hover:text-indigo-700">términos</Link>
+                      {' '}y la{' '}
+                      <Link to="/privacidad" target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 hover:text-indigo-700">política de privacidad</Link>.
+                    </span>
+                  </label>
+                )}
+
                 {error && <p className="mt-3 text-[13px] font-medium text-red-600">{error}</p>}
                 {unconfirmed && (
                   <button type="button" onClick={onResend} disabled={busy} className="mt-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-60">
@@ -326,8 +343,7 @@ export function Login() {
               </form>
 
               <p className="mt-4 text-center text-[12px] leading-relaxed text-slate-500">
-                Tu contraseña se guarda cifrada, nunca la vemos en claro. Al continuar aceptas nuestras{' '}
-                <Link to="/terminos" className="font-medium text-slate-500 hover:text-slate-700">condiciones</Link>.
+                Tu contraseña se guarda cifrada, nunca la vemos en claro.
               </p>
             </>
           )}

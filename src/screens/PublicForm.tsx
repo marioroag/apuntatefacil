@@ -29,6 +29,8 @@ export function PublicForm() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const [consent, setConsent] = useState(false)
+  const [consentError, setConsentError] = useState('')
   const formTop = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -118,8 +120,17 @@ export function PublicForm() {
       if (err) next[f.id] = err
     }
     setErrors(next)
+    const consentMissing = !consent
+    setConsentError(consentMissing ? 'Marca la casilla para aceptar la política de privacidad.' : '')
     if (Object.values(next).some(Boolean)) {
       formTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+    if (consentMissing) {
+      // No hay errores de campos, solo falta el consentimiento: lo enfocamos (está junto al botón).
+      const el = document.getElementById('consent-check')
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el?.focus({ preventScroll: true })
       return
     }
     setSubmitError(null)
@@ -193,6 +204,9 @@ export function PublicForm() {
             companyName={campaign.companyName}
             logoUrl={campaign.logoUrl}
             bannerUrl={campaign.bannerUrl}
+            consent={consent}
+            onConsentChange={(v) => { setConsent(v); setConsentError('') }}
+            consentError={consentError}
           />
         </div>
         <p className="mt-4 text-center text-[12px] text-slate-500">Formulario con {BRAND}</p>

@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from 'react'
-import { AlertCircle, Lock } from 'lucide-react'
+import { AlertCircle, Check, Lock } from 'lucide-react'
 import type { Campaign } from '../lib/types'
 import { FieldRenderer } from './FieldRenderer'
 import type { FieldValue } from './FieldRenderer'
@@ -21,6 +21,9 @@ export function ApplicationForm({
   companyName,
   logoUrl,
   bannerUrl,
+  consent = false,
+  onConsentChange,
+  consentError,
   preview = false,
 }: {
   campaign: Campaign
@@ -34,6 +37,10 @@ export function ApplicationForm({
   companyName: string
   logoUrl?: string | null
   bannerUrl?: string | null
+  // Consentimiento del candidato (RGPD): obligatorio para enviar. Lo gestiona el padre.
+  consent?: boolean
+  onConsentChange?: (v: boolean) => void
+  consentError?: string
   preview?: boolean
 }) {
   const accent = campaign.branding.accent
@@ -152,6 +159,38 @@ export function ApplicationForm({
           )}
         </span>
       </p>
+
+      {/* Consentimiento del candidato (RGPD), obligatorio. Casilla SIN marcar (sin dark
+          patterns), con el acento del cliente. El enlace abre en pestaña nueva para no
+          perder lo que ha escrito el candidato. */}
+      <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-[13px] leading-relaxed text-slate-600">
+        <span className="relative mt-px inline-flex shrink-0">
+          <input
+            id="consent-check"
+            type="checkbox"
+            checked={!!consent}
+            onChange={(e) => onConsentChange?.(e.target.checked)}
+            aria-invalid={consentError ? true : undefined}
+            aria-describedby={consentError ? 'consent-err' : undefined}
+            style={consent ? { backgroundColor: 'var(--accent)', borderColor: 'var(--accent)' } : undefined}
+            className={`size-5 cursor-pointer appearance-none rounded-[5px] border transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--accent)_22%,transparent)] motion-reduce:transition-none ${consent ? '' : consentError ? 'border-red-400 bg-white' : 'border-slate-300 bg-white'}`}
+          />
+          <Check strokeWidth={3.5} aria-hidden className={`pointer-events-none absolute inset-0 m-auto size-3.5 text-on-accent transition-opacity motion-reduce:transition-none ${consent ? 'opacity-100' : 'opacity-0'}`} />
+        </span>
+        <span className="min-w-0 break-words">
+          He leído y acepto la{' '}
+          <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="font-medium text-slate-700 underline hover:text-slate-900">
+            política de privacidad
+          </a>
+          {' '}y que {companyName} trate mis datos para este proceso de selección.
+        </span>
+      </label>
+      {consentError && (
+        <p id="consent-err" role="alert" className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-red-600">
+          <AlertCircle className="size-3.5 shrink-0" aria-hidden />
+          {consentError}
+        </p>
+      )}
 
       <button
         type="submit"
