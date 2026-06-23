@@ -638,7 +638,11 @@ export function AppLayout() {
             </span>
           </div>
         )}
-        <main id="contenido" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {/* overflow-x-hidden: el panel principal solo scrollea en vertical. Sin esto, overflow-y-auto
+            hace que overflow-x compute a `auto` y cualquier desbordamiento mínimo (métricas de fuente
+            en iOS, datos largos) provoca scroll horizontal no intencionado. Las tablas anchas
+            (Dashboard, Bandeja) llevan su propio overflow-x-auto, así que no se ven afectadas. */}
+        <main id="contenido" className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
           <Suspense fallback={<div className="grid h-full place-items-center" role="status" aria-label="Cargando"><Loader2 className="size-6 animate-spin text-slate-400" aria-hidden /></div>}>
             <Outlet />
           </Suspense>
