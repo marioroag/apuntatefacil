@@ -79,7 +79,7 @@ export function PublicForm() {
     const paused = campaign?.status === 'pausada'
     return (
       <CenteredCard>
-        <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
+        <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
           <Link2Off className="size-6" aria-hidden />
         </div>
         <h1 className="mt-4 text-xl font-semibold text-slate-900">
@@ -252,7 +252,7 @@ function ThankYou({ campaign }: { campaign: PublicCampaign }) {
 
 function CenteredCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid min-h-svh place-items-center bg-slate-50 px-4">
+    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-8">
       <div className="w-full max-w-[420px] rounded-2xl border border-slate-200 bg-white p-7 text-center shadow-card">
         {children}
       </div>
