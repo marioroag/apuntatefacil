@@ -517,12 +517,12 @@ export function Dashboard() {
             <button
               onClick={copyLink}
               className={`${BTN_SECONDARY} max-sm:h-8 max-sm:gap-1 max-sm:px-2.5 max-sm:text-[12px]`}
-              title="Compartir enlace"
-              aria-label="Compartir enlace"
+              title="Copiar enlace"
+              aria-label="Copiar enlace"
             >
               <Share2 className="size-4 shrink-0 text-slate-400 max-sm:size-3.5" aria-hidden />
-              <span className={compactShare ? 'hidden' : 'sm:hidden'}>Compartir</span>
-              <span className="hidden sm:inline">Compartir enlace</span>
+              <span className={compactShare ? 'hidden' : 'sm:hidden'}>Copiar</span>
+              <span className="hidden sm:inline">Copiar enlace</span>
             </button>
             {canManage && (
               <Link
