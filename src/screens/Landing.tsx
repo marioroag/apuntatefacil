@@ -214,7 +214,7 @@ function Bubble({ children, from, muted = false }: { children: React.ReactNode; 
   if (from === 'them') {
     return (
       <div
-        className={`max-w-[82%] self-start rounded-2xl rounded-tl-md px-3.5 py-2 text-copy leading-snug ring-1 ${
+        className={`max-w-[88%] self-start rounded-2xl rounded-tl-md px-3 py-2 text-copy leading-snug ring-1 sm:max-w-[82%] sm:px-3.5 ${
           muted ? 'bg-slate-100 italic text-slate-500 ring-slate-200/70' : 'bg-white text-slate-700 ring-slate-200'
         }`}
       >
@@ -223,7 +223,7 @@ function Bubble({ children, from, muted = false }: { children: React.ReactNode; 
     )
   }
   return (
-    <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-slate-200/80 px-3.5 py-2 text-copy leading-snug text-slate-700">
+    <div className="max-w-[88%] self-end rounded-2xl rounded-tr-md bg-slate-200/80 px-3 py-2 text-copy leading-snug text-slate-700 sm:max-w-[82%] sm:px-3.5">
       {children}
     </div>
   )
@@ -231,6 +231,24 @@ function Bubble({ children, from, muted = false }: { children: React.ReactNode; 
 
 function ChatTime({ children }: { children: React.ReactNode }) {
   return <p className="py-1 text-center text-caption text-slate-500">{children}</p>
+}
+
+function CompareChatShell({
+  borderClass,
+  children,
+  className = '',
+}: {
+  borderClass: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div
+      className={`mx-auto flex h-full w-full max-w-[19.5rem] flex-col overflow-hidden rounded-2xl border bg-white shadow-card sm:max-w-[21rem] lg:mx-0 lg:max-w-none ${borderClass} ${className}`}
+    >
+      {children}
+    </div>
+  )
 }
 
 function Compare() {
@@ -247,11 +265,11 @@ function Compare() {
           </p>
         </Reveal>
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-2">
+        <div className="mt-12 grid justify-items-center gap-8 lg:grid-cols-2 lg:justify-items-stretch lg:gap-6">
           {/* Antes: por el chat */}
-          <Reveal>
-            <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
-              <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5">
+          <Reveal className="w-full">
+            <CompareChatShell borderClass="border-slate-200">
+              <div className="flex items-center gap-2.5 border-b border-slate-100 px-3 py-3 sm:gap-3 sm:px-4 sm:py-3.5">
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-caption font-bold text-slate-500">AN</span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-copy-md font-semibold text-slate-900">Antonio, respuesta al anuncio</p>
@@ -259,7 +277,7 @@ function Compare() {
                 </div>
                 <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-caption font-semibold text-red-600 ring-1 ring-inset ring-red-100">Poco eficaz</span>
               </div>
-              <div className="flex flex-1 flex-col gap-2.5 bg-slate-50 px-4 py-5">
+              <div className="flex flex-1 flex-col gap-2 bg-slate-50 px-3 py-4 sm:gap-2.5 sm:px-4 sm:py-5">
                 <ChatTime>Lunes, 10:42</ChatTime>
                 <Bubble from="them">Hola, ¿sigue libre lo del peón?</Bubble>
                 <Bubble from="you">Sí. ¿Qué experiencia tienes?</Bubble>
@@ -271,13 +289,13 @@ function Compare() {
                 <p className="self-end pr-1 text-caption text-slate-500">Visto ✓✓, sin respuesta</p>
                 <Bubble from="them" muted>…y lo mismo con otros 37 candidatos</Bubble>
               </div>
-            </div>
+            </CompareChatShell>
           </Reveal>
 
           {/* Después: con Apúntate Fácil */}
-          <Reveal delay={0.08} className="resolved-card">
-            <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-green-200 bg-white shadow-card">
-              <div className="flex items-center gap-3 border-b border-green-100 px-4 py-3.5">
+          <Reveal delay={0.08} className="resolved-card w-full">
+            <CompareChatShell borderClass="border-green-200">
+              <div className="flex items-center gap-2.5 border-b border-green-100 px-3 py-3 sm:gap-3 sm:px-4 sm:py-3.5">
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-green-100 text-caption font-bold text-green-700">AN</span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-copy-md font-semibold text-slate-900">Antonio, respuesta al anuncio</p>
@@ -285,10 +303,10 @@ function Compare() {
                 </div>
                 <span className="resolved-stamp shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-caption font-semibold text-green-700 ring-1 ring-inset ring-green-200">Resuelto</span>
               </div>
-              <div className="flex flex-1 flex-col gap-2.5 bg-green-50/50 px-4 py-5">
+              <div className="flex flex-1 flex-col gap-2 bg-green-50/50 px-3 py-4 sm:gap-2.5 sm:px-4 sm:py-5">
                 <ChatTime>Lunes, 10:42</ChatTime>
                 <Bubble from="them">Hola, ¿sigue libre lo del peón?</Bubble>
-                <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-slate-200/80 px-3.5 py-2 text-copy leading-snug text-slate-700">
+                <div className="max-w-[88%] self-end rounded-2xl rounded-tr-md bg-slate-200/80 px-3 py-2 text-copy leading-snug text-slate-700 sm:max-w-[82%] sm:px-3.5">
                   ¡Hola! Sí 🙂 Apúntate aquí en 1 min y me llega todo:{' '}
                   <span className="font-semibold underline decoration-slate-400 underline-offset-2">apuntatefacil.com/peon</span>
                 </div>
@@ -314,7 +332,7 @@ function Compare() {
                   </div>
                 </div>
               </div>
-            </div>
+            </CompareChatShell>
           </Reveal>
         </div>
       </div>
@@ -375,7 +393,7 @@ function FeatureMiniRow({ m, index }: { m: (typeof FEATURE_MINI)[number]; index:
         <span className="block text-micro text-slate-500">{m.role}</span>
       </span>
       <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium ${m.pill}`}>
-        <span className={`inline-block size-1.5 rounded-full ${m.dot}`} aria-hidden />
+        <span className={`size-1.5 shrink-0 rounded-full ${m.dot}`} aria-hidden />
         {m.label}
       </span>
     </div>
@@ -403,7 +421,6 @@ function FeaturesHeroCard({
   body: string
   compactMock: boolean
 }) {
-  const miniRows = compactMock ? FEATURE_MINI.slice(0, FEATURE_MINI_MOBILE_COUNT) : FEATURE_MINI
   return (
     <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white card-pad shadow-card lg:card-pad-loose">
       <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
@@ -411,7 +428,13 @@ function FeaturesHeroCard({
       </span>
       <h3 className="mt-4 text-xl font-semibold text-slate-900">{title}</h3>
       <p className="mt-1.5 max-w-md text-copy-md text-slate-600">{body}</p>
-      <FeatureMiniList rows={miniRows} />
+      {compactMock ? (
+        <FeatureMiniList rows={FEATURE_MINI.slice(0, FEATURE_MINI_MOBILE_COUNT)} />
+      ) : (
+        <div className="mt-6 min-h-0 flex-1">
+          <BrowserMock dropIn className="shadow-card" />
+        </div>
+      )}
     </div>
   )
 }
@@ -756,10 +779,10 @@ function FinalCta() {
       <Reveal>
         <div className="overflow-hidden rounded-3xl bg-slate-900 px-8 py-14 text-center sm:px-16">
           <h2 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Míralo funcionar antes de registrarte
+            Prueba el panel con candidatos de ejemplo
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-slate-300">
-            No te pedimos que te fíes de una promesa. Entra, toca el panel con datos de ejemplo y compruébalo. Sin registro y sin tarjeta.
+            Filtra, revisa estados y exporta a Excel como en un puesto real. La demo no pide registro ni tarjeta.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link to="/demo" className={`${BTN_INVERTED_LG} group`}>
