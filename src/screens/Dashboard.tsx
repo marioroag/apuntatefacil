@@ -1964,7 +1964,7 @@ function FilterMenu({
         <div className="sticky top-0 z-10">
           <FilterPanelHeader count={count} onClear={clearAll} variant="sheet" />
         </div>
-        <div className="px-4 pb-3">{controls}</div>
+        <div className="px-4 pb-3 pt-3">{controls}</div>
       </BottomSheet>
     </div>
   )
