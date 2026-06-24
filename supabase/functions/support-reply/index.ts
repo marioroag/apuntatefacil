@@ -7,6 +7,7 @@
 // SUPPORT_TO (buzón base, ej. soporte@apuntatefacil.com).
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
+import { renderEmail, esc } from '../_shared/email.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -14,6 +15,13 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const SUPPORT_TO = Deno.env.get('SUPPORT_TO') ?? 'soporte@apuntatefacil.com'
 const FROM = `Apúntate Fácil <${SUPPORT_TO}>`
+const SUBJECT = 'Tu consulta a Apúntate Fácil' // estable por hilo: agrupa en el cliente
+const SIGN = 'Equipo de Apúntate Fácil'
+
+// El texto del operario, con saltos de línea preservados y escapado para HTML.
+function bodyToHtml(text: string): string {
+  return esc(text).replace(/\n/g, '<br>')
+}
 
 // soporte@dominio + token -> soporte+token@dominio
 function plusAddress(base: string, token: string): string {
@@ -38,7 +46,7 @@ Deno.serve(async (req) => {
 
     const { data: ticket } = await admin
       .from('support_tickets')
-      .select('id,email,reply_token')
+      .select('id,email,name,reply_token')
       .eq('id', ticket_id)
       .single()
     if (!ticket) return json({ error: 'Ticket no encontrado' }, 404)
@@ -61,6 +69,20 @@ Deno.serve(async (req) => {
       const headers = lastOut?.resend_email_id
         ? { 'In-Reply-To': `<${lastOut.resend_email_id}>`, References: `<${lastOut.resend_email_id}>` }
         : undefined
+      const nombre = (ticket.name as string | null)?.trim()
+      // Saludo automático para que el correo lea oficial aunque el texto sea escueto.
+      // Si el operario ya empieza saludando, no duplicamos.
+      const yaSaluda = /^\s*(hola|buenas|buenos|estimad)/i.test(text)
+      const saludo = yaSaluda ? '' : nombre ? `Hola ${nombre},` : 'Hola,'
+      const html = renderEmail({
+        preview: text.slice(0, 90),
+        bodyHtml: `
+          ${saludo ? `<p style="margin:0 0 16px">${esc(saludo)}</p>` : ''}
+          <div style="white-space:pre-wrap">${bodyToHtml(text)}</div>
+          <p style="margin:20px 0 0">Un saludo,<br><strong>${esc(SIGN)}</strong></p>`,
+        footnote: 'Puedes responder a este correo y seguimos la conversación por aquí.',
+      })
+      const plain = `${saludo ? saludo + '\n\n' : ''}${text}\n\nUn saludo,\n${SIGN}\n\n— Puedes responder a este correo y seguimos la conversación por aquí.`
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
@@ -68,8 +90,9 @@ Deno.serve(async (req) => {
           from: FROM,
           to: ticket.email,
           reply_to: plusAddress(SUPPORT_TO, ticket.reply_token),
-          subject: 'Tu consulta a Apúntate Fácil',
-          text,
+          subject: SUBJECT,
+          html,
+          text: plain,
           headers,
         }),
       })

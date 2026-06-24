@@ -29,12 +29,15 @@ export type EmailButton = { label: string; href: string }
 
 export function renderEmail(opts: {
   preview: string // texto del preheader (la línea que asoma en la bandeja)
-  heading: string
+  heading?: string // titular opcional: en avisos sí, en correos conversacionales no
   bodyHtml: string // HTML ya compuesto y escapado por el llamante
   button?: EmailButton
   footnote?: string
 }): string {
   const { preview, heading, bodyHtml, button, footnote } = opts
+  const head = heading
+    ? `<h1 style="margin:24px 0 0;font-family:${FONT};font-size:19px;font-weight:600;letter-spacing:-0.01em;line-height:1.35;color:${C.ink}">${esc(heading)}</h1>`
+    : ''
   const btn = button
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0">
             <tr><td style="border-radius:8px;background:${C.accent}">
@@ -54,8 +57,8 @@ export function renderEmail(opts: {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;text-align:left">
         <tr><td style="background:${C.surface};border:1px solid ${C.border};border-radius:16px;padding:32px">
           <div style="font-family:${FONT};font-size:17px;font-weight:800;letter-spacing:-0.02em;color:${C.ink}">apuntatefacil</div>
-          <h1 style="margin:24px 0 0;font-family:${FONT};font-size:19px;font-weight:600;letter-spacing:-0.01em;line-height:1.35;color:${C.ink}">${esc(heading)}</h1>
-          <div style="margin:10px 0 0;font-family:${FONT};font-size:15px;line-height:1.6;color:${C.ink2}">${bodyHtml}</div>
+          ${head}
+          <div style="margin:${heading ? '10px' : '24px'} 0 0;font-family:${FONT};font-size:15px;line-height:1.6;color:${C.ink2}">${bodyHtml}</div>
           ${btn}
           ${foot}
         </td></tr>
