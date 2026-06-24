@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
 
     const { data: ticket } = await admin
       .from('support_tickets')
-      .select('id,email,name,reply_token')
+      .select('id,email,reply_token')
       .eq('id', ticket_id)
       .single()
     if (!ticket) return json({ error: 'Ticket no encontrado' }, 404)
@@ -69,20 +69,15 @@ Deno.serve(async (req) => {
       const headers = lastOut?.resend_email_id
         ? { 'In-Reply-To': `<${lastOut.resend_email_id}>`, References: `<${lastOut.resend_email_id}>` }
         : undefined
-      const nombre = (ticket.name as string | null)?.trim()
-      // Saludo automático para que el correo lea oficial aunque el texto sea escueto.
-      // Si el operario ya empieza saludando, no duplicamos.
-      const yaSaluda = /^\s*(hola|buenas|buenos|estimad)/i.test(text)
-      const saludo = yaSaluda ? '' : nombre ? `Hola ${nombre},` : 'Hola,'
+      // Sin saludo automático: el operario escribe el "Hola ...," él mismo al responder.
       const html = renderEmail({
         preview: text.slice(0, 90),
         bodyHtml: `
-          ${saludo ? `<p style="margin:0 0 16px">${esc(saludo)}</p>` : ''}
           <div style="white-space:pre-wrap">${bodyToHtml(text)}</div>
           <p style="margin:20px 0 0">Un saludo,<br><strong>${esc(SIGN)}</strong></p>`,
         footnote: 'Puedes responder a este correo y seguimos la conversación por aquí.',
       })
-      const plain = `${saludo ? saludo + '\n\n' : ''}${text}\n\nUn saludo,\n${SIGN}\n\n— Puedes responder a este correo y seguimos la conversación por aquí.`
+      const plain = `${text}\n\nUn saludo,\n${SIGN}\n\n— Puedes responder a este correo y seguimos la conversación por aquí.`
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
