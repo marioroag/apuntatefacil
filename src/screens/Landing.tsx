@@ -10,6 +10,7 @@ import { BrowserMock } from '../components/BrowserMock'
 import { Logo } from '../components/Logo'
 import { BetaBadge } from '../components/BetaBadge'
 import { BRAND, TAGLINE } from '../lib/brand'
+import { SupportDialog } from '../components/SupportDialog'
 import { TIERS, type Tier } from '../lib/pricing'
 import { BTN_INVERTED_LG, BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
 
@@ -784,6 +785,7 @@ function FinalCta() {
 }
 
 function Footer() {
+  const [supportOpen, setSupportOpen] = useState(false)
   return (
     <footer className="border-t border-slate-200 bg-white">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-8 sm:grid sm:grid-cols-3 sm:items-center sm:px-6">
@@ -792,12 +794,14 @@ function Footer() {
         </div>
         <p className="order-last text-center text-label text-slate-500 sm:order-none sm:justify-self-center">{TAGLINE}</p>
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-label text-slate-500 sm:justify-self-end">
+          <button onClick={() => setSupportOpen(true)} className="hover:text-slate-800">Contacto</button>
           <Link to="/privacidad" className="hover:text-slate-800">Privacidad</Link>
           <Link to="/terminos" className="hover:text-slate-800">Términos</Link>
           <Link to="/login" className="hover:text-slate-800">Entrar</Link>
         </div>
       </div>
       <p className="pb-8 text-center text-caption text-slate-500">© 2026 {BRAND}. Hecho en España.</p>
+      <SupportDialog open={supportOpen} onClose={() => setSupportOpen(false)} source="landing" page="landing" />
     </footer>
   )
 }

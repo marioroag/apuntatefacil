@@ -421,5 +421,14 @@ verify_jwt = false
 [functions.notify-new-candidate]
 verify_jwt = false
 
+[functions.notify-support]
+verify_jwt = false
+
+[functions.resend-inbound]
+verify_jwt = false
+
+[functions.support-reply]
+verify_jwt = true
+
 [functions.send-invitation]
 verify_jwt = true

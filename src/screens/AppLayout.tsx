@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Briefcase, Building2, Check, ChevronDown, ExternalLink, Inbox, LayoutGrid, Loader2, LogOut, Menu, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
+import { Briefcase, Building2, Check, ChevronDown, ExternalLink, Gauge, Inbox, LayoutGrid, LifeBuoy, Loader2, LogOut, Menu, MessagesSquare, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
@@ -12,6 +12,8 @@ import { BetaBadge } from '../components/BetaBadge'
 import { initials } from '../lib/format'
 import { seedDemoData } from '../lib/seedDemo'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
+import { SupportDialog } from '../components/SupportDialog'
+import { useIsSupportStaff } from '../lib/useSupportStaff'
 import { TrialPausedDialog } from '../components/TrialPausedDialog'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
@@ -204,13 +206,15 @@ function CompanySwitcher({
 
 export function AppLayout() {
   const { campaigns, newCountFor, newSinceFor, resetDemo, sites, loading } = useStore()
-  const { company, companies, setActiveCompany, signOut, role } = useAuth()
+  const { company, companies, setActiveCompany, signOut, role, user } = useAuth()
   const { campaignId } = useParams()
   const base = useAppBase()
   const navigate = useNavigate()
   const demo = base === '/demo'
+  const isStaff = useIsSupportStaff()
   const [open, setOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [supportOpen, setSupportOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [confirmReset, setConfirmReset] = useState(false)
   const [betaBannerOpen, setBetaBannerOpen] = useState(
@@ -438,6 +442,20 @@ export function AppLayout() {
         </div>
       )}
 
+      {/* Zona de ADMIN: SOLO para el equipo de Apúntate Fácil (allowlist en el backend),
+          nunca en la demo. El resto de usuarios no ve nada de esto. */}
+      {isStaff && !demo && (
+        <>
+          <p className="px-4 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Admin</p>
+          <div className="px-3">
+            <SideNavItem to={`${base}/admin`} Icon={Gauge} label="Panel" onNavigate={() => setOpen(false)} />
+          </div>
+          <div className="px-3 pt-1">
+            <SideNavItem to={`${base}/soporte`} Icon={MessagesSquare} label="Soporte" onNavigate={() => setOpen(false)} />
+          </div>
+        </>
+      )}
+
       {loading ? (
         // Transición (carga inicial o cambio de equipo): skeleton en lugar de los puestos del
         // equipo anterior, para que header, lista y contenido se revelen a la vez al terminar.
@@ -565,7 +583,13 @@ export function AppLayout() {
                 </div>
               </div>
             )}
-            <div className="mt-1">
+            <div className="mt-1 space-y-0.5">
+              <button
+                onClick={() => { setSupportOpen(true); setOpen(false) }}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <LifeBuoy className="size-3.5" aria-hidden /> Ayuda
+              </button>
               <button
                 onClick={() => signOut()}
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
@@ -640,7 +664,16 @@ export function AppLayout() {
         {!demo && betaBannerOpen && (
           <div className="flex items-center justify-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-1.5 text-center text-[12px] text-slate-500">
             <BetaBadge />
-            <span>Estás en la versión beta. Si algo no va bien, escríbenos y lo arreglamos.</span>
+            <span>
+              Estás en la versión beta. Si algo no va bien,{' '}
+              <button
+                onClick={() => setSupportOpen(true)}
+                className="font-semibold underline underline-offset-2 hover:text-slate-700"
+              >
+                escríbenos
+              </button>{' '}
+              y lo arreglamos.
+            </span>
             <button
               onClick={() => { setBetaBannerOpen(false); localStorage.setItem('apuntatefacil.beta-banner-dismissed', '1') }}
               className="ml-1 rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
@@ -658,6 +691,13 @@ export function AppLayout() {
       </div>
 
       <NewCampaignWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+      <SupportDialog
+        open={supportOpen}
+        onClose={() => setSupportOpen(false)}
+        source="app"
+        defaultEmail={user?.email ?? ''}
+        companyId={company.id}
+      />
       <TrialPausedDialog open={pausedOpen} onClose={() => setPausedOpen(false)} />
       <ConfirmDialog
         open={confirmReset}

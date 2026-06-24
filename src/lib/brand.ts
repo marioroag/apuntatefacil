@@ -6,6 +6,19 @@ export const BRAND = 'Apúntate Fácil'
 export const TAGLINE = 'Apúntate fácil, contrata fácil.'
 export const DOMAIN = 'apuntatefacil.com'
 
+// Buzón de soporte. FUENTE ÚNICA: cuando el buzón real esté operativo, cambiar solo
+// esta línea y todos los enlaces "Ayuda"/"Contacto" apuntan al sitio correcto.
+export const SUPPORT_EMAIL = `soporte@${DOMAIN}`
+
+/** Construye un enlace `mailto:` al soporte. Rellena el asunto y, si se pasa, unas
+ *  líneas de contexto (empresa, plan) para que la respuesta sea más rápida. Es solo
+ *  un borrador: quien escribe puede editarlo o borrarlo entero antes de enviar. */
+export function supportMailto(opts?: { subject?: string; body?: string }): string {
+  const params = [`subject=${encodeURIComponent(opts?.subject ?? `Ayuda con ${BRAND}`)}`]
+  if (opts?.body) params.push(`body=${encodeURIComponent(opts.body)}`)
+  return `mailto:${SUPPORT_EMAIL}?${params.join('&')}`
+}
+
 // Tramos legibles que NO pueden ser el primer segmento del enlace: chocarían con rutas
 // reales del SPA. Si la marca/empresa cae aquí (o queda vacía), el primer tramo vuelve a
 // "a". Mantener en sync con las rutas de main.tsx.

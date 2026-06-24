@@ -34,6 +34,8 @@ const Equipo = lazy(() => import('./screens/Equipo').then((m) => ({ default: m.E
 const Invitacion = lazy(() => import('./screens/Invitacion').then((m) => ({ default: m.Invitacion })))
 const Builder = lazy(() => import('./screens/Builder').then((m) => ({ default: m.Builder })))
 const Plan = lazy(() => import('./screens/Plan').then((m) => ({ default: m.Plan })))
+const Soporte = lazy(() => import('./screens/Soporte').then((m) => ({ default: m.Soporte })))
+const AdminOverview = lazy(() => import('./screens/AdminOverview').then((m) => ({ default: m.AdminOverview })))
 
 const RouteFallback = () => (
   <div className="grid min-h-screen place-items-center" role="status" aria-label="Cargando">
@@ -80,6 +82,8 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
                   <Route path="plan" element={<Plan />} />
+                  <Route path="admin" element={<AdminOverview />} />
+                  <Route path="soporte" element={<Soporte />} />
                 </Route>
                 <Route
                   path="/demo"
