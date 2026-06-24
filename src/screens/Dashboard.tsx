@@ -1137,10 +1137,10 @@ function CandidateTable({
   }
 
   const SortHead = ({ k, children, className = '' }: { k: SortKey; children: React.ReactNode; className?: string }) => (
-    <th scope="col" className={`px-3 py-2.5 text-left ${className}`} aria-sort={sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      <button onClick={() => onSort(k)} className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800">
-        {children}
-        <ArrowUpDown className={`size-3 ${sort.key === k ? 'text-indigo-500' : 'text-slate-300'}`} aria-hidden />
+    <th scope="col" className={`overflow-hidden px-3 py-2.5 text-left ${className}`} aria-sort={sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button onClick={() => onSort(k)} className="inline-flex w-full min-w-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800">
+        <span className="truncate">{children}</span>
+        <ArrowUpDown className={`size-3 shrink-0 ${sort.key === k ? 'text-indigo-500' : 'text-slate-300'}`} aria-hidden />
       </button>
     </th>
   )
@@ -1282,11 +1282,11 @@ function CandidateTable({
 
       {/* --- Vista escritorio: tabla (md+) --- */}
       <div className="hidden overflow-x-auto md:block">
-      <table className="w-full min-w-[680px] border-collapse">
+      <table className="w-full min-w-[680px] table-fixed border-collapse">
         <caption className="sr-only">Candidatos de {campaign.title}</caption>
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/60">
-            <th scope="col" className="w-10 px-3 py-2.5">
+            <th scope="col" className="w-11 px-3 py-2.5">
               <Checkbox
                 checked={allSel}
                 indeterminate={someSel && !allSel}
@@ -1294,17 +1294,17 @@ function CandidateTable({
                 aria-label="Seleccionar todos"
               />
             </th>
-            <SortHead k="nombre">Candidato</SortHead>
-            <th scope="col" className="hidden px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 md:table-cell">
+            <SortHead k="nombre" className="w-[260px]">Candidato</SortHead>
+            <th scope="col" className="hidden w-[150px] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 md:table-cell">
               Teléfono
             </th>
             {cols.map((f) => (
-              <th key={f.id} scope="col" className="hidden px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 lg:table-cell">
+              <th key={f.id} scope="col" className="hidden overflow-hidden truncate px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 xl:table-cell" title={f.label}>
                 {f.label}
               </th>
             ))}
-            <SortHead k="estado">Estado</SortHead>
-            <SortHead k="fecha" className="text-right">Recibida</SortHead>
+            <SortHead k="estado" className="w-[148px]">Estado</SortHead>
+            <SortHead k="fecha" className="w-[116px] text-right">Recibida</SortHead>
           </tr>
         </thead>
         <tbody>
@@ -1336,7 +1336,7 @@ function CandidateTable({
                 <span className="block h-3 w-24 rounded bg-slate-200 blur-[2px]" />
               </td>
               {cols.map((f) => (
-                <td key={f.id} className="hidden px-3 py-3 lg:table-cell">
+                <td key={f.id} className="hidden px-3 py-3 xl:table-cell">
                   <span className="block h-3 w-16 rounded bg-slate-200 blur-[2px]" />
                 </td>
               ))}
@@ -1381,11 +1381,11 @@ function CandidateTable({
                       {/* El nombre es el activador accesible de la ficha: <button> real,
                           alcanzable por teclado (la fila entera sigue siendo clicable con
                           ratón). stopPropagation evita el doble disparo con el onClick de la fila. */}
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
-                          className="block max-w-[240px] truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
+                          className="block min-w-0 truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
                           title={name}
                         >
                           {name}
@@ -1397,18 +1397,18 @@ function CandidateTable({
                   </div>
                 </td>
                 <td className="hidden px-3 py-3 text-[13px] text-slate-600 md:table-cell">
-                  <span className="num block max-w-[150px] truncate">
+                  <span className="num block truncate">
                     {maskPhone && answerStr(c, 'telefono')
                       ? <MaskedPhone value={formatPhone(answerStr(c, 'telefono'))} />
                       : (formatPhone(answerStr(c, 'telefono')) || '–')}
                   </span>
                 </td>
                 {cols.map((f) => (
-                  <td key={f.id} className={`hidden px-3 py-3 text-[13px] text-slate-600 lg:table-cell ${f.type === 'number' ? 'num' : ''}`}>
-                    <span className="block max-w-[200px] truncate" title={answerStr(c, f.id) || undefined}>{answerStr(c, f.id) || '–'}</span>
+                  <td key={f.id} className={`hidden px-3 py-3 text-[13px] text-slate-600 xl:table-cell ${f.type === 'number' ? 'num' : ''}`}>
+                    <span className="block truncate" title={answerStr(c, f.id) || undefined}>{answerStr(c, f.id) || '–'}</span>
                   </td>
                 ))}
-                <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                <td className="whitespace-nowrap px-3 py-3" onClick={(e) => e.stopPropagation()}>
                   <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-[13px] text-slate-500">

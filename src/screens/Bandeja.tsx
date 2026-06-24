@@ -120,15 +120,15 @@ export function Bandeja() {
             </ul>
             {/* Escritorio: tabla */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[680px] border-collapse">
+              <table className="w-full min-w-[680px] table-fixed border-collapse">
                 <caption className="sr-only">Candidatos nuevos de todos los puestos</caption>
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/60 text-left">
                     <th scope="col" className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Candidato</th>
-                    <th scope="col" className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Puesto</th>
-                    <th scope="col" className="hidden px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 md:table-cell">Teléfono</th>
-                    <th scope="col" className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Estado</th>
-                    <th scope="col" className="px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500">Recibida</th>
+                    <th scope="col" className="overflow-hidden px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Puesto</th>
+                    <th scope="col" className="hidden w-[150px] px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 lg:table-cell">Teléfono</th>
+                    <th scope="col" className="w-[148px] px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Estado</th>
+                    <th scope="col" className="w-[116px] px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500">Recibida</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -148,7 +148,7 @@ export function Bandeja() {
                               {initials(name)}
                             </span>
                             <div className="min-w-0">
-                              <span className="block max-w-[220px] truncate font-medium text-slate-900" title={name}>{name}</span>
+                              <span className="block truncate font-medium text-slate-900" title={name}>{name}</span>
                               <TagCell tagIds={c.tagIds} tags={tags} />
                             </div>
                           </div>
@@ -157,7 +157,7 @@ export function Bandeja() {
                           {camp ? (
                             <Link
                               to={`${base}/puestos/${camp.id}`}
-                              className="inline-flex max-w-[220px] items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
+                              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
                             >
                               <Briefcase className="size-3.5 shrink-0 text-slate-500" aria-hidden />
                               <span className="truncate">{camp.title}</span>
@@ -166,15 +166,15 @@ export function Bandeja() {
                             <span className="text-[12px] text-slate-500">–</span>
                           )}
                         </td>
-                        <td className="hidden px-3 py-2.5 text-sm text-slate-600 md:table-cell tnum">
-                          <span className="block max-w-[150px] truncate">
+                        <td className="hidden px-3 py-2.5 text-sm text-slate-600 lg:table-cell tnum">
+                          <span className="block truncate">
                             {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
                           </span>
                         </td>
-                        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <td className="whitespace-nowrap px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                           <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
                         </td>
-                        <td className="px-3 py-2.5 text-right text-sm text-slate-500">
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right text-sm text-slate-500">
                           <time dateTime={c.submittedAt}>{relativeDate(c.submittedAt)}</time>
                         </td>
                       </tr>
