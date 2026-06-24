@@ -167,7 +167,7 @@ function Hero() {
           Para quien contrata por Milanuncios
         </span>
         <h1 className="mt-4 text-balance text-hero font-[680] text-slate-900 sm:text-hero-lg">
-          Un mensaje es todo lo que necesitas para contratar
+          Todas las respuestas de tu anuncio, en un solo lugar
         </h1>
         <p className="mt-5 max-w-xl text-pretty text-lg leading-relaxed text-slate-600">
           Cada puesto recibe decenas de candidaturas que se dispersan en el chat. Apúntate Fácil las recoge en un solo panel: envías un enlace y seleccionas con toda la información delante.
