@@ -9,6 +9,8 @@ alwaysApply: false
 - **Sin guion largo (—)** en nada visible. Usa comas, dos puntos o puntos.
 - Español con **tuteo** consistente. **Sentence case** en headings, botones y labels. Labels
   verbo-primero (1-3 palabras).
+- **Tono:** directo y honesto, **sobrio y profesional** (registro SaaS confiable). El tuteo no
+  implica coloquialismo: evita slang ("colgar un anuncio", "liarte", "montarlo", "enseñarle").
 - **Glosario congelado** (usa exactamente estos términos): **puesto** (no vacante/oferta/campaña),
   **candidato**, **candidatura** (el envío), **enlace** (no link), **estado**, **exportar**,
   **formulario**. Estados: nuevo / contactado / entrevista / descartado / contratado.

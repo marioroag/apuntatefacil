@@ -50,6 +50,7 @@ Punto de color **+** texto. Mapa: `STATUS_META` en `src/lib/types.ts`.
 
 ### Copy y ética
 - Español, tuteo, sentence case. Sin guion largo (—).
+- Tono sobrio y profesional; el tuteo no implica coloquialismo (evita slang tipo "colgar", "liarte", "montarlo").
 - Glosario: puesto, candidato, candidatura, enlace, estado, exportar, formulario.
 - Cero dark patterns. Test: "¿funcionaría igual si el usuario supiera cómo está hecho?"
 

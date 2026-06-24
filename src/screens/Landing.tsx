@@ -4,13 +4,22 @@ import { useAuth } from '../lib/auth'
 import {
   ArrowRight, Check, FileSpreadsheet, Filter, Infinity as InfinityIcon,
   Link2, ListChecks, Megaphone, Menu, PhoneCall, Sliders, X,
+  type LucideIcon,
 } from 'lucide-react'
 import { BrowserMock } from '../components/BrowserMock'
 import { Logo } from '../components/Logo'
 import { BetaBadge } from '../components/BetaBadge'
 import { BRAND, TAGLINE } from '../lib/brand'
-import { TIERS } from '../lib/pricing'
-import { BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
+import { TIERS, type Tier } from '../lib/pricing'
+import { BTN_INVERTED_LG, BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
+
+const DEFAULT_PRICING_TIER = 'pro'
+
+const TIER_TAB_HINT: Record<string, string> = {
+  esencial: '2 procesos',
+  pro: '10 procesos',
+  multi: 'Ilimitado',
+}
 
 const SECTORS = ['Construcción', 'Logística', 'Limpieza', 'Reformas', 'Comercio', 'Cuidados']
 
@@ -158,7 +167,7 @@ function Hero() {
           Un mensaje es todo lo que necesitas para contratar
         </h1>
         <p className="mt-5 max-w-xl text-pretty text-lg leading-relaxed text-slate-600">
-          Cada vacante recibe decenas de respuestas y se te van por el chat. Apúntate Fácil las recoge todas, ordenadas en un sitio: tú mandas un enlace y eliges sin perder a nadie.
+          Cada puesto recibe decenas de candidaturas que se dispersan en el chat. Apúntate Fácil las recoge en un solo panel: envías un enlace y seleccionas con toda la información delante.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link to="/login" className={`${BTN_PRIMARY_LG} group`}>
@@ -231,7 +240,7 @@ function Compare() {
             Mira la diferencia en el propio chat
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
-            A la izquierda, el ida y vuelta de siempre que no lleva a nada. A la derecha, un enlace y ya está: te llega todo ordenado.
+            A la izquierda, una conversación que se alarga sin cerrar la selección. A la derecha, un enlace: la candidatura llega completa y ordenada en tu lista.
           </p>
         </Reveal>
 
@@ -312,16 +321,16 @@ function Compare() {
 
 function HowItWorks() {
   const steps = [
-    { icon: Megaphone, title: 'Pon tu anuncio como siempre', body: 'Sigues publicando en Milanuncios igual que hasta hoy. No cambias nada de tu forma de buscar gente, y a la gente la sigues trayendo tú con tu anuncio.' },
-    { icon: Link2, title: 'A quien te conteste, mándale un enlace', body: 'En vez de liarte en el chat, le pasas un enlace. La persona rellena un formulario corto con las preguntas que tú decidas: carnet, zona, experiencia, cuándo puede empezar. Tarda menos que en escribirte.' },
-    { icon: ListChecks, title: 'Recíbelo todo ordenado, listo para elegir', body: 'Cada respuesta entra en tu lista, en una sola pantalla. El orden lo pone el sistema, no tú. Filtras por lo que te importa, ves de un vistazo quién vale y lo descargas a Excel cuando quieras.' },
+    { icon: Megaphone, title: 'Publica tu anuncio', body: 'El anuncio sigue en Milanuncios y las respuestas llegan por el mismo canal. No cambias dónde publicas ni cómo te encuentran.' },
+    { icon: Link2, title: 'Envía un enlace al candidato', body: 'Cuando llega una respuesta, compartes un enlace con las preguntas del puesto. El candidato completa el formulario en el móvil, con menos fricción que el chat.' },
+    { icon: ListChecks, title: 'Gestiona todo desde un panel', body: 'Cada candidatura queda en tu lista, ordenada. Filtras por lo relevante, actualizas el estado y decides a quién contactar.' },
   ]
   return (
     <section id="como-funciona" className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
         <Reveal>
-          <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-            Tres pasos, y lo montas en cinco minutos
+          <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:mx-auto max-lg:text-center sm:text-4xl">
+            En tres pasos, operativo en cinco minutos
           </h2>
         </Reveal>
         <div className="relative mt-12">
@@ -346,59 +355,125 @@ function HowItWorks() {
   )
 }
 
+const FEATURE_MINI_MOBILE_COUNT = 3
+
+function FeatureMiniRow({ m, index }: { m: (typeof FEATURE_MINI)[number]; index: number }) {
+  return (
+    <div className={`flex items-center gap-3 px-3.5 py-2.5 ${index > 0 ? 'border-t border-slate-200/70' : ''}`}>
+      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">{m.ini}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px] font-medium text-slate-800">{m.name}</span>
+        <span className="block text-[11px] text-slate-500">{m.role}</span>
+      </span>
+      <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${m.pill}`}>
+        <span className={`inline-block size-1.5 rounded-full ${m.dot}`} aria-hidden />
+        {m.label}
+      </span>
+    </div>
+  )
+}
+
+function FeatureMiniList({ rows }: { rows: typeof FEATURE_MINI }) {
+  return (
+    <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+      {rows.map((m, i) => (
+        <FeatureMiniRow key={m.name} m={m} index={i} />
+      ))}
+    </div>
+  )
+}
+
+function FeaturesHeroCard({
+  icon: Icon,
+  title,
+  body,
+  compactMock,
+}: {
+  icon: LucideIcon
+  title: string
+  body: string
+  compactMock: boolean
+}) {
+  const miniRows = compactMock ? FEATURE_MINI.slice(0, FEATURE_MINI_MOBILE_COUNT) : FEATURE_MINI
+  return (
+    <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-card sm:p-6 lg:p-8">
+      <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
+        <Icon className="size-5" aria-hidden />
+      </span>
+      <h3 className="mt-4 text-xl font-semibold text-slate-900">{title}</h3>
+      <p className="mt-1.5 max-w-md text-[15px] leading-relaxed text-slate-600">{body}</p>
+      <FeatureMiniList rows={miniRows} />
+    </div>
+  )
+}
+
+function FeatureSecondaryRow({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
+  return (
+    <div className="flex gap-3.5 px-5 py-4">
+      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700">
+        <Icon className="size-[18px]" aria-hidden />
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-[15px] font-semibold text-slate-900">{title}</h3>
+        <p className="mt-1 text-[14px] leading-relaxed text-slate-600">{body}</p>
+      </div>
+    </div>
+  )
+}
+
+function FeatureSecondaryCard({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
+  return (
+    <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+      <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
+        <Icon className="size-5" aria-hidden />
+      </span>
+      <h3 className="mt-4 text-[17px] font-semibold text-slate-900">{title}</h3>
+      <p className="mt-1.5 text-[15px] leading-relaxed text-slate-600">{body}</p>
+    </div>
+  )
+}
+
 function Features() {
   const items = [
-    { icon: ListChecks, title: 'Todas las respuestas en una sola pantalla', body: 'Quien te escribe entra en tu lista, ordenado y junto. Se acabó el chat petado y los teléfonos sueltos en la libreta.' },
-    { icon: Filter, title: 'Filtra por carnet, zona y experiencia', body: 'Te quedas con los que te sirven en segundos, en vez de leerte 56 conversaciones. Descartas a los de lejos o a los que no tienen lo que pides, con un clic.' },
-    { icon: PhoneCall, title: 'Sabes a quién ya has llamado', body: 'Marcas a cada persona según vas avanzando. Nunca llamas dos veces al mismo ni te olvidas de uno que valía.' },
-    { icon: Sliders, title: 'El formulario lo haces tú a tu medida', body: 'Tú eliges las preguntas que importan para la plaza. La persona contesta rápido desde el móvil, así que más gente lo termina y te llega mejor.' },
-    { icon: FileSpreadsheet, title: 'Descárgalo todo a Excel cuando quieras', body: 'Tus datos son tuyos. Te bajas la lista entera a Excel en cualquier momento, también si te das de baja, sin pedir permiso a nadie.' },
-    { icon: InfinityIcon, title: 'Candidatos y usuarios sin límite', body: 'Reciban 20 respuestas o 200, las tienes todas. Y lo usa tu encargada o quien tú quieras, sin pagar por cada persona.' },
+    { icon: ListChecks, title: 'Todas las respuestas en una sola pantalla', body: 'Cada candidatura entra en tu lista, ordenada y junta. Sin revisar conversaciones dispersas ni anotar datos en otro sitio.' },
+    { icon: Filter, title: 'Filtra por carnet, zona y experiencia', body: 'Identifica en segundos a quien encaja. Carnet, zona o los criterios del puesto: descarta el resto con un clic.' },
+    { icon: PhoneCall, title: 'Estado de cada candidato, siempre visible', body: 'Marca el estado según avanzas. Evita contactar dos veces al mismo perfil y no pierdas candidatos relevantes.' },
+    { icon: Sliders, title: 'Formulario adaptado a cada puesto', body: 'Defines las preguntas del puesto. El candidato las responde en el móvil, con mayor tasa de finalización.' },
+    { icon: FileSpreadsheet, title: 'Exportación a Excel cuando la necesites', body: 'Tus candidatos son tuyos. Exporta la lista a Excel en cualquier momento, también si dejas el servicio.' },
+    { icon: InfinityIcon, title: 'Candidatos y usuarios sin límite', body: 'Recibe 20 candidaturas o 200: todas quedan en tu lista. Todo el equipo puede acceder, sin coste por usuario.' },
   ]
   const [hero, ...rest] = items
   return (
     <section className="bg-white">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
         <Reveal>
-          <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:mx-auto max-lg:text-center sm:text-4xl">
             Todo lo que necesitas para elegir bien, sin perder a nadie
           </h2>
         </Reveal>
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Feature-héroe: ocupa 2x2 y MUESTRA la lista en vez de contarla */}
-          <Reveal className="sm:col-span-2 lg:row-span-2">
-            <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-card lg:p-8">
-              <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
-                <hero.icon className="size-5" aria-hidden />
-              </span>
-              <h3 className="mt-4 text-xl font-semibold text-slate-900">{hero.title}</h3>
-              <p className="mt-1.5 max-w-md text-[15px] leading-relaxed text-slate-600">{hero.body}</p>
-              <div className="mt-6 flex flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                {FEATURE_MINI.map((m, i) => (
-                  <div key={m.name} className={`flex flex-1 items-center gap-3 px-3.5 py-2.5 ${i > 0 ? 'border-t border-slate-200/70' : ''}`}>
-                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">{m.ini}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium text-slate-800">{m.name}</span>
-                      <span className="block text-[11px] text-slate-500">{m.role}</span>
-                    </span>
-                    <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${m.pill}`}>
-                      <span className={`inline-block size-1.5 rounded-full ${m.dot}`} aria-hidden />
-                      {m.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
+
+        {/* Móvil/tablet: hero compacto + panel de filas */}
+        <div className="mt-12 lg:hidden">
+          <Reveal>
+            <FeaturesHeroCard icon={hero.icon} title={hero.title} body={hero.body} compactMock />
+          </Reveal>
+          <Reveal delay={0.06} className="mt-5">
+            <div className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white shadow-card">
+              {rest.map((it) => (
+                <FeatureSecondaryRow key={it.title} icon={it.icon} title={it.title} body={it.body} />
+              ))}
             </div>
+          </Reveal>
+        </div>
+
+        {/* Escritorio: bento 2×2 + tarjetas */}
+        <div className="mt-12 hidden gap-5 lg:grid lg:grid-cols-3">
+          <Reveal className="lg:col-span-2 lg:row-span-2">
+            <FeaturesHeroCard icon={hero.icon} title={hero.title} body={hero.body} compactMock={false} />
           </Reveal>
           {rest.map((it, i) => (
             <Reveal key={it.title} delay={(i % 2) * 0.06}>
-              <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-                <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
-                  <it.icon className="size-5" aria-hidden />
-                </span>
-                <h3 className="mt-4 text-[17px] font-semibold text-slate-900">{it.title}</h3>
-                <p className="mt-1.5 text-[15px] leading-relaxed text-slate-600">{it.body}</p>
-              </div>
+              <FeatureSecondaryCard icon={it.icon} title={it.title} body={it.body} />
             </Reveal>
           ))}
         </div>
@@ -407,8 +482,60 @@ function Features() {
   )
 }
 
+function PricingTierCard({ tier: t, annual, gridEmphasis = false }: { tier: Tier; annual: boolean; gridEmphasis?: boolean }) {
+  const recommended = !!t.recommended
+  return (
+    <div
+      className={`relative flex h-full flex-col rounded-2xl p-7 ${
+        t.available === false
+          ? 'border border-slate-200 bg-slate-50'
+          : recommended
+            ? `border-2 border-indigo-600 bg-white shadow-card${gridEmphasis ? ' lg:scale-[1.02] lg:z-10' : ''}`
+            : 'border border-slate-200 bg-white shadow-card'
+      }`}
+    >
+      {t.available === false ? (
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-200 px-3 py-1 text-[12px] font-semibold text-slate-500">
+          Próximamente
+        </span>
+      ) : recommended ? (
+        <span className="hidden rounded-full bg-indigo-600 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-inset ring-indigo-800/60 lg:absolute lg:-top-3 lg:left-1/2 lg:inline-flex lg:-translate-x-1/2">
+          Recomendado
+        </span>
+      ) : null}
+      <h3 className="text-lg font-semibold text-slate-900">{t.name}</h3>
+      <p className="mt-1 text-[14px] text-slate-500">{t.tagline}</p>
+      <div className="mt-5 flex items-baseline gap-2">
+        <span className="text-4xl font-bold tracking-tight text-slate-900 tabular-nums">{annual ? t.annual : t.monthly} €</span>
+        <span className="text-slate-500">{annual ? 'al año' : 'al mes'}</span>
+      </div>
+      <p className="mt-1 text-[13px] text-slate-500">{annual ? 'Dos meses gratis, IVA aparte' : 'Sin permanencia, IVA aparte'}</p>
+      <p className="mt-4 inline-flex w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-[13px] font-medium text-slate-600">{t.processes}</p>
+      <ul className="mt-5 flex-1 space-y-2.5">
+        {t.features.map((feat) => (
+          <li key={feat} className="flex items-start gap-2.5 text-[15px] text-slate-700">
+            <Check className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden /> {feat}
+          </li>
+        ))}
+      </ul>
+      {t.available === false ? (
+        <div className="mt-7 flex h-12 w-full items-center justify-center rounded-lg bg-slate-100 text-base font-semibold text-slate-500">
+          Próximamente
+        </div>
+      ) : (
+        <Link to="/login" className={`${BTN_PRIMARY_LG} group mt-7 w-full`}>
+          {t.cta} <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
+        </Link>
+      )}
+    </div>
+  )
+}
+
 function Pricing() {
   const [annual, setAnnual] = useState(false)
+  const [selectedTier, setSelectedTier] = useState(DEFAULT_PRICING_TIER)
+  const activeTier = TIERS.find((t) => t.id === selectedTier) ?? TIERS[1]
+
   return (
     <section id="precio" className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
@@ -417,7 +544,7 @@ function Pricing() {
           Un precio claro, sin "desde" ni letra pequeña
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
-          Empieza gratis y sube de plan cuando lo necesites. En los planes de pago, candidatos y usuarios sin límite y sin permanencia.
+          Empieza gratis y sube de plan cuando lo necesites. En los planes de pago, candidatos y usuarios sin límite.
         </p>
       </Reveal>
 
@@ -436,65 +563,66 @@ function Pricing() {
         </div>
       </Reveal>
 
-      {/* Planes */}
-      <div className="mt-8 grid items-stretch gap-6 lg:grid-cols-3">
+      {/* Móvil: selector de plan + una tarjeta */}
+      <Reveal delay={0.1} className="mt-8 lg:hidden">
+        <div
+          role="tablist"
+          aria-label="Planes de suscripción"
+          className="mx-auto flex w-full max-w-md gap-1 rounded-full border border-slate-200 bg-white p-1"
+        >
+          {TIERS.map((t) => {
+            const selected = selectedTier === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`tier-tab-${t.id}`}
+                aria-selected={selected}
+                aria-controls="tier-panel"
+                onClick={() => setSelectedTier(t.id)}
+                className={`flex min-h-11 flex-1 flex-col items-center justify-center rounded-full px-2 py-2 transition-colors duration-150 ease-[var(--ease-out)] ${
+                  selected ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <span className="text-sm font-semibold leading-tight">{t.name}</span>
+                <span className={`mt-0.5 text-[11px] font-medium leading-tight ${selected ? 'text-white/75' : 'text-slate-400'}`}>
+                  {t.recommended ? 'Recomendado' : TIER_TAB_HINT[t.id]}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        <div
+          key={activeTier.id}
+          role="tabpanel"
+          id="tier-panel"
+          aria-labelledby={`tier-tab-${activeTier.id}`}
+          className="mt-6 motion-reduce:animate-none"
+          style={{ animation: 'reveal-up .18s var(--ease-out) both' }}
+        >
+          <PricingTierCard tier={activeTier} annual={annual} />
+        </div>
+      </Reveal>
+
+      {/* Escritorio: tres columnas */}
+      <div className="mt-8 hidden items-stretch gap-6 lg:grid lg:grid-cols-3">
         {TIERS.map((t, i) => (
           <Reveal key={t.id} delay={i * 0.06}>
-            <div className={`relative flex h-full flex-col rounded-2xl p-7 ${
-              t.available === false
-                ? 'border border-slate-200 bg-slate-50'
-                : t.recommended
-                  ? 'border-2 border-indigo-600 bg-white shadow-card'
-                  : 'border border-slate-200 bg-white shadow-card'
-            }`}>
-              {t.available === false ? (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-200 px-3 py-1 text-[12px] font-semibold text-slate-500">
-                  Próximamente
-                </span>
-              ) : t.recommended ? (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-[12px] font-semibold text-white">
-                  Recomendado
-                </span>
-              ) : null}
-              <h3 className="text-lg font-semibold text-slate-900">{t.name}</h3>
-              <p className="mt-1 text-[14px] text-slate-500">{t.tagline}</p>
-              <div className="mt-5 flex items-baseline gap-2">
-                <span className="text-4xl font-bold tracking-tight text-slate-900 tabular-nums">{annual ? t.annual : t.monthly} €</span>
-                <span className="text-slate-500">{annual ? 'al año' : 'al mes'}</span>
-              </div>
-              <p className="mt-1 text-[13px] text-slate-500">{annual ? 'Dos meses gratis, IVA aparte' : 'Sin permanencia, IVA aparte'}</p>
-              <p className="mt-4 inline-flex w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-[13px] font-medium text-slate-600">{t.processes}</p>
-              <ul className="mt-5 flex-1 space-y-2.5">
-                {t.features.map((feat) => (
-                  <li key={feat} className="flex items-start gap-2.5 text-[15px] text-slate-700">
-                    <Check className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden /> {feat}
-                  </li>
-                ))}
-              </ul>
-              {t.available === false ? (
-                <div className="mt-7 flex h-12 w-full items-center justify-center rounded-lg bg-slate-100 text-base font-semibold text-slate-500">
-                  Próximamente
-                </div>
-              ) : (
-                <Link to="/login" className={`${BTN_PRIMARY_LG} group mt-7 w-full`}>
-                  {t.cta} <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
-                </Link>
-              )}
-            </div>
+            <PricingTierCard tier={t} annual={annual} gridEmphasis={!!t.recommended} />
           </Reveal>
         ))}
       </div>
 
       <p className="mx-auto mt-8 max-w-2xl text-center text-[14px] leading-relaxed text-slate-500">
-        En los planes de pago: candidatos y usuarios <strong className="font-semibold text-slate-700">sin límite</strong>, exportar a Excel y sin permanencia. Lo que ves es lo que pagas.
+        En los planes de pago: candidatos y usuarios <strong className="font-semibold text-slate-700">sin límite</strong>. Lo que ves es lo que pagas.
       </p>
       </div>
     </section>
   )
 }
 
-function FaqItem({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false)
+function FaqItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
   const panelId = useId()
   return (
     <div className="border-b border-slate-200 last:border-b-0">
@@ -502,7 +630,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         type="button"
         aria-expanded={open}
         aria-controls={panelId}
-        onClick={() => setOpen((o) => !o)}
+        onClick={onToggle}
         className="flex w-full cursor-pointer items-center justify-between gap-4 px-4 py-4 text-left text-[17px] font-semibold text-slate-900 sm:px-5"
       >
         {q}
@@ -528,25 +656,32 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 function Faq() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
   const qs: [string, string][] = [
-    ['¿Tengo que cambiar cómo pongo mi anuncio?', 'No. Sigues publicando en Milanuncios igual que ahora. Lo único que cambia es que, a quien te conteste, en vez de liarte en el chat le mandas un enlace.'],
-    ['¿No se irá la gente al ver el formulario?', 'Es un formulario corto, de un par de preguntas, pensado para el móvil. Se tarda menos en rellenarlo que en escribirte por el chat, así que normalmente termina más gente, no menos.'],
-    ['¿Necesito saber de ordenadores?', 'No. Si sabes poner un anuncio en Milanuncios, sabes usar esto. Se deja listo en cinco minutos y lo puede usar cualquiera de tu equipo sin que tengas que explicárselo.'],
-    ['¿Hay permanencia?', 'No hay permanencia. Pagas el mes y, si no te sirve, te das de baja cuando quieras con un clic. Sin llamadas, sin papeleo, sin retenerte.'],
-    ['¿Mis datos son míos de verdad?', 'Sí. Toda la lista de personas que te escriben es tuya y te la descargas a Excel en cualquier momento. Si te vas, te lo llevas todo contigo.'],
-    ['¿Hay costes ocultos o precios "desde"?', 'Ninguno. Son 150, 250 o 450 € al mes según el plan, con candidatos y usuarios sin límite, filtros y exportar a Excel. Lo que ves es lo que pagas. El IVA va aparte, como en cualquier factura.'],
-    ['¿Tengo que registrarme o poner tarjeta para probar?', 'No. Puedes entrar en la demo sin registrarte, con datos de ejemplo ya dentro, para tocar el producto antes de dar ningún dato. Y si te registras, empiezas gratis en el plan de Prueba: 1 puesto y hasta 15 candidatos, también sin tarjeta. Cuando lo necesites, subes de plan.'],
-    ['¿Cómo me doy de alta?', 'Pones tu email y eliges una contraseña, o entras con un clic con tu cuenta de Google. Si te registras con email, te enviamos un correo para confirmar tu cuenta antes de entrar.'],
+    ['¿Tengo que cambiar cómo publico en Milanuncios?', 'No. Publicas igual que hasta ahora y sigues recibiendo candidatos por tu anuncio. Cuando alguien responde, le envías un enlace en lugar de continuar por el chat.'],
+    ['¿Perderé candidatos al usar un formulario?', 'En la práctica suele completarse más gente, no menos. Son pocas preguntas, adaptadas al móvil, y tardan menos que escribir por el chat.'],
+    ['¿Necesito conocimientos técnicos?', 'No. Si ya publicas anuncios en Milanuncios, puedes usar Apúntate Fácil. La configuración inicial lleva unos cinco minutos y el resto del equipo puede usarlo sin formación.'],
+    ['¿Hay permanencia?', 'No. Pagas mes a mes y puedes darte de baja cuando quieras, desde tu cuenta. Sin llamadas de retención ni trámites adicionales.'],
+    ['¿Los candidatos son míos si cancelo?', 'Sí. Toda la lista es tuya: puedes exportarla a Excel en cualquier momento y llevártela contigo si dejas el servicio.'],
+    ['¿Hay costes ocultos o precios "desde"?', 'No. Son 150, 250 o 450 € al mes según el plan, con candidatos y usuarios sin límite. Lo que ves aquí es lo que pagas. IVA aparte.'],
+    ['¿Puedo probarlo sin registrarme ni tarjeta?', 'Sí. La demo funciona con datos de ejemplo, sin cuenta ni tarjeta. Si creas una cuenta, el plan de Prueba es gratuito: 1 puesto y hasta 15 candidatos, también sin tarjeta.'],
+    ['¿Cómo creo una cuenta?', 'Con correo electrónico y contraseña, o con Google. Si te registras por correo, recibirás un enlace para confirmar la cuenta antes del primer acceso.'],
   ]
   return (
     <section id="faq" className="bg-white">
       <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:py-24">
         <Reveal>
-          <h2 className="text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Todo lo que necesitas saber antes de empezar</h2>
+          <h2 className="text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:text-center sm:text-4xl">Respuestas claras antes de empezar</h2>
         </Reveal>
         <div className="mt-10 overflow-hidden border-y border-slate-200 bg-white">
           {qs.map(([q, a], i) => (
-            <FaqItem key={i} q={q} a={a} />
+            <FaqItem
+              key={q}
+              q={q}
+              a={a}
+              open={openIndex === i}
+              onToggle={() => setOpenIndex(openIndex === i ? null : i)}
+            />
           ))}
         </div>
       </div>
@@ -563,10 +698,10 @@ function FinalCta() {
             Míralo funcionar antes de registrarte
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-slate-300">
-            No te pedimos que te fíes de una promesa. Entra, toca el panel con datos de ejemplo y compruébalo tú. Sin registro y sin tarjeta.
+            No te pedimos que te fíes de una promesa. Entra, toca el panel con datos de ejemplo y compruébalo. Sin registro y sin tarjeta.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link to="/demo" className="group inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 text-base font-semibold text-slate-900 shadow-[0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-slate-100 active:translate-y-px">
+            <Link to="/demo" className={`${BTN_INVERTED_LG} group`}>
               Ver la demo <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
             </Link>
             <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-lg px-5 text-base font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10">
