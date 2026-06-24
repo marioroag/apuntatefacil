@@ -14,7 +14,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { Webhook } from 'npm:svix'
 import { corsHeaders, json } from '../_shared/cors.ts'
-import { renderEmail, esc, SUPPORT_INBOX } from '../_shared/email.ts'
+import { renderPlainEmail, esc, SUPPORT_INBOX } from '../_shared/email.ts'
 
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -92,14 +92,12 @@ async function notifyTeam(fromEmail: string, body: string) {
   if (!RESEND_API_KEY) return
   const link = APP_URL ? `${APP_URL}/app/soporte` : ''
   const quien = fromEmail || 'Un cliente'
-  const html = renderEmail({
-    preview: `${quien}: ${body.slice(0, 90)}`,
-    heading: 'Nueva respuesta de soporte',
-    bodyHtml: `
-      <p style="margin:0 0 12px"><strong>${esc(quien)}</strong> ha respondido a una consulta.</p>
-      <div style="padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;white-space:pre-wrap;color:#131822">${esc(body)}</div>`,
-    button: link ? { label: 'Abrir la bandeja', href: link } : undefined,
-  })
+  const html = renderPlainEmail(
+    `${quien}: ${body.slice(0, 90)}`,
+    `<p style="margin:0"><strong>${esc(quien)}</strong> ha respondido a una consulta.</p>
+      <div style="margin:14px 0 0;white-space:pre-wrap">${esc(body)}</div>
+      ${link ? `<p style="margin:18px 0 0"><a href="${link}" style="color:#374cce;text-decoration:none">Abrir la bandeja &rarr;</a></p>` : ''}`,
+  )
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },

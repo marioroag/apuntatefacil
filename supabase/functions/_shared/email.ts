@@ -25,6 +25,25 @@ export const esc = (s: string) =>
 // el secret SUPPORT_TO lo sobreescribe en prod cuando haya buzón compartido (soporte@).
 export const SUPPORT_INBOX = Deno.env.get('SUPPORT_TO') ?? 'mario.rodriguez.aguado@gmail.com'
 
+// Correo plano para soporte: como el de una persona, no de marketing. Sin tarjeta,
+// sin wordmark, sin botón: fondo blanco, una columna estrecha, texto a la izquierda.
+// El acento ultramarine queda solo si el cuerpo incluye un enlace (acción). El cuerpo
+// lo compone el llamante (escapando sus datos). preview = línea que asoma en la bandeja.
+export function renderPlainEmail(preview: string, bodyHtml: string): string {
+  return `<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"></head>
+<body style="margin:0;padding:0;background:#ffffff">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(preview)}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff">
+    <tr><td style="padding:24px 20px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;text-align:left">
+        <tr><td style="font-family:${FONT};font-size:15px;line-height:1.65;color:${C.ink}">${bodyHtml}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`
+}
+
 export type EmailButton = { label: string; href: string }
 
 export function renderEmail(opts: {

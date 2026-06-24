@@ -7,7 +7,7 @@
 // SUPPORT_TO (buzón base, ej. soporte@apuntatefacil.com).
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
-import { renderEmail, esc } from '../_shared/email.ts'
+import { renderPlainEmail, esc } from '../_shared/email.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -75,13 +75,12 @@ Deno.serve(async (req) => {
         ? { 'In-Reply-To': parentId, References: inboundIds.join(' ') }
         : undefined
       // Sin saludo automático: el operario escribe el "Hola ...," él mismo al responder.
-      const html = renderEmail({
-        preview: text.slice(0, 90),
-        bodyHtml: `
-          <div style="white-space:pre-wrap">${bodyToHtml(text)}</div>
-          <p style="margin:20px 0 0">Un saludo,<br><strong>${esc(SIGN)}</strong></p>`,
-        footnote: 'Puedes responder a este correo y seguimos la conversación por aquí.',
-      })
+      const html = renderPlainEmail(
+        text.slice(0, 90),
+        `<div style="white-space:pre-wrap">${bodyToHtml(text)}</div>
+          <p style="margin:18px 0 0">Un saludo,<br>${esc(SIGN)}</p>
+          <p style="margin:24px 0 0;font-size:12px;color:#6f727c">Responde a este correo y seguimos por aquí. · Apúntate Fácil</p>`,
+      )
       const plain = `${text}\n\nUn saludo,\n${SIGN}\n\n— Puedes responder a este correo y seguimos la conversación por aquí.`
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',

@@ -5,7 +5,7 @@
 // sobreescribe el destinatario por defecto), APP_URL (para el enlace al panel).
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
-import { renderEmail, esc, SUPPORT_INBOX } from '../_shared/email.ts'
+import { renderPlainEmail, esc, SUPPORT_INBOX } from '../_shared/email.ts'
 
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -40,15 +40,14 @@ Deno.serve(async (req) => {
       .filter(Boolean)
       .join(' · ')
     const msg = (t.message as string) || ''
-    const html = renderEmail({
-      preview: `${quien}: ${msg.slice(0, 90)}`,
-      heading: 'Nueva consulta de soporte',
-      bodyHtml: `
-        <p style="margin:0"><strong>${esc(quien)}</strong> &lt;${esc(t.email as string)}&gt; · ${esc(origen)}</p>
+    const link = APP_URL ? `${APP_URL}/app/soporte` : ''
+    const html = renderPlainEmail(
+      `${quien}: ${msg.slice(0, 90)}`,
+      `<p style="margin:0">Nueva consulta de <strong>${esc(quien)}</strong> &lt;${esc(t.email as string)}&gt; · ${esc(origen)}.</p>
         ${meta ? `<p style="margin:6px 0 0;font-size:13px;color:#6f727c">${esc(meta)}</p>` : ''}
-        <div style="margin:14px 0 0;padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;white-space:pre-wrap;color:#131822">${esc(msg)}</div>`,
-      button: APP_URL ? { label: 'Abrir la bandeja', href: `${APP_URL}/app/soporte` } : undefined,
-    })
+        <div style="margin:14px 0 0;white-space:pre-wrap">${esc(msg)}</div>
+        ${link ? `<p style="margin:18px 0 0"><a href="${link}" style="color:#374cce;text-decoration:none">Abrir la bandeja &rarr;</a></p>` : ''}`,
+    )
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
