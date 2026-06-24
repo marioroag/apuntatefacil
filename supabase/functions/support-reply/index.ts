@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       const html = renderPlainEmail(
         text.slice(0, 90),
         `<div style="white-space:pre-wrap">${bodyToHtml(text)}</div>
-          <p style="margin:18px 0 0">Un saludo,<br>${esc(SIGN)}</p>
+          <p style="margin:18px 0 0">Un saludo,<br><strong>${esc(SIGN)}</strong></p>
           <p style="margin:24px 0 0;font-size:12px;color:#6f727c">Responde a este correo y seguimos por aquí. · Apúntate Fácil</p>`,
       )
       const plain = `${text}\n\nUn saludo,\n${SIGN}\n\n— Puedes responder a este correo y seguimos la conversación por aquí.`
