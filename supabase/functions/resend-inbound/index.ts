@@ -27,6 +27,31 @@ const APP_URL = Deno.env.get('APP_URL') ?? ''
 
 const stripHtml = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 
+// Recorta la cita de una respuesta de email (top-posting): nos quedamos con el texto
+// nuevo y tiramos la conversación citada que el cliente arrastra debajo. Cubre Gmail y
+// Outlook, en español e inglés. Si no hay cita reconocible, devuelve el texto entero.
+function stripQuotedReply(raw: string): string {
+  const text = (raw ?? '').replace(/\r\n/g, '\n')
+  const lines = text.split('\n')
+  const markers = [
+    /^\s*>/, // línea citada
+    /^\s*El\b.*\bescribi[oó]:\s*$/i, // Gmail ES: "El <fecha>, X escribió:"
+    /^\s*On\b.*\bwrote:\s*$/i, // Gmail EN: "On <date>, X wrote:"
+    /^\s*-{2,}\s*(Mensaje original|Original Message)\s*-{2,}/i,
+    /^\s*(De|From):\s.+\S+@\S+/i, // cabecera de reenvío
+    /^\s*_{5,}\s*$/, // separador Outlook
+  ]
+  let cut = lines.length
+  for (let i = 0; i < lines.length; i++) {
+    if (markers.some((re) => re.test(lines[i]))) {
+      cut = i
+      break
+    }
+  }
+  const reply = lines.slice(0, cut).join('\n').trim()
+  return reply || text.trim()
+}
+
 // "Nombre <correo@dominio>" -> "correo@dominio"
 function bareEmail(from: string): string {
   const m = String(from).match(/<([^>]+)>/)
@@ -111,7 +136,7 @@ Deno.serve(async (req) => {
   const data = evt.data ?? {}
   try {
     const fromEmail = bareEmail((data.from as string) ?? '')
-    const body = (await fetchBody(data)) || '(sin contenido)'
+    const body = stripQuotedReply(await fetchBody(data)) || '(sin contenido)'
     const resendId = (data.message_id as string) ?? (data.email_id as string) ?? null
     const token = tokenFromRecipients(data.to)
 
