@@ -247,7 +247,10 @@ function Compare() {
           </p>
         </Reveal>
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-2">
+        {/* grid-cols-1 explícito en móvil: sin él la columna es un track `auto` que se dimensiona
+            al contenido de las tarjetas de chat y crece más que el viewport (overflow). Con
+            minmax(0,1fr) las tarjetas se acotan al ancho disponible. */}
+        <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Antes: por el chat */}
           <Reveal>
             <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
