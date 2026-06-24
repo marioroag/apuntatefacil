@@ -337,12 +337,18 @@ function HowItWorks() {
           </h2>
         </Reveal>
         <div className="relative mt-12">
-          <div className="absolute left-[16.66%] right-[16.66%] top-5 hidden h-px bg-slate-200 lg:block" aria-hidden />
           <div className="relative grid gap-10 lg:grid-cols-3">
             {steps.map((s, i) => (
               <Reveal key={s.title} delay={i * 0.08}>
-                <div className="text-center lg:text-left">
-                  <div className="mx-auto grid size-10 place-items-center rounded-full bg-slate-900 text-white ring-8 ring-slate-50 lg:mx-0">
+                <div className="relative text-center lg:text-left">
+                  {i < steps.length - 1 ? (
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute top-5 z-0 hidden h-px bg-slate-200 lg:block"
+                      style={{ left: '1.25rem', width: 'calc(100% - 1.25rem + 2.5rem)' }}
+                    />
+                  ) : null}
+                  <div className="relative z-10 mx-auto grid size-10 place-items-center rounded-full bg-slate-900 text-white ring-8 ring-slate-50 lg:mx-0">
                     <s.icon className="size-5" aria-hidden />
                     <span className="sr-only">Paso {i + 1}</span>
                   </div>
