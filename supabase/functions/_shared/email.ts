@@ -20,6 +20,11 @@ const FONT = "system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-ser
 export const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 
+// Buzón donde caen los avisos de soporte (consulta nueva y respuesta del cliente).
+// Por defecto el correo del fundador, mismo criterio que el allowlist de is_support_staff;
+// el secret SUPPORT_TO lo sobreescribe en prod cuando haya buzón compartido (soporte@).
+export const SUPPORT_INBOX = Deno.env.get('SUPPORT_TO') ?? 'mario.rodriguez.aguado@gmail.com'
+
 export type EmailButton = { label: string; href: string }
 
 export function renderEmail(opts: {

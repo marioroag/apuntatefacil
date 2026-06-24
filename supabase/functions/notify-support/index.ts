@@ -1,10 +1,11 @@
-// Avisa por email al equipo de soporte cuando entra una consulta nueva.
+// Avisa por email a soporte (Mario) cuando entra una consulta nueva.
 // Lo invoca el formulario de soporte (panel y landing) tras enviar, con el ticket_id.
 // verify_jwt = false (la landing es anónima). No-op silencioso si falta RESEND_API_KEY.
-// Secrets: SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, NOTIFY_FROM, SUPPORT_TO (buzón
-// de soporte, ej. "soporte@apuntatefacil.com"), APP_URL (para el enlace al panel).
+// Secrets: SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, NOTIFY_FROM, SUPPORT_TO (opcional,
+// sobreescribe el destinatario por defecto), APP_URL (para el enlace al panel).
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
+import { renderEmail, esc, SUPPORT_INBOX } from '../_shared/email.ts'
 
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -12,10 +13,7 @@ const admin = createClient(
 )
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const FROM = Deno.env.get('NOTIFY_FROM') ?? 'Apúntate Fácil <onboarding@resend.dev>'
-const SUPPORT_TO = Deno.env.get('SUPPORT_TO') ?? 'soporte@apuntatefacil.com'
-
-const esc = (s: string) =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const APP_URL = Deno.env.get('APP_URL') ?? ''
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -36,25 +34,30 @@ Deno.serve(async (req) => {
     }
 
     const quien = (t.name as string) || (t.email as string)
-    const origen = t.source === 'landing' ? 'desde la web' : 'desde el panel'
-    const meta = [t.plan ? `Plan: ${t.plan}` : null, t.page ? `Pantalla: ${t.page}` : null]
+    const origen =
+      t.source === 'landing' ? 'desde la web' : t.source === 'email' ? 'por email' : 'desde el panel'
+    const meta = [t.plan ? `Plan ${t.plan}` : null, t.page ? `Pantalla: ${t.page}` : null]
       .filter(Boolean)
       .join(' · ')
-    const html = `
-      <div style="font-family:system-ui,sans-serif;color:#131822">
-        <h2 style="margin:0 0 8px">Nueva consulta de soporte (${esc(origen)})</h2>
-        <p style="color:#50545e;margin:0 0 12px"><strong>${esc(quien)}</strong> &lt;${esc(t.email as string)}&gt;${meta ? ` · ${esc(meta)}` : ''}</p>
-        <div style="white-space:pre-wrap;border-left:3px solid #e5e7eb;padding:4px 0 4px 12px;color:#131822">${esc(t.message as string)}</div>
-      </div>`
+    const msg = (t.message as string) || ''
+    const html = renderEmail({
+      preview: `${quien}: ${msg.slice(0, 90)}`,
+      heading: 'Nueva consulta de soporte',
+      bodyHtml: `
+        <p style="margin:0"><strong>${esc(quien)}</strong> &lt;${esc(t.email as string)}&gt; · ${esc(origen)}</p>
+        ${meta ? `<p style="margin:6px 0 0;font-size:13px;color:#6f727c">${esc(meta)}</p>` : ''}
+        <div style="margin:14px 0 0;padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;white-space:pre-wrap;color:#131822">${esc(msg)}</div>`,
+      button: APP_URL ? { label: 'Abrir la bandeja', href: `${APP_URL}/app/soporte` } : undefined,
+    })
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: FROM,
-        to: SUPPORT_TO,
+        to: SUPPORT_INBOX,
         reply_to: t.email,
-        subject: `Soporte (${t.source}): ${quien}`,
+        subject: `Soporte: ${quien}`,
         html,
       }),
     })

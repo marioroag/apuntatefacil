@@ -14,6 +14,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { Webhook } from 'npm:svix'
 import { corsHeaders, json } from '../_shared/cors.ts'
+import { renderEmail, esc, SUPPORT_INBOX } from '../_shared/email.ts'
 
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -22,10 +23,8 @@ const admin = createClient(
 const WEBHOOK_SECRET = Deno.env.get('RESEND_WEBHOOK_SECRET')
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const FROM = Deno.env.get('NOTIFY_FROM') ?? 'Apúntate Fácil <onboarding@resend.dev>'
-const SUPPORT_TO = Deno.env.get('SUPPORT_TO') ?? 'soporte@apuntatefacil.com'
 const APP_URL = Deno.env.get('APP_URL') ?? ''
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 const stripHtml = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 
 // "Nombre <correo@dominio>" -> "correo@dominio"
@@ -57,19 +56,27 @@ async function fetchBody(data: Record<string, unknown>): Promise<string> {
   return (body.text as string) || stripHtml((body.html as string) ?? '') || ''
 }
 
-async function notifyTeam(fromEmail: string) {
+async function notifyTeam(fromEmail: string, body: string) {
   if (!RESEND_API_KEY) return
   const link = APP_URL ? `${APP_URL}/app/soporte` : ''
+  const quien = fromEmail || 'Un cliente'
+  const html = renderEmail({
+    preview: `${quien}: ${body.slice(0, 90)}`,
+    heading: 'Nueva respuesta de soporte',
+    bodyHtml: `
+      <p style="margin:0 0 12px"><strong>${esc(quien)}</strong> ha respondido a una consulta.</p>
+      <div style="padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;white-space:pre-wrap;color:#131822">${esc(body)}</div>`,
+    button: link ? { label: 'Abrir la bandeja', href: link } : undefined,
+  })
   await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: FROM,
-      to: SUPPORT_TO,
-      subject: `Nueva respuesta de soporte de ${fromEmail || 'un cliente'}`,
-      html: `<p><strong>${esc(fromEmail || 'Un cliente')}</strong> ha respondido a una consulta.</p>${
-        link ? `<p><a href="${link}">Abrir la bandeja de soporte</a></p>` : ''
-      }`,
+      to: SUPPORT_INBOX,
+      reply_to: fromEmail || undefined,
+      subject: `Respuesta de soporte de ${quien}`,
+      html,
     }),
   })
 }
@@ -129,7 +136,7 @@ Deno.serve(async (req) => {
         awaiting: 'equipo',
         status: 'abierto',
       }).eq('id', ticketId)
-      notifyTeam(fromEmail).catch(() => {})
+      notifyTeam(fromEmail, body).catch(() => {})
       return json({ ok: true, ticket: ticketId })
     }
 

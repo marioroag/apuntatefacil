@@ -17,6 +17,12 @@ export function SlideOver({
   footer?: ReactNode
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
+  // onClose por ref: el efecto de foco/teclado solo debe correr al abrir/cerrar,
+  // no en cada render del padre. Si lo metiéramos en deps, una onClose recreada
+  // (lo normal) reejecutaría el cleanup, que hace opener.focus() y robaría el foco
+  // del campo activo en cada tecla. Ver bug del textarea de respuesta en Soporte.
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
     if (!open) return
@@ -31,7 +37,7 @@ export function SlideOver({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key === 'Tab') {
@@ -59,7 +65,7 @@ export function SlideOver({
       window.clearTimeout(t)
       opener?.focus?.() // devuelve el foco a la fila/control de origen
     }
-  }, [open, onClose])
+  }, [open])
 
   return (
     <AnimatePresence>
