@@ -33,17 +33,24 @@ const stripHtml = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
 function stripQuotedReply(raw: string): string {
   const text = (raw ?? '').replace(/\r\n/g, '\n')
   const lines = text.split('\n')
-  const markers = [
-    /^\s*>/, // línea citada
-    /^\s*El\b.*\bescribi[oó]:\s*$/i, // Gmail ES: "El <fecha>, X escribió:"
-    /^\s*On\b.*\bwrote:\s*$/i, // Gmail EN: "On <date>, X wrote:"
-    /^\s*-{2,}\s*(Mensaje original|Original Message)\s*-{2,}/i,
-    /^\s*(De|From):\s.+\S+@\S+/i, // cabecera de reenvío
-    /^\s*_{5,}\s*$/, // separador Outlook
-  ]
+  const isQuoted = (l: string) => /^\s*>/.test(l) // línea citada
+  // Inicio de cabecera de cita de Gmail ("El ... escribió:" / "On ... wrote:"). La
+  // cabecera puede partirse en varias líneas, así que confirmamos mirando el bloque.
+  const startsAttribution = (l: string) => /^\s*(El|On)\b/.test(l)
+  const attributionEnds = (s: string) => /(escrib(i[oó])|wrote)\s*:/i.test(s)
+  // Separadores duros (Outlook, reenvíos): cortan por sí solos.
+  const hardSeparator = (l: string) =>
+    /^\s*-{2,}\s*(Mensaje original|Original Message)\s*-{2,}/i.test(l) ||
+    /^\s*(De|From):\s.+\S+@\S+/i.test(l) ||
+    /^\s*_{5,}\s*$/.test(l)
+
   let cut = lines.length
   for (let i = 0; i < lines.length; i++) {
-    if (markers.some((re) => re.test(lines[i]))) {
+    if (isQuoted(lines[i]) || hardSeparator(lines[i])) {
+      cut = i
+      break
+    }
+    if (startsAttribution(lines[i]) && attributionEnds(lines.slice(i, i + 3).join(' '))) {
       cut = i
       break
     }
