@@ -4,6 +4,7 @@
 // APP_URL (ej. https://apuntatefacil.com) para el enlace al panel.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
+import { esc, renderEmail } from '../_shared/email.ts'
 
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -37,13 +38,19 @@ Deno.serve(async (req) => {
 
     const nombre = (cand.answers?.nombre as string) ?? 'Alguien'
     const tel = (cand.answers?.telefono as string) ?? ''
+    const puesto = camp?.title ?? 'tu puesto'
     const link = APP_URL ? `${APP_URL}/app/puestos/${cand.campaign_id}` : ''
-    const html = `
-      <div style="font-family:Inter,system-ui,sans-serif;color:#0f172a">
-        <h2 style="margin:0 0 8px">Nueva candidatura para ${camp?.title ?? 'tu puesto'}</h2>
-        <p style="color:#475569;margin:0 0 12px"><strong>${nombre}</strong>${tel ? `, ${tel}` : ''} acaba de enviar su candidatura.</p>
-        ${link ? `<a href="${link}" style="display:inline-block;background:#4F46E5;color:#fff;text-decoration:none;padding:10px 16px;border-radius:12px;font-weight:600">Ver en Apúntate Fácil</a>` : ''}
-      </div>`
+
+    const body =
+      `<strong style="font-weight:600;color:#131822">${esc(nombre)}</strong> acaba de apuntarse a ` +
+      `<strong style="font-weight:600;color:#131822">${esc(puesto)}</strong>.` +
+      (tel ? `<br><span style="color:#6f727c">Tel.</span> ${esc(tel)}` : '')
+    const html = renderEmail({
+      preview: `${nombre} acaba de apuntarse a ${puesto}`,
+      heading: 'Nueva candidatura',
+      bodyHtml: body,
+      button: link ? { label: 'Ver candidatura', href: link } : undefined,
+    })
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -51,7 +58,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: FROM,
         to: ownerEmail,
-        subject: `Nueva candidatura: ${camp?.title ?? 'puesto'}`,
+        subject: `Nueva candidatura: ${puesto}`,
         html,
       }),
     })
