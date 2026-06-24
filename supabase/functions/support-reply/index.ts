@@ -51,23 +51,28 @@ Deno.serve(async (req) => {
       .single()
     if (!ticket) return json({ error: 'Ticket no encontrado' }, 404)
 
-    // Último saliente con id de Resend, para hilar (In-Reply-To / References).
-    const { data: lastOut } = await admin
+    // Para que la respuesta entre en la conversación que el cliente ya tiene (no como
+    // correo nuevo), la enganchamos al Message-ID de su último correo entrante. Resend lo
+    // da en el webhook (data.message_id) y lo guardamos en los mensajes 'in'. References
+    // acumula los Message-IDs reales del hilo (los entrantes son RFC válidos, con <...>).
+    const { data: inbound } = await admin
       .from('support_messages')
       .select('resend_email_id')
       .eq('ticket_id', ticket_id)
-      .eq('direction', 'out')
+      .eq('direction', 'in')
       .not('resend_email_id', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .order('created_at', { ascending: true })
+
+    const wrapId = (id: string) => (id.startsWith('<') ? id : `<${id}>`)
+    const inboundIds = (inbound ?? []).map((m) => wrapId(m.resend_email_id as string))
+    const parentId = inboundIds[inboundIds.length - 1] ?? null // el último correo del cliente
 
     // Enviar por Resend. Si falta la clave, no-op de envío: el mensaje igual se guarda.
     let resendId: string | null = null
     let sent = false
     if (RESEND_API_KEY) {
-      const headers = lastOut?.resend_email_id
-        ? { 'In-Reply-To': `<${lastOut.resend_email_id}>`, References: `<${lastOut.resend_email_id}>` }
+      const headers = parentId
+        ? { 'In-Reply-To': parentId, References: inboundIds.join(' ') }
         : undefined
       // Sin saludo automático: el operario escribe el "Hola ...," él mismo al responder.
       const html = renderEmail({
@@ -85,7 +90,7 @@ Deno.serve(async (req) => {
           from: FROM,
           to: ticket.email,
           reply_to: plusAddress(SUPPORT_TO, ticket.reply_token),
-          subject: SUBJECT,
+          subject: parentId ? `Re: ${SUBJECT}` : SUBJECT,
           html,
           text: plain,
           headers,
