@@ -63,6 +63,28 @@ spacing:
   md: "12px"
   lg: "16px"
   xl: "24px"
+  "2xl": "32px"
+  "3xl": "40px"
+  "4xl": "64px"
+  section: "80px"
+  section-lg: "96px"
+  roles:
+    stack-tight: "8px dentro de un grupo"
+    stack: "16px entre grupos relacionados"
+    stack-loose: "24px padding de tarjeta"
+    block: "40px entre bloques"
+    section: "80px / 96px entre secciones (`.section-y`)"
+marketing-type:
+  micro: "11px"
+  caption: "12px"
+  label: "13px"
+  copy: "14px"
+  copy-md: "15px"
+  title: "17px"
+  lockup: "20px"
+  hero: "34px"
+  hero-lg: "52px"
+  heading-xl: "40px"
 components:
   button-primary:
     backgroundColor: "{colors.accent}"

@@ -73,6 +73,41 @@
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
 
   --animate-shimmer: shimmer 1.6s linear infinite;
+
+  /* --- Escala de spacing (4px base, ritmo Geist) --------------------------------
+     tight 8 · stack 16 · loose 24 · block 40 · section 80/96 */
+  --spacing-stack-tight: 0.5rem;   /* 8px */
+  --spacing-stack: 1rem;           /* 16px */
+  --spacing-stack-loose: 1.5rem;   /* 24px */
+  --spacing-block: 2.5rem;         /* 40px */
+  --spacing-section: 5rem;         /* 80px */
+  --spacing-section-lg: 6rem;      /* 96px */
+
+  /* --- Tipografía por rol (marketing + mocks) -----------------------------------
+     Tamaño + interlineado juntos; jerarquía por peso/color antes que por px sueltos. */
+  --text-micro: 0.6875rem;         /* 11px · pills densas, metadatos mini */
+  --text-micro--line-height: 1.25;
+  --text-caption: 0.75rem;         /* 12px · timestamps, legal pequeño */
+  --text-caption--line-height: 1.35;
+  --text-label: 0.8125rem;         /* 13px · eyebrows, chips, metadatos */
+  --text-label--line-height: 1.35;
+  --text-copy: 0.875rem;           /* 14px · cuerpo UI y burbujas */
+  --text-copy--line-height: 1.5;
+  --text-copy-md: 0.9375rem;       /* 15px · párrafos de feature/FAQ */
+  --text-copy-md--line-height: 1.625;
+  --text-title: 1.0625rem;         /* 17px · títulos de acordeón / tarjeta */
+  --text-title--line-height: 1.4;
+  --text-lockup: 1.25rem;          /* 20px · wordmark en nav */
+  --text-lockup--line-height: 1.2;
+  --text-hero: 2.125rem;           /* 34px · h1 landing móvil */
+  --text-hero--line-height: 1.06;
+  --text-hero--letter-spacing: -0.03em;
+  --text-hero-lg: 3.25rem;         /* 52px · h1 landing escritorio */
+  --text-hero-lg--line-height: 1.06;
+  --text-hero-lg--letter-spacing: -0.03em;
+  --text-heading-xl: 2.5rem;       /* 40px · h2 destacado (compare) */
+  --text-heading-xl--line-height: 1.1;
+  --text-heading-xl--letter-spacing: -0.012em;
 }
 
 @keyframes shimmer {
@@ -240,6 +275,45 @@
 @layer utilities {
   .shadow-card { box-shadow: var(--shadow-card); }
   .shadow-pop { box-shadow: var(--shadow-pop); }
+
+  /* Landing / marketing: ritmo vertical y horizontal de sección */
+  .section-y {
+    padding-block: var(--spacing-section);
+  }
+  @media (min-width: 1024px) {
+    .section-y {
+      padding-block: var(--spacing-section-lg);
+    }
+  }
+  .section-x {
+    padding-inline: var(--spacing-stack);
+  }
+  @media (min-width: 640px) {
+    .section-x {
+      padding-inline: var(--spacing-stack-loose);
+    }
+  }
+
+  /* Tarjetas de marketing: 24px default, 32px en héroe grande */
+  .card-pad { padding: var(--spacing-stack-loose); }
+  .card-pad-loose { padding: 2rem; }
+
+  /* Cola enmascarada de teléfono (demo/landing): tres rectángulos borrosos. */
+  .phone-mask-rects {
+    margin-left: 0.2em;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 2px;
+    filter: blur(2px);
+    user-select: none;
+  }
+  .phone-mask-rect {
+    display: inline-block;
+    width: 0.52em;
+    height: 0.72em;
+    border-radius: 1.5px;
+    background-color: var(--color-slate-300);
+  }
 
   /* Acento dinámico expuesto como utilidades cómodas */
   .bg-accent { background-color: var(--accent); }

@@ -74,11 +74,11 @@ export function Landing() {
 // sr-only. Solo en la landing; el resto de la app usa el <Logo/> (solo el monograma).
 function BrandLockup({ compact = false }: { compact?: boolean }) {
   const markSize = compact ? 'size-7' : 'size-8'
-  const textSize = compact ? 'text-sm' : 'text-[20px]'
+  const textSize = compact ? 'text-sm' : 'text-lockup'
   return (
     <span className="flex items-center gap-2">
       <Logo className={markSize} />
-      <span className={`${textSize} brand-wordmark text-slate-900`} aria-hidden>apuntatefacil</span>
+      <span className={`${textSize} brand-wordmark text-slate-900`} aria-hidden translate="no">apuntatefacil</span>
       <BetaBadge />
       <span className="sr-only">{BRAND}</span>
     </span>
@@ -87,7 +87,10 @@ function BrandLockup({ compact = false }: { compact?: boolean }) {
 
 function SkipLink() {
   return (
-    <a href="#contenido" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-indigo-600 focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-white">
+    <a
+      href="#contenido"
+      className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:left-4 focus-visible:top-[max(1rem,env(safe-area-inset-top))] focus-visible:z-50 focus-visible:rounded-lg focus-visible:bg-indigo-600 focus-visible:px-3 focus-visible:py-2 focus-visible:text-sm focus-visible:font-semibold focus-visible:text-white"
+    >
       Saltar al contenido
     </a>
   )
@@ -108,7 +111,7 @@ function TopNav() {
     return () => document.removeEventListener('keydown', onKey)
   }, [open])
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 pt-[env(safe-area-inset-top)] backdrop-blur">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6" aria-label="Principal">
         <div className="flex items-center gap-6">
           <Link to="/" className="flex items-center" aria-label={BRAND}>
@@ -131,11 +134,11 @@ function TopNav() {
           </Link>
         </div>
         <button onClick={() => setOpen((o) => !o)} className="grid size-11 place-items-center rounded-lg text-slate-600 hover:bg-slate-100 md:hidden" aria-label="Menú" aria-expanded={open}>
-          {open ? <X className="size-5" /> : <Menu className="size-5" />}
+          {open ? <X className="size-5" aria-hidden /> : <Menu className="size-5" aria-hidden />}
         </button>
       </nav>
       {open && (
-        <div className="border-t border-slate-200 bg-white px-4 py-3 md:hidden" style={{ animation: 'drop-in .18s var(--ease-out)' }}>
+        <div className="border-t border-slate-200 bg-white px-4 py-3 motion-reduce:animate-none md:hidden" style={{ animation: 'drop-in .18s var(--ease-out)' }}>
           {links.map(([label, href]) => (
             <a key={href} href={href} onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100 active:bg-slate-200">
               {label}
@@ -160,10 +163,10 @@ function Hero() {
   return (
     <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 pb-12 pt-14 sm:px-6 lg:grid-cols-[1.04fr_1fr] lg:pb-20 lg:pt-24">
       <div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-[13px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-label font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
           Para quien contrata por Milanuncios
         </span>
-        <h1 className="mt-4 text-balance text-[34px] font-[680] leading-[1.06] tracking-[-0.03em] text-slate-900 sm:text-[52px]">
+        <h1 className="mt-4 text-balance text-hero font-[680] text-slate-900 sm:text-hero-lg">
           Un mensaje es todo lo que necesitas para contratar
         </h1>
         <p className="mt-5 max-w-xl text-pretty text-lg leading-relaxed text-slate-600">
@@ -191,7 +194,7 @@ function Sectors() {
   return (
     <section className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <p className="text-center text-[15px] font-medium text-slate-600">
+        <p className="text-center text-copy-md font-medium text-slate-600">
           De la construcción a la logística, y cualquier oficio de a pie
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -211,7 +214,7 @@ function Bubble({ children, from, muted = false }: { children: React.ReactNode; 
   if (from === 'them') {
     return (
       <div
-        className={`max-w-[82%] self-start rounded-2xl rounded-tl-md px-3.5 py-2 text-[14px] leading-snug ring-1 ${
+        className={`max-w-[82%] self-start rounded-2xl rounded-tl-md px-3.5 py-2 text-copy leading-snug ring-1 ${
           muted ? 'bg-slate-100 italic text-slate-500 ring-slate-200/70' : 'bg-white text-slate-700 ring-slate-200'
         }`}
       >
@@ -220,23 +223,23 @@ function Bubble({ children, from, muted = false }: { children: React.ReactNode; 
     )
   }
   return (
-    <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-slate-200/80 px-3.5 py-2 text-[14px] leading-snug text-slate-700">
+    <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-slate-200/80 px-3.5 py-2 text-copy leading-snug text-slate-700">
       {children}
     </div>
   )
 }
 
 function ChatTime({ children }: { children: React.ReactNode }) {
-  return <p className="py-1 text-center text-[12px] text-slate-500">{children}</p>
+  return <p className="py-1 text-center text-caption text-slate-500">{children}</p>
 }
 
 function Compare() {
   return (
     <section className="bg-white">
-      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
+      <div className="mx-auto max-w-6xl section-x section-y">
         <Reveal className="text-center">
           <p className="text-sm font-semibold text-slate-500">La misma vacante, dos conversaciones</p>
-          <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-[40px] sm:leading-[1.1]">
+          <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-heading-xl">
             Mira la diferencia en el propio chat
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
@@ -249,12 +252,12 @@ function Compare() {
           <Reveal>
             <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
               <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5">
-                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-500">AN</span>
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-caption font-bold text-slate-500">AN</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold text-slate-900">Antonio, respuesta al anuncio</p>
-                  <p className="truncate text-[13px] text-slate-500">por el chat, como hasta ahora</p>
+                  <p className="truncate text-copy-md font-semibold text-slate-900">Antonio, respuesta al anuncio</p>
+                  <p className="truncate text-label text-slate-500">por el chat, como hasta ahora</p>
                 </div>
-                <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold text-red-600 ring-1 ring-inset ring-red-100">Poco eficaz</span>
+                <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-caption font-semibold text-red-600 ring-1 ring-inset ring-red-100">Poco eficaz</span>
               </div>
               <div className="flex flex-1 flex-col gap-2.5 bg-slate-50 px-4 py-5">
                 <ChatTime>Lunes, 10:42</ChatTime>
@@ -265,7 +268,7 @@ function Compare() {
                 <ChatTime>11:58, más de una hora después</ChatTime>
                 <Bubble from="them">si carnet B</Bubble>
                 <Bubble from="you">¿De qué zona eres? ¿Puedes empezar mañana a las 8?</Bubble>
-                <p className="self-end pr-1 text-[12px] text-slate-500">Visto ✓✓, sin respuesta</p>
+                <p className="self-end pr-1 text-caption text-slate-500">Visto ✓✓, sin respuesta</p>
                 <Bubble from="them" muted>…y lo mismo con otros 37 candidatos</Bubble>
               </div>
             </div>
@@ -275,17 +278,17 @@ function Compare() {
           <Reveal delay={0.08} className="resolved-card">
             <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-green-200 bg-white shadow-card">
               <div className="flex items-center gap-3 border-b border-green-100 px-4 py-3.5">
-                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-green-100 text-[12px] font-bold text-green-700">AN</span>
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-green-100 text-caption font-bold text-green-700">AN</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold text-slate-900">Antonio, respuesta al anuncio</p>
-                  <p className="truncate text-[13px] text-slate-500">con {BRAND}</p>
+                  <p className="truncate text-copy-md font-semibold text-slate-900">Antonio, respuesta al anuncio</p>
+                  <p className="truncate text-label text-slate-500">con {BRAND}</p>
                 </div>
-                <span className="resolved-stamp shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-[12px] font-semibold text-green-700 ring-1 ring-inset ring-green-200">Resuelto</span>
+                <span className="resolved-stamp shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-caption font-semibold text-green-700 ring-1 ring-inset ring-green-200">Resuelto</span>
               </div>
               <div className="flex flex-1 flex-col gap-2.5 bg-green-50/50 px-4 py-5">
                 <ChatTime>Lunes, 10:42</ChatTime>
                 <Bubble from="them">Hola, ¿sigue libre lo del peón?</Bubble>
-                <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-slate-200/80 px-3.5 py-2 text-[14px] leading-snug text-slate-700">
+                <div className="max-w-[82%] self-end rounded-2xl rounded-tr-md bg-slate-200/80 px-3.5 py-2 text-copy leading-snug text-slate-700">
                   ¡Hola! Sí 🙂 Apúntate aquí en 1 min y me llega todo:{' '}
                   <span className="font-semibold underline decoration-slate-400 underline-offset-2">apuntatefacil.com/peon</span>
                 </div>
@@ -293,20 +296,20 @@ function Compare() {
                 <Bubble from="them">¡Hecho! 👍</Bubble>
 
                 <div className="mt-1.5 rounded-xl border border-green-200 bg-white p-3.5">
-                  <p className="flex items-center gap-1.5 text-[13px] font-semibold text-green-700">
+                  <p className="flex items-center gap-1.5 text-label font-semibold text-green-700">
                     <Check className="size-4 shrink-0" aria-hidden /> Te llega ordenado en tu lista, sin preguntar nada
                   </p>
                   <div className="mt-3 flex items-center gap-2.5">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-500">AN</span>
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-caption font-bold text-slate-500">AN</span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-semibold text-slate-900">Antonio Navarro</p>
-                      <p className="truncate text-[12px] text-slate-500">Carpintero, 8 años</p>
+                      <p className="truncate text-copy font-semibold text-slate-900">Antonio Navarro</p>
+                      <p className="truncate text-caption text-slate-500">Carpintero, 8 años</p>
                     </div>
-                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">Nuevo</span>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-micro font-semibold text-slate-700 ring-1 ring-inset ring-slate-200">Nuevo</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {['Carnet B', 'Zona: Getafe', 'Empieza ya', '627 41…'].map((p) => (
-                      <span key={p} className="rounded-lg bg-slate-50 px-2.5 py-1 text-[12px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200 tabular-nums">{p}</span>
+                      <span key={p} className="rounded-lg bg-slate-50 px-2.5 py-1 text-caption font-medium text-slate-600 ring-1 ring-inset ring-slate-200 tabular-nums">{p}</span>
                     ))}
                   </div>
                 </div>
@@ -327,7 +330,7 @@ function HowItWorks() {
   ]
   return (
     <section id="como-funciona" className="border-y border-slate-200 bg-slate-50">
-      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
+      <div className="mx-auto max-w-6xl section-x section-y">
         <Reveal>
           <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:mx-auto max-lg:text-center sm:text-4xl">
             En tres pasos, operativo en cinco minutos
@@ -344,7 +347,7 @@ function HowItWorks() {
                     <span className="sr-only">Paso {i + 1}</span>
                   </div>
                   <h3 className="mt-4 text-lg font-semibold text-slate-900">{s.title}</h3>
-                  <p className="mx-auto mt-2 max-w-xs text-[15px] leading-relaxed text-slate-600 lg:mx-0 lg:max-w-none">{s.body}</p>
+                  <p className="mx-auto mt-2 max-w-xs text-copy-md text-slate-600 lg:mx-0 lg:max-w-none">{s.body}</p>
                 </div>
               </Reveal>
             ))}
@@ -360,12 +363,12 @@ const FEATURE_MINI_MOBILE_COUNT = 3
 function FeatureMiniRow({ m, index }: { m: (typeof FEATURE_MINI)[number]; index: number }) {
   return (
     <div className={`flex items-center gap-3 px-3.5 py-2.5 ${index > 0 ? 'border-t border-slate-200/70' : ''}`}>
-      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">{m.ini}</span>
+      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white text-micro font-bold text-slate-500 ring-1 ring-slate-200">{m.ini}</span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium text-slate-800">{m.name}</span>
-        <span className="block text-[11px] text-slate-500">{m.role}</span>
+        <span className="block truncate text-label font-medium text-slate-800">{m.name}</span>
+        <span className="block text-micro text-slate-500">{m.role}</span>
       </span>
-      <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${m.pill}`}>
+      <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium ${m.pill}`}>
         <span className={`inline-block size-1.5 rounded-full ${m.dot}`} aria-hidden />
         {m.label}
       </span>
@@ -396,12 +399,12 @@ function FeaturesHeroCard({
 }) {
   const miniRows = compactMock ? FEATURE_MINI.slice(0, FEATURE_MINI_MOBILE_COUNT) : FEATURE_MINI
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-card sm:p-6 lg:p-8">
+    <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white card-pad shadow-card lg:card-pad-loose">
       <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
         <Icon className="size-5" aria-hidden />
       </span>
       <h3 className="mt-4 text-xl font-semibold text-slate-900">{title}</h3>
-      <p className="mt-1.5 max-w-md text-[15px] leading-relaxed text-slate-600">{body}</p>
+      <p className="mt-1.5 max-w-md text-copy-md text-slate-600">{body}</p>
       <FeatureMiniList rows={miniRows} />
     </div>
   )
@@ -409,13 +412,13 @@ function FeaturesHeroCard({
 
 function FeatureSecondaryRow({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
   return (
-    <div className="flex gap-3.5 px-5 py-4">
+    <div className="flex gap-3.5 px-6 py-4">
       <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700">
         <Icon className="size-[18px]" aria-hidden />
       </span>
       <div className="min-w-0">
-        <h3 className="text-[15px] font-semibold text-slate-900">{title}</h3>
-        <p className="mt-1 text-[14px] leading-relaxed text-slate-600">{body}</p>
+        <h3 className="text-copy-md font-semibold text-slate-900">{title}</h3>
+        <p className="mt-1 text-copy leading-relaxed text-slate-600">{body}</p>
       </div>
     </div>
   )
@@ -427,8 +430,8 @@ function FeatureSecondaryCard({ icon: Icon, title, body }: { icon: LucideIcon; t
       <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
         <Icon className="size-5" aria-hidden />
       </span>
-      <h3 className="mt-4 text-[17px] font-semibold text-slate-900">{title}</h3>
-      <p className="mt-1.5 text-[15px] leading-relaxed text-slate-600">{body}</p>
+      <h3 className="mt-4 text-title font-semibold text-slate-900">{title}</h3>
+      <p className="mt-1.5 text-copy-md text-slate-600">{body}</p>
     </div>
   )
 }
@@ -445,7 +448,7 @@ function Features() {
   const [hero, ...rest] = items
   return (
     <section className="bg-white">
-      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
+      <div className="mx-auto max-w-6xl section-x section-y">
         <Reveal>
           <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:mx-auto max-lg:text-center sm:text-4xl">
             Todo lo que necesitas para elegir bien, sin perder a nadie
@@ -486,7 +489,7 @@ function PricingTierCard({ tier: t, annual, gridEmphasis = false }: { tier: Tier
   const recommended = !!t.recommended
   return (
     <div
-      className={`relative flex h-full flex-col rounded-2xl p-7 ${
+      className={`relative flex h-full flex-col rounded-2xl card-pad ${
         t.available === false
           ? 'border border-slate-200 bg-slate-50'
           : recommended
@@ -495,25 +498,25 @@ function PricingTierCard({ tier: t, annual, gridEmphasis = false }: { tier: Tier
       }`}
     >
       {t.available === false ? (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-200 px-3 py-1 text-[12px] font-semibold text-slate-500">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-200 px-3 py-1 text-caption font-semibold text-slate-500">
           Próximamente
         </span>
       ) : recommended ? (
-        <span className="hidden rounded-full bg-indigo-600 px-3 py-1 text-[12px] font-semibold text-white ring-1 ring-inset ring-indigo-800/60 lg:absolute lg:-top-3 lg:left-1/2 lg:inline-flex lg:-translate-x-1/2">
+        <span className="hidden rounded-full bg-indigo-600 px-3 py-1 text-caption font-semibold text-white ring-1 ring-inset ring-indigo-800/60 lg:absolute lg:-top-3 lg:left-1/2 lg:inline-flex lg:-translate-x-1/2">
           Recomendado
         </span>
       ) : null}
       <h3 className="text-lg font-semibold text-slate-900">{t.name}</h3>
-      <p className="mt-1 text-[14px] text-slate-500">{t.tagline}</p>
+      <p className="mt-1 text-copy text-slate-500">{t.tagline}</p>
       <div className="mt-5 flex items-baseline gap-2">
         <span className="text-4xl font-bold tracking-tight text-slate-900 tabular-nums">{annual ? t.annual : t.monthly} €</span>
         <span className="text-slate-500">{annual ? 'al año' : 'al mes'}</span>
       </div>
-      <p className="mt-1 text-[13px] text-slate-500">{annual ? 'Dos meses gratis, IVA aparte' : 'Sin permanencia, IVA aparte'}</p>
-      <p className="mt-4 inline-flex w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-[13px] font-medium text-slate-600">{t.processes}</p>
+      <p className="mt-1 text-label text-slate-500">{annual ? 'Dos meses gratis, IVA aparte' : 'Sin permanencia, IVA aparte'}</p>
+      <p className="mt-4 inline-flex w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-label font-medium text-slate-600">{t.processes}</p>
       <ul className="mt-5 flex-1 space-y-2.5">
         {t.features.map((feat) => (
-          <li key={feat} className="flex items-start gap-2.5 text-[15px] text-slate-700">
+          <li key={feat} className="flex items-start gap-2.5 text-copy-md text-slate-700">
             <Check className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden /> {feat}
           </li>
         ))}
@@ -531,6 +534,40 @@ function PricingTierCard({ tier: t, annual, gridEmphasis = false }: { tier: Tier
   )
 }
 
+const TIER_IDS = TIERS.map((t) => t.id)
+
+function focusTierTab(tierId: string) {
+  requestAnimationFrame(() => document.getElementById(`tier-tab-${tierId}`)?.focus())
+}
+
+function onTierTabKeyDown(
+  e: React.KeyboardEvent,
+  selectedTier: string,
+  setSelectedTier: (id: string) => void,
+) {
+  const idx = TIER_IDS.indexOf(selectedTier)
+  if (idx < 0) return
+  let next = idx
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+    e.preventDefault()
+    next = (idx + 1) % TIER_IDS.length
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault()
+    next = (idx - 1 + TIER_IDS.length) % TIER_IDS.length
+  } else if (e.key === 'Home') {
+    e.preventDefault()
+    next = 0
+  } else if (e.key === 'End') {
+    e.preventDefault()
+    next = TIER_IDS.length - 1
+  } else {
+    return
+  }
+  const tierId = TIER_IDS[next]
+  setSelectedTier(tierId)
+  focusTierTab(tierId)
+}
+
 function Pricing() {
   const [annual, setAnnual] = useState(false)
   const [selectedTier, setSelectedTier] = useState(DEFAULT_PRICING_TIER)
@@ -538,10 +575,10 @@ function Pricing() {
 
   return (
     <section id="precio" className="border-y border-slate-200 bg-slate-50">
-      <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
+      <div className="mx-auto max-w-6xl section-x section-y">
       <Reveal className="text-center">
         <h2 className="mx-auto max-w-3xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-          Un precio claro, sin "desde" ni letra pequeña
+          Un precio claro, sin “desde” ni letra pequeña
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
           Empieza gratis y sube de plan cuando lo necesites. En los planes de pago, candidatos y usuarios sin límite.
@@ -551,13 +588,26 @@ function Pricing() {
       {/* Toggle mensual / anual */}
       <Reveal delay={0.08}>
         <div className="mt-10 flex justify-center">
-          <div role="group" aria-label="Periodicidad de facturación" className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1">
+          <div
+            role="group"
+            aria-label="Periodicidad de facturación"
+            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1"
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault()
+                setAnnual(true)
+              } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault()
+                setAnnual(false)
+              }
+            }}
+          >
             <button type="button" onClick={() => setAnnual(false)} aria-pressed={!annual} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${!annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
               Mensual
             </button>
             <button type="button" onClick={() => setAnnual(true)} aria-pressed={annual} className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
               Anual
-              <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${annual ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'}`}>2 meses gratis</span>
+              <span className={`rounded-full px-1.5 py-0.5 text-micro font-semibold ${annual ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'}`}>2 meses gratis</span>
             </button>
           </div>
         </div>
@@ -569,6 +619,7 @@ function Pricing() {
           role="tablist"
           aria-label="Planes de suscripción"
           className="mx-auto flex w-full max-w-md gap-1 rounded-full border border-slate-200 bg-white p-1"
+          onKeyDown={(e) => onTierTabKeyDown(e, selectedTier, setSelectedTier)}
         >
           {TIERS.map((t) => {
             const selected = selectedTier === t.id
@@ -578,6 +629,7 @@ function Pricing() {
                 type="button"
                 role="tab"
                 id={`tier-tab-${t.id}`}
+                tabIndex={selected ? 0 : -1}
                 aria-selected={selected}
                 aria-controls="tier-panel"
                 onClick={() => setSelectedTier(t.id)}
@@ -586,7 +638,7 @@ function Pricing() {
                 }`}
               >
                 <span className="text-sm font-semibold leading-tight">{t.name}</span>
-                <span className={`mt-0.5 text-[11px] font-medium leading-tight ${selected ? 'text-white/75' : 'text-slate-400'}`}>
+                <span className={`mt-0.5 text-micro font-medium leading-tight ${selected ? 'text-white/75' : 'text-slate-400'}`}>
                   {t.recommended ? 'Recomendado' : TIER_TAB_HINT[t.id]}
                 </span>
               </button>
@@ -614,7 +666,7 @@ function Pricing() {
         ))}
       </div>
 
-      <p className="mx-auto mt-8 max-w-2xl text-center text-[14px] leading-relaxed text-slate-500">
+      <p className="mx-auto mt-8 max-w-2xl text-center text-copy leading-relaxed text-slate-500">
         En los planes de pago: candidatos y usuarios <strong className="font-semibold text-slate-700">sin límite</strong>. Lo que ves es lo que pagas.
       </p>
       </div>
@@ -623,15 +675,17 @@ function Pricing() {
 }
 
 function FaqItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) {
+  const buttonId = useId()
   const panelId = useId()
   return (
     <div className="border-b border-slate-200 last:border-b-0">
       <button
         type="button"
+        id={buttonId}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={onToggle}
-        className="flex w-full cursor-pointer items-center justify-between gap-4 px-4 py-4 text-left text-[17px] font-semibold text-slate-900 sm:px-5"
+        className="flex w-full cursor-pointer items-center justify-between gap-4 px-4 py-4 text-left text-title font-semibold text-slate-900 sm:px-5"
       >
         {q}
         <span
@@ -644,11 +698,12 @@ function FaqItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean
       <div
         id={panelId}
         role="region"
-        aria-hidden={!open}
+        aria-labelledby={buttonId}
+        inert={!open || undefined}
         className={`grid transition-[grid-template-rows] duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
       >
         <div className="overflow-hidden">
-          <p className="px-4 pb-4 text-[15px] leading-relaxed text-slate-600 sm:px-5">{a}</p>
+          <p className="px-4 pb-4 text-copy-md text-slate-600 sm:px-5">{a}</p>
         </div>
       </div>
     </div>
@@ -663,13 +718,13 @@ function Faq() {
     ['¿Necesito conocimientos técnicos?', 'No. Si ya publicas anuncios en Milanuncios, puedes usar Apúntate Fácil. La configuración inicial lleva unos cinco minutos y el resto del equipo puede usarlo sin formación.'],
     ['¿Hay permanencia?', 'No. Pagas mes a mes y puedes darte de baja cuando quieras, desde tu cuenta. Sin llamadas de retención ni trámites adicionales.'],
     ['¿Los candidatos son míos si cancelo?', 'Sí. Toda la lista es tuya: puedes exportarla a Excel en cualquier momento y llevártela contigo si dejas el servicio.'],
-    ['¿Hay costes ocultos o precios "desde"?', 'No. Son 150, 250 o 450 € al mes según el plan, con candidatos y usuarios sin límite. Lo que ves aquí es lo que pagas. IVA aparte.'],
+    ['¿Hay costes ocultos o precios “desde”?', 'No. Son 150, 250 o 450 € al mes según el plan, con candidatos y usuarios sin límite. Lo que ves aquí es lo que pagas. IVA aparte.'],
     ['¿Puedo probarlo sin registrarme ni tarjeta?', 'Sí. La demo funciona con datos de ejemplo, sin cuenta ni tarjeta. Si creas una cuenta, el plan de Prueba es gratuito: 1 puesto y hasta 15 candidatos, también sin tarjeta.'],
     ['¿Cómo creo una cuenta?', 'Con correo electrónico y contraseña, o con Google. Si te registras por correo, recibirás un enlace para confirmar la cuenta antes del primer acceso.'],
   ]
   return (
     <section id="faq" className="bg-white">
-      <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:py-24">
+      <div className="mx-auto max-w-3xl section-x section-y">
         <Reveal>
           <h2 className="text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:text-center sm:text-4xl">Respuestas claras antes de empezar</h2>
         </Reveal>
@@ -691,7 +746,7 @@ function Faq() {
 
 function FinalCta() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-24">
+    <section className="mx-auto max-w-6xl section-x section-y">
       <Reveal>
         <div className="overflow-hidden rounded-3xl bg-slate-900 px-8 py-14 text-center sm:px-16">
           <h2 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
@@ -704,7 +759,7 @@ function FinalCta() {
             <Link to="/demo" className={`${BTN_INVERTED_LG} group`}>
               Ver la demo <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
             </Link>
-            <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-lg px-5 text-base font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10">
+            <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-lg px-5 text-base font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:bg-white/15">
               Empezar
             </Link>
           </div>
@@ -721,14 +776,14 @@ function Footer() {
         <div className="sm:justify-self-start">
           <BrandLockup compact />
         </div>
-        <p className="order-last text-center text-[13px] text-slate-500 sm:order-none sm:justify-self-center">{TAGLINE}</p>
-        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px] text-slate-500 sm:justify-self-end">
+        <p className="order-last text-center text-label text-slate-500 sm:order-none sm:justify-self-center">{TAGLINE}</p>
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-label text-slate-500 sm:justify-self-end">
           <Link to="/privacidad" className="hover:text-slate-800">Privacidad</Link>
           <Link to="/terminos" className="hover:text-slate-800">Términos</Link>
           <Link to="/login" className="hover:text-slate-800">Entrar</Link>
         </div>
       </div>
-      <p className="pb-8 text-center text-[12px] text-slate-500">© 2026 {BRAND}. Hecho en España.</p>
+      <p className="pb-8 text-center text-caption text-slate-500">© 2026 {BRAND}. Hecho en España.</p>
     </footer>
   )
 }
