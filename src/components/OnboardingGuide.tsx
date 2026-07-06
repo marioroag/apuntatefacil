@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Check, ExternalLink, Link2, Loader2, RefreshCw, X } from 'lucide-react'
+import { ExternalLink, Link2, Loader2, RefreshCw, X } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { useOnboarding } from '../lib/onboarding'
@@ -174,8 +174,16 @@ export function OnboardingGuide() {
 
         {phase === 'hecho' && (
           <div className="flex items-start gap-3">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-900 text-white">
-              <Check className="size-5" aria-hidden />
+            {/* El hito del primer uso: la insignia asienta y el check se dibuja de
+                un trazo. Un único momento ganado, sobrio; en tinta (el verde es de
+                "contratado"). SVG propio para controlar el trazo del dibujo. */}
+            <span className="onboarding-badge grid size-9 shrink-0 place-items-center rounded-full bg-slate-900 text-white">
+              <svg
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}
+                strokeLinecap="round" strokeLinejoin="round" className="onboarding-check size-5" aria-hidden
+              >
+                <path d="M20 6 9 17l-5-5" pathLength={1} />
+              </svg>
             </span>
             <div className="min-w-0 pr-5">
               <p className="text-[15px] font-semibold text-slate-900">Ya está. Tu primera candidatura ha llegado</p>
