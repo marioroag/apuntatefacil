@@ -45,6 +45,8 @@ import type { Brand, Campaign, Candidate, CandidateStatus, FormField, NumberFilt
 import { planHas, TAGS_ENABLED, type PlanFeature } from '../lib/pricing'
 import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
+import { OnboardingTestCard } from '../components/OnboardingGuide'
+import { useOnboarding } from '../lib/onboarding'
 import { useAppBase } from '../lib/useAppBase'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
@@ -92,6 +94,7 @@ export function Dashboard() {
   const toast = useToast()
   const base = useAppBase()
   const navigate = useNavigate()
+  const onboarding = useOnboarding()
   const campaign = getCampaign(campaignId!)
   // El encargado gestiona candidatos, pero NO edita el puesto (form/sede/marca):
   // esas escrituras van contra campaigns, que la RLS le bloquea.
@@ -732,7 +735,13 @@ export function Dashboard() {
           <SkeletonRows cols={cols.length} />
         ) : filtered.length === 0 ? (
           all.length === 0 ? (
-            <EmptyFirstUse publicUrl={publicUrl} onCopy={copyLink} />
+            // Durante la guía de primer uso, el paso 4 ("pruébalo tú mismo") vive
+            // aquí: en el hueco exacto donde aparecerá la candidatura de prueba.
+            onboarding.active && onboarding.phase === 'probar' && onboarding.campaign?.id === campaign.id ? (
+              <OnboardingTestCard campaign={campaign} shareUrl={publicFormUrl(campaign.slug, brandLabel)} onCopy={copyLink} />
+            ) : (
+              <EmptyFirstUse publicUrl={publicUrl} onCopy={copyLink} />
+            )
           ) : (
             <EmptyNoResults search={search} hasFilters={statusFilter.size + valueFilters.length + numberFilters.length > 0} onClear={clearFilters} />
           )
@@ -1068,7 +1077,10 @@ function CandidateTable({
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-medium text-slate-900">{name}</p>
+                  <p className="flex items-center gap-1.5 text-[15px] font-medium text-slate-900">
+                    <span className="truncate">{name}</span>
+                    {c.source === 'prueba' && <TestChip />}
+                  </p>
                   {phone && (
                     <p className="num mt-0.5 truncate text-sm text-slate-500">
                       {maskPhone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone)}
@@ -1167,14 +1179,17 @@ function CandidateTable({
                       {/* El nombre es el activador accesible de la ficha: <button> real,
                           alcanzable por teclado (la fila entera sigue siendo clicable con
                           ratón). stopPropagation evita el doble disparo con el onClick de la fila. */}
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
-                        className="block max-w-[240px] truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
-                        title={name}
-                      >
-                        {name}
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
+                          className="block max-w-[240px] truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
+                          title={name}
+                        >
+                          {name}
+                        </button>
+                        {c.source === 'prueba' && <TestChip />}
+                      </div>
                       <TagCell tagIds={c.tagIds} tags={tags} />
                     </div>
                   </div>
@@ -1615,6 +1630,16 @@ function SkeletonRows({ cols }: { cols: number }) {
         </div>
       ))}
     </div>
+  )
+}
+
+// Chip neutro para la candidatura de prueba del onboarding (source 'prueba').
+// Gris siempre: no es un estado, solo un origen; se borra cuando ya no hace falta.
+function TestChip() {
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
+      Prueba
+    </span>
   )
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Check, Link2Off, Loader2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -22,6 +22,13 @@ export function PublicForm() {
   const { slug } = useParams()
   const [state, setState] = useState<'loading' | 'ok' | 'notfound'>('loading')
   const [campaign, setCampaign] = useState<PublicCampaign | null>(null)
+  // ¿Es la prueba del propio dueño (onboarding)? Se lee UNA vez al montar, ANTES
+  // de que el replaceState de abajo embellezca la URL y borre el parámetro de la
+  // barra: así el enlace que pueda re-compartirse ya no lleva el marcador y una
+  // candidatura real jamás se marca como prueba.
+  const [isTest] = useState(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('prueba'),
+  )
 
   const [values, setValues] = useState<Record<string, FieldValue>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -99,7 +106,7 @@ export function PublicForm() {
     )
   }
 
-  if (done) return <ThankYou campaign={campaign} />
+  if (done) return <ThankYou campaign={campaign} isTest={isTest} />
 
   const onChange = (id: string, v: FieldValue) => {
     setValues((p) => ({ ...p, [id]: v }))
@@ -165,7 +172,7 @@ export function PublicForm() {
     const { data: candidateId, error } = await supabase.rpc('submit_application', {
       p_slug: campaign.slug,
       p_answers: values,
-      p_source: 'enlace',
+      p_source: isTest ? 'prueba' : 'enlace',
       p_cv_path: cvPath,
     })
     setSubmitPhase('idle')
@@ -239,7 +246,7 @@ export function PublicForm() {
   )
 }
 
-function ThankYou({ campaign }: { campaign: PublicCampaign }) {
+function ThankYou({ campaign, isTest = false }: { campaign: PublicCampaign; isTest?: boolean }) {
   const h1 = useRef<HTMLHeadingElement>(null)
   useEffect(() => { h1.current?.focus() }, [])
   const accent = campaign.branding.accent
@@ -264,6 +271,16 @@ function ThankYou({ campaign }: { campaign: PublicCampaign }) {
           <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">
             {campaign.branding.thanks || FORM_THANKS_DEFAULT}
           </p>
+          {/* Solo en la candidatura de prueba del dueño (onboarding): el camino de
+              vuelta a su lista. Un candidato real nunca ve este botón. */}
+          {isTest && (
+            <Link
+              to={`/app/puestos/${campaign.id}`}
+              className="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-[15px] font-semibold text-white hover:bg-slate-800"
+            >
+              Volver a tu lista de candidatos
+            </Link>
+          )}
         </div>
         <p className="mt-4 text-center text-[12px] text-slate-500">
           Formulario con {BRAND}, enviado a {campaign.companyName}

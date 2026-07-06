@@ -12,6 +12,7 @@ export interface Company {
   subscription_status: string | null
   billing_interval: string | null // 'month' | 'year' | null (sin suscripción)
   cancel_at_period_end: boolean // suscripción marcada para cancelarse al final del periodo
+  onboarding_done_at: string | null // null = guía de primer uso activa (el progreso se deriva de los datos)
 }
 
 // Empresa + el rol del usuario en ella (lo devuelve el RPC my_companies).
@@ -40,6 +41,8 @@ interface AuthApi {
   signOut: () => Promise<void>
   createCompany: (name: string, accent?: string) => Promise<{ error?: string }>
   refreshCompany: (preferId?: string) => Promise<Company | null>
+  // Cierra (done=true) o reabre (done=false) la guía de primer uso de la empresa activa.
+  setOnboardingDone: (done: boolean) => Promise<void>
 }
 
 const Ctx = createContext<AuthApi | null>(null)
@@ -182,6 +185,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return {}
     },
     refreshCompany: async (preferId?: string) => loadCompanies(session?.user?.id, preferId),
+    setOnboardingDone: async (done) => {
+      if (!company) return
+      const value = done ? new Date().toISOString() : null
+      // Optimista: la guía responde al instante; si el guardado falla, el estado
+      // real vuelve en la próxima carga (my_companies) sin romper nada.
+      setCompany({ ...company, onboarding_done_at: value })
+      setCompanies((cs) => cs.map((c) => (c.id === company.id ? { ...c, onboarding_done_at: value } : c)))
+      await supabase.from('companies').update({ onboarding_done_at: value }).eq('id', company.id)
+    },
   }
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>
@@ -205,6 +217,8 @@ export const DEMO_COMPANY: Company = {
   subscription_status: null,
   billing_interval: null,
   cancel_at_period_end: false,
+  // La demo nunca enseña la guía de primer uso (ya ES la visita guiada).
+  onboarding_done_at: '2026-01-01T00:00:00Z',
 }
 
 export function DemoAuthProvider({ children }: { children: ReactNode }) {
@@ -227,6 +241,7 @@ export function DemoAuthProvider({ children }: { children: ReactNode }) {
     signOut: async () => { navigate('/') },
     createCompany: async () => ({}),
     refreshCompany: async (): Promise<Company | null> => DEMO_COMPANY,
+    setOnboardingDone: async () => {},
   }
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>
 }

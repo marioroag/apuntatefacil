@@ -82,7 +82,7 @@ export type CandidateStatus =
   | 'descartado'
   | 'contratado'
 
-export type CandidateSource = 'milanuncios' | 'enlace' | 'qr'
+export type CandidateSource = 'milanuncios' | 'enlace' | 'qr' | 'prueba'
 
 export interface Candidate {
   id: string
@@ -187,6 +187,9 @@ export const SOURCE_META: Record<CandidateSource, { label: string }> = {
   milanuncios: { label: 'Milanuncios' },
   enlace: { label: 'Enlace' },
   qr: { label: 'QR' },
+  // La candidatura que el dueño se envía a sí mismo al probar su enlace durante
+  // el onboarding. Chip neutro en la lista; puede borrarse para liberar cupo.
+  prueba: { label: 'Prueba' },
 }
 
 export const FIELD_TYPE_META: Record<

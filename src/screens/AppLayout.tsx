@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Briefcase, Building2, Check, ChevronDown, ExternalLink, Gauge, Inbox, LayoutGrid, LifeBuoy, Loader2, LogOut, Menu, MessagesSquare, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
+import { Briefcase, Building2, Check, ChevronDown, Compass, ExternalLink, Gauge, Inbox, LayoutGrid, LifeBuoy, Loader2, LogOut, Menu, MessagesSquare, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
@@ -15,6 +15,8 @@ import { NewCampaignWizard } from '../components/NewCampaignWizard'
 import { SupportDialog } from '../components/SupportDialog'
 import { useIsSupportStaff } from '../lib/useSupportStaff'
 import { TrialPausedDialog } from '../components/TrialPausedDialog'
+import { OnboardingGuide, OnboardingCreatePuesto } from '../components/OnboardingGuide'
+import { useOnboarding } from '../lib/onboarding'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
 import { ArrowRight } from 'lucide-react'
@@ -66,13 +68,22 @@ function SideNavItem({
 export function FirstCampaignRedirect() {
   const { campaigns, loading } = useStore()
   const base = useAppBase()
+  const onboarding = useOnboarding()
   if (loading)
     return (
       <div className="grid h-full place-items-center" role="status" aria-label="Cargando">
         <Loader2 className="size-6 animate-spin text-slate-400" aria-hidden />
       </div>
     )
-  if (campaigns.length === 0) return <EmptyCompany />
+  // Con la guía de primer uso activa, el paso 2 (crear el primer puesto con
+  // plantilla) ocupa la pantalla; si el usuario la cerró, el empty state normal.
+  if (campaigns.length === 0) return onboarding.active ? <OnboardingCreatePuesto /> : <EmptyCompany />
+  // Recién creado el puesto durante la guía (sin candidaturas aún): el destino de
+  // /app es el formulario del puesto (paso 3), no el resumen. Así ganamos la carrera
+  // con el navigate imperativo del paso 2 y el usuario sigue la secuencia del wizard.
+  if (onboarding.active && onboarding.phase !== 'hecho' && onboarding.campaign) {
+    return <Navigate to={`${base}/puestos/${onboarding.campaign.id}/formulario`} replace />
+  }
   return <Navigate to={`${base}/resumen`} replace />
 }
 
@@ -205,8 +216,9 @@ function CompanySwitcher({
 }
 
 export function AppLayout() {
-  const { campaigns, newCountFor, newSinceFor, resetDemo, sites, loading } = useStore()
-  const { company, companies, setActiveCompany, signOut, role, user } = useAuth()
+  const { campaigns, candidates, newCountFor, newSinceFor, resetDemo, sites, loading } = useStore()
+  const { company, companies, setActiveCompany, signOut, role, user, setOnboardingDone } = useAuth()
+  const onboarding = useOnboarding()
   const { campaignId } = useParams()
   const base = useAppBase()
   const navigate = useNavigate()
@@ -584,6 +596,21 @@ export function AppLayout() {
               </div>
             )}
             <div className="mt-1 space-y-0.5">
+              {/* Reabre la guía de primer uso: solo para el dueño que la cerró sin
+                  terminarla (aún sin candidatos). Al reabrirla, la fase se rederiva
+                  de los datos y se navega directo al paso pendiente. */}
+              {onboarding.eligible && onboarding.dismissed && candidates.length === 0 && (
+                <button
+                  onClick={() => {
+                    void setOnboardingDone(false)
+                    setOpen(false)
+                    navigate(onboarding.campaign ? `${base}/puestos/${onboarding.campaign.id}` : base)
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <Compass className="size-3.5" aria-hidden /> Primeros pasos
+                </button>
+              )}
               <button
                 onClick={() => { setSupportOpen(true); setOpen(false) }}
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
@@ -683,13 +710,16 @@ export function AppLayout() {
             </button>
           </div>
         )}
-        <main id="contenido" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {/* Con la guía activa, hueco inferior para que la tarjeta flotante no tape
+            el final del contenido (botones de guardar, últimas filas). */}
+        <main id="contenido" className={`min-h-0 flex-1 overflow-y-auto overscroll-contain${onboarding.active ? ' pb-28' : ''}`}>
           <Suspense fallback={<div className="grid h-full place-items-center" role="status" aria-label="Cargando"><Loader2 className="size-6 animate-spin text-slate-400" aria-hidden /></div>}>
             <Outlet />
           </Suspense>
         </main>
       </div>
 
+      <OnboardingGuide />
       <NewCampaignWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
       <SupportDialog
         open={supportOpen}

@@ -119,12 +119,18 @@ export function Onboarding() {
     )
   }
 
-  // Crear empresa (sin invitaciones, o el usuario eligió crear la suya)
+  // Crear empresa (sin invitaciones, o el usuario eligió crear la suya).
+  // Es el paso 1 de la guía de primer uso: promete el destino ("tu primera
+  // candidatura en la lista") para que quien no es de tecnología sepa qué viene.
   return (
     <Shell>
-      <h1 className="mt-5 text-xl font-semibold text-slate-900">¿Cómo se llama tu empresa?</h1>
+      <p className="mt-5 text-[12px] font-semibold text-slate-500">Paso 1 de 4</p>
+      <h1 className="mt-1 text-xl font-semibold text-slate-900">¿Cómo se llama tu empresa?</h1>
       <p className="mt-1 text-sm text-slate-500">
         Es lo que verán tus candidatos en el formulario. Podrás cambiarlo luego.
+      </p>
+      <p className="mt-3 rounded-xl bg-slate-50 px-3.5 py-2.5 text-[13px] leading-relaxed text-slate-600">
+        En unos minutos tendrás tu puesto creado, tu enlace probado y tu primera candidatura en la lista.
       </p>
 
       <form onSubmit={submit} className="mt-6">

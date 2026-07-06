@@ -19,13 +19,75 @@ const ICONS: Record<string, LucideIcon> = {
   UtensilsCrossed, HardHat, Truck, Sparkles, ShoppingBag, HeartHandshake,
 }
 
+// Crea un puesto desde una plantilla (o desde cero). Lo comparten el modal
+// "Nuevo puesto" y el paso 2 del onboarding: una sola lógica de creación.
+export function useCreateFromTemplate() {
+  const { createCampaign } = useStore()
+  const { company } = useAuth()
+  const toast = useToast()
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const create = async (key: string, t?: SectorTemplate) => {
+    if (!company || busy) return null
+    setBusy(key)
+    const input = t ? templateCampaignInput(t, company.accent) : blankCampaignInput(company.accent)
+    const c = await createCampaign(input)
+    setBusy(null)
+    if (!c) toast.error('No se pudo crear el puesto.')
+    return c
+  }
+
+  return { busy, create }
+}
+
+// Rejilla de plantillas por sector + "desde cero". Presentacional: quien la usa
+// decide qué pasa al elegir (el modal navega y cierra; el onboarding navega).
+export function TemplateGrid({ busyKey, onPick }: {
+  busyKey: string | null
+  onPick: (key: string, t?: SectorTemplate) => void
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+      {TEMPLATES.map((t) => {
+        const Icon = ICONS[t.icon] ?? PenLine
+        const loading = busyKey === t.key
+        return (
+          <button
+            key={t.key}
+            onClick={() => onPick(t.key, t)}
+            disabled={!!busyKey}
+            className="group flex flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-3.5 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 disabled:opacity-60"
+          >
+            <span className="grid size-9 place-items-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600">
+              {loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Icon className="size-5" aria-hidden />}
+            </span>
+            <span className="text-sm font-semibold text-slate-900">{t.label}</span>
+            <span className="text-[12px] text-slate-500">{t.title}, {t.fields.length} preguntas</span>
+          </button>
+        )
+      })}
+
+      <button
+        onClick={() => onPick('blank')}
+        disabled={!!busyKey}
+        className="group flex flex-col items-start gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 disabled:opacity-60"
+      >
+        <span className="grid size-9 place-items-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600">
+          {busyKey === 'blank' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <PenLine className="size-5" aria-hidden />}
+        </span>
+        <span className="text-sm font-semibold text-slate-900">Desde cero</span>
+        <span className="text-[12px] text-slate-500">Solo nombre y teléfono</span>
+      </button>
+    </div>
+  )
+}
+
 export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { createCampaign, campaigns } = useStore()
+  const { campaigns } = useStore()
   const { company } = useAuth()
   const navigate = useNavigate()
   const base = useAppBase()
-  const toast = useToast()
-  const [busy, setBusy] = useState<string | null>(null)
+  const { busy, create } = useCreateFromTemplate()
 
   // Un "proceso" cuenta si está abierto (activo o pausado). Cerrar libera cupo.
   // Espejo en cliente del límite que aplica el servidor; aquí solo para UX.
@@ -43,16 +105,10 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
   }, [open, onClose])
 
   const pick = async (key: string, t?: SectorTemplate) => {
-    if (!company || busy) return
-    setBusy(key)
-    const input = t ? templateCampaignInput(t, company.accent) : blankCampaignInput(company.accent)
-    const c = await createCampaign(input)
-    setBusy(null)
+    const c = await create(key, t)
     if (c) {
       onClose()
       navigate(`${base}/puestos/${c.id}/formulario`)
-    } else {
-      toast.error('No se pudo crear el puesto.')
     }
   }
 
@@ -113,38 +169,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                 </div>
 
                 <div className="max-h-[60vh] overflow-y-auto p-4">
-                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                    {TEMPLATES.map((t) => {
-                      const Icon = ICONS[t.icon] ?? PenLine
-                      const loading = busy === t.key
-                      return (
-                        <button
-                          key={t.key}
-                          onClick={() => pick(t.key, t)}
-                          disabled={!!busy}
-                          className="group flex flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-3.5 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 disabled:opacity-60"
-                        >
-                          <span className="grid size-9 place-items-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600">
-                            {loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Icon className="size-5" aria-hidden />}
-                          </span>
-                          <span className="text-sm font-semibold text-slate-900">{t.label}</span>
-                          <span className="text-[12px] text-slate-500">{t.title}, {t.fields.length} preguntas</span>
-                        </button>
-                      )
-                    })}
-
-                    <button
-                      onClick={() => pick('blank')}
-                      disabled={!!busy}
-                      className="group flex flex-col items-start gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 disabled:opacity-60"
-                    >
-                      <span className="grid size-9 place-items-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600">
-                        {busy === 'blank' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <PenLine className="size-5" aria-hidden />}
-                      </span>
-                      <span className="text-sm font-semibold text-slate-900">Desde cero</span>
-                      <span className="text-[12px] text-slate-500">Solo nombre y teléfono</span>
-                    </button>
-                  </div>
+                  <TemplateGrid busyKey={busy} onPick={pick} />
                 </div>
               </>
             )}
