@@ -11,7 +11,8 @@ import { Logo } from '../components/Logo'
 import { BetaBadge } from '../components/BetaBadge'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { SupportDialog } from '../components/SupportDialog'
-import { TIERS, type Tier } from '../lib/pricing'
+import { TIERS, annualPerMonth, PLAN_PROCESS_LIMIT, type Tier } from '../lib/pricing'
+import { TierPrice } from '../components/TierPrice'
 import { BTN_INVERTED_LG, BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
 
 const DEFAULT_PRICING_TIER = 'pro'
@@ -500,8 +501,25 @@ function Features() {
   )
 }
 
+// Señuelo explícito de la tarjeta Pro: la comparación que el cliente debe poder
+// hacer sin esfuerzo ("5× la capacidad por 100 € más"), como un elemento más de
+// la lista de features. Se calcula de los datos reales para que nunca mienta,
+// también con el toggle en anual (ahí la diferencia por mes equivalente es menor).
+function proDecoyLine(annual: boolean): string | null {
+  const esencial = TIERS.find((x) => x.id === 'esencial')
+  const pro = TIERS.find((x) => x.id === 'pro')
+  if (!esencial || !pro) return null
+  const times = PLAN_PROCESS_LIMIT.pro / PLAN_PROCESS_LIMIT.esencial
+  const extra = annual ? annualPerMonth(pro) - annualPerMonth(esencial) : pro.monthly - esencial.monthly
+  return `${times}× la capacidad de Esencial por ${extra} € más`
+}
+
 function PricingTierCard({ tier: t, annual, gridEmphasis = false }: { tier: Tier; annual: boolean; gridEmphasis?: boolean }) {
   const recommended = !!t.recommended
+  // En la landing, el bullet de capacidad de Pro es redundante con el badge
+  // "10 procesos a la vez" de justo encima. Se filtra SOLO aquí: en /app/plan
+  // no hay badge y ese bullet sigue siendo la única mención a la capacidad.
+  const features = t.id === 'pro' ? t.features.filter((f) => !f.includes('10 procesos')) : t.features
   return (
     <div
       className={`relative flex h-full flex-col rounded-2xl card-pad ${
@@ -523,14 +541,11 @@ function PricingTierCard({ tier: t, annual, gridEmphasis = false }: { tier: Tier
       ) : null}
       <h3 className="text-lg font-semibold text-slate-900">{t.name}</h3>
       <p className="mt-1 text-copy text-slate-500">{t.tagline}</p>
-      <div className="mt-5 flex items-baseline gap-2">
-        <span className="text-4xl font-bold tracking-tight text-slate-900 tabular-nums">{annual ? t.annual : t.monthly} €</span>
-        <span className="text-slate-500">{annual ? 'al año' : 'al mes'}</span>
-      </div>
-      <p className="mt-1 text-label text-slate-500">{annual ? 'Dos meses gratis, IVA aparte' : 'Sin permanencia, IVA aparte'}</p>
+      <TierPrice tier={t} annual={annual} />
       <p className="mt-4 inline-flex w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-label font-medium text-slate-600">{t.processes}</p>
+      {t.id === 'pro' && <p className="mt-1.5 text-copy text-slate-700">{proDecoyLine(annual)}</p>}
       <ul className="mt-5 flex-1 space-y-2.5">
-        {t.features.map((feat) => (
+        {features.map((feat) => (
           <li key={feat} className="flex items-start gap-2.5 text-copy-md text-slate-700">
             <Check className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden /> {feat}
           </li>
@@ -584,7 +599,8 @@ function onTierTabKeyDown(
 }
 
 function Pricing() {
-  const [annual, setAnnual] = useState(false)
+  // Anual por defecto: es donde la rebaja es visible (tachado + ahorro en euros).
+  const [annual, setAnnual] = useState(true)
   const [selectedTier, setSelectedTier] = useState(DEFAULT_PRICING_TIER)
   const activeTier = TIERS.find((t) => t.id === selectedTier) ?? TIERS[1]
 
@@ -681,9 +697,15 @@ function Pricing() {
         ))}
       </div>
 
-      <p className="mx-auto mt-8 max-w-2xl text-center text-copy leading-relaxed text-slate-500">
-        En los planes de pago: candidatos y usuarios <strong className="font-semibold text-slate-700">sin límite</strong>. Lo que ves es lo que pagas.
-      </p>
+      {/* El aviso del IVA va aparte y en letra pequeña: es información necesaria,
+          no un mensaje, y no debe compartir línea con "Sin permanencia" (el
+          positivo arrastra al negativo). */}
+      <div className="mx-auto mt-10 max-w-2xl text-center">
+        <p className="text-copy leading-relaxed text-slate-500">
+          En los planes de pago: candidatos y usuarios <strong className="font-semibold text-slate-700">sin límite</strong>. Lo que ves es lo que pagas.
+        </p>
+        <p className="mt-2 text-sm text-slate-500">Precios sin IVA.</p>
+      </div>
       </div>
     </section>
   )
@@ -733,7 +755,7 @@ function Faq() {
     ['¿Necesito conocimientos técnicos?', 'No. Si ya publicas anuncios en Milanuncios, puedes usar Apúntate Fácil. La configuración inicial lleva unos cinco minutos y el resto del equipo puede usarlo sin formación.'],
     ['¿Hay permanencia?', 'No. Pagas mes a mes y puedes darte de baja cuando quieras, desde tu cuenta. Sin llamadas de retención ni trámites adicionales.'],
     ['¿Los candidatos son míos si cancelo?', 'Sí. Toda la lista es tuya: puedes exportarla a Excel en cualquier momento y llevártela contigo si dejas el servicio.'],
-    ['¿Hay costes ocultos o precios “desde”?', 'No. Son 150, 250 o 450 € al mes según el plan, con candidatos y usuarios sin límite. Lo que ves aquí es lo que pagas. IVA aparte.'],
+    ['¿Hay costes ocultos o precios “desde”?', 'No. Son 149, 249 o 499 € al mes según el plan, con candidatos y usuarios sin límite. Lo que ves aquí es lo que pagas. IVA aparte.'],
     ['¿Puedo probarlo sin registrarme ni tarjeta?', 'Sí. La demo funciona con datos de ejemplo, sin cuenta ni tarjeta. Si creas una cuenta, el plan de Prueba es gratuito: 1 puesto y hasta 15 candidatos, también sin tarjeta.'],
     ['¿Cómo creo una cuenta?', 'Con correo electrónico y contraseña, o con Google. Si te registras por correo, recibirás un enlace para confirmar la cuenta antes del primer acceso.'],
   ]

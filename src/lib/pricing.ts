@@ -1,7 +1,16 @@
 // -----------------------------------------------------------------------------
 // Pricing de Apúntate Fácil. Posicionamiento PREMIUM ("los mejores", no los más baratos).
-// Números redondos = prestigio + honestos + citables. Anual = 2 meses gratis.
-// Cambia aquí los importes y todo se actualiza en la landing.
+// Doctrina de presentación (Mario, jul 2026, sustituye a "números redondos"):
+//  - Efecto dígito izquierdo: 149 / 249 en vez de 150 / 250.
+//  - Multi (499) es el ANCLA del catálogo: hace que Pro (249, "la mitad del tope")
+//    parezca la jugada inteligente. Quien necesita Multi no es sensible a 50 €.
+//  - Anual = ×10 (2 meses gratis exactos). En anual se enseña el equivalente
+//    mensual con el mensual tachado y el ahorro EN EUROS (regla de 100), no en %.
+//  - El símbolo € se pinta pequeño y arriba (menos "dolor de pago"); "Sin
+//    permanencia" cerca del precio y el IVA en letra pequeña al pie de la sección.
+// Cambia aquí los importes y todo se actualiza en la landing y en /app/plan.
+// Los importes REALES de cobro viven en los prices de Stripe (STRIPE_PRICE_*):
+// al cambiar estos números hay que recrear los prices con los importes nuevos.
 // -----------------------------------------------------------------------------
 
 export interface Tier {
@@ -114,8 +123,8 @@ export const TIERS: Tier[] = [
     id: 'esencial',
     name: 'Esencial',
     tagline: 'Todo lo que necesitas para contratar bien en un sitio',
-    monthly: 150,
-    annual: 1500,
+    monthly: 149,
+    annual: 1490,
     processes: '2 procesos a la vez',
     available: true,
     features: [
@@ -133,8 +142,8 @@ export const TIERS: Tier[] = [
     id: 'pro',
     name: 'Pro',
     tagline: 'Para quien tiene varias vacantes abiertas a la vez',
-    monthly: 250,
-    annual: 2500,
+    monthly: 249,
+    annual: 2490,
     processes: '10 procesos a la vez',
     recommended: true,
     available: true,
@@ -150,8 +159,8 @@ export const TIERS: Tier[] = [
     id: 'multi',
     name: 'Multi',
     tagline: 'Para cadenas, franquicias y ETTs con varias sedes',
-    monthly: 450,
-    annual: 4500,
+    monthly: 499,
+    annual: 4990,
     processes: 'Procesos ilimitados',
     available: true,
     features: [
@@ -165,6 +174,15 @@ export const TIERS: Tier[] = [
     cta: 'Empezar con Multi',
   },
 ]
+
+// Presentación del precio anual como equivalente mensual. El importe facturado
+// es SIEMPRE visible junto al equivalente (transparencia: nada que calcular ni
+// letra pequeña). El equivalente se trunca (207,5 -> 207) porque el total anual
+// exacto se muestra al lado; el ahorro son exactamente 2 mensualidades.
+export const annualPerMonth = (t: Tier): number => Math.floor(t.annual / 12)
+export const annualSavings = (t: Tier): number => t.monthly * 12 - t.annual
+// Números con separador de miles español (2490 -> "2.490").
+export const fmtEs = (n: number): string => n.toLocaleString('es-ES')
 
 // Ancla del coste real, contada como DOS VERDADES antes de mostrar el precio:
 // lo que cuesta hacerlo a mano (tiempo, candidatos perdidos) frente a lo que

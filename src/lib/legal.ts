@@ -203,7 +203,7 @@ export const PRIVACY_DOC: LegalDoc = {
         {
           "type": "ul",
           "items": [
-            "Stripe (Stripe, Inc.): procesa los pagos. Gestiona el cobro de tu suscripción según tu plan (150, 250 o 450 EUR más IVA), emite facturas y trata los datos de pago y facturación.",
+            "Stripe (Stripe, Inc.): procesa los pagos. Gestiona el cobro de tu suscripción según tu plan (149, 249 o 499 EUR más IVA), emite facturas y trata los datos de pago y facturación.",
             "Resend (Resend, Inc.): envía los emails transaccionales y los de acceso. Manda el aviso al responsable de la empresa cuando entra una nueva candidatura (ese email incluye el nombre y el teléfono del candidato), los avisos de tu suscripción (activación, cancelación, renovación) y los emails de confirmación de cuenta y de restablecimiento de contraseña.",
             "Supabase (Supabase, Inc.): es la infraestructura. Aloja la base de datos con las tablas de empresas, candidatos, puestos y campañas, gestiona la autenticación y las sesiones, y almacena los CV y documentos adjuntos en un espacio de archivos privado. Los datos se alojan en la región [REGIÓN DE ALOJAMIENTO].",
             "Google (Google LLC): solo si eliges entrar con tu cuenta de Google. En esa función Google interviene en la autenticación y trata tu email de Google conforme a sus propias políticas, como responsable independiente de ese dato de inicio de sesión. Si entras con tu email y contraseña, Google no interviene."
@@ -505,9 +505,9 @@ export const TERMS_DOC: LegalDoc = {
         {
           "type": "ul",
           "items": [
-            "Esencial: 150 EUR al mes.",
-            "Pro: 250 EUR al mes.",
-            "Multi: 450 EUR al mes."
+            "Esencial: 149 EUR al mes (1.490 EUR si pagas el año por adelantado).",
+            "Pro: 249 EUR al mes (2.490 EUR si pagas el año por adelantado).",
+            "Multi: 499 EUR al mes (4.990 EUR si pagas el año por adelantado)."
           ]
         },
         {

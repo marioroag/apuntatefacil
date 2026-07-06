@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, Loader2 } from 'lucide-react'
-import { TIERS, PLAN_LABEL } from '../lib/pricing'
+import { TIERS, PLAN_LABEL, fmtEs } from '../lib/pricing'
+import { TierPrice } from '../components/TierPrice'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
@@ -225,10 +226,7 @@ export function Plan() {
               )}
               <h2 className="text-lg font-semibold text-slate-900">{t.name}</h2>
               <p className="mt-1 text-[14px] text-slate-500">{t.tagline}</p>
-              <div className="mt-4 flex items-baseline gap-1.5">
-                <span className="text-3xl font-bold tracking-tight text-slate-900 tabular-nums">{annual ? t.annual : t.monthly} €</span>
-                <span className="text-sm text-slate-500">{annual ? 'al año' : 'al mes'}</span>
-              </div>
+              <TierPrice tier={t} annual={annual} compact />
               <ul className="mt-5 flex-1 space-y-2">
                 {t.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-slate-700">
@@ -293,7 +291,7 @@ export function Plan() {
         {dialog?.type === 'change' && (
           <>
             <p>
-              Tu plan pasará a <strong className="font-semibold text-slate-900">{dialog.tierName}</strong>, {dialog.price} € {dialog.annual ? 'al año' : 'al mes'}.
+              Tu plan pasará a <strong className="font-semibold text-slate-900">{dialog.tierName}</strong>, {fmtEs(dialog.price)} € {dialog.annual ? 'al año' : 'al mes'}.
             </p>
             <div className="mt-3 rounded-xl bg-slate-50 p-3.5 text-slate-700">
               {dialog.amountDue > 0 ? (
@@ -313,7 +311,7 @@ export function Plan() {
                 Tenías programada la cancelación al final del periodo. Al cambiar de plan, tu suscripción se reactiva y seguirá renovándose.
               </p>
             )}
-            <p className="mt-3 text-[13px] text-slate-500">Después seguirás pagando {dialog.price} € {dialog.annual ? 'al año' : 'al mes'} (IVA aparte). Puedes cancelar cuando quieras.</p>
+            <p className="mt-3 text-[13px] text-slate-500">Después seguirás pagando {fmtEs(dialog.price)} € {dialog.annual ? 'al año' : 'al mes'} (IVA aparte). Puedes cancelar cuando quieras.</p>
           </>
         )}
       </ConfirmDialog>
