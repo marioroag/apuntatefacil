@@ -52,15 +52,12 @@ export function OnboardingGuide() {
   const base = useAppBase()
   const toast = useToast()
 
-  // Latch: una vez alcanzado el final, borrar la candidatura de prueba no debe
-  // devolver la guía al paso 4. Vive en memoria: si recarga ya con 0 candidatos,
-  // volver a 'probar' es correcto (sigue sin haber candidatura que enseñar).
-  const [reachedDone, setReachedDone] = useState(false)
-  useEffect(() => {
-    if (ob.active && ob.phase === 'hecho') setReachedDone(true)
-  }, [ob.active, ob.phase])
-
-  const phase = reachedDone && ob.phase !== 'puesto' ? 'hecho' : ob.phase
+  // La fase se deriva de los datos, sin latch en memoria: los dos botones de la
+  // tarjeta final ("Terminar" y "Borrar la prueba") CIERRAN la guía, así que la
+  // fase nunca puede regresar a 'probar' tras el hito (era el bug: borrar la
+  // prueba dejaba candidates=0 y el Dashboard, que lee el hook, remostraba el
+  // paso 4 mientras la flotante seguía en 'hecho').
+  const phase = ob.phase
   const campaignId = ob.campaign?.id ?? null
 
   // Detección de la llegada (fase 'probar'), centralizada aquí: al volver a la
@@ -202,7 +199,10 @@ export function OnboardingGuide() {
                   Terminar
                 </button>
                 {testCandidate && (
-                  <button onClick={() => deleteCandidate(testCandidate.id)} className={BTN_SECONDARY}>
+                  <button
+                    onClick={() => { deleteCandidate(testCandidate.id); void setOnboardingDone(true) }}
+                    className={BTN_SECONDARY}
+                  >
                     Borrar la prueba
                   </button>
                 )}
