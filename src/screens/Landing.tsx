@@ -599,8 +599,7 @@ function onTierTabKeyDown(
 }
 
 function Pricing() {
-  // Anual por defecto: es donde la rebaja es visible (tachado + ahorro en euros).
-  const [annual, setAnnual] = useState(true)
+  const [annual, setAnnual] = useState(false)
   const [selectedTier, setSelectedTier] = useState(DEFAULT_PRICING_TIER)
   const activeTier = TIERS.find((t) => t.id === selectedTier) ?? TIERS[1]
 
