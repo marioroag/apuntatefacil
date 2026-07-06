@@ -13,6 +13,31 @@ import { corsHeaders, json } from '../_shared/cors.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil' })
 
+// Cliente service_role SOLO para escribir el estado de facturación de la empresa
+// (stripe_customer_id, limpieza de sub). Las columnas de billing ya no son
+// escribibles por el rol authenticated (ver migración 20260706160000): el estado
+// de pago lo fija siempre el backend de confianza, nunca el JWT del usuario.
+const admin = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+)
+
+// El success/cancel de Stripe vuelve al navegador: solo aceptamos returnUrl de
+// nuestro propio dominio (APP_URL) o de localhost en desarrollo. Un returnUrl
+// arbitrario del body sería un redirect abierto post-pago (phishing).
+function safeReturnBase(returnUrl: unknown, fallback: string): string {
+  if (typeof returnUrl !== 'string' || !returnUrl) return fallback
+  try {
+    const u = new URL(returnUrl)
+    const appUrl = Deno.env.get('APP_URL')
+    const allowedHost = appUrl ? new URL(appUrl).host : null
+    if (u.host === allowedHost || u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+      return returnUrl
+    }
+  } catch { /* returnUrl no es una URL válida */ }
+  return fallback
+}
+
 // Cada plan tiene un price mensual y otro anual (dos meses gratis). Los IDs anuales
 // son STRIPE_PRICE_*_ANNUAL; si no están configurados, el alta anual avisa y no rompe.
 const PRICES: Record<string, { month?: string; year?: string }> = {
@@ -32,12 +57,19 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return json({ error: 'No autenticado' }, 401)
 
-    const { plan, returnUrl, cancel, resume, preview, annual } = await req.json()
+    const { plan, returnUrl, cancel, resume, preview, annual, companyId } = await req.json()
 
-    const { data: companies } = await supabase
+    // Con el JWT del usuario, la RLS solo deja ver SUS empresas. Si el cliente
+    // manda companyId (el usuario puede pertenecer a varias), facturamos ESA;
+    // sin él, caemos a la única (evita facturar/cancelar una empresa arbitraria
+    // que un .limit(1) sin filtro elegiría al azar en cuentas multi-empresa).
+    let companyQuery = supabase
       .from('companies')
       .select('id,name,stripe_customer_id,stripe_subscription_id,subscription_status')
-      .limit(1)
+    companyQuery = typeof companyId === 'string' && companyId
+      ? companyQuery.eq('id', companyId)
+      : companyQuery.limit(1)
+    const { data: companies } = await companyQuery
     const company = companies?.[0]
     if (!company) return json({ error: 'Sin empresa' }, 400)
 
@@ -70,7 +102,7 @@ Deno.serve(async (req) => {
         // degradar ni pausar puestos). Ante un error transitorio (red, rate limit, 5xx)
         // NO tocamos nada y devolvemos error: el cliente reintenta sin riesgo.
         if ((e as { code?: string })?.code === 'resource_missing') {
-          await supabase.from('companies').update({
+          await admin.from('companies').update({
             stripe_subscription_id: null,
             subscription_status: null,
           }).eq('id', company.id)
@@ -125,12 +157,24 @@ Deno.serve(async (req) => {
     if (hasActiveSub && subObj) {
       const itemId = subObj.items.data[0]?.id
       if (!itemId) return json({ error: 'Suscripción sin líneas' }, 400)
-      await stripe.subscriptions.update(subId!, {
-        items: [{ id: itemId, price }],
-        proration_behavior: 'always_invoice',
-        cancel_at_period_end: false,
-        metadata: { company_id: company.id, plan },
-      })
+      // payment_behavior 'error_if_incomplete': si la prorrata no se puede cobrar
+      // (tarjeta rechazada), Stripe devuelve 402 y NO aplica el cambio, en vez de
+      // dejar al cliente en el plan superior sin haber pagado (past_due).
+      try {
+        await stripe.subscriptions.update(subId!, {
+          items: [{ id: itemId, price }],
+          proration_behavior: 'always_invoice',
+          payment_behavior: 'error_if_incomplete',
+          cancel_at_period_end: false,
+          metadata: { company_id: company.id, plan },
+        })
+      } catch (e) {
+        const err = e as { code?: string; message?: string }
+        if (err?.code === 'card_declined' || err?.code === 'payment_intent_authentication_failure' || err?.message?.includes('payment')) {
+          return json({ error: 'No se pudo cobrar el cambio de plan. Revisa tu método de pago e inténtalo de nuevo.', paymentFailed: true }, 402)
+        }
+        throw e
+      }
       return json({ changed: true, plan })
     }
 
@@ -151,10 +195,40 @@ Deno.serve(async (req) => {
         metadata: { company_id: company.id },
       })
       customerId = customer.id
-      await supabase.from('companies').update({ stripe_customer_id: customerId }).eq('id', company.id)
+      await admin.from('companies').update({ stripe_customer_id: customerId }).eq('id', company.id)
     }
 
-    const base = (returnUrl as string) || `${new URL(req.url).origin}`
+    // Antes de crear un Checkout nuevo, comprobamos en Stripe (no solo en la BD)
+    // si este customer YA tiene una suscripción viva. Puede pasar si el webhook
+    // aún no escribió el stripe_subscription_id (ventana de carrera) o si quedó
+    // una sesión de un intento anterior. Si la hay, la ADOPTAMOS y cambiamos su
+    // plan, en vez de crear una segunda suscripción que facturaría en paralelo.
+    const existing = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 })
+    const live = existing.data.find((s) => ['active', 'trialing', 'past_due', 'unpaid'].includes(s.status))
+    if (live) {
+      await admin.from('companies').update({ stripe_subscription_id: live.id }).eq('id', company.id)
+      const itemId = live.items.data[0]?.id
+      if (itemId) {
+        try {
+          await stripe.subscriptions.update(live.id, {
+            items: [{ id: itemId, price }],
+            proration_behavior: 'always_invoice',
+            payment_behavior: 'error_if_incomplete',
+            cancel_at_period_end: false,
+            metadata: { company_id: company.id, plan },
+          })
+        } catch (e) {
+          const err = e as { code?: string; message?: string }
+          if (err?.code === 'card_declined' || err?.code === 'payment_intent_authentication_failure' || err?.message?.includes('payment')) {
+            return json({ error: 'No se pudo cobrar el cambio de plan. Revisa tu método de pago e inténtalo de nuevo.', paymentFailed: true }, 402)
+          }
+          throw e
+        }
+        return json({ changed: true, plan })
+      }
+    }
+
+    const base = safeReturnBase(returnUrl, Deno.env.get('APP_URL') || `${new URL(req.url).origin}`)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
@@ -164,6 +238,10 @@ Deno.serve(async (req) => {
       metadata: { company_id: company.id, plan },
       subscription_data: { metadata: { company_id: company.id, plan } },
       allow_promotion_codes: true,
+      // Sesión de vida corta: reduce las sesiones "zombie" completables horas
+      // después (otra vía a la doble suscripción). 31 min: el mínimo de Stripe es
+      // 30, dejamos margen para que el tiempo de proceso no lo tire bajo el límite.
+      expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
     })
     return json({ url: session.url })
   } catch (e) {

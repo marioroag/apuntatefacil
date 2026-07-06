@@ -62,7 +62,7 @@ export function Plan() {
   // Alta nueva o cobro de cambio ya confirmado: llama a la función y actúa según la respuesta.
   const runCheckout = async (planId: string): Promise<boolean> => {
     const { data, error } = await supabase.functions.invoke('stripe-checkout', {
-      body: { plan: planId, returnUrl: `${window.location.origin}/app/plan`, annual },
+      body: { plan: planId, returnUrl: `${window.location.origin}/app/plan`, annual, companyId: company?.id },
     })
     if (error) {
       toast.error('No se pudo completar. Inténtalo de nuevo.')
@@ -102,7 +102,7 @@ export function Plan() {
     if (!tier) return
     setBusy(planId)
     const { data: pv, error } = await supabase.functions.invoke('stripe-checkout', {
-      body: { plan: planId, preview: true, annual },
+      body: { plan: planId, preview: true, annual, companyId: company?.id },
     })
     setBusy(null)
     if (error) {
@@ -136,7 +136,7 @@ export function Plan() {
       setDialogBusy(false)
       if (ok) setDialog(null)
     } else {
-      const { data, error } = await supabase.functions.invoke('stripe-checkout', { body: { cancel: true } })
+      const { data, error } = await supabase.functions.invoke('stripe-checkout', { body: { cancel: true, companyId: company?.id } })
       setDialogBusy(false)
       if (error || !data?.canceled) {
         toast.error('No se pudo cancelar. Inténtalo de nuevo.')
@@ -167,7 +167,7 @@ export function Plan() {
 
   const resumeSubscription = async () => {
     setBusy('__resume__')
-    const { data, error } = await supabase.functions.invoke('stripe-checkout', { body: { resume: true } })
+    const { data, error } = await supabase.functions.invoke('stripe-checkout', { body: { resume: true, companyId: company?.id } })
     if (error || !data?.resumed) {
       setBusy(null)
       toast.error('No se pudo reanudar. Inténtalo de nuevo.')
