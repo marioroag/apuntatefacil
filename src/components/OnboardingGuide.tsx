@@ -24,7 +24,22 @@ import type { Campaign } from '../lib/types'
 // efímero: "esperando la candidatura" y el latch del cierre.
 // ----------------------------------------------------------------------------
 
-const KICKER = 'text-[12px] font-semibold text-slate-500'
+// Indicador de progreso del wizard: 4 segmentos en tinta (los cumplidos) + la
+// etiqueta "Paso N de 4". Orienta al usuario no técnico ("son pocos pasos, voy
+// por aquí") sin ruido. Tinta, no el acento (reservado a acción/nav/foco). Es
+// inline-flex: se alinea solo a la izquierda o al centro según el contenedor.
+export function StepProgress({ current, total = 4 }: { current: number; total?: number }) {
+  return (
+    <span className="inline-flex items-center gap-2.5 align-middle">
+      <span className="flex items-center gap-1" aria-hidden>
+        {Array.from({ length: total }, (_, i) => (
+          <span key={i} className={`h-1 w-6 rounded-full ${i < current ? 'bg-slate-900' : 'bg-slate-200'}`} />
+        ))}
+      </span>
+      <span className="text-[12px] font-semibold text-slate-500">Paso {current} de {total}</span>
+    </span>
+  )
+}
 
 // Tarjeta flotante: recuerda el paso actual fuera de su pantalla, muestra el
 // paso 3 en el Builder y la tarjeta final al llegar la primera candidatura.
@@ -114,8 +129,8 @@ export function OnboardingGuide() {
 
         {phase === 'puesto' && (
           <>
-            <p className={KICKER}>Paso 2 de 4</p>
-            <p className="mt-1 text-[15px] font-semibold text-slate-900">Crea tu primer puesto</p>
+            <StepProgress current={2} />
+            <p className="mt-2 text-[15px] font-semibold text-slate-900">Crea tu primer puesto</p>
             <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
               Con una plantilla de tu sector lo tienes listo en un minuto.
             </p>
@@ -127,8 +142,8 @@ export function OnboardingGuide() {
 
         {phase === 'formulario' && (
           <>
-            <p className={KICKER}>Paso 3 de 4</p>
-            <p className="mt-1 text-[15px] font-semibold text-slate-900">Esto es lo que verá quien abra tu enlace</p>
+            <StepProgress current={3} />
+            <p className="mt-2 text-[15px] font-semibold text-slate-900">Esto es lo que verá quien abra tu enlace</p>
             <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
               Retoca las preguntas si quieres. Los cambios se guardan solos.
             </p>
@@ -143,8 +158,8 @@ export function OnboardingGuide() {
 
         {phase === 'probar' && (
           <>
-            <p className={KICKER}>Paso 4 de 4</p>
-            <p className="mt-1 text-[15px] font-semibold text-slate-900">Pruébalo tú mismo</p>
+            <StepProgress current={4} />
+            <p className="mt-2 text-[15px] font-semibold text-slate-900">Pruébalo tú mismo</p>
             <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
               Te falta enviarte una candidatura de prueba para ver cómo llega.
             </p>
@@ -235,8 +250,8 @@ export function OnboardingTestCard({ campaign, shareUrl, onCopy }: {
   if (campaign.status !== 'activa') {
     return (
       <div className="px-6 py-14 text-center">
-        <p className={KICKER}>Paso 4 de 4</p>
-        <h2 className="mt-1 text-lg font-semibold text-slate-900">Tu puesto está en pausa</h2>
+        <StepProgress current={4} />
+        <h2 className="mt-2 text-lg font-semibold text-slate-900">Tu puesto está en pausa</h2>
         <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-slate-500">
           Un puesto en pausa no acepta candidaturas. Reactívalo para probar tu enlace.
         </p>
@@ -246,8 +261,8 @@ export function OnboardingTestCard({ campaign, shareUrl, onCopy }: {
 
   return (
     <div className="px-6 py-14 text-center">
-      <p className={KICKER}>Paso 4 de 4</p>
-      <h2 className="mt-1 text-lg font-semibold text-slate-900">Pruébalo tú mismo</h2>
+      <StepProgress current={4} />
+      <h2 className="mt-2 text-lg font-semibold text-slate-900">Pruébalo tú mismo</h2>
       <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-slate-500">
         Abre tu enlace, rellena el formulario como si fueras un candidato y envíalo.
         Tu candidatura de prueba aparecerá en esta lista.
@@ -304,8 +319,8 @@ export function OnboardingCreatePuesto() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-14">
-      <p className={KICKER}>Paso 2 de 4</p>
-      <h1 className="mt-1 text-xl font-semibold text-slate-900">Crea tu primer puesto</h1>
+      <StepProgress current={2} />
+      <h1 className="mt-2 text-xl font-semibold text-slate-900">Crea tu primer puesto</h1>
       <p className="mt-1.5 text-sm text-slate-500">
         Elige un punto de partida según tu sector. Podrás cambiarlo todo después.
       </p>
