@@ -229,6 +229,7 @@ export function SupportDialog({
                     {touched.message && errors.message && (
                       <p id="support-message-err" className="mt-1 text-[13px] text-red-600">{errors.message}</p>
                     )}
+                    <p className="mt-1 text-[12px] text-slate-500">No incluyas contraseñas ni datos de pago.</p>
                   </div>
                 </div>
 

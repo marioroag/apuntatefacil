@@ -52,6 +52,19 @@ Deno.serve(async (req) => {
       button: link ? { label: 'Ver candidatura', href: link } : undefined,
     })
 
+    // Idempotencia: reclama el aviso de forma atómica (solo si aún no se notificó).
+    // Al ser un endpoint público, esto impide reenviar el email en bucle con un
+    // candidate_id conocido (email-bombing) y cierra el oráculo de existencia.
+    const { data: claimed } = await admin
+      .from('candidates')
+      .update({ notified_at: new Date().toISOString() })
+      .eq('id', candidate_id)
+      .is('notified_at', null)
+      .select('id')
+    if (!claimed || claimed.length === 0) {
+      return json({ ok: true, sent: false, skipped: 'ya notificado' })
+    }
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },

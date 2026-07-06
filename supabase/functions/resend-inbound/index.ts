@@ -21,6 +21,9 @@ const admin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 )
 const WEBHOOK_SECRET = Deno.env.get('RESEND_WEBHOOK_SECRET')
+// Solo para pruebas LOCALES con payloads sintéticos: acepta inbound sin firma. NUNCA
+// se define en producción; sin firma ni este flag, la función rechaza el evento.
+const ALLOW_UNSIGNED = Deno.env.get('ALLOW_UNSIGNED_INBOUND') === 'true'
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 const FROM = Deno.env.get('NOTIFY_FROM') ?? 'Apúntate Fácil <onboarding@resend.dev>'
 const APP_URL = Deno.env.get('APP_URL') ?? ''
@@ -115,8 +118,9 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   const raw = await req.text()
 
-  // Verificación Svix. En prod el secret SIEMPRE está y se exige firma; en local, sin
-  // secret, se acepta sin verificar para poder probar con payloads sintéticos.
+  // Verificación Svix, FAIL-CLOSED: si no hay secret configurado, se RECHAZA el evento
+  // (salvo el flag explícito de pruebas locales). Así una config incompleta en prod no
+  // deja el webhook abierto a inbound forjado (inyección de mensajes/tickets de soporte).
   let evt: { type?: string; data?: Record<string, unknown> }
   if (WEBHOOK_SECRET) {
     try {
@@ -128,12 +132,15 @@ Deno.serve(async (req) => {
     } catch (e) {
       return json({ error: `Firma no válida: ${e instanceof Error ? e.message : e}` }, 400)
     }
-  } else {
+  } else if (ALLOW_UNSIGNED) {
     try {
       evt = JSON.parse(raw)
     } catch {
       return json({ error: 'JSON inválido' }, 400)
     }
+  } else {
+    // Sin secret y sin el flag de pruebas: no procesamos nada.
+    return json({ error: 'Webhook no configurado' }, 500)
   }
 
   if (evt?.type !== 'email.received') return json({ ok: true, skipped: evt?.type ?? 'sin tipo' })

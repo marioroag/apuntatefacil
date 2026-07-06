@@ -32,6 +32,11 @@ export function PublicForm() {
   const [consent, setConsent] = useState(false)
   const [consentError, setConsentError] = useState('')
   const formTop = useRef<HTMLDivElement>(null)
+  // Anti-bot sin fricción: campo trampa oculto (honeypot) + tiempo mínimo desde que
+  // se monta el formulario. Frena bots que rellenan y envían al instante. No es una
+  // barrera fuerte (un ataque directo al RPC la esquiva), pero cubre el spam común.
+  const [honeypot, setHoneypot] = useState('')
+  const mountedAt = useRef(Date.now())
 
   useEffect(() => {
     let alive = true
@@ -114,6 +119,10 @@ export function PublicForm() {
   }
 
   const submit = async () => {
+    // Señales de bot: honeypot relleno o envío antes de 1,5 s. Abortamos en silencio
+    // (sin crear candidatura ni mostrar error). Un humano que caiga por el tiempo puede
+    // reintentar: al segundo clic la ventana ya habrá pasado.
+    if (honeypot !== '' || Date.now() - mountedAt.current < 1500) return
     const next: Record<string, string> = {}
     for (const f of campaign.fields) {
       const err = validateField(f, values[f.id])
@@ -209,6 +218,20 @@ export function PublicForm() {
             onConsentChange={(v) => { setConsent(v); setConsentError('') }}
             consentError={consentError}
           />
+          {/* Honeypot: invisible y fuera del recorrido de teclado/lector. Un humano no lo
+              rellena; un bot que autocompleta campos, sí. Envuelto en un contenedor 0x0 con
+              overflow-hidden: oculta sin sacarlo de pantalla (nada de -left:-9999px, que
+              provocaría scroll horizontal) y sin display:none (que algunos bots saltan). */}
+          <div aria-hidden="true" className="h-0 w-0 overflow-hidden">
+            <input
+              type="text"
+              name="empresa_web"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
+          </div>
         </div>
         <p className="mt-4 text-center text-[12px] text-slate-500">Formulario con {BRAND}</p>
       </div>
