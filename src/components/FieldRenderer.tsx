@@ -25,9 +25,19 @@ export function validateField(field: FormField, value: FieldValue): string | nul
   }
   if (field.type === 'phone' && typeof value === 'string') {
     const digits = value.replace(/\D/g, '')
+    // Vale con y sin prefijo: de 9 dígitos (nacional) a 15 (máximo internacional).
     if (digits.length < 9) return 'Escribe un teléfono válido, por ejemplo 600 123 456'
+    if (digits.length > 15) return 'Ese teléfono tiene demasiados dígitos, revísalo'
   }
   return null
+}
+
+// Deja en un teléfono solo lo válido: dígitos, espacios y separadores (- ()), con
+// el '+' del prefijo internacional únicamente al principio. Respeta a quien pone
+// prefijo y a quien no; NO reformatea (no imponemos un formato de país).
+function sanitizePhone(raw: string): string {
+  const cleaned = raw.replace(/[^\d\s+()-]/g, '').replace(/^\s+/, '')
+  return cleaned.replace(/\+/g, (_m, i) => (i === 0 ? '+' : ''))
 }
 
 const inputBase =
@@ -202,9 +212,9 @@ function Control({
           inputMode="tel"
           autoComplete="tel"
           value={(value as string) ?? ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => onChange(sanitizePhone(e.target.value))}
           placeholder={field.placeholder ?? '600 000 000'}
-          maxLength={25}
+          maxLength={20}
           className={`${inputBase} ${border} h-12`}
         />
       )
