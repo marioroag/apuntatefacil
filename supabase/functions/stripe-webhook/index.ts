@@ -30,13 +30,20 @@ async function applySub(companyId: string, sub: Stripe.Subscription) {
   const planFromPrice = priceId ? PRICE_TO_PLAN[priceId] : undefined
   const plan = canceled ? 'trial' : (planFromPrice ?? sub.metadata?.plan ?? 'pro')
   const interval = canceled ? null : (sub.items?.data?.[0]?.price?.recurring?.interval ?? null)
-  await admin.from('companies').update({
+  const { error } = await admin.from('companies').update({
     plan,
     subscription_status: sub.status,
     stripe_subscription_id: sub.id,
     billing_interval: interval,
     cancel_at_period_end: canceled ? false : (sub.cancel_at_period_end ?? false),
   }).eq('id', companyId)
+  // NO tragarnos el error del UPDATE: si un trigger lo revierte (p.ej. el límite de
+  // procesos) o falla por lo que sea, lanzarlo hace que el webhook responda 500 y
+  // Stripe reintente, y queda visible en el panel. Antes se devolvía 'ok' con el
+  // plan sin escribir: el cliente pagaba y se quedaba en trial en silencio.
+  if (error) {
+    throw new Error(`No se pudo aplicar el plan '${plan}' a la empresa ${companyId}: ${error.message}`)
+  }
 }
 
 Deno.serve(async (req) => {
