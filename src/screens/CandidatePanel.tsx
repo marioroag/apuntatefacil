@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Loader2, MessageCircle, Phone, Star, Trash2 } from 'lucide-react'
+import { Copy, FileText, Loader2, MessageCircle, Phone, Star, Trash2 } from 'lucide-react'
 import { SlideOver } from '../components/ui/SlideOver'
 import { StatusSelect } from '../components/ui/StatusPill'
 import type { Campaign, Candidate } from '../lib/types'
@@ -10,6 +10,7 @@ import { useAuth } from '../lib/auth'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
+import { copyText } from '../lib/clipboard'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { TagSection } from '../components/Tags'
 import { TAGS_ENABLED } from '../lib/pricing'
@@ -57,6 +58,15 @@ export function CandidatePanel({
       return
     }
     window.open(data.signedUrl, '_blank', 'noopener')
+  }
+
+  // Teléfono y correo son los datos que se copian para pegar en otro sitio
+  // (WhatsApp, Gmail, el CRM): al pulsar el valor se copian, con el mismo
+  // patrón de toast que "Copiar enlace" y el correo del ticket de soporte.
+  const copyValue = async (kind: 'Teléfono' | 'Correo', value: string) => {
+    const ok = await copyText(value)
+    if (ok) toast.success(`${kind} copiado`)
+    else toast.show(`Copia ${kind.toLowerCase()} manualmente: ${value}`)
   }
 
   // Solo al cambiar de candidato, no en cada mutación del store (si no, borra
@@ -207,8 +217,23 @@ export function CandidatePanel({
                       </button>
                     ) : maskPhone && f.id === 'telefono' && candidate.answers[f.id] ? (
                       <MaskedPhone value={formatPhone(String(candidate.answers[f.id]))} />
-                    ) : f.type === 'phone' && candidate.answers[f.id] ? (
-                      formatPhone(String(candidate.answers[f.id]))
+                    ) : (f.type === 'phone' || f.type === 'email') && candidate.answers[f.id] ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyValue(
+                            f.type === 'phone' ? 'Teléfono' : 'Correo',
+                            f.type === 'phone' ? formatPhone(String(candidate.answers[f.id])) : String(candidate.answers[f.id]),
+                          )
+                        }
+                        className="group -ml-1 -my-0.5 inline-flex max-w-full items-center gap-1.5 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-slate-100"
+                        title={`Copiar ${f.type === 'phone' ? 'teléfono' : 'correo'}`}
+                      >
+                        <span className="break-words group-hover:underline group-focus-visible:underline">
+                          {f.type === 'phone' ? formatPhone(String(candidate.answers[f.id])) : String(candidate.answers[f.id])}
+                        </span>
+                        <Copy className="size-3.5 shrink-0 text-slate-400 group-hover:text-slate-600" aria-hidden />
+                      </button>
                     ) : (
                       answerText(candidate.answers[f.id])
                     )}
