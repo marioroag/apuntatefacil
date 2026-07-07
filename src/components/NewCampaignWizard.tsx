@@ -89,11 +89,11 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
   const base = useAppBase()
   const { busy, create } = useCreateFromTemplate()
 
-  // Un "proceso" cuenta si está abierto (activo o pausado). Cerrar libera cupo.
-  // Espejo en cliente del límite que aplica el servidor; aquí solo para UX.
+  // El límite es sobre puestos ACTIVOS; pausar libera cupo. Espejo en cliente del
+  // enforcement de servidor (crear un puesto lo deja activo).
   const limit = company ? PLAN_PROCESS_LIMIT[company.plan] ?? 0 : 0
-  const openCount = campaigns.filter((c) => c.status === 'activa' || c.status === 'pausada').length
-  const atLimit = openCount >= limit
+  const activeCount = campaigns.filter((c) => c.status === 'activa').length
+  const atLimit = activeCount >= limit
 
   useEffect(() => {
     if (!open) return
@@ -141,8 +141,8 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                 </h2>
                 <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-relaxed text-slate-500">
                   Tu plan {PLAN_LABEL[company?.plan ?? 'esencial']} permite {limit}{' '}
-                  {limit === 1 ? 'proceso abierto' : 'procesos abiertos'} a la vez, contando activos y pausados.
-                  Sube de plan para abrir más.
+                  {limit === 1 ? 'puesto activo' : 'puestos activos'} a la vez. Pausa uno o sube de plan
+                  para abrir otro.
                 </p>
                 <div className="mt-6 flex justify-center gap-2">
                   <button onClick={onClose} className={BTN_SECONDARY}>

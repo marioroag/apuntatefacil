@@ -13,6 +13,7 @@ export interface Company {
   billing_interval: string | null // 'month' | 'year' | null (sin suscripción)
   cancel_at_period_end: boolean // suscripción marcada para cancelarse al final del periodo
   onboarding_done_at: string | null // null = guía de primer uso activa (el progreso se deriva de los datos)
+  downgrade_reconcile_at: string | null // no null = bajaste de plan y debes elegir qué puestos mantener activos
 }
 
 // Empresa + el rol del usuario en ella (lo devuelve el RPC my_companies).
@@ -219,6 +220,7 @@ export const DEMO_COMPANY: Company = {
   cancel_at_period_end: false,
   // La demo nunca enseña la guía de primer uso (ya ES la visita guiada).
   onboarding_done_at: '2026-01-01T00:00:00Z',
+  downgrade_reconcile_at: null,
 }
 
 export function DemoAuthProvider({ children }: { children: ReactNode }) {

@@ -15,6 +15,7 @@ import { NewCampaignWizard } from '../components/NewCampaignWizard'
 import { SupportDialog } from '../components/SupportDialog'
 import { useIsSupportStaff } from '../lib/useSupportStaff'
 import { TrialPausedDialog } from '../components/TrialPausedDialog'
+import { DowngradeReconcileDialog } from '../components/DowngradeReconcileDialog'
 import { OnboardingGuide, OnboardingCreatePuesto } from '../components/OnboardingGuide'
 import { useOnboarding } from '../lib/onboarding'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -729,6 +730,9 @@ export function AppLayout() {
         companyId={company.id}
       />
       <TrialPausedDialog open={pausedOpen} onClose={() => setPausedOpen(false)} />
+      {/* Bloqueante: tras bajar de plan, el dueño elige qué puestos mantener
+          activos. El servidor ya garantizó el límite; esto es solo la elección. */}
+      {!demo && isOwner && company?.downgrade_reconcile_at != null && <DowngradeReconcileDialog />}
       <ConfirmDialog
         open={confirmReset}
         onClose={() => setConfirmReset(false)}

@@ -178,7 +178,8 @@ export function Dashboard() {
     }
   }
 
-  // Pausar / reanudar (activa <-> pausada): nunca choca con el límite del plan.
+  // Pausar libera cupo; reactivar consume un hueco activo: si el plan ya está al
+  // máximo de activos, updateCampaign revierte y avisa (el toast lo explica).
   const togglePause = async () => {
     if (!campaign) return
     const next = campaign.status === 'activa' ? 'pausada' : 'activa'

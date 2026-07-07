@@ -31,9 +31,12 @@ export interface Tier {
   available?: boolean
 }
 
-// Un "proceso" = un puesto abierto (activo o pausado). Cerrarlo libera cupo.
+// El tope es el nº de puestos ACTIVOS a la vez. Pausar libera cupo (los pausados
+// quedan aparcados y no cuentan); reactivar exige un hueco activo libre. Al bajar
+// de plan, el servidor pausa los activos que sobran (ver 20260707140000).
 // IMPORTANTE: estos topes son el ESPEJO del enforcement de servidor en
-// supabase/migrations/20260615000000_process_limit.sql. Mantener sincronizados.
+// supabase/migrations/20260615000000_process_limit.sql (reescrito en 20260707140000).
+// Mantener sincronizados.
 export const PLAN_PROCESS_LIMIT: Record<string, number> = {
   trial: 1,
   esencial: 2,
