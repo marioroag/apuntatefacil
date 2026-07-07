@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Brand, Branding, Campaign, Candidate, CandidateStatus, FormField, SavedView, SavedViewPayload, Site, Tag } from './types'
-import { supabase } from './supabase'
+import { supabase, supabaseConfigured } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
 import { SEED, SEED_BRANDS, SEED_TAGS } from './seed'
@@ -320,6 +320,101 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     reload()
   }, [reload])
 
+  // Recarga solo el preview de candidatos bloqueados (recuento + fechas por
+  // puesto), sin el reload() completo. Lo usa el canal realtime cuando el ping
+  // llega con locked=true (plan trial con el cupo lleno).
+  const refreshLockedInfo = useCallback(async () => {
+    if (!companyId || companyId === 'demo') return
+    const { data, error } = await supabase.rpc('locked_candidates_preview')
+    if (!error && data) setLockedInfo(data as Record<string, { count: number; dates: string[] }>)
+  }, [companyId])
+
+  const reloadCandidatesFor = useCallback(async (campaignId: string): Promise<number> => {
+    if (!companyId || companyId === 'demo') return 0 // demo: datos en memoria, nada nuevo de red
+    const { data, error } = await supabase
+      .from('candidates')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('created_at', { ascending: false })
+    if (error || !data) return -1
+    const rows = data as CandidateRow[]
+    // Etiquetas de estos candidatos, en una sola consulta por lote.
+    const { data: ctData } = await supabase
+      .from('candidate_tags')
+      .select('candidate_id,tag_id')
+      .in('candidate_id', rows.map((r) => r.id))
+    const tagMap = tagsByCandidate((ctData as CandidateTagRow[]) ?? [])
+    const fetched = rows.map((r) => toCandidate(r, tagMap.get(r.id) ?? []))
+    // Cuántos vienen que no teníamos ya en local (para avisar "N nuevos").
+    const knownIds = new Set(candidates.filter((c) => c.campaignId === campaignId).map((c) => c.id))
+    const added = fetched.filter((f) => !knownIds.has(f.id)).length
+    // Reemplaza los de este puesto por el estado fresco del servidor; deja el
+    // resto. Para los candidatos con una edición optimista en vuelo, conserva el
+    // estado local (el servidor aún no lo refleja y lo pisaría con datos viejos).
+    setCandidates((prev) => {
+      const localById = new Map(prev.map((c) => [c.id, c]))
+      const merged = fetched.map((f) =>
+        pendingCandidateWrites.current.has(f.id) ? localById.get(f.id) ?? f : f,
+      )
+      return [...prev.filter((c) => c.campaignId !== campaignId), ...merged]
+    })
+    return added
+  }, [companyId, candidates])
+
+  // Los handlers del canal realtime viven fuera del ciclo de render: consumen
+  // las recargas vía ref para no resuscribir el websocket en cada cambio de estado.
+  const reloadCandidatesRef = useRef(reloadCandidatesFor)
+  reloadCandidatesRef.current = reloadCandidatesFor
+  const refreshLockedRef = useRef(refreshLockedInfo)
+  refreshLockedRef.current = refreshLockedInfo
+  const reloadRef = useRef(reload)
+  reloadRef.current = reload
+
+  // Live reload: canal privado por empresa. Al entrar una candidatura, un
+  // trigger de BD emite un ping sin PII (campaign_id, locked) y aquí recargamos
+  // SOLO lo afectado. La demo y un backend sin configurar no abren websocket.
+  useEffect(() => {
+    if (!companyId || companyId === 'demo' || !supabaseConfigured) return
+    const pending = new Set<string>() // campaign_ids acumulados (ráfagas)
+    let lockedDirty = false
+    let timer = 0
+    const flush = () => {
+      timer = 0
+      const ids = [...pending]
+      pending.clear()
+      ids.forEach((id) => void reloadCandidatesRef.current(id))
+      if (lockedDirty) {
+        lockedDirty = false
+        void refreshLockedRef.current()
+      }
+    }
+    const channel = supabase
+      .channel(`company:${companyId}`, { config: { private: true } })
+      .on('broadcast', { event: 'new_candidate' }, ({ payload }) => {
+        const cid = typeof payload?.campaign_id === 'string' ? payload.campaign_id : null
+        if (payload?.locked) lockedDirty = true
+        else if (cid) pending.add(cid)
+        if (!timer) timer = window.setTimeout(flush, 500) // amortigua ráfagas
+      })
+    // Canal privado: el token debe estar fijado en Realtime antes de suscribir
+    // (los refresh de sesión posteriores los propaga supabase-js solo).
+    void supabase.realtime.setAuth().then(() => channel.subscribe())
+    // Red de seguridad al volver a la pestaña: si el socket no está sano
+    // (portátil suspendido, red caída), recarga completa; si lo está, el canal
+    // ya entregó todo y no hay nada que hacer.
+    const onWake = () => {
+      if (document.visibilityState === 'visible' && channel.state !== 'joined') void reloadRef.current()
+    }
+    window.addEventListener('focus', onWake)
+    document.addEventListener('visibilitychange', onWake)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('focus', onWake)
+      document.removeEventListener('visibilitychange', onWake)
+      void supabase.removeChannel(channel) // cambio de empresa / logout
+    }
+  }, [companyId])
+
   // Persiste la demo en localStorage tras cada cambio. Salta la primera ejecución
   // (la hidratación inicial con el estado vacío) para no pisar lo guardado.
   const demoPersistReady = useRef(false)
@@ -381,38 +476,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       })
     },
     reload,
-
-    reloadCandidatesFor: async (campaignId) => {
-      if (!companyId || companyId === 'demo') return 0 // demo: datos en memoria, nada nuevo de red
-      const { data, error } = await supabase
-        .from('candidates')
-        .select('*')
-        .eq('campaign_id', campaignId)
-        .order('created_at', { ascending: false })
-      if (error || !data) return -1
-      const rows = data as CandidateRow[]
-      // Etiquetas de estos candidatos, en una sola consulta por lote.
-      const { data: ctData } = await supabase
-        .from('candidate_tags')
-        .select('candidate_id,tag_id')
-        .in('candidate_id', rows.map((r) => r.id))
-      const tagMap = tagsByCandidate((ctData as CandidateTagRow[]) ?? [])
-      const fetched = rows.map((r) => toCandidate(r, tagMap.get(r.id) ?? []))
-      // Cuántos vienen que no teníamos ya en local (para avisar "N nuevos").
-      const knownIds = new Set(candidates.filter((c) => c.campaignId === campaignId).map((c) => c.id))
-      const added = fetched.filter((f) => !knownIds.has(f.id)).length
-      // Reemplaza los de este puesto por el estado fresco del servidor; deja el
-      // resto. Para los candidatos con una edición optimista en vuelo, conserva el
-      // estado local (el servidor aún no lo refleja y lo pisaría con datos viejos).
-      setCandidates((prev) => {
-        const localById = new Map(prev.map((c) => [c.id, c]))
-        const merged = fetched.map((f) =>
-          pendingCandidateWrites.current.has(f.id) ? localById.get(f.id) ?? f : f,
-        )
-        return [...prev.filter((c) => c.campaignId !== campaignId), ...merged]
-      })
-      return added
-    },
+    reloadCandidatesFor,
 
     setStatus: async (id, status) => {
       const prev = candidates.find((c) => c.id === id)?.status
@@ -967,7 +1031,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setBrands(SEED_BRANDS)
       setTags(SEED_TAGS)
     },
-  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, companyId, reload, toast])
+  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, companyId, reload, reloadCandidatesFor, toast])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }
