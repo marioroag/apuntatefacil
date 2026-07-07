@@ -89,7 +89,10 @@ export function SlideOver({
             transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
           >
             <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
-              <div className="min-w-0" id="slideover-title">{title}</div>
+              {/* flex-1: sin esto, un título con contenido inline-flex (p. ej. un botón
+                  con truncate dentro) calcula su ancho intrínseco de forma ambigua y
+                  puede clipar 1-2 caracteres de más aunque sobre espacio en la cabecera. */}
+              <div className="min-w-0 flex-1" id="slideover-title">{title}</div>
               <button
                 onClick={onClose}
                 aria-label="Cerrar panel"

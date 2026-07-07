@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Globe, Loader2, LifeBuoy, Mail, Send } from 'lucide-react'
+import { Building2, Copy, Globe, Loader2, LifeBuoy, Mail, Send } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { SlideOver } from '../components/ui/SlideOver'
 import { Button } from '../components/ui/Button'
 import { relativeDate, fullDateTime } from '../lib/format'
+import { copyText } from '../lib/clipboard'
 
 // Datos que devuelven los RPC de operador (support_list_tickets / support_get_thread).
 interface TicketRow {
@@ -121,6 +122,12 @@ export function Soporte() {
   const close = () => {
     setOpenId(null)
     setThread(null)
+  }
+
+  const copyEmail = async (email: string) => {
+    const ok = await copyText(email)
+    if (ok) toast.success('Correo copiado')
+    else toast.show('Copia el correo manualmente: ' + email)
   }
 
   const sendReply = async () => {
@@ -247,7 +254,17 @@ export function Soporte() {
         title={
           thread ? (
             <div className="min-w-0">
-              <p className="truncate text-[15px] font-semibold text-slate-900">{thread.ticket.email}</p>
+              <button
+                type="button"
+                onClick={() => copyEmail(thread.ticket.email)}
+                className="group -ml-1.5 inline-flex max-w-full items-center gap-1.5 rounded-lg px-1.5 py-0.5 text-left transition-colors hover:bg-slate-100"
+                title="Copiar correo"
+              >
+                <span className="truncate text-[15px] font-semibold text-slate-900 group-hover:underline group-focus-visible:underline">
+                  {thread.ticket.email}
+                </span>
+                <Copy className="size-3.5 shrink-0 text-slate-400 group-hover:text-slate-600" aria-hidden />
+              </button>
               <p className="mt-0.5 truncate text-[13px] text-slate-500">
                 {originLabel(thread.ticket)}
                 {thread.ticket.plan ? ` · Plan ${thread.ticket.plan}` : ''} · {fullDateTime(thread.ticket.created_at)}
