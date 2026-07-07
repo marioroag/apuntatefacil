@@ -60,15 +60,36 @@ export function formatPhone(raw: string): string {
   return prefix + (digits.match(/\d{1,3}/g) ?? []).join(' ')
 }
 
+// Partículas de apellidos españoles que van en minúscula salvo al inicio del nombre
+// ("Juan de la Torre", pero "De la Torre" si es lo primero que se muestra).
+const PARTICULAS = new Set(['de', 'del', 'la', 'las', 'los', 'y'])
+
+// Capitaliza cada palabra (primera letra mayúscula, resto minúscula) respetando
+// guiones y apóstrofes ("maria-jose" -> "Maria-Jose", "o'connor" -> "O'Connor").
+// El candidato puede escribir su nombre en cualquier caja (todo minúsculas, todo
+// mayúsculas...); se muestra siempre bien capitalizado.
+export function toTitleCase(s: string): string {
+  return s
+    .toLowerCase()
+    .split(' ')
+    .map((word, i) => {
+      if (i > 0 && PARTICULAS.has(word)) return word
+      return word.replace(/(^|[-'])(\p{L})/gu, (_, sep, letter) => sep + letter.toUpperCase())
+    })
+    .join(' ')
+}
+
 // Nombre a mostrar del candidato. Combina el campo base 'nombre' con 'apellidos'
 // cuando el formulario los pide por separado; si no hay 'apellidos', devuelve solo
-// el nombre. Compatible con candidaturas antiguas (sin 'apellidos').
+// el nombre. Compatible con candidaturas antiguas (sin 'apellidos'). Se capitaliza
+// siempre, aunque el candidato lo haya escrito en minúsculas o en mayúsculas.
 export function candidateName(c: Candidate): string {
   const part = (id: string) => {
     const v = c.answers[id]
     return typeof v === 'string' ? v.trim() : ''
   }
-  return [part('nombre'), part('apellidos')].filter(Boolean).join(' ')
+  const raw = [part('nombre'), part('apellidos')].filter(Boolean).join(' ')
+  return raw ? toTitleCase(raw) : raw
 }
 
 export function initials(name: string): string {
