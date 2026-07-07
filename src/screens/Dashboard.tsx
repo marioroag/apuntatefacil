@@ -1303,35 +1303,45 @@ function CandidateTable({
         </thead>
         <tbody>
           {/* Bloqueados (escritorio): ARRIBA, como las candidaturas nuevas (son las
-              más recientes). Contenido señuelo REAL (mismo texto que el Excel:
-              "Candidatura bloqueada" / "Bloqueada"), difuminado entero para que no
-              se lea nada, con el CTA nítido encima: única pieza legible y accionable. */}
+              más recientes). MISMAS celdas y anchos que una fila real (así el
+              table-fixed las alinea igual bajo cada cabecera), con contenido señuelo
+              REAL (el texto que ya usa el Excel: "Candidatura bloqueada" / "Bloqueada")
+              difuminado entero. El <tr> es el ancestro posicionado: el CTA nítido flota
+              centrado sobre TODA la fila, sin importar en qué celda vive en el DOM. */}
           {lockedDates.map((date, i) => (
-            <tr key={`locked-${i}`} className="border-b border-slate-100 bg-slate-50/70 last:border-0">
-              <td colSpan={5 + cols.length} className="p-0">
-                <div className="relative flex items-center gap-4 px-3 py-3">
-                  <div aria-hidden className="flex flex-1 items-center gap-3 overflow-hidden blur-[4px] select-none">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-200 text-[12.5px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-300">
-                      CB
-                    </span>
-                    <span className="w-32 shrink-0 truncate text-[14px] font-medium text-slate-700">Candidatura bloqueada</span>
-                    <span className="hidden w-28 shrink-0 text-[13px] text-slate-600 md:block">612 345 678</span>
-                    {cols.map((f) => (
-                      <span key={f.id} className="hidden w-16 shrink-0 text-[13px] text-slate-600 xl:block">•••</span>
-                    ))}
-                    <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300">
-                      <span className="size-1.5 rounded-full bg-slate-400" aria-hidden /> Bloqueada
-                    </span>
-                  </div>
-
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                    <button type="button" onClick={onLockedClick} className={`${BTN_PRIMARY_SM} pointer-events-auto`}>
-                      <Lock className="size-3.5" aria-hidden /> Mejorar plan
-                    </button>
-                  </div>
-
-                  <time dateTime={date} className="num relative shrink-0 text-[12px] text-slate-400">{relativeDate(date)}</time>
+            <tr key={`locked-${i}`} className="relative border-b border-slate-100 bg-slate-50/70 last:border-0">
+              <td className="px-3 py-3">
+                <div aria-hidden className="size-4 rounded-[5px] border border-slate-300 bg-white blur-[4px] select-none" />
+              </td>
+              <td className="px-3 py-3">
+                <div aria-hidden className="flex items-center gap-3 blur-[4px] select-none">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-200 text-[12.5px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-300">
+                    CB
+                  </span>
+                  <span className="truncate text-[14px] font-medium text-slate-700">Candidatura bloqueada</span>
                 </div>
+              </td>
+              <td className="hidden px-3 py-3 text-[13px] text-slate-600 md:table-cell">
+                <span aria-hidden className="num block truncate blur-[4px] select-none">612 345 678</span>
+              </td>
+              {cols.map((f) => (
+                <td key={f.id} className="hidden px-3 py-3 text-[13px] text-slate-600 xl:table-cell">
+                  <span aria-hidden className="block truncate blur-[4px] select-none">•••</span>
+                </td>
+              ))}
+              <td className="whitespace-nowrap px-3 py-3">
+                <span aria-hidden className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300 blur-[4px] select-none">
+                  <span className="size-1.5 rounded-full bg-slate-400" /> Bloqueada
+                </span>
+
+                <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+                  <button type="button" onClick={onLockedClick} className={`${BTN_PRIMARY_SM} pointer-events-auto`}>
+                    <Lock className="size-3.5" aria-hidden /> Mejorar plan
+                  </button>
+                </div>
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-[13px] text-slate-500">
+                <time dateTime={date} aria-hidden className="num blur-[4px] select-none">{relativeDate(date)}</time>
               </td>
             </tr>
           ))}
