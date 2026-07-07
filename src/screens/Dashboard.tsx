@@ -286,6 +286,45 @@ export function Dashboard() {
 
   const all = useMemo(() => (campaign ? candidatesFor(campaign.id) : []), [campaign, candidatesFor])
 
+  // IDs de candidatos que "acaban de llegar" (en vivo por realtime, por refresco
+  // manual o por tirar para refrescar) mientras el usuario ya tenía el puesto
+  // abierto: la fila hace una entrada breve en la tabla (nunca en la carga
+  // inicial del puesto, eso sería un intro de página, prohibido por la doctrina).
+  // Se ajusta DURANTE el render (patrón oficial de React para derivar estado a
+  // partir de un cambio en las props), no en un efecto: un efecto llegaría un
+  // render tarde, cuando la fila ya habría montado en su estado final y
+  // `initial` ya no tendría ningún efecto (framer-motion solo lo consulta en
+  // el montaje).
+  const [trackedCampaignId, setTrackedCampaignId] = useState<string | null>(null)
+  const [seenIds, setSeenIds] = useState<Set<string> | null>(null)
+  const [justArrived, setJustArrived] = useState<Set<string>>(new Set())
+  if (campaign && trackedCampaignId !== campaign.id) {
+    // Puesto distinto (o primera vez): lo que ya hay ahí es "de siempre", no anima.
+    setTrackedCampaignId(campaign.id)
+    setSeenIds(new Set(all.map((c) => c.id)))
+    if (justArrived.size > 0) setJustArrived(new Set())
+  } else if (seenIds) {
+    const arrivedIds = all.filter((c) => !seenIds.has(c.id)).map((c) => c.id)
+    if (arrivedIds.length > 0) {
+      setSeenIds(new Set(all.map((c) => c.id)))
+      setJustArrived((prev) => new Set([...prev, ...arrivedIds]))
+    }
+  }
+  // Dejan de estar "recién llegados" pasado un momento: si la fila desaparece
+  // de un filtro y reaparece luego, no debe repetir la entrada.
+  useEffect(() => {
+    if (justArrived.size === 0) return
+    const ids = [...justArrived]
+    const t = window.setTimeout(() => {
+      setJustArrived((prev) => {
+        const next = new Set(prev)
+        ids.forEach((id) => next.delete(id))
+        return next
+      })
+    }, 900)
+    return () => window.clearTimeout(t)
+  }, [justArrived])
+
   // Búsqueda tolerante: el input actualiza `search` al instante; lo debouncamos a `dq`.
   const [dq, setDq] = useState('')
   useEffect(() => {
@@ -797,6 +836,7 @@ export function Dashboard() {
             campaign={campaign}
             cols={cols}
             rows={filtered}
+            justArrived={justArrived}
             lockedDates={showLockedRows ? lockedDates : []}
             onLockedClick={() => setLockedDialogOpen(true)}
             tags={tags}
@@ -1023,6 +1063,7 @@ function CandidateTable({
   campaign,
   cols,
   rows,
+  justArrived,
   tags,
   sort,
   onSort,
@@ -1038,6 +1079,7 @@ function CandidateTable({
   campaign: Campaign
   cols: FormField[]
   rows: Candidate[]
+  justArrived: Set<string>
   lockedDates: string[]
   onLockedClick: () => void
   tags: TagType[]
@@ -1072,6 +1114,16 @@ function CandidateTable({
       pressTimer.current = null
     }
   }
+  // Orden de aparición entre las filas recién llegadas: si entran varias a la
+  // vez, se escalonan (como en el mockup del hero) en vez de aparecer todas de
+  // golpe. Tope a 4 para no alargar la espera si llega una tanda grande.
+  const arrivalOrder = useMemo(() => {
+    const order = new Map<string, number>()
+    let i = 0
+    for (const r of rows) if (justArrived.has(r.id)) order.set(r.id, i++)
+    return order
+  }, [rows, justArrived])
+
   const allSel = rows.length > 0 && rows.every((r) => selected.has(r.id))
   const someSel = rows.some((r) => selected.has(r.id))
 
@@ -1131,6 +1183,7 @@ function CandidateTable({
           const m = STATUS_META[c.status]
           const fresh = isFreshNuevo(c)
           const sel = selected.has(c.id)
+          const arrivedAt = arrivalOrder.get(c.id)
           const statusChipClass = `${m.chip} inline-flex items-center gap-1 rounded-full ring-1 ring-inset ${
             fresh
               ? 'gap-1.5 px-2.5 py-1 text-[13px] font-bold ring-2 ring-slate-400'
@@ -1148,8 +1201,11 @@ function CandidateTable({
             else onOpen(c.id)
           }
           return (
-            <li
+            <motion.li
               key={c.id}
+              initial={arrivedAt !== undefined ? { opacity: 0, y: -10 } : false}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'tween', duration: 0.24, ease: [0.16, 1, 0.3, 1], delay: Math.min(arrivedAt ?? 0, 4) * 0.045 }}
               className={`px-4 py-3 transition-colors ${selectMode && sel ? 'bg-indigo-50/70' : fresh ? 'bg-slate-50/80' : ''}`}
             >
              <div className="flex items-center gap-3">
@@ -1219,7 +1275,7 @@ function CandidateTable({
                  <TagCell tagIds={c.tagIds} tags={tags} />
                </div>
              )}
-            </li>
+            </motion.li>
           )
         })}
       </ul>
@@ -1297,9 +1353,13 @@ function CandidateTable({
           {rows.map((c) => {
             const sel = selected.has(c.id)
             const name = candidateName(c) || 'Sin nombre'
+            const arrivedAt = arrivalOrder.get(c.id)
             return (
-              <tr
+              <motion.tr
                 key={c.id}
+                initial={arrivedAt !== undefined ? { opacity: 0, y: -10 } : false}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'tween', duration: 0.24, ease: [0.16, 1, 0.3, 1], delay: Math.min(arrivedAt ?? 0, 4) * 0.045 }}
                 onClick={() => onOpen(c.id)}
                 className={`group cursor-pointer border-b border-slate-100 transition-colors duration-150 last:border-0 ${
                   sel ? 'bg-indigo-50/70' : 'hover:bg-slate-50'
@@ -1354,7 +1414,7 @@ function CandidateTable({
                 <td className="whitespace-nowrap px-3 py-3 text-right text-[13px] text-slate-500">
                   <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
                 </td>
-              </tr>
+              </motion.tr>
             )
           })}
         </tbody>
