@@ -1256,7 +1256,9 @@ function CandidateTable({
               aria-label="Candidatura bloqueada. Mejora tu plan para verla."
               className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50 focus-visible:bg-slate-50"
             >
-              <td className="px-3 py-3" />
+              <td className="px-3 py-3">
+                <Checkbox disabled aria-label="Candidatura bloqueada" />
+              </td>
               <td className="px-3 py-3">
                 <div className="flex items-center gap-3">
                   <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400 ring-1 ring-inset ring-slate-200">
