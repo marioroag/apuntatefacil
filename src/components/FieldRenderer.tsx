@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { AlertCircle, Check, Paperclip, X } from 'lucide-react'
 import type { FormField } from '../lib/types'
 
@@ -32,12 +32,21 @@ export function validateField(field: FormField, value: FieldValue): string | nul
   return null
 }
 
-// Deja en un teléfono solo lo válido: dígitos, espacios y separadores (- ()), con
-// el '+' del prefijo internacional únicamente al principio. Respeta a quien pone
-// prefijo y a quien no; NO reformatea (no imponemos un formato de país).
-function sanitizePhone(raw: string): string {
-  const cleaned = raw.replace(/[^\d\s+()-]/g, '').replace(/^\s+/, '')
-  return cleaned.replace(/\+/g, (_m, i) => (i === 0 ? '+' : ''))
+// Formatea un teléfono AL ESCRIBIR: deja solo dígitos (y un '+' inicial para el
+// prefijo internacional) y los agrupa de 3 en 3 con espacios. Sin prefijo ->
+// "600 123 456"; con prefijo -> "+34 600 123 456" (asumimos código de país de 2
+// dígitos, el caso español; no imponemos el formato de otros países). Agrupa desde
+// la IZQUIERDA para que los grupos no se reordenen mientras se teclea.
+function formatPhoneTyping(raw: string): string {
+  const hasPlus = raw.trimStart().startsWith('+')
+  const digits = raw.replace(/\D/g, '')
+  if (!digits) return hasPlus ? '+' : ''
+  if (hasPlus) {
+    const cc = digits.slice(0, 2)
+    const rest = digits.slice(2).replace(/(\d{3})(?=\d)/g, '$1 ')
+    return rest ? `+${cc} ${rest}` : `+${cc}`
+  }
+  return digits.replace(/(\d{3})(?=\d)/g, '$1 ')
 }
 
 const inputBase =
@@ -154,6 +163,39 @@ function Control({
   }
   const border = fieldBorder(error)
 
+  // Teléfono: al escribir, reformatea agrupando los dígitos y RESTAURA el cursor
+  // tras el mismo nº de dígitos que había antes, para que no salte al final al
+  // reformatear (permite editar en medio con normalidad).
+  const phoneRef = useRef<HTMLInputElement>(null)
+  const phoneCaret = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    if (phoneCaret.current != null && phoneRef.current) {
+      phoneRef.current.setSelectionRange(phoneCaret.current, phoneCaret.current)
+      phoneCaret.current = null
+    }
+  })
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value
+    const selStart = e.target.selectionStart ?? raw.length
+    const digitsBefore = raw.slice(0, selStart).replace(/\D/g, '').length
+    const formatted = formatPhoneTyping(raw)
+    let caret = formatted.length
+    if (digitsBefore === 0) {
+      caret = formatted.startsWith('+') ? 1 : 0
+    } else {
+      let seen = 0
+      for (let i = 0; i < formatted.length; i++) {
+        const c = formatted.charCodeAt(i)
+        if (c >= 48 && c <= 57 && ++seen === digitsBefore) {
+          caret = i + 1
+          break
+        }
+      }
+    }
+    phoneCaret.current = caret
+    onChange(formatted)
+  }
+
   switch (field.type) {
     case 'textarea':
       return (
@@ -211,8 +253,9 @@ function Control({
           type="tel"
           inputMode="tel"
           autoComplete="tel"
+          ref={phoneRef}
           value={(value as string) ?? ''}
-          onChange={(e) => onChange(sanitizePhone(e.target.value))}
+          onChange={handlePhoneChange}
           placeholder={field.placeholder ?? '600 000 000'}
           maxLength={20}
           className={`${inputBase} ${border} h-12`}
