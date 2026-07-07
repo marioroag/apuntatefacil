@@ -486,7 +486,16 @@ export function Dashboard() {
   }
 
   const doExport = async () => {
-    const name = await exportCandidatesToExcel(campaign, filtered, tags)
+    // Las candidaturas bloqueadas (plan gratuito, sobre el tope) también salen en
+    // el Excel, como filas señuelo sin datos personales: exportar no puede ser un
+    // atajo para leer lo bloqueado. Solo en la vista completa (sin filtro): con un
+    // filtro no sabemos si encajarían, así que no se mezclan (igual que en el panel).
+    let lockedDates: string[] = []
+    if (lockedCount > 0 && !isFiltered) {
+      const { data } = await supabase.rpc('locked_candidates_export', { p_campaign: campaign.id })
+      if (Array.isArray(data)) lockedDates = data as string[]
+    }
+    const name = await exportCandidatesToExcel(campaign, filtered, tags, lockedDates)
     toast.success(`Excel listo, ${name}`)
   }
 
