@@ -36,6 +36,10 @@ const Builder = lazy(() => import('./screens/Builder').then((m) => ({ default: m
 const Plan = lazy(() => import('./screens/Plan').then((m) => ({ default: m.Plan })))
 const Soporte = lazy(() => import('./screens/Soporte').then((m) => ({ default: m.Soporte })))
 const AdminOverview = lazy(() => import('./screens/AdminOverview').then((m) => ({ default: m.AdminOverview })))
+// Playground de diseño: solo en `npm run dev`, no entra en el build de producción.
+const Playground = import.meta.env.DEV
+  ? lazy(() => import('./screens/Playground').then((m) => ({ default: m.Playground })))
+  : null
 
 const RouteFallback = () => (
   <div className="grid min-h-screen place-items-center" role="status" aria-label="Cargando">
@@ -58,6 +62,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/invitacion" element={<Invitacion />} />
                 <Route path="/privacidad" element={<Privacidad />} />
                 <Route path="/terminos" element={<Terminos />} />
+                {Playground && <Route path="/dev/playground" element={<Playground />} />}
                 {/* Enlace público. Lo que se comparte es estable: /<marca>/<slug> (2 tramos);
                     el slug del medio es el id real (lo resuelve el RPC), el resto es decorativo.
                     Al abrirlo, PublicForm embellece la barra a /<marca>/<slug>/<título> (3 tramos),
