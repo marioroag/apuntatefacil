@@ -14,7 +14,6 @@ import { seedDemoData } from '../lib/seedDemo'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
 import { SupportDialog } from '../components/SupportDialog'
 import { useIsSupportStaff } from '../lib/useSupportStaff'
-import { TrialPausedDialog } from '../components/TrialPausedDialog'
 import { DowngradeReconcileDialog } from '../components/DowngradeReconcileDialog'
 import { OnboardingGuide, OnboardingCreatePuesto } from '../components/OnboardingGuide'
 import { useOnboarding } from '../lib/onboarding'
@@ -233,21 +232,6 @@ export function AppLayout() {
   const [betaBannerOpen, setBetaBannerOpen] = useState(
     () => typeof localStorage !== 'undefined' && !localStorage.getItem('apuntatefacil.beta-banner-dismissed')
   )
-
-  // Plan de Prueba con el puesto pausado por el tope de candidatos: avisamos una vez
-  // por apertura del panel (vuelve a salir en cada recarga hasta que suba de plan).
-  // Lo detectamos por el ESTADO del puesto, no por el recuento: así el aviso sigue
-  // saliendo aunque borren candidatos por debajo de 15 (en Prueba la única causa de
-  // pausa es el tope), y también lo ve el encargado, cuyo recuento está acotado por RLS.
-  const trialPaused = !demo && company?.plan === 'trial' && campaigns.some((c) => c.status === 'pausada')
-  const [pausedOpen, setPausedOpen] = useState(false)
-  const pausedShown = useRef(false)
-  useEffect(() => {
-    if (trialPaused && !pausedShown.current) {
-      pausedShown.current = true
-      setPausedOpen(true)
-    }
-  }, [trialPaused])
 
   // Gesto de navegación en móvil: deslizar hacia la derecha desde los primeros ~70%
   // del ancho abre el menú (zona generosa, acorde a la memoria muscular); deslizar
@@ -729,7 +713,6 @@ export function AppLayout() {
         defaultEmail={user?.email ?? ''}
         companyId={company.id}
       />
-      <TrialPausedDialog open={pausedOpen} onClose={() => setPausedOpen(false)} />
       {/* Bloqueante: tras bajar de plan, el dueño elige qué puestos mantener
           activos. El servidor ya garantizó el límite; esto es solo la elección. */}
       {!demo && isOwner && company?.downgrade_reconcile_at != null && <DowngradeReconcileDialog />}

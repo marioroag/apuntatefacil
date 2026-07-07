@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     if (!candidate_id) return json({ error: 'Falta candidate_id' }, 400)
 
     const { data: cand } = await admin
-      .from('candidates').select('id,campaign_id,company_id,answers').eq('id', candidate_id).single()
+      .from('candidates').select('id,campaign_id,company_id,answers,locked').eq('id', candidate_id).single()
     if (!cand) return json({ ok: true, skipped: 'candidato no encontrado' })
 
     const { data: camp } = await admin
@@ -36,21 +36,40 @@ Deno.serve(async (req) => {
       return json({ ok: true, sent: false })
     }
 
-    const nombre = (cand.answers?.nombre as string) ?? 'Alguien'
-    const tel = (cand.answers?.telefono as string) ?? ''
     const puesto = camp?.title ?? 'tu puesto'
-    const link = APP_URL ? `${APP_URL}/app/puestos/${cand.campaign_id}` : ''
+    const puestoLink = APP_URL ? `${APP_URL}/app/puestos/${cand.campaign_id}` : ''
+    const planLink = APP_URL ? `${APP_URL}/app/plan` : ''
 
-    const body =
-      `<strong style="font-weight:600;color:#131822">${esc(nombre)}</strong> acaba de apuntarse a ` +
-      `<strong style="font-weight:600;color:#131822">${esc(puesto)}</strong>.` +
-      (tel ? `<br><span style="color:#6f727c">Tel.</span> ${esc(tel)}` : '')
-    const html = renderEmail({
-      preview: `${nombre} acaba de apuntarse a ${puesto}`,
-      heading: 'Nueva candidatura',
-      bodyHtml: body,
-      button: link ? { label: 'Ver candidatura', href: link } : undefined,
-    })
+    let subject: string
+    let html: string
+    if (cand.locked) {
+      // Candidato BLOQUEADO (superado el tope del plan gratuito): teaser SIN datos
+      // personales (no revelamos nombre ni teléfono) que invita a mejorar el plan.
+      subject = `Tienes una candidatura esperando: ${puesto}`
+      html = renderEmail({
+        preview: `Una nueva candidatura espera en ${puesto}`,
+        heading: 'Una candidatura te espera',
+        bodyHtml:
+          `Ha entrado una nueva candidatura en ` +
+          `<strong style="font-weight:600;color:#131822">${esc(puesto)}</strong>, ` +
+          `pero has alcanzado el tope del plan gratuito. ` +
+          `Mejora tu plan para verla y no perder ninguna.`,
+        button: planLink ? { label: 'Mejorar plan', href: planLink } : undefined,
+      })
+    } else {
+      const nombre = (cand.answers?.nombre as string) ?? 'Alguien'
+      const tel = (cand.answers?.telefono as string) ?? ''
+      subject = `Nueva candidatura: ${puesto}`
+      html = renderEmail({
+        preview: `${nombre} acaba de apuntarse a ${puesto}`,
+        heading: 'Nueva candidatura',
+        bodyHtml:
+          `<strong style="font-weight:600;color:#131822">${esc(nombre)}</strong> acaba de apuntarse a ` +
+          `<strong style="font-weight:600;color:#131822">${esc(puesto)}</strong>.` +
+          (tel ? `<br><span style="color:#6f727c">Tel.</span> ${esc(tel)}` : ''),
+        button: puestoLink ? { label: 'Ver candidatura', href: puestoLink } : undefined,
+      })
+    }
 
     // Idempotencia: reclama el aviso de forma atómica (solo si aún no se notificó).
     // Al ser un endpoint público, esto impide reenviar el email en bucle con un
@@ -71,7 +90,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: FROM,
         to: ownerEmail,
-        subject: `Nueva candidatura: ${puesto}`,
+        subject,
         html,
       }),
     })

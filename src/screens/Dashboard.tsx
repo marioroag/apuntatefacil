@@ -42,7 +42,7 @@ import { exportCandidatesToExcel } from '../lib/export'
 import { relativeDate, initials, miles, formatPhone, candidateName, isFreshNuevo } from '../lib/format'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { Brand, Campaign, Candidate, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
-import { planHas, TAGS_ENABLED, type PlanFeature } from '../lib/pricing'
+import { planHas, PLAN_CANDIDATE_LIMIT, TAGS_ENABLED, type PlanFeature } from '../lib/pricing'
 import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { OnboardingTestCard } from '../components/OnboardingGuide'
@@ -89,7 +89,7 @@ function numberFilterLabel(nf: NumberFilter): string {
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, lockedInfo } = useStore()
   const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -122,6 +122,7 @@ export function Dashboard() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [selectMode, setSelectMode] = useState(false) // modo selección múltiple (móvil)
+  const [lockedDialogOpen, setLockedDialogOpen] = useState(false) // aviso al pulsar una candidatura bloqueada
   // Cabecera adaptativa (móvil): si el título no cabe, "Compartir" se reduce a icono
   // para darle sitio. Medimos el título y aplicamos histéresis para que no parpadee.
   const titleRowRef = useRef<HTMLDivElement | null>(null)
@@ -390,6 +391,16 @@ export function Dashboard() {
     }
     return m
   }, [all, campaign])
+
+  // Candidatos BLOQUEADOS (cupo del plan gratuito superado): se siguen recibiendo,
+  // pero el comerciante no los ve hasta subir de plan. Mostramos un aviso + filas
+  // difuminadas para que sepa cuántos esperan. Solo en trial (los de pago no
+  // bloquean). Las filas difuminadas, solo en la vista sin filtrar.
+  const lockedFor = campaign && company?.plan === 'trial' ? lockedInfo[campaign.id] : undefined
+  const lockedCount = lockedFor?.count ?? 0
+  const lockedDates = lockedFor?.dates ?? []
+  const isFiltered =
+    !!dq || statusFilter.size > 0 || ratingFilter > 0 || tagFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0
 
   if (!campaign) {
     return (
@@ -730,6 +741,27 @@ export function Dashboard() {
         </div>
       )}
 
+      {/* Aviso de candidaturas bloqueadas (plan gratuito): se siguen recibiendo,
+          pero solo se ven hasta el tope. Invita a mejorar el plan, sin urgencia falsa. */}
+      {lockedCount > 0 && !loading && (
+        <div className="mt-3 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-card sm:flex-row sm:items-center">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
+            <Lock className="size-[18px]" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-slate-900">
+              {lockedCount === 1 ? 'Tienes 1 candidatura esperando' : `Tienes ${lockedCount} candidaturas esperando`}
+            </p>
+            <p className="mt-0.5 text-[13px] leading-relaxed text-slate-500">
+              Las seguimos recibiendo, pero el plan gratuito solo te deja ver {PLAN_CANDIDATE_LIMIT.trial}. Mejora tu plan para verlas todas.
+            </p>
+          </div>
+          <button onClick={() => navigate(`${base}/plan`)} className={`${BTN_PRIMARY} shrink-0 max-sm:w-full max-sm:justify-center`}>
+            Mejorar plan
+          </button>
+        </div>
+      )}
+
       {/* Tabla / estados */}
       <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
         {loading ? (
@@ -751,6 +783,8 @@ export function Dashboard() {
             campaign={campaign}
             cols={cols}
             rows={filtered}
+            lockedDates={isFiltered ? [] : lockedDates}
+            onLockedClick={() => setLockedDialogOpen(true)}
             tags={tags}
             sort={sort}
             onSort={toggleSort}
@@ -766,6 +800,21 @@ export function Dashboard() {
 
       {/* Hueco para que la barra inferior fija no tape la última tarjeta (móvil) */}
       {selectMode && <div className="h-20 sm:hidden" aria-hidden />}
+
+      <ConfirmDialog
+        open={lockedDialogOpen}
+        onClose={() => setLockedDialogOpen(false)}
+        onConfirm={() => { setLockedDialogOpen(false); navigate(`${base}/plan`) }}
+        title="Mejora tu plan para verla"
+        confirmLabel="Ver planes"
+        cancelLabel="Ahora no"
+      >
+        <p className="text-sm leading-relaxed text-slate-600">
+          Esta candidatura entró por encima del{' '}
+          <strong className="font-semibold text-slate-900">tope del plan gratuito</strong>. La guardamos por ti, pero para verla, y todas las que sigan llegando,{' '}
+          <strong className="font-semibold text-slate-900">necesitas mejorar tu plan</strong>.
+        </p>
+      </ConfirmDialog>
 
       <CandidatePanel
         campaign={campaign}
@@ -952,6 +1001,10 @@ function StatusSummary({
 }
 
 // --- Tabla -----------------------------------------------------------------
+// Anchos variados para las barras difuminadas de los candidatos bloqueados, para
+// que las filas de "hueco" no se vean todas iguales (parezcan personas distintas).
+const LOCKED_WIDTHS = ['8.5rem', '6rem', '10rem', '7rem', '9rem', '6.5rem']
+
 function CandidateTable({
   campaign,
   cols,
@@ -965,10 +1018,14 @@ function CandidateTable({
   maskPhone,
   selectMode,
   onEnterSelect,
+  lockedDates,
+  onLockedClick,
 }: {
   campaign: Campaign
   cols: FormField[]
   rows: Candidate[]
+  lockedDates: string[]
+  onLockedClick: () => void
   tags: TagType[]
   sort: { key: SortKey; dir: 'asc' | 'desc' }
   onSort: (k: SortKey) => void
@@ -1123,6 +1180,33 @@ function CandidateTable({
             </li>
           )
         })}
+        {/* Bloqueados (móvil): misma estructura que una tarjeta real pero con el
+            contenido difuminado y la FECHA de entrada real (para que se palpe). */}
+        {lockedDates.map((date, i) => (
+          <li
+            key={`locked-${i}`}
+            onClick={onLockedClick}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLockedClick() } }}
+            tabIndex={0}
+            role="button"
+            aria-label="Candidatura bloqueada. Mejora tu plan para verla."
+            className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors active:bg-slate-50"
+          >
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400">
+              <Lock className="size-4" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <span className="block h-3.5 rounded bg-slate-200 blur-[2px]" style={{ width: LOCKED_WIDTHS[i % LOCKED_WIDTHS.length] }} />
+              <span className="block h-3 w-24 rounded bg-slate-200 blur-[2px]" />
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-400 ring-1 ring-inset ring-slate-200">
+                <Lock className="size-3" aria-hidden /> Bloqueado
+              </span>
+              <time dateTime={date} className="num text-[11px] text-slate-500">{relativeDate(date)}</time>
+            </div>
+          </li>
+        ))}
       </ul>
 
       {/* --- Vista escritorio: tabla (md+) --- */}
@@ -1216,6 +1300,45 @@ function CandidateTable({
               </tr>
             )
           })}
+          {/* Bloqueados (escritorio): misma estructura de columnas que una fila
+              real, con el contenido difuminado y la FECHA de entrada real. */}
+          {lockedDates.map((date, i) => (
+            <tr
+              key={`locked-${i}`}
+              onClick={onLockedClick}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLockedClick() } }}
+              tabIndex={0}
+              role="button"
+              aria-label="Candidatura bloqueada. Mejora tu plan para verla."
+              className="cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50 focus-visible:bg-slate-50"
+            >
+              <td className="px-3 py-3" />
+              <td className="px-3 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400 ring-1 ring-inset ring-slate-200">
+                    <Lock className="size-4" aria-hidden />
+                  </span>
+                  <span className="block h-3.5 rounded bg-slate-200 blur-[2px]" style={{ width: LOCKED_WIDTHS[i % LOCKED_WIDTHS.length] }} />
+                </div>
+              </td>
+              <td className="hidden px-3 py-3 md:table-cell">
+                <span className="block h-3 w-24 rounded bg-slate-200 blur-[2px]" />
+              </td>
+              {cols.map((f) => (
+                <td key={f.id} className="hidden px-3 py-3 lg:table-cell">
+                  <span className="block h-3 w-16 rounded bg-slate-200 blur-[2px]" />
+                </td>
+              ))}
+              <td className="px-3 py-3">
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-400 ring-1 ring-inset ring-slate-200">
+                  <Lock className="size-3" aria-hidden /> Bloqueado
+                </span>
+              </td>
+              <td className="whitespace-nowrap px-3 py-3 text-right text-[13px] text-slate-500">
+                <time dateTime={date} className="num">{relativeDate(date)}</time>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
       </div>

@@ -121,6 +121,9 @@ interface Store {
   loading: boolean
   campaigns: Campaign[]
   candidates: Candidate[]
+  // Bloqueados por puesto (cupo del plan gratuito superado). El comerciante no los
+  // ve (RLS); esto es solo el recuento + las fechas de entrada, para el upsell.
+  lockedInfo: Record<string, { count: number; dates: string[] }>
   getCampaign: (id: string) => Campaign | undefined
   candidatesFor: (campaignId: string) => Candidate[]
   newCountFor: (campaignId: string) => number
@@ -233,6 +236,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [sites, setSites] = useState<Site[]>([])
   const [brands, setBrands] = useState<Brand[]>([])
   const [tags, setTags] = useState<Tag[]>([])
+  const [lockedInfo, setLockedInfo] = useState<Record<string, { count: number; dates: string[] }>>({})
   const [seen, setSeen] = useState<Record<string, string>>(() => readSeen())
   // Candidatos con una escritura optimista aún sin confirmar en el servidor. Un
   // refetch (reloadCandidatesFor) NO debe pisar su estado local con datos viejos
@@ -267,6 +271,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSites(saved?.sites ?? SEED.sites)
       setBrands(saved?.brands ?? SEED_BRANDS)
       setTags(saved?.tags ?? SEED_TAGS)
+      setLockedInfo({})
       setLoadedCompanyId('demo')
       setLoading(false)
       return
@@ -274,7 +279,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     // Acotamos a la empresa ACTIVA (company_id). La RLS sola no basta: para un usuario en
     // varios equipos devolvería datos de TODOS, sumándolos. Con esto ves solo el equipo activo.
-    const [c1, c2, c3, c4, c5, c6, c7] = await Promise.all([
+    const [c1, c2, c3, c4, c5, c6, c7, c8] = await Promise.all([
       supabase.from('campaigns').select('*').eq('company_id', companyId).order('created_at', { ascending: true }),
       supabase.from('candidates').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
       supabase.from('saved_views').select('id,campaign_id,name,payload').eq('company_id', companyId).order('created_at', { ascending: true }),
@@ -284,6 +289,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Relación candidato-etiqueta en UNA consulta por lote (la RLS la acota a lo visible; las
       // filas de candidatos de otra empresa simplemente no casan con los cargados aquí).
       supabase.from('candidate_tags').select('candidate_id,tag_id'),
+      // Bloqueados por puesto (la RLS los oculta; recuento + fechas por este RPC
+      // security definer). Devuelve { campaignId: { count, dates } }.
+      supabase.rpc('locked_candidates_preview'),
     ])
     if (seq !== loadSeq.current) return // un cambio de equipo más nuevo ya está cargando
     if (c1.error || c2.error) {
@@ -298,6 +306,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setCampaigns((c1.data as CampaignRow[]).map(toCampaign))
       setCandidates((c2.data as CandidateRow[]).map((r) => toCandidate(r, tagMap.get(r.id) ?? [])))
     }
+    setLockedInfo(!c8.error && c8.data ? (c8.data as Record<string, { count: number; dates: string[] }>) : {})
     // Vistas, sedes, marcas y etiquetas son secundarias: si la tabla aún no existe o falla, no rompe el panel.
     setSavedViews(!c3.error && c3.data ? (c3.data as SavedViewRow[]).map(toSavedView) : [])
     setSites(!c4.error && c4.data ? (c4.data as SiteRow[]).map(toSite) : [])
@@ -351,6 +360,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     loading: dataLoading,
     campaigns,
     candidates,
+    lockedInfo,
     getCampaign: (id) => campaigns.find((c) => c.id === id),
     candidatesFor: (campaignId) =>
       candidates
@@ -957,7 +967,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setBrands(SEED_BRANDS)
       setTags(SEED_TAGS)
     },
-  }), [dataLoading, campaigns, candidates, savedViews, sites, brands, tags, seen, companyId, reload, toast])
+  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, companyId, reload, toast])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }
