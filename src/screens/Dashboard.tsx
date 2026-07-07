@@ -1055,10 +1055,6 @@ function StatusSummary({
 }
 
 // --- Tabla -----------------------------------------------------------------
-// Anchos variados para las barras difuminadas de los candidatos bloqueados, para
-// que las filas de "hueco" no se vean todas iguales (parezcan personas distintas).
-const LOCKED_WIDTHS = ['8.5rem', '6rem', '10rem', '7rem', '9rem', '6.5rem']
-
 function CandidateTable({
   campaign,
   cols,
@@ -1150,31 +1146,29 @@ function CandidateTable({
       {/* --- Vista móvil: tarjetas (< md) --- */}
       <ul className="divide-y divide-slate-100 md:hidden" aria-label={`Candidatos de ${campaign.title}`}>
         {/* Bloqueados (móvil): ARRIBA, como las candidaturas nuevas (son las más
-            recientes). Misma estructura que una tarjeta real pero difuminada, con
-            la FECHA real; clicable -> diálogo de mejora de plan. */}
+            recientes). Contenido señuelo REAL (mismo texto que el Excel: "Candidatura
+            bloqueada" / "Bloqueada"), difuminado entero para que no se lea nada, con
+            el CTA nítido encima: es la única pieza legible y accionable de la fila. */}
         {lockedDates.map((date, i) => (
-          <li
-            key={`locked-${i}`}
-            onClick={onLockedClick}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLockedClick() } }}
-            tabIndex={0}
-            role="button"
-            aria-label="Candidatura bloqueada. Mejora tu plan para verla."
-            className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors active:bg-slate-50"
-          >
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400">
-              <Lock className="size-4" aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <span className="block h-3.5 rounded bg-slate-200 blur-[2px]" style={{ width: LOCKED_WIDTHS[i % LOCKED_WIDTHS.length] }} />
-              <span className="block h-3 w-24 rounded bg-slate-200 blur-[2px]" />
-            </div>
-            <div className="flex shrink-0 flex-col items-end gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-400 ring-1 ring-inset ring-slate-200">
-                <Lock className="size-3" aria-hidden /> Bloqueado
+          <li key={`locked-${i}`} className="relative overflow-hidden bg-slate-50/70 px-4 py-3">
+            <div aria-hidden className="flex items-center gap-3 blur-[4px] select-none">
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-200 text-[12.5px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-300">
+                CB
               </span>
-              <time dateTime={date} className="num text-[11px] text-slate-500">{relativeDate(date)}</time>
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="truncate text-[14px] font-medium text-slate-700">Candidatura bloqueada</p>
+                <p className="truncate text-[13px] text-slate-500">612 345 678</p>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300">
+                <span className="size-1.5 rounded-full bg-slate-400" /> Bloqueada
+              </span>
             </div>
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <button type="button" onClick={onLockedClick} className={`${BTN_PRIMARY_SM} pointer-events-auto`}>
+                <Lock className="size-3.5" aria-hidden /> Mejorar plan
+              </button>
+            </div>
+            <time dateTime={date} className="num absolute right-3 top-2 text-[11px] text-slate-400">{relativeDate(date)}</time>
           </li>
         ))}
         {rows.map((c) => {
@@ -1309,44 +1303,35 @@ function CandidateTable({
         </thead>
         <tbody>
           {/* Bloqueados (escritorio): ARRIBA, como las candidaturas nuevas (son las
-              más recientes). Misma estructura de columnas que una fila real pero
-              difuminada, con la FECHA real; clicable -> diálogo de mejora de plan. */}
+              más recientes). Contenido señuelo REAL (mismo texto que el Excel:
+              "Candidatura bloqueada" / "Bloqueada"), difuminado entero para que no
+              se lea nada, con el CTA nítido encima: única pieza legible y accionable. */}
           {lockedDates.map((date, i) => (
-            <tr
-              key={`locked-${i}`}
-              onClick={onLockedClick}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onLockedClick() } }}
-              tabIndex={0}
-              role="button"
-              aria-label="Candidatura bloqueada. Mejora tu plan para verla."
-              className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50 focus-visible:bg-slate-50"
-            >
-              <td className="px-3 py-3">
-                <Checkbox disabled aria-label="Candidatura bloqueada" />
-              </td>
-              <td className="px-3 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400 ring-1 ring-inset ring-slate-200">
-                    <Lock className="size-4" aria-hidden />
-                  </span>
-                  <span className="block h-3.5 rounded bg-slate-200 blur-[2px]" style={{ width: LOCKED_WIDTHS[i % LOCKED_WIDTHS.length] }} />
+            <tr key={`locked-${i}`} className="border-b border-slate-100 bg-slate-50/70 last:border-0">
+              <td colSpan={5 + cols.length} className="p-0">
+                <div className="relative flex items-center gap-4 px-3 py-3">
+                  <div aria-hidden className="flex flex-1 items-center gap-3 overflow-hidden blur-[4px] select-none">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-200 text-[12.5px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-300">
+                      CB
+                    </span>
+                    <span className="w-32 shrink-0 truncate text-[14px] font-medium text-slate-700">Candidatura bloqueada</span>
+                    <span className="hidden w-28 shrink-0 text-[13px] text-slate-600 md:block">612 345 678</span>
+                    {cols.map((f) => (
+                      <span key={f.id} className="hidden w-16 shrink-0 text-[13px] text-slate-600 xl:block">•••</span>
+                    ))}
+                    <span className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300">
+                      <span className="size-1.5 rounded-full bg-slate-400" aria-hidden /> Bloqueada
+                    </span>
+                  </div>
+
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <button type="button" onClick={onLockedClick} className={`${BTN_PRIMARY_SM} pointer-events-auto`}>
+                      <Lock className="size-3.5" aria-hidden /> Mejorar plan
+                    </button>
+                  </div>
+
+                  <time dateTime={date} className="num relative shrink-0 text-[12px] text-slate-400">{relativeDate(date)}</time>
                 </div>
-              </td>
-              <td className="hidden px-3 py-3 md:table-cell">
-                <span className="block h-3 w-24 rounded bg-slate-200 blur-[2px]" />
-              </td>
-              {cols.map((f) => (
-                <td key={f.id} className="hidden px-3 py-3 xl:table-cell">
-                  <span className="block h-3 w-16 rounded bg-slate-200 blur-[2px]" />
-                </td>
-              ))}
-              <td className="px-3 py-3">
-                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-400 ring-1 ring-inset ring-slate-200">
-                  <Lock className="size-3" aria-hidden /> Bloqueado
-                </span>
-              </td>
-              <td className="whitespace-nowrap px-3 py-3 text-right text-[13px] text-slate-500">
-                <time dateTime={date} className="num">{relativeDate(date)}</time>
               </td>
             </tr>
           ))}
