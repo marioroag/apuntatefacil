@@ -58,6 +58,7 @@ Sobria, nítida y premium, carácter Linear (registro "SaaS confiable"). **Multi
 - Español con **tuteo** consistente. Sentence case en headings/botones/labels. Labels verbo-primero (1-3 palabras).
 - **Glosario congelado**: puesto (no vacante/oferta/campaña), candidato, candidatura (el envío), enlace (no link), estado, exportar, formulario. Estados: nuevo / contactado / entrevista / descartado / contratado.
 - **Cero dark patterns** (es el posicionamiento): sin urgencia/escasez falsa, sin prueba social inventada (testimonios, contadores, logos), sin confirmshaming, sin preselecciones. Test: "¿funcionaría igual si el usuario supiera cómo está hecho?".
+- Para **redactar o revisar** copy (titulares, CTAs, alternativas, microcopy, FAQs): ejecutar la skill **`apuntate-copy`** (`.cursor/skills/apuntate-copy/SKILL.md`). Esta sección manda; la skill añade workflow, ejes de mensaje y ejemplos en `examples.md`.
 
 ## Pricing (decidido: premium, no el más barato. "Los mejores")
 Good-better-best. Presentación por neuromarketing (Mario, jul 2026; **sustituye** a la doctrina anterior de números redondos). Editable en `src/lib/pricing.ts`; los importes de cobro reales viven en los prices de Stripe (recrearlos si cambian estos números).
@@ -91,6 +92,18 @@ Edge functions en `supabase/functions/` (Deno), listas para enchufar secrets:
 
 ## Estado actual
 Full-stack funcionando en local, verificado end-to-end (login magic link, onboarding, datos demo, dashboard real, formulario público anónimo que persiste, aislamiento multi-tenant comprobado en SQL, wizard de puestos con plantillas). Stripe/Resend con el código listo, faltan las claves. **Pendiente**: enchufar claves (Stripe/Resend), Google OAuth (credenciales) y deploy. Build verde, repo git propio.
+
+## Skills Cursor (proyecto)
+
+Skills en `.cursor/skills/<nombre>/SKILL.md`. Invocar con `/nombre` cuando aplique.
+
+| Skill | Cuándo |
+| --- | --- |
+| `apuntate-design` | UI, UX, tokens, componentes, verificación visual |
+| `apuntate-copy` | Titulares, CTAs, alternativas de texto, microcopy, tono de marca |
+| `supabase-workflow` | Migraciones, RLS, RPCs, edge functions, auth/store |
+| `verify-before-close` | Checklist final antes de cerrar un cambio |
+| `pr-review` | Revisar PRs y diffs de rama |
 
 ## Contexto de diseño (impeccable)
 La skill `impeccable` mantiene dos documentos en la raíz que cualquier trabajo de diseño lee antes de empezar:
