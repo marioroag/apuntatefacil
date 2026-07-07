@@ -39,7 +39,9 @@ export function validateField(field: FormField, value: FieldValue): string | nul
 // la IZQUIERDA para que los grupos no se reordenen mientras se teclea.
 function formatPhoneTyping(raw: string): string {
   const hasPlus = raw.trimStart().startsWith('+')
-  const digits = raw.replace(/\D/g, '')
+  // Máximo real de un teléfono (E.164): 15 dígitos, prefijo incluido. Capamos aquí
+  // para que ni escribiendo ni pegando se pase (tope duro, no un error a posteriori).
+  const digits = raw.replace(/\D/g, '').slice(0, 15)
   if (!digits) return hasPlus ? '+' : ''
   if (hasPlus) {
     const cc = digits.slice(0, 2)
@@ -257,7 +259,7 @@ function Control({
           value={(value as string) ?? ''}
           onChange={handlePhoneChange}
           placeholder={field.placeholder ?? '600 000 000'}
-          maxLength={20}
+          maxLength={22}
           className={`${inputBase} ${border} h-12`}
         />
       )
