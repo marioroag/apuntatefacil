@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { MotionConfig } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
+// Analítica de Vercel: conteo de páginas/visitas sin cookies ni datos personales.
+// Es una app Vite/React (no Next), así que el import es el de React, no el de /next.
+import { Analytics } from '@vercel/analytics/react'
 // Geist = familia única de producto (Apúntate Fácil): wordmark, titulares, cuerpo,
 // etiquetas y datos, con jerarquía por peso. Los datos van con cifras tabulares
 // (clase .num) para alinear columnas sin recurrir a una mono.
@@ -111,6 +114,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
               </Suspense>
+              <Analytics />
             </BrowserRouter>
           </StoreProvider>
         </ToastProvider>
