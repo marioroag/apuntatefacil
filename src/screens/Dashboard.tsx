@@ -1120,6 +1120,39 @@ function CandidateTable({
     return order
   }, [rows, justArrived])
 
+  // CTA de las filas bloqueadas (escritorio): un ÚNICO botón centrado sobre el
+  // bloque entero. No se puede anclar con position sobre un <tbody>/<tr>/<td>
+  // (Safari no crea contenedor de posicionamiento sobre elementos de tabla: el
+  // overlay se escaparía al viewport). Así que medimos el bloque de filas con JS
+  // y colocamos el overlay dentro del <div> que envuelve la tabla, que sí es un
+  // contenedor fiable en todos los navegadores.
+  const tableWrapRef = useRef<HTMLDivElement>(null)
+  const lockedBodyRef = useRef<HTMLTableSectionElement>(null)
+  const [lockedBox, setLockedBox] = useState<{ top: number; height: number } | null>(null)
+  useLayoutEffect(() => {
+    if (lockedDates.length === 0) {
+      setLockedBox(null)
+      return
+    }
+    const measure = () => {
+      const wrap = tableWrapRef.current
+      const body = lockedBodyRef.current
+      if (!wrap || !body) return
+      const wr = wrap.getBoundingClientRect()
+      const br = body.getBoundingClientRect()
+      setLockedBox({ top: br.top - wr.top + wrap.scrollTop, height: br.height })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    if (tableWrapRef.current) ro.observe(tableWrapRef.current)
+    if (lockedBodyRef.current) ro.observe(lockedBodyRef.current)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [lockedDates.length, cols.length])
+
   const allSel = rows.length > 0 && rows.every((r) => selected.has(r.id))
   const someSel = rows.some((r) => selected.has(r.id))
 
@@ -1275,7 +1308,7 @@ function CandidateTable({
       </ul>
 
       {/* --- Vista escritorio: tabla (md+) --- */}
-      <div className="hidden overflow-x-auto md:block">
+      <div ref={tableWrapRef} className="relative hidden overflow-x-auto md:block">
       <table className="w-full min-w-[680px] table-fixed border-collapse">
         <caption className="sr-only">Candidatos de {campaign.title}</caption>
         <thead>
@@ -1305,11 +1338,10 @@ function CandidateTable({
             más recientes). Cada fila usa las MISMAS celdas y anchos que una real (el
             table-fixed las alinea igual bajo cada cabecera) con contenido señuelo
             difuminado (mismo texto que el Excel: "Candidatura bloqueada" / "Bloqueada").
-            Van en su PROPIO <tbody> posicionado: así el overlay del CTA se ancla al
-            bloque entero (inset-0 = alto de TODAS las filas bloqueadas juntas) y el
-            botón queda centrado sobre el grupo, sea 1 fila o varias, con UN solo CTA. */}
+            El CTA NO va aquí: es un overlay medido (ver lockedBox) posicionado sobre
+            el <div> envoltorio, no sobre la tabla, para funcionar también en Safari. */}
         {lockedDates.length > 0 && (
-          <tbody className="relative">
+          <tbody ref={lockedBodyRef}>
             {lockedDates.map((date, i) => (
               <tr key={`locked-${i}`} className="border-b border-slate-100 bg-slate-50/70 last:border-0">
                 <td className="px-3 py-3">
@@ -1338,17 +1370,6 @@ function CandidateTable({
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right">
                   <time dateTime={date} aria-hidden className="num text-[13px] text-slate-500 blur-[4px] select-none">{relativeDate(date)}</time>
-                  {/* Overlay ÚNICO del bloque. Esta celda es estática, así que su hijo
-                      absoluto se ancla al <tbody> relativo (no a la celda) y con inset-0
-                      cubre todas las filas bloqueadas: el botón se centra sobre el grupo.
-                      Se pinta una sola vez (en la última fila) para no repetirlo. */}
-                  {i === lockedDates.length - 1 && (
-                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                      <button type="button" onClick={onLockedClick} className={`${BTN_PRIMARY_SM} pointer-events-auto`}>
-                        <Lock className="size-3.5" aria-hidden /> Mejorar plan
-                      </button>
-                    </div>
-                  )}
                 </td>
               </tr>
             ))}
@@ -1424,6 +1445,19 @@ function CandidateTable({
           })}
         </tbody>
       </table>
+      {/* CTA ÚNICO del bloque bloqueado, centrado sobre TODAS las filas bloqueadas.
+          Vive fuera de la tabla (dentro del <div> envoltorio, contenedor fiable en
+          todos los navegadores) y su posición/alto se miden desde el <tbody>. */}
+      {lockedBox && (
+        <div
+          className="pointer-events-none absolute inset-x-0 z-10 flex items-center justify-center"
+          style={{ top: lockedBox.top, height: lockedBox.height }}
+        >
+          <button type="button" onClick={onLockedClick} className={`${BTN_PRIMARY_SM} pointer-events-auto shadow-pop`}>
+            <Lock className="size-3.5" aria-hidden /> Mejorar plan
+          </button>
+        </div>
+      )}
       </div>
 
       <StatusPickerSheet
