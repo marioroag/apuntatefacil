@@ -6,6 +6,9 @@ import { Loader2 } from 'lucide-react'
 // Analítica de Vercel: conteo de páginas/visitas sin cookies ni datos personales.
 // Es una app Vite/React (no Next), así que el import es el de React, no el de /next.
 import { Analytics } from '@vercel/analytics/react'
+// Speed Insights: métricas reales de rendimiento (Core Web Vitals). Mismo criterio:
+// el import de React, no el de /next.
+import { SpeedInsights } from '@vercel/speed-insights/react'
 // Geist = familia única de producto (Apúntate Fácil): wordmark, titulares, cuerpo,
 // etiquetas y datos, con jerarquía por peso. Los datos van con cifras tabulares
 // (clase .num) para alinear columnas sin recurrir a una mono.
@@ -115,6 +118,7 @@ createRoot(document.getElementById('root')!).render(
               </Routes>
               </Suspense>
               <Analytics />
+              <SpeedInsights />
             </BrowserRouter>
           </StoreProvider>
         </ToastProvider>
