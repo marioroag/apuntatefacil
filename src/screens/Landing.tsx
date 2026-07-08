@@ -166,17 +166,17 @@ function Hero() {
     <section className="mx-auto grid grid-cols-1 max-w-6xl items-center gap-10 px-4 pb-12 pt-14 sm:px-6 lg:grid-cols-[1.04fr_1fr] lg:pb-20 lg:pt-24">
       <div>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-label font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
-          Para quien contrata por Milanuncios
+          La forma más fácil de gestionar candidatos
         </span>
         <h1 className="mt-4 text-balance text-hero font-[680] text-slate-900 sm:text-hero-lg">
           Todas las respuestas de tu anuncio, en un solo lugar
         </h1>
         <p className="mt-5 max-w-xl text-pretty text-lg leading-relaxed text-slate-600">
-          Cada puesto recibe decenas de candidaturas que se dispersan en el chat. Apúntate Fácil las recoge en un solo panel: envías un enlace y seleccionas con toda la información delante.
+          Publica tu puesto donde quieras: Milanuncios, Instagram, WhatsApp, un QR en tu local o tu propia web. Envía un único enlace y recibe todos los candidatos ordenados, filtrados y listos para seleccionar.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link to="/login" className={`${BTN_PRIMARY_LG} group`}>
-            Pruébalo gratis <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
+            Empieza gratis <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
           <Link to="/demo" className={BTN_SECONDARY_LG}>
             Ver la demo
@@ -197,7 +197,7 @@ function Sectors() {
     <section className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <p className="text-center text-copy-md font-medium text-slate-600">
-          De la construcción a la logística, y cualquier oficio de a pie
+          Para construcción, hostelería, logística, comercio y mucho más
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           {SECTORS.map((s) => (
@@ -749,14 +749,14 @@ function FaqItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean
 function Faq() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const qs: [string, string][] = [
-    ['¿Tengo que cambiar cómo publico en Milanuncios?', 'No. Publicas igual que hasta ahora y sigues recibiendo candidatos por tu anuncio. Cuando alguien responde, le envías un enlace en lugar de continuar por el chat.'],
-    ['¿Perderé candidatos al usar un formulario?', 'En la práctica suele completarse más gente, no menos. Son pocas preguntas, adaptadas al móvil, y tardan menos que escribir por el chat.'],
-    ['¿Necesito conocimientos técnicos?', 'No. Si ya publicas anuncios en Milanuncios, puedes usar Apúntate Fácil. La configuración inicial lleva unos cinco minutos y el resto del equipo puede usarlo sin formación.'],
+    ['¿Qué hace exactamente Apúntate Fácil?', 'Apúntate Fácil convierte las respuestas de tu anuncio en candidatos ordenados. En lugar de seguir hablando por chat, envías un enlace. Cada persona completa un formulario y toda la información aparece organizada para que puedas filtrar, valorar y elegir.'],
+    ['¿Tengo que cambiar cómo publico mis anuncios?', 'No. Sigue publicando donde lo haces normalmente: Milanuncios, Instagram, WhatsApp, un QR, tu web o cualquier otro canal. Cuando alguien quiera apuntarse, solo tienes que enviarle tu enlace.'],
+    ['¿La gente realmente completa el formulario?', 'En la práctica suele completarse más gente, no menos. Son pocas preguntas, adaptadas al móvil, y tardan menos que escribir por el chat.'],
+    ['¿Es difícil empezar?', 'No. En menos de cinco minutos tendrás tu primer formulario listo para recibir candidatos. Después solo tienes que compartir el enlace y empezar a recibir las candidaturas ordenadas.'],
     ['¿Hay permanencia?', 'No. Pagas mes a mes y puedes darte de baja cuando quieras, desde tu cuenta. Sin llamadas de retención ni trámites adicionales.'],
     ['¿Los candidatos son míos si cancelo?', 'Sí. Toda la lista es tuya: puedes exportarla a Excel en cualquier momento y llevártela contigo si dejas el servicio.'],
     ['¿Hay costes ocultos o precios “desde”?', 'No. Son 149, 249 o 499 € al mes según el plan, con candidatos y usuarios sin límite. Lo que ves aquí es lo que pagas. IVA aparte.'],
     ['¿Puedo probarlo sin registrarme ni tarjeta?', 'Sí. La demo funciona con datos de ejemplo, sin cuenta ni tarjeta. Si creas una cuenta, el plan de Prueba es gratuito: 1 puesto y hasta 15 candidatos, también sin tarjeta.'],
-    ['¿Cómo creo una cuenta?', 'Con correo electrónico y contraseña, o con Google. Si te registras por correo, recibirás un enlace para confirmar la cuenta antes del primer acceso.'],
   ]
   return (
     <section id="faq" className="bg-white">
