@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, Building2, CreditCard, Gauge, Loader2, MessagesSquare, Users } from 'lucide-react'
+import { ArrowLeft, Briefcase, Building2, ChevronRight, CreditCard, Gauge, Loader2, MessagesSquare, Users } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
-import { miles } from '../lib/format'
+import { SlideOver } from '../components/ui/SlideOver'
+import { miles, relativeDate } from '../lib/format'
 import { TIERS, PLAN_LABEL } from '../lib/pricing'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { CandidateStatus } from '../lib/types'
@@ -20,6 +21,27 @@ interface Overview {
   campaigns: { total: number; activa: number; pausada: number; cerrada: number }
   support: { open: number; closed: number; pending: number }
   series_candidates_14d: { day: string; count: number }[]
+}
+
+// Forma de los RPCs admin_accounts / admin_company_detail
+// (ver migración 20260708130000_admin_accounts.sql).
+interface AccountRow {
+  id: string
+  name: string
+  plan: string
+  interval: string | null
+  subscription_status: string | null
+  created_at: string
+  users: number
+  owner_email: string | null
+  campaigns: number
+  candidates: number
+  candidates_7d: number
+}
+
+interface AccountDetail {
+  users: { email: string; role: string; created_at: string; last_sign_in_at: string | null }[]
+  campaigns: { id: string; title: string; status: string; created_at: string; candidates: number }[]
 }
 
 // MRR a partir del desglose plan x periodicidad, con los precios de pricing.ts (fuente
@@ -54,6 +76,45 @@ export function AdminOverview() {
   useEffect(() => {
     load()
   }, [load])
+
+  // Drill-down de cuentas: la tarjeta "Cuentas registradas" abre un panel lateral
+  // con el listado (plan, dueño, usuarios); pinchar una cuenta carga su detalle
+  // (usuarios con último acceso + puestos con sus candidatos). El listado se pide
+  // al abrir por primera vez, no con la página: es una vista secundaria.
+  const [accountsOpen, setAccountsOpen] = useState(false)
+  const [accounts, setAccounts] = useState<AccountRow[] | null>(null)
+  const [selected, setSelected] = useState<AccountRow | null>(null)
+  const [detail, setDetail] = useState<AccountDetail | null>(null)
+
+  const openAccounts = async () => {
+    setAccountsOpen(true)
+    if (accounts) return
+    const { data: d, error } = await supabase.rpc('admin_accounts')
+    if (error) {
+      toast.error('No se pudo cargar el listado de cuentas.')
+      setAccountsOpen(false)
+      return
+    }
+    setAccounts(d as AccountRow[])
+  }
+
+  const openDetail = async (row: AccountRow) => {
+    setSelected(row)
+    setDetail(null)
+    const { data: d, error } = await supabase.rpc('admin_company_detail', { p_company: row.id })
+    if (error) {
+      toast.error('No se pudo cargar el detalle de la cuenta.')
+      setSelected(null)
+      return
+    }
+    setDetail(d as AccountDetail)
+  }
+
+  const closeAccounts = () => {
+    setAccountsOpen(false)
+    setSelected(null)
+    setDetail(null)
+  }
 
   if (denied) {
     return (
@@ -96,6 +157,7 @@ export function AdminOverview() {
           label="Cuentas registradas"
           value={miles(data.accounts.companies)}
           sub={`${miles(data.accounts.users)} ${data.accounts.users === 1 ? 'usuario' : 'usuarios'} · +${miles(data.accounts.new_companies_7d)} esta semana`}
+          onClick={openAccounts}
         />
         <StatCard
           Icon={CreditCard}
@@ -219,8 +281,162 @@ export function AdminOverview() {
           </Link>
         </section>
       </div>
+
+      {/* Panel lateral de cuentas: listado y, al pinchar una, su detalle. */}
+      <SlideOver
+        open={accountsOpen}
+        onClose={closeAccounts}
+        title={selected ? selected.name : 'Cuentas registradas'}
+      >
+        {!selected ? (
+          accounts === null ? (
+            <PanelSpinner />
+          ) : accounts.length === 0 ? (
+            <p className="px-1 py-8 text-center text-sm text-slate-500">Todavía no hay cuentas.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {accounts.map((a) => (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    onClick={() => openDetail(a)}
+                    className="flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left transition-colors hover:bg-slate-50"
+                  >
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-200">
+                      <Building2 className="size-4" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate text-[14px] font-medium text-slate-900">{a.name}</span>
+                        <PlanChip plan={a.plan} interval={a.interval} />
+                      </span>
+                      <span className="mt-0.5 block truncate text-[13px] text-slate-500">
+                        {a.owner_email ?? 'Sin dueño'} · {a.users} {a.users === 1 ? 'usuario' : 'usuarios'}
+                      </span>
+                    </span>
+                    <span className="num shrink-0 text-right text-[13px] text-slate-500">
+                      {miles(a.candidates)} cand.
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-slate-300" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : (
+          <div>
+            <button
+              type="button"
+              onClick={() => { setSelected(null); setDetail(null) }}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[13px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+            >
+              <ArrowLeft className="size-3.5" aria-hidden /> Todas las cuentas
+            </button>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 px-2">
+              <PlanChip plan={selected.plan} interval={selected.interval} />
+              {selected.subscription_status && (
+                <span className="text-[12px] text-slate-500">{selected.subscription_status}</span>
+              )}
+              <span className="text-[12px] text-slate-400">Cuenta creada el {shortDate(selected.created_at)}</span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-3 px-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="num text-xl font-semibold text-slate-900">{miles(selected.users)}</p>
+                <p className="text-[12px] text-slate-500">{selected.users === 1 ? 'Usuario' : 'Usuarios'}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="num text-xl font-semibold text-slate-900">{miles(selected.campaigns)}</p>
+                <p className="text-[12px] text-slate-500">{selected.campaigns === 1 ? 'Puesto' : 'Puestos'}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="num text-xl font-semibold text-slate-900">{miles(selected.candidates)}</p>
+                <p className="text-[12px] text-slate-500">
+                  Candidatos{selected.candidates_7d > 0 ? ` · +${miles(selected.candidates_7d)} 7d` : ''}
+                </p>
+              </div>
+            </div>
+
+            {detail === null ? (
+              <PanelSpinner />
+            ) : (
+              <>
+                <h3 className="mt-6 px-2 text-[13px] font-semibold text-slate-900">Usuarios</h3>
+                <ul className="mt-2 divide-y divide-slate-100">
+                  {detail.users.map((u) => (
+                    <li key={u.email} className="flex items-center gap-3 px-2 py-2.5">
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium text-slate-800">{u.email}</span>
+                        <span className="block text-[12px] text-slate-500">
+                          {ROLE_LABEL[u.role] ?? u.role}
+                          {u.last_sign_in_at ? ` · último acceso ${relativeDate(u.last_sign_in_at)}` : ' · nunca ha entrado'}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                <h3 className="mt-5 px-2 text-[13px] font-semibold text-slate-900">Puestos</h3>
+                {detail.campaigns.length === 0 ? (
+                  <p className="mt-2 px-2 text-[13px] text-slate-500">Todavía no ha creado ningún puesto.</p>
+                ) : (
+                  <ul className="mt-2 divide-y divide-slate-100">
+                    {detail.campaigns.map((ca) => (
+                      <li key={ca.id} className="flex items-center gap-3 px-2 py-2.5">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-medium text-slate-800">{ca.title}</span>
+                          <span className="block text-[12px] text-slate-500">
+                            {CAMPAIGN_STATUS_LABEL[ca.status] ?? ca.status} · creado el {shortDate(ca.created_at)}
+                          </span>
+                        </span>
+                        <span className="num shrink-0 text-[13px] font-semibold text-slate-900">
+                          {miles(ca.candidates)}
+                          <span className="font-normal text-slate-400"> cand.</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </SlideOver>
     </div>
   )
+}
+
+// Chip de plan, neutro (el acento es solo para acción): los planes de pago van en
+// tinta sólida para distinguirse del trial a un vistazo, con la periodicidad al lado.
+function PlanChip({ plan, interval }: { plan: string; interval: string | null }) {
+  const paid = plan !== 'trial'
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${
+        paid ? 'bg-slate-800 text-white ring-slate-800' : 'bg-slate-100 text-slate-600 ring-slate-200'
+      }`}
+    >
+      {PLAN_LABEL[plan] ?? plan}
+      {paid && interval === 'year' && <span className="font-normal opacity-70">anual</span>}
+    </span>
+  )
+}
+
+function PanelSpinner() {
+  return (
+    <div className="grid place-items-center py-10" role="status" aria-label="Cargando">
+      <Loader2 className="size-5 animate-spin text-slate-400" aria-hidden />
+    </div>
+  )
+}
+
+const ROLE_LABEL: Record<string, string> = { owner: 'Propietario', member: 'Miembro', encargado: 'Encargado' }
+const CAMPAIGN_STATUS_LABEL: Record<string, string> = { activa: 'Activo', pausada: 'Pausado', cerrada: 'Cerrado' }
+
+function shortDate(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`
 }
 
 function StatCard({
@@ -229,12 +445,14 @@ function StatCard({
   value,
   sub,
   to,
+  onClick,
 }: {
   Icon: typeof Building2
   label: string
   value: string
   sub: string
   to?: string
+  onClick?: () => void
 }) {
   const inner = (
     <>
@@ -247,13 +465,21 @@ function StatCard({
     </>
   )
   const cls = 'block rounded-xl border border-slate-200 bg-white p-5 shadow-card'
-  return to ? (
-    <Link to={to} className={`${cls} transition-colors hover:border-slate-300`}>
-      {inner}
-    </Link>
-  ) : (
-    <div className={cls}>{inner}</div>
-  )
+  if (to) {
+    return (
+      <Link to={to} className={`${cls} transition-colors hover:border-slate-300`}>
+        {inner}
+      </Link>
+    )
+  }
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={`${cls} w-full cursor-pointer text-left transition-colors hover:border-slate-300`}>
+        {inner}
+      </button>
+    )
+  }
+  return <div className={cls}>{inner}</div>
 }
 
 function MiniStat({ label, value }: { label: string; value: number }) {
