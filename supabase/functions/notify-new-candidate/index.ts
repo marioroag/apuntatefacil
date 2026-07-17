@@ -43,19 +43,41 @@ Deno.serve(async (req) => {
     let subject: string
     let html: string
     if (cand.locked) {
-      // Candidato BLOQUEADO (superado el tope del plan gratuito): teaser SIN datos
-      // personales (no revelamos nombre ni teléfono) que invita a mejorar el plan.
-      subject = `Tienes una candidatura esperando: ${puesto}`
-      html = renderEmail({
-        preview: `Una nueva candidatura espera en ${puesto}`,
-        heading: 'Una candidatura te espera',
-        bodyHtml:
-          `Ha entrado una nueva candidatura en ` +
-          `<strong style="font-weight:600;color:#131822">${esc(puesto)}</strong>, ` +
-          `pero has alcanzado el tope del plan gratuito. ` +
-          `Mejora tu plan para verla y no perder ninguna.`,
-        button: planLink ? { label: 'Mejorar plan', href: planLink } : undefined,
-      })
+      // Candidato BLOQUEADO (superado el tope del plan de Prueba): teaser SIN datos
+      // personales (no revelamos nombre ni teléfono). Avisa del tope alcanzado y de
+      // cuántas candidaturas reales esperan ya en este puesto (la actual incluida),
+      // e invita a mejorar el plan. Si el recuento fallara, cae al copy singular.
+      const { count } = await admin
+        .from('candidates')
+        .select('id', { count: 'exact', head: true })
+        .eq('campaign_id', cand.campaign_id)
+        .eq('locked', true)
+      const n = count ?? 1
+      const strong = (s: string) => `<strong style="font-weight:600;color:#131822">${s}</strong>`
+      if (n > 1) {
+        subject = `Tienes ${n} candidaturas esperando: ${puesto}`
+        html = renderEmail({
+          preview: `Ya son ${n} las candidaturas esperando en ${puesto}`,
+          heading: `${n} candidaturas te esperan`,
+          bodyHtml:
+            `Ha entrado otra candidatura en ${strong(esc(puesto))}, ` +
+            `pero has alcanzado el tope del plan de Prueba. ` +
+            `Ya son ${strong(String(n))} las candidaturas esperando. ` +
+            `Mejora tu plan para verlas y no perder ninguna.`,
+          button: planLink ? { label: 'Mejorar plan', href: planLink } : undefined,
+        })
+      } else {
+        subject = `Tienes una candidatura esperando: ${puesto}`
+        html = renderEmail({
+          preview: `Una nueva candidatura espera en ${puesto}`,
+          heading: 'Una candidatura te espera',
+          bodyHtml:
+            `Ha entrado una nueva candidatura en ${strong(esc(puesto))}, ` +
+            `pero has alcanzado el tope del plan de Prueba. ` +
+            `Mejora tu plan para verla y no perder ninguna.`,
+          button: planLink ? { label: 'Mejorar plan', href: planLink } : undefined,
+        })
+      }
     } else {
       const nombre = (cand.answers?.nombre as string) ?? 'Alguien'
       const tel = (cand.answers?.telefono as string) ?? ''
