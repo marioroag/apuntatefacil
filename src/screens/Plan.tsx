@@ -187,7 +187,7 @@ export function Plan() {
       </Link>
       <h1 className="text-2xl font-bold tracking-tight text-slate-900">Tu plan</h1>
       <p className="mt-1.5 text-slate-600">
-        Estás en el plan <strong className="font-semibold text-slate-900">{PLAN_LABEL[current] ?? 'Prueba'}</strong>. Candidatos y usuarios ilimitados en todos. Precios sin IVA.
+        Estás en el plan <strong className="font-semibold text-slate-900">{PLAN_LABEL[current] ?? 'Prueba'}</strong>. Candidatos ilimitados en todos; Equipo desde Pro. Precios sin IVA.
       </p>
 
       <div className="mt-6 flex justify-center sm:justify-start">

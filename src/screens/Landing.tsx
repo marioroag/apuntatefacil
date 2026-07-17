@@ -459,7 +459,7 @@ function Features() {
     { icon: PhoneCall, title: 'Estado de cada candidato, siempre visible', body: 'Marca el estado según avanzas. Evita contactar dos veces al mismo perfil y no pierdas candidatos relevantes.' },
     { icon: Sliders, title: 'Formulario adaptado a cada puesto', body: 'Defines las preguntas del puesto. El candidato las responde en el móvil, con mayor tasa de finalización.' },
     { icon: FileSpreadsheet, title: 'Exportación a Excel cuando la necesites', body: 'Tus candidatos son tuyos. Exporta la lista a Excel en cualquier momento, también si dejas el servicio.' },
-    { icon: InfinityIcon, title: 'Candidatos y usuarios sin límite', body: 'Recibe 20 candidaturas o 200: todas quedan en tu lista. Todo el equipo puede acceder, sin coste por usuario.' },
+    { icon: InfinityIcon, title: 'Candidatos sin límite', body: 'Recibe 20 candidaturas o 200: todas quedan en tu lista. En Pro, tu equipo colabora sin coste por usuario.' },
   ]
   const [hero, ...rest] = items
   return (
@@ -611,7 +611,7 @@ function Pricing() {
           Un precio claro, sin “desde” ni letra pequeña
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
-          Empieza gratis y sube de plan cuando lo necesites. En los planes de pago, candidatos y usuarios sin límite.
+          Empieza gratis y sube de plan cuando lo necesites. Candidatos sin límite en los planes de pago; Equipo desde Pro.
         </p>
       </Reveal>
 
@@ -701,7 +701,7 @@ function Pricing() {
           positivo arrastra al negativo). */}
       <div className="mx-auto mt-10 max-w-2xl text-center">
         <p className="text-copy leading-relaxed text-slate-500">
-          En los planes de pago: candidatos y usuarios <strong className="font-semibold text-slate-700">sin límite</strong>. Lo que ves es lo que pagas.
+          En los planes de pago: candidatos <strong className="font-semibold text-slate-700">sin límite</strong>. Equipo desde Pro. Lo que ves es lo que pagas.
         </p>
         <p className="mt-2 text-sm text-slate-500">Precios sin IVA.</p>
       </div>
@@ -755,7 +755,7 @@ function Faq() {
     ['¿Es difícil empezar?', 'No. En menos de cinco minutos tendrás tu primer formulario listo para recibir candidatos. Después solo tienes que compartir el enlace y empezar a recibir las candidaturas ordenadas.'],
     ['¿Hay permanencia?', 'No. Pagas mes a mes y puedes darte de baja cuando quieras, desde tu cuenta. Sin llamadas de retención ni trámites adicionales.'],
     ['¿Los candidatos son míos si cancelo?', 'Sí. Toda la lista es tuya: puedes exportarla a Excel en cualquier momento y llevártela contigo si dejas el servicio.'],
-    ['¿Hay costes ocultos o precios “desde”?', 'No. Son 149, 249 o 499 € al mes según el plan, con candidatos y usuarios sin límite. Lo que ves aquí es lo que pagas. IVA aparte.'],
+    ['¿Hay costes ocultos o precios “desde”?', 'No. Son 149, 249 o 499 € al mes según el plan, con candidatos sin límite. El Equipo (tablón e invitaciones) entra en Pro. Lo que ves aquí es lo que pagas. IVA aparte.'],
     ['¿Puedo probarlo sin registrarme ni tarjeta?', 'Sí. La demo funciona con datos de ejemplo, sin cuenta ni tarjeta. Si creas una cuenta, el plan de Prueba es gratuito: 1 puesto y hasta 15 candidatos, también sin tarjeta.'],
   ]
   return (

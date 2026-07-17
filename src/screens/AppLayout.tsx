@@ -303,11 +303,12 @@ export function AppLayout() {
   // Las features avanzadas NO se muestran en el menú si el plan no las incluye:
   // el cliente descubre el límite al intentar usar las cosas en su contexto (pill
   // de sede/marca, crear puesto, vistas guardadas), no con tabs bloqueadas. El
-  // encargado ve sus datos (acotados por RLS) pero no gestiona estructura ni equipo.
+  // encargado ve sus datos (acotados por RLS) pero no gestiona estructura.
   const showSedes = planHas(company.plan, 'sites') // Sedes: todos los roles ven sus sedes (acotadas por RLS); crear/editar/borrar va gateado dentro por rol
   const showBrands = planHas(company.plan, 'brands') && !isEncargado // gestionar marcas
-  // Equipo lo ven TODOS los roles (el tablón de peticiones es de todo el equipo);
-  // dentro, la pestaña Miembros solo se pinta al owner (y los RPCs son owner-only).
+  // Equipo (tablón + miembros) es Pro+: lo ven todos los roles del plan; dentro,
+  // la pestaña Miembros solo se pinta al owner (y los RPCs son owner-only).
+  const showEquipo = planHas(company.plan, 'teamBoard')
   const canCreate = !isEncargado // crear puestos
   const groupBySite = planHas(company.plan, 'sites') && sites.length > 0
   const totalNuevos = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
@@ -419,15 +420,17 @@ export function AppLayout() {
         </div>
       )}
 
-      <div className="px-3 pt-2">
-        <SideNavItem
-          to={`${base}/equipo`}
-          Icon={Users}
-          label="Equipo"
-          count={boardNewCount}
-          onNavigate={() => setOpen(false)}
-        />
-      </div>
+      {showEquipo && (
+        <div className="px-3 pt-2">
+          <SideNavItem
+            to={`${base}/equipo`}
+            Icon={Users}
+            label="Equipo"
+            count={boardNewCount}
+            onNavigate={() => setOpen(false)}
+          />
+        </div>
+      )}
 
       {/* Zona de ADMIN: SOLO para el equipo de Apúntate Fácil (allowlist en el backend),
           nunca en la demo. El resto de usuarios no ve nada de esto. */}

@@ -74,6 +74,7 @@ export function EquipoTablon() {
   const visible = teamRequests.filter((r) =>
     filter === 'todas' ? true : filter === 'abiertas' ? r.status === 'abierta' : r.status === 'completada',
   )
+  const detailsOpen = expanded || !!body || !!siteId
 
   const publish = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -134,8 +135,20 @@ export function EquipoTablon() {
             Escribe qué necesitas (al menos 3 caracteres).
           </p>
         )}
-        {(expanded || body || siteId) && (
-          <>
+        {/* Despliegue seamless (mismo patrón que el FAQ): altura por grid-rows +
+            opacidad, 180ms ease-out. El contenido permanece montado para animar
+            también el cierre tras publicar. */}
+        <div
+          className={`grid transition-[grid-template-rows] duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+            detailsOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+          }`}
+          inert={!detailsOpen || undefined}
+        >
+          <div
+            className={`overflow-hidden transition-opacity duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+              detailsOpen ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
@@ -143,6 +156,7 @@ export function EquipoTablon() {
               maxLength={2000}
               placeholder="Detalles (opcional): fechas, requisitos, urgencia..."
               aria-label="Detalles de la petición"
+              tabIndex={detailsOpen ? undefined : -1}
               className="mt-2 w-full resize-y rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
             />
             <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -151,6 +165,7 @@ export function EquipoTablon() {
                   value={siteId}
                   onChange={(e) => setSiteId(e.target.value)}
                   aria-label="Sede (opcional)"
+                  tabIndex={detailsOpen ? undefined : -1}
                   className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
                 >
                   <option value="">Sin sede concreta</option>
@@ -163,13 +178,18 @@ export function EquipoTablon() {
               ) : (
                 <span />
               )}
-              <button type="submit" disabled={publishing} className={`${BTN_PRIMARY} disabled:opacity-60`}>
+              <button
+                type="submit"
+                disabled={publishing}
+                tabIndex={detailsOpen ? undefined : -1}
+                className={`${BTN_PRIMARY} disabled:opacity-60`}
+              >
                 {publishing ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Send className="size-4" aria-hidden />}
                 Publicar
               </button>
             </div>
-          </>
-        )}
+          </div>
+        </div>
       </form>
 
       {teamRequests.length === 0 ? (

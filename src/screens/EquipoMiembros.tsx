@@ -14,9 +14,9 @@ type Invitation = { id: string; email: string; token: string; created_at: string
 
 const ROLE_LABEL: Record<string, string> = { owner: 'Propietario', member: 'Miembro', encargado: 'Encargado' }
 
-// Gestión de miembros (pestaña "Miembros" de Equipo, solo owner): miembros
+// Gestión de miembros (pestaña "Miembros" de Equipo, Pro+, solo owner): miembros
 // actuales + invitar por email. En Multi se puede invitar como ENCARGADO
-// acotado a sedes. Usuarios ilimitados en todos los planes.
+// acotado a sedes. Usuarios ilimitados (sin coste por asiento).
 export function EquipoMiembros() {
   const toast = useToast()
   const { sites } = useStore()
