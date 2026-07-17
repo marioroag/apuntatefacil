@@ -345,17 +345,16 @@ export function TeamRequestPanel({
           <div className="flex flex-col gap-8">
             {request.body ? <RequestBody text={request.body} /> : null}
 
-            {request.proposals.length > 0 && (
-              <ProposalsSection
-                proposals={request.proposals}
-                candidateById={candidateById}
-                getCampaignTitle={(id) => getCampaign(id)?.title ?? 'Puesto'}
-                canRetract={(p) => canManage || p.proposedBy === user?.id}
-                onOpen={(c) => setOpenCandidate(c)}
-                onRetract={(candidateId) => void retractProposal(request.id, candidateId)}
-                maskPhone={maskPhone}
-              />
-            )}
+            <ProposalsSection
+              proposals={request.proposals}
+              candidateById={candidateById}
+              getCampaignTitle={(id) => getCampaign(id)?.title ?? 'Puesto'}
+              canRetract={(p) => canManage || p.proposedBy === user?.id}
+              onOpen={(c) => setOpenCandidate(c)}
+              onRetract={(candidateId) => void retractProposal(request.id, candidateId)}
+              maskPhone={maskPhone}
+              isOpen={isOpen}
+            />
 
             <section className="flex flex-col gap-3">
               <div className="flex items-baseline justify-between gap-3">
@@ -758,6 +757,7 @@ function ProposalsSection({
   onOpen,
   onRetract,
   maskPhone,
+  isOpen,
 }: {
   proposals: TeamRequest['proposals']
   candidateById: Map<string, Candidate>
@@ -766,6 +766,7 @@ function ProposalsSection({
   onOpen: (c: Candidate) => void
   onRetract: (candidateId: string) => void
   maskPhone: boolean
+  isOpen: boolean
 }) {
   const long = proposals.length >= PROPOSALS_COLLAPSE_AT
   const [expanded, setExpanded] = useState(!long)
@@ -774,6 +775,21 @@ function ProposalsSection({
   useEffect(() => {
     setExpanded(proposals.length < PROPOSALS_COLLAPSE_AT)
   }, [proposals.length])
+
+  if (proposals.length === 0) {
+    return (
+      <section className="flex flex-col gap-3">
+        <h3 className="text-sm font-semibold text-slate-800">Candidatos propuestos</h3>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-4">
+          <p className="text-sm leading-5 text-slate-600">
+            {isOpen
+              ? 'Todavía no hay ninguno. Propón candidatos de la base con el botón de abajo.'
+              : 'Nadie propuso candidatos en esta petición.'}
+          </p>
+        </div>
+      </section>
+    )
+  }
 
   const resolved = proposals.map((p) => ({
     proposal: p,
