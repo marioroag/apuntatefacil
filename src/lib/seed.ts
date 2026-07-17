@@ -51,17 +51,21 @@ function phone() {
   return `${a} ${b} ${c}`
 }
 
-// Fechas repartidas hacia atrás desde el 15 de junio de 2026.
+// Reloj narrativo del seed estático. Al hidratar la demo se desplaza todo
+// hasta Date.now() (ver freshenDemoData) para que no envejezca.
+export const DEMO_SEED_NOW_MS = Date.parse('2026-07-17T12:00:00.000Z')
+
+// Fechas repartidas hacia atrás desde el "ahora" narrativo del seed.
 function dateAgo(maxDaysAgo: number) {
-  const end = new Date('2026-06-15T19:30:00').getTime()
+  const end = DEMO_SEED_NOW_MS
   const ms = end - Math.floor(rnd() * maxDaysAgo) * 86400000 - Math.floor(rnd() * 86400000)
   return new Date(ms).toISOString()
 }
 
-// Fecha de incorporación: próximas semanas (lo que pondría un candidato real).
+// Fecha de incorporación: próximas semanas desde el reloj del seed.
 function dateSoon() {
-  const start = new Date('2026-06-16T00:00:00').getTime()
-  return new Date(start + between(0, 28) * 86400000).toISOString().slice(0, 10)
+  const start = DEMO_SEED_NOW_MS
+  return new Date(start + between(1, 28) * 86400000).toISOString().slice(0, 10)
 }
 
 const f = (field: Omit<FormField, 'required'> & { required?: boolean }): FormField => ({
@@ -459,15 +463,15 @@ function noteFor(status: CandidateStatus): string {
   return pool.length ? pick(pool) : ''
 }
 
-// Volumen por puesto: bastante lleno para que la demo se sienta como una ETT
-// real (filtros, etiquetas y Equipo tienen material con el que trabajar).
+// Volumen por puesto: denso a propósito (80–160) para que filtros, etiquetas
+// y export se sientan como una ETT real en plena oleada.
 const COUNTS: Record<string, number> = {
-  cmp_peon: 38,
-  cmp_oficial: 22,
-  cmp_electricista: 16,
-  cmp_mozo: 48,
-  cmp_carretillero: 28,
-  cmp_preparador: 18,
+  cmp_peon: 142,
+  cmp_oficial: 96,
+  cmp_electricista: 84,
+  cmp_mozo: 158,
+  cmp_carretillero: 118,
+  cmp_preparador: 88,
 }
 const DAYS_OPEN: Record<string, number> = {
   cmp_peon: 28,
@@ -1044,3 +1048,76 @@ export const SEED_INVITES: DemoInvitation[] = [
     role: 'member',
   },
 ]
+
+// ---------------------------------------------------------------------------
+// Freshen: la demo no envejece. El seed usa fechas fijas (reloj narrativo);
+// al cargar/reiniciar desplazamos todo para que lo más reciente sea "ahora".
+// ---------------------------------------------------------------------------
+
+const DAY_ONLY = /^\d{4}-\d{2}-\d{2}$/
+
+function parseDemoTime(iso: string): number {
+  const t = Date.parse(DAY_ONLY.test(iso) ? `${iso}T12:00:00.000Z` : iso)
+  return Number.isNaN(t) ? NaN : t
+}
+
+function shiftDemoTime(iso: string, deltaMs: number): string {
+  if (DAY_ONLY.test(iso)) {
+    const d = new Date(`${iso}T12:00:00.000Z`)
+    d.setUTCDate(d.getUTCDate() + Math.round(deltaMs / 86_400_000))
+    return d.toISOString().slice(0, 10)
+  }
+  return new Date(Date.parse(iso) + deltaMs).toISOString()
+}
+
+/** Desplaza un ISO del reloj del seed hasta el instante de acceso. */
+export function freshenDemoIso(iso: string, now = Date.now()): string {
+  return shiftDemoTime(iso, now - DEMO_SEED_NOW_MS)
+}
+
+export type DemoFreshable = {
+  campaigns: Campaign[]
+  candidates: Candidate[]
+  teamRequests: TeamRequest[]
+  teamComments: TeamRequestComment[]
+}
+
+/** Clona el bundle de demo y ancla la fecha más reciente a `now`. */
+export function freshenDemoData<T extends DemoFreshable>(data: T, now = Date.now()): T {
+  const clone = structuredClone(data)
+  const times: number[] = []
+  const note = (iso: string | null | undefined) => {
+    if (!iso) return
+    const t = parseDemoTime(iso)
+    if (!Number.isNaN(t)) times.push(t)
+  }
+
+  for (const c of clone.campaigns) note(c.createdAt)
+  for (const c of clone.candidates) note(c.submittedAt)
+  for (const r of clone.teamRequests) {
+    note(r.createdAt)
+    note(r.lastActivityAt)
+  }
+  for (const c of clone.teamComments) note(c.createdAt)
+
+  if (times.length === 0) return clone
+  const delta = now - Math.max(...times)
+  // Ya está al día (p. ej. el usuario acaba de escribir en esta sesión).
+  if (Math.abs(delta) < 60_000) return clone
+
+  for (const c of clone.campaigns) c.createdAt = shiftDemoTime(c.createdAt, delta)
+  for (const c of clone.candidates) {
+    c.submittedAt = shiftDemoTime(c.submittedAt, delta)
+    // Fechas de respuesta (p. ej. disponibilidad): se mueven con el mismo delta,
+    // pero no anclan el reloj (pueden ser futuras a propósito).
+    for (const [k, v] of Object.entries(c.answers)) {
+      if (typeof v === 'string' && DAY_ONLY.test(v)) c.answers[k] = shiftDemoTime(v, delta)
+    }
+  }
+  for (const r of clone.teamRequests) {
+    r.createdAt = shiftDemoTime(r.createdAt, delta)
+    r.lastActivityAt = shiftDemoTime(r.lastActivityAt, delta)
+  }
+  for (const c of clone.teamComments) c.createdAt = shiftDemoTime(c.createdAt, delta)
+  return clone
+}

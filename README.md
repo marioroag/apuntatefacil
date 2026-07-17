@@ -26,9 +26,9 @@ npm run dev      # http://localhost:5173
 | `/app/puestos/:id/formulario` | Constructor del formulario (drag & drop) + preview en vivo |
 | `/a/:slug` | Formulario público que rellena el candidato (mobile-first) |
 
-Datos de ejemplo: una ETT Multi (sedes, marcas, ~170 candidatos y Equipo). Todo vive en
-`localStorage` (clave `apuntatefacil.demo.v3`), así que tus cambios (estados, envíos, edición del
-formulario) **persisten**. Para reiniciar la demo: borra esa clave o llama a `resetDemo()`.
+Datos de ejemplo: una ETT Multi (sedes, marcas, ~680 candidatos y Equipo). Todo vive en
+`localStorage` (clave `apuntatefacil.demo.v5`); las fechas se anclan a cada visita para que
+no envejezcan. Tus cambios **persisten**. Para reiniciar: borra esa clave o llama a `resetDemo()`.
 
 ## Decisiones de diseño (doctrina "SaaS confiable")
 

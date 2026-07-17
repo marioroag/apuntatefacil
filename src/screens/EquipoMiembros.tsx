@@ -8,7 +8,7 @@ import { planHas } from '../lib/pricing'
 import { initials, memberAvatarTone, relativeDate } from '../lib/format'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import { SEED_INVITES, SEED_MEMBERS } from '../lib/seed'
+import { SEED_INVITES, SEED_MEMBERS, freshenDemoIso } from '../lib/seed'
 
 type Member = { user_id: string; email: string; role: string; is_self: boolean; site_ids: string[] }
 type Invitation = { id: string; email: string; token: string; created_at: string; role: string }
@@ -42,7 +42,7 @@ export function EquipoMiembros() {
     if (!company) return
     if (company.id === 'demo') {
       setMembers(SEED_MEMBERS.map((m) => ({ ...m, site_ids: [...m.site_ids] })))
-      setInvites(SEED_INVITES.map((i) => ({ ...i })))
+      setInvites(SEED_INVITES.map((i) => ({ ...i, created_at: freshenDemoIso(i.created_at) })))
       setLoading(false)
       return
     }

@@ -4,7 +4,7 @@ import type { Brand, Branding, Campaign, Candidate, CandidateStatus, FormField, 
 import { supabase, supabaseConfigured } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
-import { SEED, SEED_BRANDS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS } from './seed'
+import { SEED, SEED_BRANDS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, freshenDemoData } from './seed'
 
 // Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
 // quita espacios de los extremos y colapsa los interiores. La comparación de
@@ -257,7 +257,7 @@ const Ctx = createContext<Store | null>(null)
 
 // --- Persistencia de la DEMO en localStorage --------------------------------
 // La demo es 100% local; guardamos su estado para que aguante recargas.
-const DEMO_KEY = 'apuntatefacil.demo.v3'
+const DEMO_KEY = 'apuntatefacil.demo.v5'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
@@ -357,16 +357,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
     if (companyId === 'demo') {
       // Demo pública: persiste en localStorage; si no hay nada guardado, datos
-      // de ejemplo. No toca Supabase.
+      // de ejemplo. Las fechas se anclan a "ahora" para que no envejezcan.
+      // No toca Supabase.
       const saved = readDemoState()
-      setCampaigns(saved?.campaigns ?? SEED.campaigns)
-      setCandidates(saved?.candidates ?? SEED.candidates)
+      const fresh = freshenDemoData({
+        campaigns: saved?.campaigns ?? SEED.campaigns,
+        candidates: saved?.candidates ?? SEED.candidates,
+        teamRequests: saved?.teamRequests ?? SEED_TEAM_REQUESTS,
+        teamComments: saved?.teamComments ?? SEED_TEAM_COMMENTS,
+      })
+      setCampaigns(fresh.campaigns)
+      setCandidates(fresh.candidates)
       setSavedViews(saved?.savedViews ?? [])
       setSites(saved?.sites ?? SEED.sites)
       setBrands(saved?.brands ?? SEED_BRANDS)
       setTags(saved?.tags ?? SEED_TAGS)
-      setTeamRequests(saved?.teamRequests ?? SEED_TEAM_REQUESTS)
-      setDemoTeamComments(saved?.teamComments ?? SEED_TEAM_COMMENTS)
+      setTeamRequests(fresh.teamRequests)
+      setDemoTeamComments(fresh.teamComments)
       setLockedInfo({})
       setLoadedCompanyId('demo')
       setLoading(false)
@@ -1355,14 +1362,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } catch {
         /* ignora */
       }
-      setCampaigns(SEED.campaigns)
-      setCandidates(SEED.candidates)
+      const fresh = freshenDemoData({
+        campaigns: SEED.campaigns,
+        candidates: SEED.candidates,
+        teamRequests: SEED_TEAM_REQUESTS,
+        teamComments: SEED_TEAM_COMMENTS,
+      })
+      setCampaigns(fresh.campaigns)
+      setCandidates(fresh.candidates)
       setSavedViews([])
       setSites(SEED.sites)
       setBrands(SEED_BRANDS)
       setTags(SEED_TAGS)
-      setTeamRequests(SEED_TEAM_REQUESTS)
-      setDemoTeamComments(SEED_TEAM_COMMENTS)
+      setTeamRequests(fresh.teamRequests)
+      setDemoTeamComments(fresh.teamComments)
     },
   }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, teamRequests, demoTeamComments, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, toast])
 
