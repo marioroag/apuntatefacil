@@ -34,3 +34,6 @@ export const BTN_INVERTED_LG =
 // estrechos (p. ej. "Copiar enlace" junto a una URL), donde el h-9 queda grande.
 export const BTN_PRIMARY_SM =
   'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-[13px] font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px active:shadow-[inset_0_1px_2px_rgba(15,20,60,0.35)]'
+
+export const BTN_SECONDARY_SM =
+  'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-medium text-slate-800 ring-1 ring-slate-300/80 shadow-[0_1px_2px_rgba(18,22,34,0.06)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-slate-50 hover:ring-slate-300 active:translate-y-px active:shadow-none'

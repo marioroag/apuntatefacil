@@ -497,9 +497,13 @@ export const SEED: AppData = {
 
 // ---------------------------------------------------------------------------
 // Tablón de peticiones (demo). El usuario demo es 'demo-user' (owner); Laura y
-// Sergio son compañeros ficticios. Los candidatos propuestos son ids reales del
-// seed: cand_77/cand_81 (carretilleros), cand_46/cand_52 (mozos de almacén).
+// Sergio son compañeros ficticios. Los candidatos propuestos se toman del seed
+// real por puesto (ids estables aunque cambie el contador de generación).
 // ---------------------------------------------------------------------------
+
+const seedOf = (campaignId: string) => SEED.candidates.filter((c) => c.campaignId === campaignId)
+const carretilleros = seedOf('cmp_carretillero')
+const mozos = seedOf('cmp_mozo')
 
 export const SEED_TEAM_REQUESTS: TeamRequest[] = [
   {
@@ -516,8 +520,8 @@ export const SEED_TEAM_REQUESTS: TeamRequest[] = [
     lastActivityBy: 'demo-sergio',
     commentCount: 1,
     proposals: [
-      { candidateId: 'cand_77', commentId: 'reqc_1', proposedBy: 'demo-sergio' },
-      { candidateId: 'cand_81', commentId: 'reqc_1', proposedBy: 'demo-sergio' },
+      { candidateId: carretilleros[0]?.id ?? 'cand_77', commentId: 'reqc_1', proposedBy: 'demo-sergio' },
+      { candidateId: carretilleros[1]?.id ?? 'cand_81', commentId: 'reqc_1', proposedBy: 'demo-sergio' },
     ],
   },
   {
@@ -549,8 +553,8 @@ export const SEED_TEAM_REQUESTS: TeamRequest[] = [
     lastActivityBy: 'demo-user',
     commentCount: 2,
     proposals: [
-      { candidateId: 'cand_46', commentId: 'reqc_2', proposedBy: 'demo-user' },
-      { candidateId: 'cand_52', commentId: 'reqc_2', proposedBy: 'demo-user' },
+      { candidateId: mozos[0]?.id ?? 'cand_46', commentId: 'reqc_2', proposedBy: 'demo-user' },
+      { candidateId: mozos[1]?.id ?? 'cand_52', commentId: 'reqc_2', proposedBy: 'demo-user' },
     ],
   },
 ]

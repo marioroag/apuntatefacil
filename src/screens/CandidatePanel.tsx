@@ -226,7 +226,7 @@ export function CandidatePanel({
                             f.type === 'phone' ? formatPhone(String(candidate.answers[f.id])) : String(candidate.answers[f.id]),
                           )
                         }
-                        className="group -ml-1 -my-0.5 inline-flex max-w-full items-center gap-1.5 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-slate-100"
+                        className="group -ml-1 -my-0.5 inline-flex max-w-full items-center gap-2.5 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-slate-100"
                         title={`Copiar ${f.type === 'phone' ? 'teléfono' : 'correo'}`}
                       >
                         <span className="break-words group-hover:underline group-focus-visible:underline">

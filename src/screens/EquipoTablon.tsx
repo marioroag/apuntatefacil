@@ -280,7 +280,7 @@ function RequestCard({
     >
       <div className="flex items-center gap-2.5">
         <span className={`size-2 shrink-0 rounded-full ${meta.dot}`} aria-hidden />
-        <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${done ? 'text-slate-500' : 'text-slate-900'}`}>
+        <span className={`min-w-0 flex-1 truncate text-base font-semibold leading-snug ${done ? 'text-slate-500' : 'text-slate-900'}`}>
           {request.title}
         </span>
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${meta.chip}`}>

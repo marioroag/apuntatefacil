@@ -34,6 +34,14 @@ export function fullDateTime(iso: string): string {
   return `${fullDate(iso)} a las ${hh}:${mi}`
 }
 
+/** Hora corta HH:mm para meta dentro de burbujas de chat. */
+export function clockTime(iso: string): string {
+  const d = new Date(iso)
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${hh}:${mi}`
+}
+
 export function miles(n: number): string {
   return new Intl.NumberFormat('es-ES').format(n)
 }

@@ -7,12 +7,15 @@ export function SlideOver({
   open,
   onClose,
   title,
+  actions,
   children,
   footer,
 }: {
   open: boolean
   onClose: () => void
   title: ReactNode
+  /** Acciones a la izquierda del cierre (misma fila, mismo peso visual). */
+  actions?: ReactNode
   children: ReactNode
   footer?: ReactNode
 }) {
@@ -93,13 +96,17 @@ export function SlideOver({
                   con truncate dentro) calcula su ancho intrínseco de forma ambigua y
                   puede clipar 1-2 caracteres de más aunque sobre espacio en la cabecera. */}
               <div className="min-w-0 flex-1" id="slideover-title">{title}</div>
-              <button
-                onClick={onClose}
-                aria-label="Cerrar panel"
-                className="-mr-1 shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-              >
-                <X className="size-5" aria-hidden />
-              </button>
+              <div className="-mr-1 flex shrink-0 items-center gap-0.5">
+                {actions}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Cerrar panel"
+                  className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <X className="size-5" aria-hidden />
+                </button>
+              </div>
             </header>
             <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
             {footer && <footer className="border-t border-slate-200 px-5 py-3">{footer}</footer>}
