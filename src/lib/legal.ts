@@ -1,5 +1,12 @@
 // Documentos legales de Apúntate Fácil (privacidad y términos).
 // Privacidad: revisada y ampliada por panel experto RGPD/LOPDGDD (20 jun 2026).
+// Revisión 1.1 (17 jul 2026), tras cotejar el texto con el producto real:
+// declarada la analítica sin cookies (Vercel Analytics + Speed Insights) y Vercel
+// como proveedor y transferencia a EEUU; añadidos miembros de equipo e
+// invitaciones, buzón de soporte (soporte@), tablón de Equipo y etiquetas; plan
+// de Prueba incluido en la enumeración. Términos: corregida la contradicción del
+// "no hay plan gratuito" (existe el plan de Prueba con candidaturas bloqueadas
+// al superar el tope, jul 2026).
 // Términos: reforzados por un panel de defensa (prestador-side) + revisor de
 // ejecutabilidad/nulidad (20 jun 2026), para proteger al prestador dentro de lo
 // VÁLIDO en Derecho B2B español: exención de garantías y "tal cual"/sin SLA,
@@ -92,10 +99,13 @@ export const PRIVACY_DOC: LegalDoc = {
         {
           "type": "ul",
           "items": [
-            "Email de la cuenta y contraseña (con los que accedes, o bien entras con tu cuenta de Google). La contraseña se guarda siempre cifrada, nunca en claro.",
+            "Email y contraseña de cada persona de tu equipo con acceso a la cuenta (con los que accede, o bien entra con su cuenta de Google). La contraseña se guarda siempre cifrada, nunca en claro.",
+            "Email de las personas que invitas a unirse a tu equipo y estado de la invitación, para poder enviarles el enlace de alta.",
             "Nombre o razón social de la empresa.",
-            "Color o acento de marca, como personalización visual de tu cuenta.",
-            "Datos del plan de suscripción contratado (Esencial, Pro o Multi) y estado de la suscripción.",
+            "Color o acento de marca y color que identifica a cada miembro del equipo dentro del panel, como personalización visual.",
+            "Plan de la cuenta (Prueba, Esencial, Pro o Multi) y estado de la suscripción.",
+            "Mensajes de soporte que intercambias con nosotros, desde el panel o por email a soporte@apuntatefacil.com: su contenido, tu dirección y las fechas, para poder atenderte y seguir el hilo de la conversación.",
+            "Contenido interno que tu equipo escribe en el panel, como las peticiones y comentarios del tablón de Equipo.",
             "Identificadores de cliente y de suscripción en Stripe, que conectan tu cuenta con tu pago.",
             "Los datos de pago (tarjeta, titularidad, facturación) los recoge y custodia directamente Stripe; nosotros no almacenamos el número de tu tarjeta."
           ]
@@ -111,7 +121,7 @@ export const PRIVACY_DOC: LegalDoc = {
             "Email del candidato, si la empresa configura ese campo (es opcional).",
             "Campos personalizados que cada empresa decida pedir: experiencia, carnet, zona, disponibilidad o cualquier otro que configure en su formulario.",
             "Archivo adjunto opcional, como un CV o documento, almacenado en un espacio privado.",
-            "Respuestas a las preguntas del formulario, estado de la candidatura (nuevo, contactado, entrevista, contratado, descartado), calificación de 0 a 3 estrellas y notas internas que escriba la empresa. Esa calificación y ese estado los pone y los usa una persona de la empresa, no un algoritmo: lo aclaramos en el apartado 6.",
+            "Respuestas a las preguntas del formulario, estado de la candidatura (nuevo, contactado, entrevista, contratado, descartado), calificación de 0 a 3 estrellas, etiquetas, y notas internas o comentarios sobre la candidatura que escriba la empresa, por ejemplo en el tablón de Equipo. Esa calificación y ese estado los pone y los usa una persona de la empresa, no un algoritmo: lo aclaramos en el apartado 6.",
             "Fuente de la candidatura (por ejemplo la web de empleo donde publiques, como Milanuncios, un enlace o un QR) y fecha y hora de envío."
           ]
         },
@@ -138,8 +148,9 @@ export const PRIVACY_DOC: LegalDoc = {
             "Dar de alta tu cuenta y permitirte acceder con tu email y contraseña, o con tu cuenta de Google, incluido el envío del email de confirmación al registrarte y, si lo pides, del email para restablecer la contraseña. Base: ejecución del contrato de prestación del servicio que aceptas al registrarte (art. 6.1.b RGPD).",
             "Gestionar la facturación y el cobro de tu suscripción a través de Stripe. Base: ejecución del contrato (art. 6.1.b) y cumplimiento de obligaciones legales fiscales y contables (art. 6.1.c RGPD).",
             "Enviarte emails operativos imprescindibles: aviso de nueva candidatura y avisos de tu suscripción (activación, renovación, cancelación). Base: ejecución del contrato (art. 6.1.b), ya que son comunicaciones necesarias para usar el servicio, no publicidad. El aviso de nueva candidatura incluye el nombre y el teléfono del candidato; respecto a esos datos de candidato actuamos como encargado y los enviamos siguiendo tus instrucciones como empresa responsable, no para fines propios.",
-            "Prestar soporte y responder a tus consultas sobre el uso del servicio que has contratado. Base: ejecución del contrato (art. 6.1.b RGPD).",
+            "Prestar soporte y responder a tus consultas sobre el uso del servicio que has contratado, desde el panel o por email a soporte@apuntatefacil.com. Base: ejecución del contrato (art. 6.1.b RGPD).",
             "Atender consultas previas a la contratación o no estrictamente contractuales. Base: nuestro interés legítimo en ofrecerte una buena atención (art. 6.1.f RGPD).",
+            "Medir de forma agregada el uso y el rendimiento de la web con una analítica sin cookies (Vercel Analytics y Speed Insights): cuenta páginas vistas y tiempos de carga, sin cookies ni identificadores que te sigan entre sitios, y no nos permite identificarte. Base: interés legítimo en saber si el servicio funciona bien y mejorarlo (art. 6.1.f RGPD).",
             "Mantener la seguridad de la plataforma y prevenir abusos o fraudes. Base: interés legítimo en proteger el servicio y a sus usuarios (art. 6.1.f RGPD)."
           ]
         },
@@ -206,6 +217,7 @@ export const PRIVACY_DOC: LegalDoc = {
             "Stripe (Stripe, Inc.): procesa los pagos. Gestiona el cobro de tu suscripción según tu plan (149, 249 o 499 EUR más IVA), emite facturas y trata los datos de pago y facturación.",
             "Resend (Resend, Inc.): envía los emails transaccionales y los de acceso. Manda el aviso al responsable de la empresa cuando entra una nueva candidatura (ese email incluye el nombre y el teléfono del candidato), los avisos de tu suscripción (activación, cancelación, renovación) y los emails de confirmación de cuenta y de restablecimiento de contraseña.",
             "Supabase (Supabase, Inc.): es la infraestructura. Aloja la base de datos con las tablas de empresas, candidatos, puestos y campañas, gestiona la autenticación y las sesiones, y almacena los CV y documentos adjuntos en un espacio de archivos privado. Los datos se alojan en la región [REGIÓN DE ALOJAMIENTO].",
+            "Vercel (Vercel, Inc.): aloja y sirve la aplicación web, es decir, las páginas que se cargan en el navegador, incluido el formulario público que rellenan los candidatos. Como cualquier servidor web, procesa datos técnicos de conexión (dirección IP, navegador) para entregar las páginas, y nos proporciona la medición de audiencia y rendimiento sin cookies descrita en el apartado 4, con datos agregados.",
             "Google (Google LLC): solo si eliges entrar con tu cuenta de Google. En esa función Google interviene en la autenticación y trata tu email de Google conforme a sus propias políticas, como responsable independiente de ese dato de inicio de sesión. Si entras con tu email y contraseña, Google no interviene."
           ]
         },
@@ -232,7 +244,7 @@ export const PRIVACY_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Algunos proveedores son compañías con sede o infraestructura en Estados Unidos, por lo que ciertos tratamientos pueden implicar una transferencia internacional de datos fuera del EEE. En concreto, Stripe, Resend y Google pueden tratar datos en Estados Unidos."
+          "text": "Algunos proveedores son compañías con sede o infraestructura en Estados Unidos, por lo que ciertos tratamientos pueden implicar una transferencia internacional de datos fuera del EEE. En concreto, Stripe, Resend, Vercel y Google pueden tratar datos en Estados Unidos."
         },
         {
           "type": "p",
@@ -333,15 +345,15 @@ export const PRIVACY_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Sobre cookies y rastreo, somos tajantes: no usamos cookies de seguimiento, ni publicidad, ni analítica de terceros. No tenemos Google Analytics, ni Mixpanel, ni Segment, ni ninguna herramienta de seguimiento del comportamiento."
+          "text": "Sobre cookies y rastreo: no usamos cookies de seguimiento ni de publicidad. No tenemos Google Analytics, ni Mixpanel, ni Segment, ni ninguna herramienta que te siga por internet o elabore un perfil de tu comportamiento. La única medición que hacemos es la analítica sin cookies de Vercel (Analytics y Speed Insights) descrita en el apartado 4: cuenta páginas vistas y tiempos de carga de forma agregada, no guarda nada en tu dispositivo, no usa identificadores que te sigan entre sitios y no nos permite identificarte."
         },
         {
           "type": "p",
-          "text": "Solo usamos el almacenamiento imprescindible para que funcione el inicio de sesión. En concreto, Supabase guarda en tu navegador (en memoria y en localStorage) un token de sesión para mantenerte identificado y refrescar tu sesión mientras la usas. En la demo pública, sin login real, solo guardamos en localStorage el estado de ejemplo para que puedas probar la herramienta. Nada de esto rastrea tu navegación ni te perfila."
+          "text": "Solo usamos el almacenamiento imprescindible para que funcione el servicio. En concreto, Supabase guarda en tu navegador (en memoria y, si eliges que te recordemos, en localStorage) un token de sesión para mantenerte identificado y refrescar tu sesión mientras la usas. Además guardamos en localStorage pequeñas preferencias de uso del panel, como la empresa activa, tu elección de recordar o no la sesión y los avisos que ya has cerrado. En la demo pública, sin login real, solo guardamos en localStorage el estado de ejemplo para que puedas probar la herramienta. Nada de esto rastrea tu navegación ni te perfila."
         },
         {
           "type": "p",
-          "text": "Este almacenamiento es técnicamente imprescindible para el inicio de sesión, por lo que está exento del deber de consentimiento conforme al artículo 22.2 de la LSSI-CE (Ley 34/2002) y a las directrices de la AEPD sobre cookies. Su base jurídica es la ejecución del contrato (art. 6.1.b RGPD). Por eso no usamos un banner de consentimiento de cookies."
+          "text": "Este almacenamiento es técnicamente imprescindible para el inicio de sesión y el funcionamiento del panel, por lo que está exento del deber de consentimiento conforme al artículo 22.2 de la LSSI-CE (Ley 34/2002) y a las directrices de la AEPD sobre cookies. Su base jurídica es la ejecución del contrato (art. 6.1.b RGPD). La medición de audiencia, por su parte, no guarda nada en tu dispositivo, así que tampoco requiere ese consentimiento. Por eso no usamos un banner de consentimiento de cookies."
         }
       ]
     },
@@ -361,7 +373,7 @@ export const PRIVACY_DOC: LegalDoc = {
             "Control de acceso por roles y aislamiento de los datos de cada empresa dentro de la base de datos.",
             "Registro de la actividad de acceso a la plataforma, que permite detectar y revisar accesos indebidos.",
             "Copias de seguridad periódicas gestionadas por nuestro proveedor de infraestructura, para poder recuperar los datos ante una incidencia.",
-            "Uso de proveedores de infraestructura y pago (Supabase, Stripe) que mantienen estándares reconocidos de seguridad.",
+            "Uso de proveedores de infraestructura y pago (Supabase, Vercel, Stripe) que mantienen estándares reconocidos de seguridad.",
             "Principio de minimización: pedimos y guardamos solo los datos necesarios."
           ]
         },
@@ -500,7 +512,7 @@ export const TERMS_DOC: LegalDoc = {
       "blocks": [
         {
           "type": "p",
-          "text": "El servicio se ofrece por suscripción, en tres planes:"
+          "text": "El servicio se ofrece por suscripción, en tres planes de pago:"
         },
         {
           "type": "ul",
@@ -517,6 +529,10 @@ export const TERMS_DOC: LegalDoc = {
         {
           "type": "p",
           "text": "Puedes pagar mes a mes o de forma anual. Si en el momento de contratar el pago anual lleva asociado algún descuento, lo verás indicado en la plataforma antes de confirmar. Si cambias de plan, el nuevo precio se aplica desde el siguiente periodo de facturación, salvo que en la propia plataforma se indique otra cosa al confirmar el cambio."
+        },
+        {
+          "type": "p",
+          "text": "Además, al registrarte tu cuenta empieza en un plan de Prueba gratuito y limitado (un puesto activo y un número reducido de candidaturas visibles, el que se indique en la web en cada momento), pensado para que pruebes el servicio con datos reales antes de contratar. En el plan de Prueba, las candidaturas que superan ese tope se siguen recibiendo y guardando con normalidad, pero quedan bloqueadas y no puedes verlas; al contratar un plan de pago se desbloquean todas. El plan de Prueba se ofrece tal cual, sin compromiso de disponibilidad, y podemos ajustar sus límites en cualquier momento."
         }
       ]
     },
@@ -571,7 +587,7 @@ export const TERMS_DOC: LegalDoc = {
       "blocks": [
         {
           "type": "p",
-          "text": "Puedes ver cómo funciona la plataforma sin registrarte ni introducir ninguna tarjeta a través de la demo pública con datos de ejemplo. Para usar el servicio con tu propia cuenta y datos reales necesitas contratar uno de los planes de pago: no hay un plan gratuito de uso."
+          "text": "Puedes ver cómo funciona la plataforma sin registrarte ni introducir ninguna tarjeta a través de la demo pública con datos de ejemplo. Si quieres probar con tus propios datos, al registrarte tu cuenta empieza en el plan de Prueba gratuito descrito en el apartado 4, con sus límites. Para usar el servicio sin esos límites necesitas contratar uno de los planes de pago."
         },
         {
           "type": "p",
@@ -579,7 +595,7 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Al registrarte, tu cuenta queda lista pero el panel no se activa hasta que eliges un plan de pago. Sin permanencia: puedes cambiar de plan o cancelar cuando quieras."
+          "text": "Al registrarte, tu cuenta queda activa en el plan de Prueba y puedes empezar a recibir candidaturas reales desde el primer momento, dentro de sus límites. Sin permanencia: puedes contratar un plan de pago, cambiarlo o cancelarlo cuando quieras."
         }
       ]
     },
@@ -666,6 +682,10 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
+          "text": "La única excepción es el plan de Prueba: las candidaturas bloqueadas por superar su tope se exportan solo como filas con la fecha de entrada, sin datos personales, hasta que contratas un plan de pago y se desbloquean todas. Esas candidaturas siguen siendo tuyas y tú sigues siendo su responsable: si necesitas atender la solicitud de un candidato sobre una candidatura bloqueada (por ejemplo, de acceso o supresión), o quieres que te devolvamos o suprimamos esos datos, escríbenos a soporte@apuntatefacil.com y lo haremos siguiendo tus instrucciones, sin coste. Al terminar el servicio, la devolución o supresión alcanza a todos los datos de candidatos, bloqueados incluidos."
+        },
+        {
+          "type": "p",
           "text": "La exportación a Excel es la herramienta que ponemos a tu disposición para que conserves tus datos: te corresponde a ti exportar y guardar lo que necesites mientras tu cuenta esté activa y durante el plazo razonable posterior a la baja. Transcurrido ese plazo, suprimiremos o te devolveremos los datos según lo previsto en la cláusula de baja y en el Anexo de Encargo del Tratamiento, y no responderemos de la pérdida de datos que hubieras podido evitar exportándolos a tiempo. Esta previsión no afecta a la conservación que nos exija la ley."
         }
       ]
@@ -679,7 +699,7 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Para prestar el servicio nos apoyamos en proveedores que, frente a los datos de tu cuenta de empresa, son encargados nuestros, y frente a los datos de los candidatos, son subencargados que actúan por cuenta tuya: Stripe para los pagos, Resend para los emails transaccionales (aviso de nueva candidatura y avisos de facturación), Supabase para el alojamiento de la base de datos, la autenticación y el almacenamiento de archivos, y Google para el inicio de sesión opcional con cuenta de Google. No usamos analítica de terceros, ni publicidad, ni rastreo, y solo empleamos el almacenamiento imprescindible para mantener tu sesión."
+          "text": "Para prestar el servicio nos apoyamos en proveedores que, frente a los datos de tu cuenta de empresa, son encargados nuestros, y frente a los datos de los candidatos, son subencargados que actúan por cuenta tuya: Stripe para los pagos, Resend para los emails transaccionales (aviso de nueva candidatura y avisos de facturación), Supabase para el alojamiento de la base de datos, la autenticación y el almacenamiento de archivos, Vercel para servir la aplicación web y medir su uso de forma agregada y sin cookies, y Google para el inicio de sesión opcional con cuenta de Google. No usamos publicidad ni rastreo entre sitios, y solo empleamos el almacenamiento imprescindible para mantener tu sesión y tus preferencias, como se detalla en la Política de Privacidad."
         },
         {
           "type": "p",
@@ -717,7 +737,7 @@ export const TERMS_DOC: LegalDoc = {
       "blocks": [
         {
           "type": "p",
-          "text": "Ponemos un esfuerzo razonable en mantener el servicio disponible y funcionando correctamente. Aun así, ningún servicio en internet está disponible el 100% del tiempo: puede haber cortes, mantenimientos planificados o incidencias de nuestros proveedores (como Supabase, Stripe, Resend o Google) que escapan a nuestro control directo."
+          "text": "Ponemos un esfuerzo razonable en mantener el servicio disponible y funcionando correctamente. Aun así, ningún servicio en internet está disponible el 100% del tiempo: puede haber cortes, mantenimientos planificados o incidencias de nuestros proveedores (como Supabase, Vercel, Stripe, Resend o Google) que escapan a nuestro control directo."
         },
         {
           "type": "p",
@@ -725,7 +745,7 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "No respondemos del funcionamiento, la disponibilidad ni las condiciones de los servicios de terceros de los que depende la plataforma (entre otros Supabase, Stripe, Resend o Google), que escapan a nuestro control. Cuando tengamos que hacer un mantenimiento que pueda afectar al uso normal, intentaremos avisarte con antelación y elegir momentos de menor impacto siempre que sea posible."
+          "text": "No respondemos del funcionamiento, la disponibilidad ni las condiciones de los servicios de terceros de los que depende la plataforma (entre otros Supabase, Vercel, Stripe, Resend o Google), que escapan a nuestro control. Cuando tengamos que hacer un mantenimiento que pueda afectar al uso normal, intentaremos avisarte con antelación y elegir momentos de menor impacto siempre que sea posible."
         }
       ]
     },
@@ -934,7 +954,7 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Tipo de datos: datos identificativos y de contacto de los candidatos (nombre, teléfono y, si lo configuras, email), los campos personalizados que definas, los archivos adjuntos (por ejemplo, el CV) y los datos de gestión (estado, calificación, notas, fuente y fecha). Categorías de interesados: las personas candidatas a tus ofertas."
+          "text": "Tipo de datos: datos identificativos y de contacto de los candidatos (nombre, teléfono y, si lo configuras, email), los campos personalizados que definas, los archivos adjuntos (por ejemplo, el CV) y los datos de gestión (estado, calificación, etiquetas, notas y comentarios internos, como los del tablón de Equipo, fuente y fecha). Categorías de interesados: las personas candidatas a tus ofertas."
         },
         {
           "type": "p",
@@ -963,7 +983,7 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Subencargados. Autorizas con carácter general que recurramos a los subencargados necesarios para prestar el servicio. A la fecha de estos términos son: Stripe (pagos), Resend (emails transaccionales), Supabase (alojamiento de base de datos, autenticación y almacenamiento de archivos, en la región [REGIÓN DE ALOJAMIENTO]) y Google (inicio de sesión opcional). Si vamos a sustituir o añadir un subencargado, te lo comunicaremos por un medio razonable (por email a tu cuenta o mediante un aviso en la plataforma) con antelación suficiente antes de que el cambio entre en vigor, y dispondrás de un plazo razonable para oponerte por motivos fundados de protección de datos. Si te opones y no podemos ofrecerte una alternativa, podrás resolver la parte del servicio afectada sin penalización. Exigimos a cada subencargado, por contrato, obligaciones de protección de datos equivalentes a las de este anexo."
+          "text": "Subencargados. Autorizas con carácter general que recurramos a los subencargados necesarios para prestar el servicio. A la fecha de estos términos son: Stripe (pagos), Resend (emails transaccionales), Supabase (alojamiento de base de datos, autenticación y almacenamiento de archivos, en la región [REGIÓN DE ALOJAMIENTO]), Vercel (servicio de la aplicación web) y Google (inicio de sesión opcional). Si vamos a sustituir o añadir un subencargado, te lo comunicaremos por un medio razonable (por email a tu cuenta o mediante un aviso en la plataforma) con antelación suficiente antes de que el cambio entre en vigor, y dispondrás de un plazo razonable para oponerte por motivos fundados de protección de datos. Si te opones y no podemos ofrecerte una alternativa, podrás resolver la parte del servicio afectada sin penalización. Exigimos a cada subencargado, por contrato, obligaciones de protección de datos equivalentes a las de este anexo."
         },
         {
           "type": "p",
