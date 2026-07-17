@@ -175,8 +175,9 @@ export function TeamRequestPanel({
     retractProposal,
     boardVersion,
   } = useStore()
-  const { user, role } = useAuth()
+  const { user, role, company } = useAuth()
   const maskPhone = useLocation().pathname.startsWith('/demo')
+  const demo = company?.id === 'demo'
 
   const [comments, setComments] = useState<TeamRequestComment[]>([])
   const [commentsLoading, setCommentsLoading] = useState(false)
@@ -193,20 +194,49 @@ export function TeamRequestPanel({
 
   const requestId = request?.id ?? null
 
+  const applyComments = (cs: TeamRequestComment[]) => {
+    setComments((prev) => {
+      const same =
+        prev.length === cs.length && prev.every((c, i) => c.id === cs[i]?.id && c.body === cs[i]?.body)
+      if (same) return prev
+      // Mensajes nuevos (tuyos o del equipo): si ya había hilo y estabas abajo, sigue.
+      if (cs.length > prev.length && prev.length > 0 && !pendingScrollRef.current) {
+        const end = threadEndRef.current
+        const scroller = end?.closest('.overflow-y-auto') as HTMLElement | null
+        if (end && scroller) {
+          const nearBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 140
+          if (nearBottom) pendingScrollRef.current = true
+        }
+      }
+      return cs
+    })
+    setCommentsLoading(false)
+  }
+
   useEffect(() => {
     if (!requestId) return
     let alive = true
     setCommentsLoading(true)
     void loadTeamComments(requestId).then((cs) => {
       if (!alive) return
-      setComments(cs)
-      setCommentsLoading(false)
+      applyComments(cs)
     })
     return () => {
       alive = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestId, boardVersion])
+
+  // Respaldo mientras el detalle está abierto: si el websocket falla, el hilo
+  // sigue al día cada pocos segundos. La demo es monousuario (localStorage).
+  useEffect(() => {
+    if (!requestId || demo) return
+    const tick = window.setInterval(() => {
+      void loadTeamComments(requestId).then(applyComments)
+    }, 4000)
+    return () => window.clearInterval(tick)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestId, demo])
 
   // Limpia el hilo antes de pintar otra petición: evita un frame con mensajes ajenos.
   useLayoutEffect(() => {
@@ -220,8 +250,7 @@ export function TeamRequestPanel({
     setPickerOpen(false)
   }, [requestId])
 
-  // Solo un mensaje enviado por esta persona lleva el panel al final.
-  // Al abrir una petición conservamos el inicio visible: descripción y propuestas.
+  // Scroll al final: al enviar tú, o al llegar actividad ajena si estabas abajo.
   useLayoutEffect(() => {
     if (!pendingScrollRef.current || commentsLoading || comments.length === 0) return
     const end = threadEndRef.current
@@ -369,9 +398,7 @@ export function TeamRequestPanel({
                 <ActivitySkeleton />
               ) : comments.length === 0 ? (
                 <p className="text-sm leading-5 text-slate-500">
-                  {isOpen
-                    ? 'Propón un candidato o deja un mensaje.'
-                    : 'Nadie ha escrito todavía.'}
+                  {isOpen ? 'Todavía no hay mensajes.' : 'Nadie ha escrito todavía.'}
                 </p>
               ) : (
                 <ol className="flex flex-col">
@@ -783,7 +810,7 @@ function ProposalsSection({
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-4">
           <p className="text-sm leading-5 text-slate-600">
             {isOpen
-              ? 'Todavía no hay ninguno. Propón candidatos de la base con el botón de abajo.'
+              ? 'Todavía no hay candidatos propuestos.'
               : 'Nadie propuso candidatos en esta petición.'}
           </p>
         </div>

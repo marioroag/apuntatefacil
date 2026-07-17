@@ -494,12 +494,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Live reload: canal privado por empresa. Al entrar una candidatura, un
   // trigger de BD emite un ping sin PII (campaign_id, locked) y aquí recargamos
   // SOLO lo afectado. La demo y un backend sin configurar no abren websocket.
+  // El tablón usa el mismo canal (team_board_ping): lista + hilo abierto vía boardVersion.
   useEffect(() => {
     if (!companyId || companyId === 'demo' || !supabaseConfigured) return
     const pending = new Set<string>() // campaign_ids acumulados (ráfagas)
     let lockedDirty = false
     let boardDirty = false
     let timer = 0
+    const flushBoard = () => {
+      void reloadTeamBoardRef.current()
+      setBoardVersion((v) => v + 1)
+    }
     const flush = () => {
       timer = 0
       const ids = [...pending]
@@ -511,9 +516,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       if (boardDirty) {
         boardDirty = false
-        void reloadTeamBoardRef.current()
-        // Un detalle de petición abierto refresca su hilo al ver subir la versión.
-        setBoardVersion((v) => v + 1)
+        flushBoard()
       }
     }
     const channel = supabase
@@ -534,16 +537,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Canal privado: el token debe estar fijado en Realtime antes de suscribir
     // (los refresh de sesión posteriores los propaga supabase-js solo).
     void supabase.realtime.setAuth().then(() => channel.subscribe())
-    // Red de seguridad al volver a la pestaña: si el socket no está sano
-    // (portátil suspendido, red caída), recarga completa; si lo está, el canal
-    // ya entregó todo y no hay nada que hacer.
+
+    // Si el socket no llega a unirse (o se cae), sondeo el tablón para no dejar
+    // al equipo desincronizado. Con canal sano el realtime basta.
+    const poll = window.setInterval(() => {
+      if (channel.state === 'joined') return
+      flushBoard()
+    }, 5000)
+
+    // Al volver a la pestaña: refresco del tablón siempre (cubre sockets "zombie"
+    // que siguen en joined pero ya no entregan). Si además el canal está caído,
+    // recarga completa.
     const onWake = () => {
-      if (document.visibilityState === 'visible' && channel.state !== 'joined') void reloadRef.current()
+      if (document.visibilityState !== 'visible') return
+      flushBoard()
+      if (channel.state !== 'joined') void reloadRef.current()
     }
     window.addEventListener('focus', onWake)
     document.addEventListener('visibilitychange', onWake)
     return () => {
       window.clearTimeout(timer)
+      window.clearInterval(poll)
       window.removeEventListener('focus', onWake)
       document.removeEventListener('visibilitychange', onWake)
       void supabase.removeChannel(channel) // cambio de empresa / logout

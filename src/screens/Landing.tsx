@@ -11,7 +11,7 @@ import { Logo } from '../components/Logo'
 import { BetaBadge } from '../components/BetaBadge'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { SupportDialog } from '../components/SupportDialog'
-import { TIERS, annualPerMonth, PLAN_PROCESS_LIMIT, type Tier } from '../lib/pricing'
+import { TIERS, PLAN_PROCESS_LIMIT, type Tier } from '../lib/pricing'
 import { TierPrice } from '../components/TierPrice'
 import { BTN_INVERTED_LG, BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
 
@@ -501,17 +501,14 @@ function Features() {
   )
 }
 
-// Señuelo explícito de la tarjeta Pro: la comparación que el cliente debe poder
-// hacer sin esfuerzo ("5× la capacidad por 100 € más"), como un elemento más de
-// la lista de features. Se calcula de los datos reales para que nunca mienta,
-// también con el toggle en anual (ahí la diferencia por mes equivalente es menor).
-function proDecoyLine(annual: boolean): string | null {
+// Señuelo explícito de la tarjeta Pro: la comparación de capacidad frente a
+// Esencial (p. ej. "5× la capacidad de Esencial"), calculada de los datos reales.
+function proDecoyLine(): string | null {
   const esencial = TIERS.find((x) => x.id === 'esencial')
   const pro = TIERS.find((x) => x.id === 'pro')
   if (!esencial || !pro) return null
   const times = PLAN_PROCESS_LIMIT.pro / PLAN_PROCESS_LIMIT.esencial
-  const extra = annual ? annualPerMonth(pro) - annualPerMonth(esencial) : pro.monthly - esencial.monthly
-  return `${times}× la capacidad de Esencial por ${extra} € más`
+  return `${times}× la capacidad de Esencial`
 }
 
 function PricingTierCard({ tier: t, annual, gridEmphasis = false }: { tier: Tier; annual: boolean; gridEmphasis?: boolean }) {
@@ -543,7 +540,7 @@ function PricingTierCard({ tier: t, annual, gridEmphasis = false }: { tier: Tier
       <p className="mt-1 text-copy text-slate-500">{t.tagline}</p>
       <TierPrice tier={t} annual={annual} />
       <p className="mt-4 inline-flex w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-label font-medium text-slate-600">{t.processes}</p>
-      {t.id === 'pro' && <p className="mt-1.5 text-copy text-slate-700">{proDecoyLine(annual)}</p>}
+      {t.id === 'pro' && <p className="mt-1.5 text-copy text-slate-700">{proDecoyLine()}</p>}
       <ul className="mt-5 flex-1 space-y-2.5">
         {features.map((feat) => (
           <li key={feat} className="flex items-start gap-2.5 text-copy-md text-slate-700">
