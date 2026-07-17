@@ -8,6 +8,7 @@ import { planHas } from '../lib/pricing'
 import { initials, memberAvatarTone, relativeDate } from '../lib/format'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { SEED_INVITES, SEED_MEMBERS } from '../lib/seed'
 
 type Member = { user_id: string; email: string; role: string; is_self: boolean; site_ids: string[] }
 type Invitation = { id: string; email: string; token: string; created_at: string; role: string }
@@ -17,10 +18,12 @@ const ROLE_LABEL: Record<string, string> = { owner: 'Propietario', member: 'Miem
 // Gestión de miembros (pestaña "Miembros" de Equipo, Pro+, solo owner): miembros
 // actuales + invitar por email. En Multi se puede invitar como ENCARGADO
 // acotado a sedes. Usuarios ilimitados (sin coste por asiento).
+// En demo: datos de ejemplo en memoria (sin Supabase).
 export function EquipoMiembros() {
   const toast = useToast()
   const { sites } = useStore()
   const { company } = useAuth()
+  const demo = company?.id === 'demo'
   const canManagers = planHas(company?.plan, 'managers') && sites.length > 0
   const siteName = (id: string) => sites.find((s) => s.id === id)?.name ?? 'sede'
 
@@ -37,6 +40,12 @@ export function EquipoMiembros() {
 
   const load = useCallback(async () => {
     if (!company) return
+    if (company.id === 'demo') {
+      setMembers(SEED_MEMBERS.map((m) => ({ ...m, site_ids: [...m.site_ids] })))
+      setInvites(SEED_INVITES.map((i) => ({ ...i })))
+      setLoading(false)
+      return
+    }
     const [m, i] = await Promise.all([
       supabase.rpc('list_company_members', { p_company_id: company.id }),
       supabase.from('invitations').select('id,email,token,created_at,role').eq('status', 'pending').eq('company_id', company.id).order('created_at', { ascending: false }),
@@ -54,6 +63,10 @@ export function EquipoMiembros() {
 
   const invite = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (demo) {
+      toast.show('En la demo solo puedes ver cómo se invita. Crea tu cuenta para usarlo.')
+      return
+    }
     const mail = email.trim().toLowerCase()
     if (!mail.includes('@') || mail.length < 3) {
       toast.error('Escribe un email válido.')
@@ -86,6 +99,10 @@ export function EquipoMiembros() {
   }
 
   const copy = async (token: string) => {
+    if (demo) {
+      toast.show('En la demo el enlace de invitación es de ejemplo.')
+      return
+    }
     try {
       await navigator.clipboard.writeText(inviteLink(token))
       toast.success('Enlace copiado')
@@ -95,6 +112,10 @@ export function EquipoMiembros() {
   }
 
   const revoke = async (id: string) => {
+    if (demo) {
+      toast.show('En la demo no se pueden revocar invitaciones.')
+      return
+    }
     const prev = invites
     setInvites((v) => v.filter((x) => x.id !== id))
     const { error } = await supabase.rpc('revoke_invitation', { p_id: id })
@@ -105,6 +126,10 @@ export function EquipoMiembros() {
   }
 
   const saveAccess = async (userId: string, newRole: 'member' | 'encargado', siteIds: string[]) => {
+    if (demo) {
+      toast.show('En la demo no se puede cambiar el acceso.')
+      return
+    }
     if (newRole === 'encargado' && siteIds.length === 0) {
       toast.error('Elige al menos una sede.')
       return
@@ -121,6 +146,11 @@ export function EquipoMiembros() {
 
   const removeMember = async () => {
     if (!removing || !company) return
+    if (demo) {
+      toast.show('En la demo no se puede eliminar miembros.')
+      setRemoving(null)
+      return
+    }
     setRemoveBusy(true)
     const { error } = await supabase.rpc('remove_member', { p_company_id: company.id, p_user_id: removing.user_id })
     setRemoveBusy(false)
@@ -136,20 +166,25 @@ export function EquipoMiembros() {
   return (
     <>
       {isOwner && (
-        <form onSubmit={invite} className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
+        <form
+          onSubmit={invite}
+          className={`rounded-xl border border-slate-200 bg-white p-4 shadow-card ${demo ? 'opacity-[0.92]' : ''}`}
+        >
           <p className="text-sm font-semibold text-slate-800">Invitar por email</p>
           <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
             <input
               type="email"
-              value={email}
+              value={demo ? '' : email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="compañero@empresa.com"
-              className="h-10 flex-1 rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+              disabled={demo}
+              readOnly={demo}
+              className="h-10 flex-1 rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
             />
             <button
               type="submit"
-              disabled={busy}
-              className={`${BTN_PRIMARY} disabled:opacity-60`}
+              disabled={demo || busy}
+              className={`${BTN_PRIMARY} disabled:cursor-not-allowed disabled:opacity-60`}
             >
               {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <UserPlus className="size-4" aria-hidden />}
               Invitar
@@ -157,7 +192,7 @@ export function EquipoMiembros() {
           </div>
 
           {canManagers && (
-            <div className="mt-3">
+            <div className={`mt-3 ${demo ? 'pointer-events-none opacity-70' : ''}`}>
               <div className="flex gap-1.5">
                 <RolePill active={role === 'member'} onClick={() => setRole('member')} label="Miembro" hint="ve todo" />
                 <RolePill active={role === 'encargado'} onClick={() => setRole('encargado')} label="Encargado" hint="solo sus sedes" />
@@ -167,7 +202,11 @@ export function EquipoMiembros() {
               )}
             </div>
           )}
-          <p className="mt-2 text-[12px] text-slate-500">Le llega un email con un enlace para unirse. También puedes copiar el enlace y enviárselo tú.</p>
+          <p className="mt-2 text-[12px] text-slate-500">
+            {demo
+              ? 'Así se invita a tu equipo en una cuenta real. En la demo solo se muestra el apartado.'
+              : 'Le llega un email con un enlace para unirse. También puedes copiar el enlace y enviárselo tú.'}
+          </p>
         </form>
       )}
 
@@ -195,7 +234,7 @@ export function EquipoMiembros() {
                     <button onClick={() => copy(inv.token)} className={BTN_SECONDARY}>
                       <Copy className="size-3.5" aria-hidden /> Enlace
                     </button>
-                    {isOwner && (
+                    {isOwner && !demo && (
                       <button onClick={() => revoke(inv.id)} aria-label={`Revocar invitación de ${inv.email}`} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600">
                         <Trash2 className="size-4" aria-hidden />
                       </button>
@@ -227,6 +266,7 @@ export function EquipoMiembros() {
                     siteName={siteName}
                     isOwner={isOwner}
                     canManagers={canManagers}
+                    readOnly={demo}
                     onEdit={() => setEditing(m.user_id)}
                     onRemove={() => setRemoving(m)}
                   />
@@ -267,6 +307,7 @@ function MemberRow({
   siteName,
   isOwner,
   canManagers,
+  readOnly = false,
   onEdit,
   onRemove,
 }: {
@@ -274,6 +315,7 @@ function MemberRow({
   siteName: (id: string) => string
   isOwner: boolean
   canManagers: boolean
+  readOnly?: boolean
   onEdit: () => void
   onRemove: () => void
 }) {
@@ -298,7 +340,7 @@ function MemberRow({
       <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-600">
         {ROLE_LABEL[member.role] ?? member.role}
       </span>
-      {isOwner && !member.is_self && member.role !== 'owner' && canManagers && (
+      {!readOnly && isOwner && !member.is_self && member.role !== 'owner' && canManagers && (
         <button
           onClick={onEdit}
           aria-label={`Editar acceso de ${member.email}`}
@@ -307,7 +349,7 @@ function MemberRow({
           <Pencil className="size-4" aria-hidden />
         </button>
       )}
-      {isOwner && !member.is_self && member.role !== 'owner' && (
+      {!readOnly && isOwner && !member.is_self && member.role !== 'owner' && (
         <button
           onClick={onRemove}
           aria-label={`Eliminar a ${member.email} del equipo`}

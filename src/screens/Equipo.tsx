@@ -8,9 +8,9 @@ import { EquipoMiembros } from './EquipoMiembros'
 // Página de equipo (Pro+), en dos pestañas:
 //   * Tablón (por defecto, TODO el equipo): peticiones internas con respuestas
 //     y candidatos propuestos.
-//   * Miembros (solo owner, nunca en demo): invitar y gestionar accesos. La
-//     seguridad real está en los RPCs owner-only del servidor; aquí solo se
-//     decide qué se pinta.
+//   * Miembros (owner; en demo también, con datos de ejemplo): invitar y
+//     gestionar accesos. Fuera de demo la seguridad real está en los RPCs
+//     owner-only del servidor; aquí solo se decide qué se pinta.
 export function Equipo() {
   const { company, role } = useAuth()
   const [params, setParams] = useSearchParams()
@@ -20,7 +20,8 @@ export function Equipo() {
     return <FeatureLocked feature="teamBoard" />
   }
 
-  const showMiembros = role === 'owner' && !demo
+  // En demo el visitante actúa como propietario de "Tu empresa".
+  const showMiembros = demo || role === 'owner'
   // Un no-owner que fuerce ?t=miembros cae al tablón.
   const tab: 'tablon' | 'miembros' = params.get('t') === 'miembros' && showMiembros ? 'miembros' : 'tablon'
 

@@ -288,6 +288,8 @@ export const SEED_TAGS: Tag[] = [
   { id: 'tag_recontactar', name: 'Recontactar' },
   { id: 'tag_doc_ok', name: 'Documentación OK' },
   { id: 'tag_cerca_obra', name: 'Cerca de la obra' },
+  { id: 'tag_turno_noche', name: 'Turno noche' },
+  { id: 'tag_vehiculo', name: 'Vehículo propio' },
   { id: 'tag_no_encaja', name: 'No encaja ahora' },
 ]
 
@@ -300,17 +302,33 @@ function tagsForStatus(status: CandidateStatus): string[] {
   }
   switch (status) {
     case 'contratado':
-      add('tag_buen_perfil', 0.8); add('tag_doc_ok', 0.7); break
+      add('tag_buen_perfil', 0.95)
+      add('tag_doc_ok', 0.9)
+      add('tag_vehiculo', 0.35)
+      break
     case 'entrevista':
-      add('tag_buen_perfil', 0.6); add('tag_doc_ok', 0.4); add('tag_cerca_obra', 0.3); break
+      add('tag_buen_perfil', 0.85)
+      add('tag_doc_ok', 0.65)
+      add('tag_cerca_obra', 0.45)
+      add('tag_vehiculo', 0.3)
+      break
     case 'contactado':
-      add('tag_recontactar', 0.5); add('tag_cerca_obra', 0.3); add('tag_buen_perfil', 0.2); break
+      add('tag_recontactar', 0.7)
+      add('tag_cerca_obra', 0.45)
+      add('tag_buen_perfil', 0.4)
+      add('tag_turno_noche', 0.25)
+      add('tag_vehiculo', 0.2)
+      break
     case 'descartado':
-      add('tag_no_encaja', 0.6); break
+      add('tag_no_encaja', 0.85)
+      break
     default: // nuevo
-      add('tag_buen_perfil', 0.15); add('tag_cerca_obra', 0.15); break
+      add('tag_buen_perfil', 0.35)
+      add('tag_cerca_obra', 0.3)
+      add('tag_turno_noche', 0.2)
+      break
   }
-  return out
+  return out.slice(0, 3)
 }
 
 // ---------------------------------------------------------------------------
@@ -441,15 +459,15 @@ function noteFor(status: CandidateStatus): string {
   return pool.length ? pick(pool) : ''
 }
 
-// Volumen por puesto: logística recibe muchas más candidaturas que un oficio
-// cualificado. Enseña de un vistazo el valor de tenerlo todo ordenado.
+// Volumen por puesto: bastante lleno para que la demo se sienta como una ETT
+// real (filtros, etiquetas y Equipo tienen material con el que trabajar).
 const COUNTS: Record<string, number> = {
-  cmp_peon: 22,
-  cmp_oficial: 14,
-  cmp_electricista: 9,
-  cmp_mozo: 31,
-  cmp_carretillero: 17,
-  cmp_preparador: 12,
+  cmp_peon: 38,
+  cmp_oficial: 22,
+  cmp_electricista: 16,
+  cmp_mozo: 48,
+  cmp_carretillero: 28,
+  cmp_preparador: 18,
 }
 const DAYS_OPEN: Record<string, number> = {
   cmp_peon: 28,
@@ -488,6 +506,14 @@ for (const cmp of campaigns) {
 // Orden: más recientes primero
 candidates.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
 
+// Fuerza un poco más de etiquetado visible: en una ETT real casi nadie se deja
+// sin marcar cuando ya se ha abierto el perfil.
+for (const c of candidates) {
+  if (c.tagIds.length > 0) continue
+  if (c.status === 'nuevo' && !chance(0.45)) continue
+  c.tagIds = tagsForStatus(c.status === 'nuevo' ? 'contactado' : c.status)
+}
+
 export const SEED: AppData = {
   company: { name: 'Tu empresa', plan: 'multi', accent: '#374cce' },
   sites,
@@ -496,48 +522,108 @@ export const SEED: AppData = {
 }
 
 // ---------------------------------------------------------------------------
-// Tablón de peticiones (demo). El usuario demo es 'demo-user' (owner); Laura y
-// Sergio son compañeros ficticios. Los candidatos propuestos se toman del seed
-// real por puesto (ids estables aunque cambie el contador de generación).
+// Tablón de peticiones (demo). Conversaciones realistas: proponer, contactar,
+// actualizar y cerrar. Tres personas (tú, Laura, Sergio) + Ana en invitaciones.
 // ---------------------------------------------------------------------------
 
 const seedOf = (campaignId: string) => SEED.candidates.filter((c) => c.campaignId === campaignId)
 const carretilleros = seedOf('cmp_carretillero')
 const mozos = seedOf('cmp_mozo')
+const peones = seedOf('cmp_peon')
+const electricistas = seedOf('cmp_electricista')
+const oficiales = seedOf('cmp_oficial')
+const preparadores = seedOf('cmp_preparador')
+
+// Marca en la base a los candidatos que salen en el tablón (parece trabajo real).
+function markProposed(c: Candidate | undefined, status: CandidateStatus, tags: string[]) {
+  if (!c) return
+  c.status = status
+  c.tagIds = [...new Set([...c.tagIds, ...tags])].slice(0, 3)
+  if (!c.notes) {
+    c.notes =
+      status === 'entrevista'
+        ? 'Propuesto en Equipo. Entrevista pendiente.'
+        : status === 'contactado'
+          ? 'Propuesto en Equipo. Contactado por teléfono.'
+          : c.notes
+  }
+}
+
+markProposed(carretilleros[0], 'entrevista', ['tag_buen_perfil', 'tag_turno_noche', 'tag_doc_ok'])
+markProposed(carretilleros[1], 'contactado', ['tag_recontactar', 'tag_turno_noche'])
+markProposed(carretilleros[2], 'contactado', ['tag_buen_perfil', 'tag_doc_ok'])
+markProposed(electricistas[0], 'entrevista', ['tag_buen_perfil', 'tag_vehiculo', 'tag_doc_ok'])
+markProposed(electricistas[1], 'contactado', ['tag_vehiculo', 'tag_recontactar'])
+markProposed(peones[0], 'contactado', ['tag_buen_perfil', 'tag_cerca_obra'])
+markProposed(peones[1], 'contactado', ['tag_cerca_obra', 'tag_doc_ok'])
+markProposed(peones[2], 'entrevista', ['tag_buen_perfil', 'tag_cerca_obra'])
+markProposed(peones[3], 'nuevo', ['tag_buen_perfil'])
+markProposed(peones[4], 'contactado', ['tag_recontactar'])
+markProposed(mozos[0], 'contratado', ['tag_buen_perfil', 'tag_doc_ok'])
+markProposed(mozos[1], 'contratado', ['tag_buen_perfil', 'tag_cerca_obra'])
+markProposed(oficiales[0], 'contratado', ['tag_buen_perfil', 'tag_doc_ok', 'tag_vehiculo'])
+markProposed(preparadores[0], 'entrevista', ['tag_buen_perfil', 'tag_turno_noche'])
+markProposed(preparadores[1], 'contactado', ['tag_recontactar'])
 
 export const SEED_TEAM_REQUESTS: TeamRequest[] = [
   {
     id: 'req_carretilleros',
     title: '2 carretilleros con carnet para el turno de noche',
-    body: 'Nos entra un pico de trabajo la semana que viene en la nave de Madrid. Necesito dos personas con carnet de carretilla en vigor y experiencia con retráctil. Revisad los que ya tenemos antes de tirar de anuncio nuevo.',
+    body:
+      'Nos entra un pico de trabajo la semana que viene en la nave de Madrid. Necesito dos personas con carnet de carretilla en vigor y experiencia con retráctil. Revisad los que ya tenemos antes de tirar de anuncio nuevo.\n\nHorario: 22:00 a 06:00, lunes a viernes. Si alguien tiene disponibilidad parcial también lo valoramos, pero preferimos jornada completa. El cliente pide gente fiable, sin bajas recientes y con ganas de quedarse.',
     status: 'abierta',
     authorUserId: 'demo-laura',
     authorEmail: 'laura@tuempresa.es',
     siteId: 'site_madrid',
     createdAt: '2026-07-13T09:20:00.000Z',
     completedBy: null,
-    lastActivityAt: '2026-07-13T16:45:00.000Z',
-    lastActivityBy: 'demo-sergio',
-    commentCount: 1,
+    lastActivityAt: '2026-07-17T09:15:00.000Z',
+    lastActivityBy: 'demo-laura',
+    commentCount: 8,
     proposals: [
-      { candidateId: carretilleros[0]?.id ?? 'cand_77', commentId: 'reqc_1', proposedBy: 'demo-sergio' },
-      { candidateId: carretilleros[1]?.id ?? 'cand_81', commentId: 'reqc_1', proposedBy: 'demo-sergio' },
+      { candidateId: carretilleros[0]?.id ?? 'cand_77', commentId: 'reqc_c2', proposedBy: 'demo-sergio' },
+      { candidateId: carretilleros[1]?.id ?? 'cand_81', commentId: 'reqc_c2', proposedBy: 'demo-sergio' },
+      { candidateId: carretilleros[2]?.id ?? 'cand_82', commentId: 'reqc_c5', proposedBy: 'demo-user' },
     ],
   },
   {
     id: 'req_electricistas',
     title: '3 electricistas oficiales para una reforma en Paterna',
-    body: 'Cliente nuevo, reforma integral de un local. Empieza el 1 de agosto y son unas 6 semanas. Prioridad a gente con vehículo propio.',
+    body: 'Cliente nuevo, reforma integral de un local. Empieza el 1 de agosto y son unas 6 semanas. Prioridad a gente con vehículo propio y herramienta básica.',
     status: 'abierta',
     authorUserId: 'demo-user',
     authorEmail: 'demo@apuntatefacil.com',
     siteId: 'site_valencia',
     createdAt: '2026-07-12T11:05:00.000Z',
     completedBy: null,
-    lastActivityAt: '2026-07-12T11:05:00.000Z',
+    lastActivityAt: '2026-07-16T16:50:00.000Z',
+    lastActivityBy: 'demo-sergio',
+    commentCount: 7,
+    proposals: [
+      { candidateId: electricistas[0]?.id ?? 'cand_30', commentId: 'reqc_e3', proposedBy: 'demo-laura' },
+      { candidateId: electricistas[1]?.id ?? 'cand_31', commentId: 'reqc_e5', proposedBy: 'demo-sergio' },
+    ],
+  },
+  {
+    id: 'req_peones',
+    title: 'Cuadrilla de peones para obra en Alboraya',
+    body: 'Arrancamos el lunes. Hacen falta 4 peones con EPIs propios y disponibilidad inmediata. Preferible gente que ya haya pasado por nosotros.',
+    status: 'abierta',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    siteId: 'site_valencia',
+    createdAt: '2026-07-14T08:10:00.000Z',
+    completedBy: null,
+    lastActivityAt: '2026-07-17T08:40:00.000Z',
     lastActivityBy: 'demo-user',
-    commentCount: 0,
-    proposals: [],
+    commentCount: 6,
+    proposals: [
+      { candidateId: peones[0]?.id ?? 'cand_1', commentId: 'reqc_p2', proposedBy: 'demo-laura' },
+      { candidateId: peones[1]?.id ?? 'cand_2', commentId: 'reqc_p2', proposedBy: 'demo-laura' },
+      { candidateId: peones[2]?.id ?? 'cand_3', commentId: 'reqc_p2', proposedBy: 'demo-laura' },
+      { candidateId: peones[3]?.id ?? 'cand_4', commentId: 'reqc_p2', proposedBy: 'demo-laura' },
+      { candidateId: peones[4]?.id ?? 'cand_5', commentId: 'reqc_p4', proposedBy: 'demo-user' },
+    ],
   },
   {
     id: 'req_inventario',
@@ -551,25 +637,243 @@ export const SEED_TEAM_REQUESTS: TeamRequest[] = [
     completedBy: 'demo-user',
     lastActivityAt: '2026-07-10T13:10:00.000Z',
     lastActivityBy: 'demo-user',
-    commentCount: 2,
+    commentCount: 6,
     proposals: [
-      { candidateId: mozos[0]?.id ?? 'cand_46', commentId: 'reqc_2', proposedBy: 'demo-user' },
-      { candidateId: mozos[1]?.id ?? 'cand_52', commentId: 'reqc_2', proposedBy: 'demo-user' },
+      { candidateId: mozos[0]?.id ?? 'cand_46', commentId: 'reqc_i2', proposedBy: 'demo-user' },
+      { candidateId: mozos[1]?.id ?? 'cand_52', commentId: 'reqc_i2', proposedBy: 'demo-user' },
+    ],
+  },
+  {
+    id: 'req_oficiales',
+    title: 'Oficial de 1ª para un cliente habitual en Valencia',
+    body: 'Sustitución de 3 semanas. Si tenéis alguien en entrevista o contactado, mejor; no hace falta publicar anuncio nuevo.',
+    status: 'completada',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    siteId: 'site_valencia',
+    createdAt: '2026-07-05T07:50:00.000Z',
+    completedBy: 'demo-laura',
+    lastActivityAt: '2026-07-07T18:20:00.000Z',
+    lastActivityBy: 'demo-laura',
+    commentCount: 5,
+    proposals: [
+      { candidateId: oficiales[0]?.id ?? 'cand_20', commentId: 'reqc_o2', proposedBy: 'demo-sergio' },
+    ],
+  },
+  {
+    id: 'req_finde',
+    title: '2 preparadores para el fin de semana en Madrid',
+    body: 'Pico de pedidos el sábado y el domingo. Turno de mañana. Si ya tienen PDA, perfecto.',
+    status: 'completada',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    siteId: 'site_madrid',
+    createdAt: '2026-07-02T10:00:00.000Z',
+    completedBy: 'demo-sergio',
+    lastActivityAt: '2026-07-04T19:05:00.000Z',
+    lastActivityBy: 'demo-sergio',
+    commentCount: 5,
+    proposals: [
+      { candidateId: preparadores[0]?.id ?? 'cand_90', commentId: 'reqc_f2', proposedBy: 'demo-laura' },
+      { candidateId: preparadores[1]?.id ?? 'cand_91', commentId: 'reqc_f3', proposedBy: 'demo-user' },
     ],
   },
 ]
 
 export const SEED_TEAM_COMMENTS: TeamRequestComment[] = [
+  // --- Carretilleros (abierta, mucho ida y vuelta) ---
   {
-    id: 'reqc_1',
+    id: 'reqc_c1',
     requestId: 'req_carretilleros',
     authorUserId: 'demo-sergio',
     authorEmail: 'sergio@tuempresa.es',
-    body: 'Te propongo estos dos: los llamé el mes pasado para otra cosa y los dos tienen el carnet en vigor. El primero ya trabajó con retráctil.',
+    body: 'Miro la base de Madrid y te digo en un rato. ¿Sirve gente que solo haga noches de lunes a jueves?',
+    createdAt: '2026-07-13T10:05:00.000Z',
+  },
+  {
+    id: 'reqc_c1b',
+    requestId: 'req_carretilleros',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Mejor semana completa. Si alguno solo puede 4 noches, lo dejamos de reserva.',
+    createdAt: '2026-07-13T10:40:00.000Z',
+  },
+  {
+    id: 'reqc_c2',
+    requestId: 'req_carretilleros',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'Te propongo estos dos. Los llamé el mes pasado: carnet en vigor y el primero ya trabajó con retráctil.',
     createdAt: '2026-07-13T16:45:00.000Z',
   },
   {
-    id: 'reqc_2',
+    id: 'reqc_c3',
+    requestId: 'req_carretilleros',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Buenos perfiles. ¿Les escribes tú o lo hago yo?',
+    createdAt: '2026-07-14T09:10:00.000Z',
+  },
+  {
+    id: 'reqc_c4',
+    requestId: 'req_carretilleros',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'Les acabo de llamar. El primero confirma entrevista mañana a las 11. El segundo no coge; le escribo por WhatsApp.',
+    createdAt: '2026-07-14T17:25:00.000Z',
+  },
+  {
+    id: 'reqc_c5',
+    requestId: 'req_carretilleros',
+    authorUserId: 'demo-user',
+    authorEmail: 'demo@apuntatefacil.com',
+    body: 'Añado uno más por si el segundo no responde. Yo le contacto esta tarde.',
+    createdAt: '2026-07-15T12:30:00.000Z',
+  },
+  {
+    id: 'reqc_c6',
+    requestId: 'req_carretilleros',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'El segundo ha contestado: puede empezar el lunes. El de reserva también está contactado.',
+    createdAt: '2026-07-16T18:20:00.000Z',
+  },
+  {
+    id: 'reqc_c7',
+    requestId: 'req_carretilleros',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Genial. Dejo la petición abierta hasta confirmar altas. Si falla alguno, tiramos del tercero.',
+    createdAt: '2026-07-17T09:15:00.000Z',
+  },
+
+  // --- Electricistas (abierta) ---
+  {
+    id: 'reqc_e1',
+    requestId: 'req_electricistas',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: '¿El cliente acepta autónomos o solo contrato ETT?',
+    createdAt: '2026-07-12T15:20:00.000Z',
+  },
+  {
+    id: 'reqc_e1b',
+    requestId: 'req_electricistas',
+    authorUserId: 'demo-user',
+    authorEmail: 'demo@apuntatefacil.com',
+    body: 'Solo ETT, con alta al día. Vehículo propio casi obligatorio.',
+    createdAt: '2026-07-13T08:05:00.000Z',
+  },
+  {
+    id: 'reqc_e2',
+    requestId: 'req_electricistas',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'En Valencia tenemos pocos oficiales frescos. ¿Bajo el listón a gente con 2 años si traen furgoneta?',
+    createdAt: '2026-07-13T11:40:00.000Z',
+  },
+  {
+    id: 'reqc_e2b',
+    requestId: 'req_electricistas',
+    authorUserId: 'demo-user',
+    authorEmail: 'demo@apuntatefacil.com',
+    body: 'Sí, si el perfil es limpio. Prioridad: que puedan empezar el 1.',
+    createdAt: '2026-07-13T12:05:00.000Z',
+  },
+  {
+    id: 'reqc_e3',
+    requestId: 'req_electricistas',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Este está en entrevista y tiene furgoneta. ¿Le llamo yo para cerrar fecha?',
+    createdAt: '2026-07-15T09:40:00.000Z',
+  },
+  {
+    id: 'reqc_e4',
+    requestId: 'req_electricistas',
+    authorUserId: 'demo-user',
+    authorEmail: 'demo@apuntatefacil.com',
+    body: 'Sí, llámale. Si confirma, ya nos falta encontrar dos más.',
+    createdAt: '2026-07-15T10:10:00.000Z',
+  },
+  {
+    id: 'reqc_e5',
+    requestId: 'req_electricistas',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'Propongo este otro: le escribí ayer y responde rápido. Todavía no tiene entrevista.',
+    createdAt: '2026-07-16T16:50:00.000Z',
+  },
+
+  // --- Peones (abierta, muchas propuestas) ---
+  {
+    id: 'reqc_p1',
+    requestId: 'req_peones',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Filtro por “Cerca de la obra” y gente que ya pasó por nosotros. Te paso un primer lote.',
+    createdAt: '2026-07-14T10:20:00.000Z',
+  },
+  {
+    id: 'reqc_p2',
+    requestId: 'req_peones',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Estos cuatro. Los dos primeros ya están contactados; el tercero tiene entrevista pendiente.',
+    createdAt: '2026-07-14T14:00:00.000Z',
+  },
+  {
+    id: 'reqc_p3',
+    requestId: 'req_peones',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'El cuarto no me convence del todo (poca constancia el año pasado). ¿Sacamos uno más de la base?',
+    createdAt: '2026-07-15T09:00:00.000Z',
+  },
+  {
+    id: 'reqc_p4',
+    requestId: 'req_peones',
+    authorUserId: 'demo-user',
+    authorEmail: 'demo@apuntatefacil.com',
+    body: 'Añado este. Acabo de llamarle: puede el lunes. Marco al cuarto como reserva.',
+    createdAt: '2026-07-16T11:05:00.000Z',
+  },
+  {
+    id: 'reqc_p5',
+    requestId: 'req_peones',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Perfecto. Yo confirmo altas de los tres seguros y dejo el resto en el hilo.',
+    createdAt: '2026-07-16T15:30:00.000Z',
+  },
+  {
+    id: 'reqc_p6',
+    requestId: 'req_peones',
+    authorUserId: 'demo-user',
+    authorEmail: 'demo@apuntatefacil.com',
+    body: 'Actualizo: ya tengo WhatsApp de confirmación de dos. Seguimos abiertos por si cae alguno.',
+    createdAt: '2026-07-17T08:40:00.000Z',
+  },
+
+  // --- Inventario (completada) ---
+  {
+    id: 'reqc_i1',
+    requestId: 'req_inventario',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: '¿Solo sábado o también domingo por la mañana?',
+    createdAt: '2026-07-08T09:15:00.000Z',
+  },
+  {
+    id: 'reqc_i1b',
+    requestId: 'req_inventario',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Solo sábado, 8 a 15. Plus de fin de semana incluido.',
+    createdAt: '2026-07-08T09:40:00.000Z',
+  },
+  {
+    id: 'reqc_i2',
     requestId: 'req_inventario',
     authorUserId: 'demo-user',
     authorEmail: 'demo@apuntatefacil.com',
@@ -577,11 +881,166 @@ export const SEED_TEAM_COMMENTS: TeamRequestComment[] = [
     createdAt: '2026-07-09T10:00:00.000Z',
   },
   {
-    id: 'reqc_3',
+    id: 'reqc_i3',
+    requestId: 'req_inventario',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'Les he escrito por WhatsApp. Confirman los dos. Los paso a contactado.',
+    createdAt: '2026-07-09T17:40:00.000Z',
+  },
+  {
+    id: 'reqc_i4',
     requestId: 'req_inventario',
     authorUserId: 'demo-laura',
     authorEmail: 'laura@tuempresa.es',
-    body: 'Confirmados los dos. Cierro la petición, gracias.',
+    body: 'Hecho. El sábado estuvieron puntuales. Gracias al equipo.',
+    createdAt: '2026-07-10T12:55:00.000Z',
+  },
+  {
+    id: 'reqc_i5',
+    requestId: 'req_inventario',
+    authorUserId: 'demo-user',
+    authorEmail: 'demo@apuntatefacil.com',
+    body: 'Marco la petición como completada y dejo a los dos como contratados del sábado.',
     createdAt: '2026-07-10T13:10:00.000Z',
+  },
+
+  // --- Oficiales (completada) ---
+  {
+    id: 'reqc_o1',
+    requestId: 'req_oficiales',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'Miro quién está en entrevista en Valencia. Te digo en media hora.',
+    createdAt: '2026-07-05T08:20:00.000Z',
+  },
+  {
+    id: 'reqc_o2',
+    requestId: 'req_oficiales',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'Este encaja: vehículo, documentación OK y ya le conocemos.',
+    createdAt: '2026-07-05T11:05:00.000Z',
+  },
+  {
+    id: 'reqc_o3',
+    requestId: 'req_oficiales',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Le llamo ahora. Si confirma, cerramos sin publicar anuncio.',
+    createdAt: '2026-07-05T11:30:00.000Z',
+  },
+  {
+    id: 'reqc_o4',
+    requestId: 'req_oficiales',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Confirmado. Empieza el lunes. Alta hecha.',
+    createdAt: '2026-07-07T17:50:00.000Z',
+  },
+  {
+    id: 'reqc_o5',
+    requestId: 'req_oficiales',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Completo la petición. Cliente contento.',
+    createdAt: '2026-07-07T18:20:00.000Z',
+  },
+
+  // --- Finde preparadores (completada) ---
+  {
+    id: 'reqc_f1',
+    requestId: 'req_finde',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: '¿Aceptáis gente sin PDA si aprende rápido?',
+    createdAt: '2026-07-02T11:10:00.000Z',
+  },
+  {
+    id: 'reqc_f1b',
+    requestId: 'req_finde',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'Sí, pero preferible con PDA. Propón lo que tengas.',
+    createdAt: '2026-07-02T11:35:00.000Z',
+  },
+  {
+    id: 'reqc_f2',
+    requestId: 'req_finde',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Esta tiene PDA y turno mañana. La contacto yo.',
+    createdAt: '2026-07-02T16:00:00.000Z',
+  },
+  {
+    id: 'reqc_f3',
+    requestId: 'req_finde',
+    authorUserId: 'demo-user',
+    authorEmail: 'demo@apuntatefacil.com',
+    body: 'Y este otro. Le escribí: confirma sábado y domingo.',
+    createdAt: '2026-07-03T10:20:00.000Z',
+  },
+  {
+    id: 'reqc_f4',
+    requestId: 'req_finde',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'Los dos cubrieron el pico. Cierro la petición.',
+    createdAt: '2026-07-04T19:05:00.000Z',
+  },
+]
+
+// ---------------------------------------------------------------------------
+// Miembros e invitaciones (solo demo). Mismos emails que el tablón para que
+// avatares y nombres cuadren entre pestañas.
+// ---------------------------------------------------------------------------
+
+export type DemoMember = {
+  user_id: string
+  email: string
+  role: string
+  is_self: boolean
+  site_ids: string[]
+}
+
+export type DemoInvitation = {
+  id: string
+  email: string
+  token: string
+  created_at: string
+  role: string
+}
+
+export const SEED_MEMBERS: DemoMember[] = [
+  {
+    user_id: 'demo-user',
+    email: 'demo@apuntatefacil.com',
+    role: 'owner',
+    is_self: true,
+    site_ids: [],
+  },
+  {
+    user_id: 'demo-laura',
+    email: 'laura@tuempresa.es',
+    role: 'member',
+    is_self: false,
+    site_ids: [],
+  },
+  {
+    user_id: 'demo-sergio',
+    email: 'sergio@tuempresa.es',
+    role: 'encargado',
+    is_self: false,
+    site_ids: ['site_madrid'],
+  },
+]
+
+export const SEED_INVITES: DemoInvitation[] = [
+  {
+    id: 'inv_ana',
+    email: 'ana@tuempresa.es',
+    token: 'demo-invite-ana',
+    created_at: '2026-07-15T10:00:00.000Z',
+    role: 'member',
   },
 ]

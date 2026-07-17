@@ -35,7 +35,7 @@ npm run dev            # http://localhost:5173
 npm run build          # debe quedar verde (tsc -b + vite build)
 ```
 - Migraciones en `supabase/migrations/`. Tras tocar esquema: `supabase db reset`. Tras tocar `config.toml`: `supabase stop && supabase start`.
-- Datos demo (una ETT, 4 sectores, ~50 candidatos) en `localStorage` (`apuntatefacil.demo.v1`), rutas `/demo/*`.
+- Datos demo (ETT Multi: sedes, marcas, ~170 candidatos, Equipo) en `localStorage` (`apuntatefacil.demo.v3`), rutas `/demo/*`.
 
 ## Principios de trabajo (Mario tiene un listón de diseño MUY alto)
 - **Mismo rigor en el cambio pequeño que en el grande**, también en follow-ups cortos.

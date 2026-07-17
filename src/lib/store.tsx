@@ -257,7 +257,7 @@ const Ctx = createContext<Store | null>(null)
 
 // --- Persistencia de la DEMO en localStorage --------------------------------
 // La demo es 100% local; guardamos su estado para que aguante recargas.
-const DEMO_KEY = 'apuntatefacil.demo.v1'
+const DEMO_KEY = 'apuntatefacil.demo.v3'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
