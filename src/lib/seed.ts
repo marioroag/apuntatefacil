@@ -8,6 +8,8 @@ import type {
   FormField,
   Site,
   Tag,
+  TeamRequest,
+  TeamRequestComment,
 } from './types'
 
 // PRNG determinista (mulberry32) para que los datos de ejemplo sean estables.
@@ -492,3 +494,90 @@ export const SEED: AppData = {
   campaigns,
   candidates,
 }
+
+// ---------------------------------------------------------------------------
+// Tablón de peticiones (demo). El usuario demo es 'demo-user' (owner); Laura y
+// Sergio son compañeros ficticios. Los candidatos propuestos son ids reales del
+// seed: cand_77/cand_81 (carretilleros), cand_46/cand_52 (mozos de almacén).
+// ---------------------------------------------------------------------------
+
+export const SEED_TEAM_REQUESTS: TeamRequest[] = [
+  {
+    id: 'req_carretilleros',
+    title: '2 carretilleros con carnet para el turno de noche',
+    body: 'Nos entra un pico de trabajo la semana que viene en la nave de Madrid. Necesito dos personas con carnet de carretilla en vigor y experiencia con retráctil. Revisad los que ya tenemos antes de tirar de anuncio nuevo.',
+    status: 'abierta',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    siteId: 'site_madrid',
+    createdAt: '2026-07-13T09:20:00.000Z',
+    completedBy: null,
+    lastActivityAt: '2026-07-13T16:45:00.000Z',
+    lastActivityBy: 'demo-sergio',
+    commentCount: 1,
+    proposals: [
+      { candidateId: 'cand_77', commentId: 'reqc_1', proposedBy: 'demo-sergio' },
+      { candidateId: 'cand_81', commentId: 'reqc_1', proposedBy: 'demo-sergio' },
+    ],
+  },
+  {
+    id: 'req_electricistas',
+    title: '3 electricistas oficiales para una reforma en Paterna',
+    body: 'Cliente nuevo, reforma integral de un local. Empieza el 1 de agosto y son unas 6 semanas. Prioridad a gente con vehículo propio.',
+    status: 'abierta',
+    authorUserId: 'demo-user',
+    authorEmail: 'demo@apuntatefacil.com',
+    siteId: 'site_valencia',
+    createdAt: '2026-07-12T11:05:00.000Z',
+    completedBy: null,
+    lastActivityAt: '2026-07-12T11:05:00.000Z',
+    lastActivityBy: 'demo-user',
+    commentCount: 0,
+    proposals: [],
+  },
+  {
+    id: 'req_inventario',
+    title: 'Refuerzo para el inventario del sábado',
+    body: 'Dos mozos para el recuento anual en Madrid, jornada de 8 a 15. Se paga plus de fin de semana.',
+    status: 'completada',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    siteId: 'site_madrid',
+    createdAt: '2026-07-08T08:30:00.000Z',
+    completedBy: 'demo-user',
+    lastActivityAt: '2026-07-10T13:10:00.000Z',
+    lastActivityBy: 'demo-user',
+    commentCount: 2,
+    proposals: [
+      { candidateId: 'cand_46', commentId: 'reqc_2', proposedBy: 'demo-user' },
+      { candidateId: 'cand_52', commentId: 'reqc_2', proposedBy: 'demo-user' },
+    ],
+  },
+]
+
+export const SEED_TEAM_COMMENTS: TeamRequestComment[] = [
+  {
+    id: 'reqc_1',
+    requestId: 'req_carretilleros',
+    authorUserId: 'demo-sergio',
+    authorEmail: 'sergio@tuempresa.es',
+    body: 'Te propongo estos dos: los llamé el mes pasado para otra cosa y los dos tienen el carnet en vigor. El primero ya trabajó con retráctil.',
+    createdAt: '2026-07-13T16:45:00.000Z',
+  },
+  {
+    id: 'reqc_2',
+    requestId: 'req_inventario',
+    authorUserId: 'demo-user',
+    authorEmail: 'demo@apuntatefacil.com',
+    body: 'Estos dos viven cerca de la nave y tienen disponibilidad inmediata.',
+    createdAt: '2026-07-09T10:00:00.000Z',
+  },
+  {
+    id: 'reqc_3',
+    requestId: 'req_inventario',
+    authorUserId: 'demo-laura',
+    authorEmail: 'laura@tuempresa.es',
+    body: 'Confirmados los dos. Cierro la petición, gracias.',
+    createdAt: '2026-07-10T13:10:00.000Z',
+  },
+]

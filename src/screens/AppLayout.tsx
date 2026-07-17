@@ -216,7 +216,7 @@ function CompanySwitcher({
 }
 
 export function AppLayout() {
-  const { campaigns, candidates, newCountFor, newSinceFor, resetDemo, sites, loading } = useStore()
+  const { campaigns, candidates, newCountFor, newSinceFor, resetDemo, sites, loading, boardNewCount } = useStore()
   const { company, companies, setActiveCompany, signOut, role, user, setOnboardingDone } = useAuth()
   const onboarding = useOnboarding()
   const { campaignId } = useParams()
@@ -306,7 +306,8 @@ export function AppLayout() {
   // encargado ve sus datos (acotados por RLS) pero no gestiona estructura ni equipo.
   const showSedes = planHas(company.plan, 'sites') // Sedes: todos los roles ven sus sedes (acotadas por RLS); crear/editar/borrar va gateado dentro por rol
   const showBrands = planHas(company.plan, 'brands') && !isEncargado // gestionar marcas
-  const showEquipo = !demo && isOwner // gestión de equipo: solo el propietario
+  // Equipo lo ven TODOS los roles (el tablón de peticiones es de todo el equipo);
+  // dentro, la pestaña Miembros solo se pinta al owner (y los RPCs son owner-only).
   const canCreate = !isEncargado // crear puestos
   const groupBySite = planHas(company.plan, 'sites') && sites.length > 0
   const totalNuevos = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
@@ -418,26 +419,15 @@ export function AppLayout() {
         </div>
       )}
 
-      {showEquipo && (
-        <div className="px-3 pt-2">
-          <NavLink
-            to={`${base}/equipo`}
-            onClick={() => setOpen(false)}
-            className={({ isActive }) =>
-              `flex h-9 w-full items-center gap-2 rounded-xl px-2.5 text-sm transition-colors ${
-                isActive ? 'bg-indigo-50 font-semibold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Users className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
-                <span className="flex-1">Equipo</span>
-              </>
-            )}
-          </NavLink>
-        </div>
-      )}
+      <div className="px-3 pt-2">
+        <SideNavItem
+          to={`${base}/equipo`}
+          Icon={Users}
+          label="Equipo"
+          count={boardNewCount}
+          onNavigate={() => setOpen(false)}
+        />
+      </div>
 
       {/* Zona de ADMIN: SOLO para el equipo de Apúntate Fácil (allowlist en el backend),
           nunca en la demo. El resto de usuarios no ve nada de esto. */}

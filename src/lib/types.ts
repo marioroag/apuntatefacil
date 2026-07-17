@@ -159,6 +159,46 @@ export interface AppData {
   candidates: Candidate[]
 }
 
+// --- Tablón de peticiones de equipo ----------------------------------------
+// Una petición es un encargo interno ("Necesito 3 electricistas en Tenerife
+// Norte"): cualquier miembro la publica, los compañeros responden en hilo y
+// proponen candidatos existentes; la completa el autor o el propietario.
+
+export type TeamRequestStatus = 'abierta' | 'completada'
+
+// Candidato propuesto en una petición. Solo ids: el nombre se resuelve contra
+// el store (ya acotado por RLS) y si no es visible se pinta un chip degradado.
+export interface TeamRequestProposal {
+  candidateId: string
+  commentId: string | null // en qué respuesta se propuso (null = desconocido)
+  proposedBy: string | null
+}
+
+export interface TeamRequest {
+  id: string
+  title: string
+  body: string
+  status: TeamRequestStatus
+  authorUserId: string | null
+  authorEmail: string
+  siteId: string | null
+  createdAt: string // ISO
+  completedBy: string | null
+  lastActivityAt: string // ISO; responder/proponer/completar la "sube"
+  lastActivityBy: string | null // para no contarte tu propia actividad
+  commentCount: number
+  proposals: TeamRequestProposal[]
+}
+
+export interface TeamRequestComment {
+  id: string
+  requestId: string
+  authorUserId: string | null
+  authorEmail: string
+  body: string // '' permitido: respuesta solo con candidatos adjuntos
+  createdAt: string // ISO
+}
+
 // --- Metadatos de presentación (no datos del modelo) ----------------------
 
 export const STATUS_ORDER: CandidateStatus[] = [
@@ -181,6 +221,17 @@ export const STATUS_META: Record<
   entrevista: { label: 'Entrevista', dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700 ring-amber-200' },
   contratado: { label: 'Contratado', dot: 'bg-green-500', chip: 'bg-green-50 text-green-700 ring-green-200' },
   descartado: { label: 'Descartado', dot: 'bg-slate-300', chip: 'bg-slate-50 text-slate-500 ring-slate-200' },
+}
+
+// Estados de petición del tablón. Paleta de ESTADO propia (nunca el índigo de
+// marca): abierta = azul (en curso, como 'contactado'), completada = verde
+// (resuelto, como 'contratado'). Siempre punto de color + texto.
+export const TEAM_REQUEST_STATUS_META: Record<
+  TeamRequestStatus,
+  { label: string; dot: string; chip: string }
+> = {
+  abierta: { label: 'Abierta', dot: 'bg-blue-500', chip: 'bg-blue-50 text-blue-700 ring-blue-200' },
+  completada: { label: 'Completada', dot: 'bg-green-500', chip: 'bg-green-50 text-green-700 ring-green-200' },
 }
 
 export const SOURCE_META: Record<CandidateSource, { label: string }> = {

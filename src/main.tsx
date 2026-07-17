@@ -111,6 +111,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="bandeja" element={<Bandeja />} />
                   <Route path="sedes" element={<Sedes />} />
                   <Route path="marcas" element={<Marcas />} />
+                  <Route path="equipo" element={<Equipo />} />
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
                 </Route>

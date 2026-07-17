@@ -432,3 +432,6 @@ verify_jwt = true
 
 [functions.send-invitation]
 verify_jwt = true
+
+[functions.notify-team-board]
+verify_jwt = true

@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Brand, Branding, Campaign, Candidate, CandidateStatus, FormField, SavedView, SavedViewPayload, Site, Tag } from './types'
+import type { Brand, Branding, Campaign, Candidate, CandidateStatus, FormField, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
 import { supabase, supabaseConfigured } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
-import { SEED, SEED_BRANDS, SEED_TAGS } from './seed'
+import { SEED, SEED_BRANDS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS } from './seed'
 
 // Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
 // quita espacios de los extremos y colapsa los interiores. La comparación de
@@ -108,6 +108,61 @@ const toSavedView = (r: SavedViewRow): SavedView => ({
   payload: r.payload,
 })
 
+type TeamRequestRow = {
+  id: string
+  title: string
+  body: string
+  status: TeamRequestStatus
+  author_user_id: string | null
+  author_email: string
+  site_id: string | null
+  created_at: string
+  completed_by: string | null
+  last_activity_at: string
+  last_activity_by: string | null
+  team_request_candidates: { candidate_id: string; comment_id: string | null; proposed_by: string | null }[]
+  team_request_comments: { count: number }[]
+}
+const toTeamRequest = (r: TeamRequestRow): TeamRequest => ({
+  id: r.id,
+  title: r.title,
+  body: r.body ?? '',
+  status: r.status,
+  authorUserId: r.author_user_id,
+  authorEmail: r.author_email ?? '',
+  siteId: r.site_id ?? null,
+  createdAt: r.created_at,
+  completedBy: r.completed_by,
+  lastActivityAt: r.last_activity_at,
+  lastActivityBy: r.last_activity_by,
+  commentCount: r.team_request_comments?.[0]?.count ?? 0,
+  proposals: (r.team_request_candidates ?? []).map((p) => ({
+    candidateId: p.candidate_id,
+    commentId: p.comment_id,
+    proposedBy: p.proposed_by,
+  })),
+})
+// Columnas de la cabecera + puente embebido + recuento de respuestas, en una consulta.
+const TEAM_REQUEST_SELECT =
+  '*, team_request_candidates(candidate_id,comment_id,proposed_by), team_request_comments(count)'
+
+type TeamCommentRow = {
+  id: string
+  request_id: string
+  author_user_id: string | null
+  author_email: string
+  body: string
+  created_at: string
+}
+const toTeamComment = (r: TeamCommentRow): TeamRequestComment => ({
+  id: r.id,
+  requestId: r.request_id,
+  authorUserId: r.author_user_id,
+  authorEmail: r.author_email ?? '',
+  body: r.body ?? '',
+  createdAt: r.created_at,
+})
+
 export interface NewCampaignInput {
   title: string
   sector: string
@@ -179,6 +234,22 @@ interface Store {
   // Acciones masivas (selección múltiple): aplica/quita una etiqueta a varios.
   applyTagToMany: (candidateIds: string[], tagId: string) => Promise<void>
   removeTagFromMany: (candidateIds: string[], tagId: string) => Promise<void>
+  // Tablón de peticiones de equipo. Las cabeceras viven en memoria (ordenadas por
+  // actividad); el hilo de cada petición se carga perezoso al abrir su detalle.
+  teamRequests: TeamRequest[]
+  // Sube con cada ping realtime del tablón: un detalle abierto lo usa para refrescar su hilo.
+  boardVersion: number
+  // Peticiones con actividad ajena desde la última visita al tablón (badge del menú).
+  boardNewCount: number
+  markBoardSeen: () => void
+  loadTeamComments: (requestId: string) => Promise<TeamRequestComment[]>
+  createTeamRequest: (input: { title: string; body: string; siteId: string | null }) => Promise<TeamRequest | null>
+  // Responde a una petición, opcionalmente proponiendo candidatos. Devuelve la
+  // respuesta creada (para pintarla al instante) o null si falló.
+  addTeamComment: (requestId: string, body: string, candidateIds: string[]) => Promise<TeamRequestComment | null>
+  setTeamRequestStatus: (id: string, status: TeamRequestStatus) => Promise<void>
+  deleteTeamRequest: (id: string) => Promise<boolean>
+  retractProposal: (requestId: string, candidateId: string) => Promise<void>
   resetDemo: () => void
 }
 
@@ -199,7 +270,19 @@ function readSeen(): Record<string, string> {
   }
 }
 
-function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; savedViews: SavedView[]; sites: Site[]; brands: Brand[]; tags: Tag[] } | null {
+// "Visto por última vez" del tablón (mapa companyId -> ISO): el tablón es una
+// superficie única por empresa, a diferencia del seen por puesto de arriba.
+const BOARD_SEEN_KEY = 'apuntatefacil.board-seen.v1'
+function readBoardSeen(): Record<string, string> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(BOARD_SEEN_KEY) ?? 'null')
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; savedViews: SavedView[]; sites: Site[]; brands: Brand[]; tags: Tag[]; teamRequests: TeamRequest[]; teamComments: TeamRequestComment[] } | null {
   try {
     const raw = localStorage.getItem(DEMO_KEY)
     if (!raw) return null
@@ -213,6 +296,9 @@ function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; save
         sites: Array.isArray(parsed.sites) ? parsed.sites : SEED.sites,
         brands: Array.isArray(parsed.brands) ? parsed.brands : SEED_BRANDS,
         tags: Array.isArray(parsed.tags) ? parsed.tags : SEED_TAGS,
+        // Demos guardadas antes del tablón: datos de ejemplo.
+        teamRequests: Array.isArray(parsed.teamRequests) ? parsed.teamRequests : SEED_TEAM_REQUESTS,
+        teamComments: Array.isArray(parsed.teamComments) ? parsed.teamComments : SEED_TEAM_COMMENTS,
       }
   } catch {
     /* ignora storage corrupto */
@@ -221,9 +307,10 @@ function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; save
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const { company } = useAuth()
+  const { company, user } = useAuth()
   const toast = useToast()
   const companyId = company?.id
+  const userId = user?.id ?? null
 
   const [loading, setLoading] = useState(false)
   // Empresa cuyos datos hay AHORA en memoria. Si difiere de la empresa activa, estamos en
@@ -238,6 +325,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [tags, setTags] = useState<Tag[]>([])
   const [lockedInfo, setLockedInfo] = useState<Record<string, { count: number; dates: string[] }>>({})
   const [seen, setSeen] = useState<Record<string, string>>(() => readSeen())
+  const [teamRequests, setTeamRequests] = useState<TeamRequest[]>([])
+  // Hilos del tablón en DEMO (en real se cargan perezosos por petición, sin estado global).
+  const [demoTeamComments, setDemoTeamComments] = useState<TeamRequestComment[]>([])
+  const [boardSeen, setBoardSeen] = useState<Record<string, string>>(() => readBoardSeen())
+  const [boardVersion, setBoardVersion] = useState(0)
   // Candidatos con una escritura optimista aún sin confirmar en el servidor. Un
   // refetch (reloadCandidatesFor) NO debe pisar su estado local con datos viejos
   // del servidor mientras la escritura está en vuelo.
@@ -258,6 +350,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSites([])
       setBrands([])
       setTags([])
+      setTeamRequests([])
+      setDemoTeamComments([])
       setLoadedCompanyId(null)
       return
     }
@@ -271,6 +365,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSites(saved?.sites ?? SEED.sites)
       setBrands(saved?.brands ?? SEED_BRANDS)
       setTags(saved?.tags ?? SEED_TAGS)
+      setTeamRequests(saved?.teamRequests ?? SEED_TEAM_REQUESTS)
+      setDemoTeamComments(saved?.teamComments ?? SEED_TEAM_COMMENTS)
       setLockedInfo({})
       setLoadedCompanyId('demo')
       setLoading(false)
@@ -279,7 +375,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     // Acotamos a la empresa ACTIVA (company_id). La RLS sola no basta: para un usuario en
     // varios equipos devolvería datos de TODOS, sumándolos. Con esto ves solo el equipo activo.
-    const [c1, c2, c3, c4, c5, c6, c7, c8] = await Promise.all([
+    const [c1, c2, c3, c4, c5, c6, c7, c8, c9] = await Promise.all([
       supabase.from('campaigns').select('*').eq('company_id', companyId).order('created_at', { ascending: true }),
       supabase.from('candidates').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
       supabase.from('saved_views').select('id,campaign_id,name,payload').eq('company_id', companyId).order('created_at', { ascending: true }),
@@ -292,6 +388,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Bloqueados por puesto (la RLS los oculta; recuento + fechas por este RPC
       // security definer). Devuelve { campaignId: { count, dates } }.
       supabase.rpc('locked_candidates_preview'),
+      // Tablón de equipo: cabeceras + candidatos propuestos + nº de respuestas.
+      supabase.from('team_requests').select(TEAM_REQUEST_SELECT).eq('company_id', companyId).order('last_activity_at', { ascending: false }),
     ])
     if (seq !== loadSeq.current) return // un cambio de equipo más nuevo ya está cargando
     if (c1.error || c2.error) {
@@ -312,6 +410,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSites(!c4.error && c4.data ? (c4.data as SiteRow[]).map(toSite) : [])
     setBrands(!c5.error && c5.data ? (c5.data as BrandRow[]).map(toBrand) : [])
     setTags(!c6.error && c6.data ? (c6.data as TagRow[]).map(toTag) : [])
+    setTeamRequests(!c9.error && c9.data ? (c9.data as TeamRequestRow[]).map(toTeamRequest) : [])
     setLoadedCompanyId(companyId)
     setLoading(false)
   }, [companyId, toast])
@@ -361,6 +460,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return added
   }, [companyId, candidates])
 
+  // Recarga solo las cabeceras del tablón (tras un ping realtime de otro miembro).
+  const reloadTeamBoard = useCallback(async () => {
+    if (!companyId || companyId === 'demo') return
+    const { data, error } = await supabase
+      .from('team_requests')
+      .select(TEAM_REQUEST_SELECT)
+      .eq('company_id', companyId)
+      .order('last_activity_at', { ascending: false })
+    if (!error && data) setTeamRequests((data as TeamRequestRow[]).map(toTeamRequest))
+  }, [companyId])
+
   // Los handlers del canal realtime viven fuera del ciclo de render: consumen
   // las recargas vía ref para no resuscribir el websocket en cada cambio de estado.
   const reloadCandidatesRef = useRef(reloadCandidatesFor)
@@ -369,6 +479,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   refreshLockedRef.current = refreshLockedInfo
   const reloadRef = useRef(reload)
   reloadRef.current = reload
+  const reloadTeamBoardRef = useRef(reloadTeamBoard)
+  reloadTeamBoardRef.current = reloadTeamBoard
+  const userIdRef = useRef(userId)
+  userIdRef.current = userId
 
   // Live reload: canal privado por empresa. Al entrar una candidatura, un
   // trigger de BD emite un ping sin PII (campaign_id, locked) y aquí recargamos
@@ -377,6 +491,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!companyId || companyId === 'demo' || !supabaseConfigured) return
     const pending = new Set<string>() // campaign_ids acumulados (ráfagas)
     let lockedDirty = false
+    let boardDirty = false
     let timer = 0
     const flush = () => {
       timer = 0
@@ -387,6 +502,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         lockedDirty = false
         void refreshLockedRef.current()
       }
+      if (boardDirty) {
+        boardDirty = false
+        void reloadTeamBoardRef.current()
+        // Un detalle de petición abierto refresca su hilo al ver subir la versión.
+        setBoardVersion((v) => v + 1)
+      }
     }
     const channel = supabase
       .channel(`company:${companyId}`, { config: { private: true } })
@@ -395,6 +516,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (payload?.locked) lockedDirty = true
         else if (cid) pending.add(cid)
         if (!timer) timer = window.setTimeout(flush, 500) // amortigua ráfagas
+      })
+      .on('broadcast', { event: 'team_board_ping' }, ({ payload }) => {
+        // Lo propio ya está pintado en local (mutación optimista): solo recargamos
+        // por actividad de OTROS miembros.
+        if (payload?.by && payload.by === userIdRef.current) return
+        boardDirty = true
+        if (!timer) timer = window.setTimeout(flush, 500)
       })
     // Canal privado: el token debe estar fijado en Realtime antes de suscribir
     // (los refresh de sesión posteriores los propaga supabase-js solo).
@@ -425,14 +553,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return
     }
     try {
-      localStorage.setItem(DEMO_KEY, JSON.stringify({ campaigns, candidates, savedViews, sites, brands, tags }))
+      localStorage.setItem(DEMO_KEY, JSON.stringify({ campaigns, candidates, savedViews, sites, brands, tags, teamRequests, teamComments: demoTeamComments }))
     } catch {
       /* cuota llena, ignora */
     }
-  }, [companyId, campaigns, candidates, savedViews, sites, brands, tags])
+  }, [companyId, campaigns, candidates, savedViews, sites, brands, tags, teamRequests, demoTeamComments])
 
   const patchCandidateLocal = (id: string, patch: Partial<Candidate>) =>
     setCandidates((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)))
+
+  const patchTeamRequestLocal = (id: string, patch: Partial<TeamRequest>) =>
+    setTeamRequests((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)))
+
+  // Aviso por email del tablón, best-effort: si falla no molesta al usuario (el
+  // dato ya está guardado y el aviso en vivo llega igual por realtime).
+  const notifyBoard = (kind: 'peticion' | 'respuesta', id: string) => {
+    if (companyId === 'demo' || !supabaseConfigured) return
+    void supabase.functions.invoke('notify-team-board', { body: { kind, id } }).catch(() => {})
+  }
 
   const dbCandidate = async (id: string, patch: Record<string, unknown>, revert: () => void) => {
     if (companyId === 'demo') return // demo: solo estado local
@@ -1018,6 +1156,199 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     },
 
+    // --- Tablón de peticiones de equipo ------------------------------------
+    teamRequests,
+    boardVersion,
+    boardNewCount: (() => {
+      const since = companyId ? boardSeen[companyId] : undefined
+      // Sin marca de "visto" (nunca abierto): cuenta toda actividad ajena.
+      return teamRequests.filter(
+        (r) => r.lastActivityBy !== userId && (!since || r.lastActivityAt > since),
+      ).length
+    })(),
+    markBoardSeen: () => {
+      if (!companyId) return
+      setBoardSeen((prev) => {
+        const next = { ...prev, [companyId]: new Date().toISOString() }
+        try { localStorage.setItem(BOARD_SEEN_KEY, JSON.stringify(next)) } catch { /* cuota llena */ }
+        return next
+      })
+    },
+
+    loadTeamComments: async (requestId) => {
+      if (companyId === 'demo')
+        return demoTeamComments
+          .filter((c) => c.requestId === requestId)
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      const { data, error } = await supabase
+        .from('team_request_comments')
+        .select('id,request_id,author_user_id,author_email,body,created_at')
+        .eq('request_id', requestId)
+        .order('created_at', { ascending: true })
+      if (error || !data) return []
+      return (data as TeamCommentRow[]).map(toTeamComment)
+    },
+
+    createTeamRequest: async ({ title, body, siteId }) => {
+      if (companyId === 'demo') {
+        const request: TeamRequest = {
+          id: `req_demo_${Math.random().toString(36).slice(2, 9)}`,
+          title,
+          body,
+          status: 'abierta',
+          authorUserId: userId,
+          authorEmail: user?.email ?? '',
+          siteId,
+          createdAt: new Date().toISOString(),
+          completedBy: null,
+          lastActivityAt: new Date().toISOString(),
+          lastActivityBy: userId,
+          commentCount: 0,
+          proposals: [],
+        }
+        setTeamRequests((rs) => [request, ...rs])
+        return request
+      }
+      // Como createCampaign: primero el servidor (necesitamos id y autor que
+      // fijan los triggers), luego el estado local con la fila real.
+      const { data, error } = await supabase
+        .from('team_requests')
+        .insert({ company_id: companyId, title, body, site_id: siteId })
+        .select('*')
+        .single()
+      if (error || !data) {
+        toast.error('No se pudo publicar la petición. Inténtalo de nuevo.')
+        return null
+      }
+      const row = data as Omit<TeamRequestRow, 'team_request_candidates' | 'team_request_comments'>
+      const request = toTeamRequest({ ...row, team_request_candidates: [], team_request_comments: [] })
+      setTeamRequests((rs) => [request, ...rs])
+      notifyBoard('peticion', request.id)
+      return request
+    },
+
+    addTeamComment: async (requestId, body, candidateIds) => {
+      const now = new Date().toISOString()
+      if (companyId === 'demo') {
+        const comment: TeamRequestComment = {
+          id: `reqc_demo_${Math.random().toString(36).slice(2, 9)}`,
+          requestId,
+          authorUserId: userId,
+          authorEmail: user?.email ?? '',
+          body,
+          createdAt: now,
+        }
+        setDemoTeamComments((cs) => [...cs, comment])
+        setTeamRequests((rs) =>
+          rs.map((r) =>
+            r.id === requestId
+              ? {
+                  ...r,
+                  commentCount: r.commentCount + 1,
+                  lastActivityAt: now,
+                  lastActivityBy: userId,
+                  proposals: [
+                    ...r.proposals,
+                    ...candidateIds
+                      .filter((cid) => !r.proposals.some((p) => p.candidateId === cid))
+                      .map((cid) => ({ candidateId: cid, commentId: comment.id, proposedBy: userId })),
+                  ],
+                }
+              : r,
+          ),
+        )
+        return comment
+      }
+      const { data, error } = await supabase
+        .from('team_request_comments')
+        .insert({ request_id: requestId, body })
+        .select('id,request_id,author_user_id,author_email,body,created_at')
+        .single()
+      if (error || !data) {
+        toast.error('No se pudo enviar la respuesta. Inténtalo de nuevo.')
+        return null
+      }
+      const comment = toTeamComment(data as TeamCommentRow)
+      let attached = candidateIds
+      if (candidateIds.length) {
+        // El puente valida por RLS que el candidato sea visible y de la empresa.
+        // Si alguna fila falla (p. ej. otro compañero lo propuso a la vez), la
+        // respuesta ya está publicada: avisamos sin tirar nada.
+        const { error: pErr } = await supabase.from('team_request_candidates').insert(
+          candidateIds.map((cid) => ({ request_id: requestId, candidate_id: cid, comment_id: comment.id })),
+        )
+        if (pErr) {
+          attached = []
+          toast.error('La respuesta se publicó, pero no se pudieron adjuntar los candidatos.')
+        }
+      }
+      const request = teamRequests.find((r) => r.id === requestId)
+      patchTeamRequestLocal(requestId, {
+        commentCount: (request?.commentCount ?? 0) + 1,
+        lastActivityAt: now,
+        lastActivityBy: userId,
+        proposals: [
+          ...(request?.proposals ?? []),
+          ...attached
+            .filter((cid) => !request?.proposals.some((p) => p.candidateId === cid))
+            .map((cid) => ({ candidateId: cid, commentId: comment.id, proposedBy: userId })),
+        ],
+      })
+      notifyBoard('respuesta', comment.id)
+      return comment
+    },
+
+    setTeamRequestStatus: async (id, status) => {
+      const prev = teamRequests.find((r) => r.id === id)
+      patchTeamRequestLocal(id, {
+        status,
+        completedBy: status === 'completada' ? userId : null,
+        lastActivityAt: new Date().toISOString(),
+        lastActivityBy: userId,
+      })
+      if (companyId === 'demo') return
+      // completed_at/by y la actividad los fija el trigger de BD.
+      const { error } = await supabase.from('team_requests').update({ status }).eq('id', id)
+      if (error) {
+        if (prev) patchTeamRequestLocal(id, prev)
+        toast.error('No se pudo cambiar el estado de la petición.')
+      }
+    },
+
+    deleteTeamRequest: async (id) => {
+      const prev = teamRequests
+      setTeamRequests((rs) => rs.filter((r) => r.id !== id))
+      if (companyId === 'demo') {
+        setDemoTeamComments((cs) => cs.filter((c) => c.requestId !== id))
+        return true
+      }
+      const { error } = await supabase.from('team_requests').delete().eq('id', id)
+      if (error) {
+        setTeamRequests(prev)
+        toast.error('No se pudo eliminar la petición.')
+        return false
+      }
+      return true
+    },
+
+    retractProposal: async (requestId, candidateId) => {
+      const request = teamRequests.find((r) => r.id === requestId)
+      if (!request) return
+      patchTeamRequestLocal(requestId, {
+        proposals: request.proposals.filter((p) => p.candidateId !== candidateId),
+      })
+      if (companyId === 'demo') return
+      const { error } = await supabase
+        .from('team_request_candidates')
+        .delete()
+        .eq('request_id', requestId)
+        .eq('candidate_id', candidateId)
+      if (error) {
+        patchTeamRequestLocal(requestId, { proposals: request.proposals })
+        toast.error('No se pudo retirar el candidato.')
+      }
+    },
+
     resetDemo: () => {
       try {
         localStorage.removeItem(DEMO_KEY)
@@ -1030,8 +1361,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setSites(SEED.sites)
       setBrands(SEED_BRANDS)
       setTags(SEED_TAGS)
+      setTeamRequests(SEED_TEAM_REQUESTS)
+      setDemoTeamComments(SEED_TEAM_COMMENTS)
     },
-  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, companyId, reload, reloadCandidatesFor, toast])
+  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, teamRequests, demoTeamComments, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, toast])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }
