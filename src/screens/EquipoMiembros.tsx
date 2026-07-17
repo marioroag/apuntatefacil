@@ -5,7 +5,7 @@ import { useToast } from '../components/ui/Toast'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { planHas } from '../lib/pricing'
-import { initials, relativeDate } from '../lib/format'
+import { initials, memberAvatarTone, relativeDate } from '../lib/format'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 
@@ -221,32 +221,15 @@ export function EquipoMiembros() {
                     onSave={(r, ids) => saveAccess(m.user_id, r, ids)}
                   />
                 ) : (
-                  <div key={m.user_id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-card">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-900 text-[12px] font-bold text-white">
-                      {initials(m.email)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-900">
-                        {m.email} {m.is_self && <span className="text-[12px] font-normal text-slate-500">(tú)</span>}
-                      </p>
-                      {m.role === 'encargado' && m.site_ids.length > 0 && (
-                        <p className="truncate text-[12px] text-slate-500">{m.site_ids.map(siteName).join(', ')}</p>
-                      )}
-                    </div>
-                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-600">
-                      {ROLE_LABEL[m.role] ?? m.role}
-                    </span>
-                    {isOwner && !m.is_self && m.role !== 'owner' && canManagers && (
-                      <button onClick={() => setEditing(m.user_id)} aria-label={`Editar acceso de ${m.email}`} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700">
-                        <Pencil className="size-4" aria-hidden />
-                      </button>
-                    )}
-                    {isOwner && !m.is_self && m.role !== 'owner' && (
-                      <button onClick={() => setRemoving(m)} aria-label={`Eliminar a ${m.email} del equipo`} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600">
-                        <Trash2 className="size-4" aria-hidden />
-                      </button>
-                    )}
-                  </div>
+                  <MemberRow
+                    key={m.user_id}
+                    member={m}
+                    siteName={siteName}
+                    isOwner={isOwner}
+                    canManagers={canManagers}
+                    onEdit={() => setEditing(m.user_id)}
+                    onRemove={() => setRemoving(m)}
+                  />
                 ),
               )}
             </div>
@@ -277,6 +260,64 @@ function toggle(set: Set<string>, id: string): Set<string> {
   const n = new Set(set)
   n.has(id) ? n.delete(id) : n.add(id)
   return n
+}
+
+function MemberRow({
+  member,
+  siteName,
+  isOwner,
+  canManagers,
+  onEdit,
+  onRemove,
+}: {
+  member: Member
+  siteName: (id: string) => string
+  isOwner: boolean
+  canManagers: boolean
+  onEdit: () => void
+  onRemove: () => void
+}) {
+  const tone = memberAvatarTone(member.email)
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-card">
+      <span
+        className={`grid size-9 shrink-0 place-items-center rounded-full text-[12px] font-bold ${tone.bg} ${tone.text}`}
+        aria-hidden
+      >
+        {initials(member.email)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-slate-900">
+          {member.email}{' '}
+          {member.is_self && <span className="text-[12px] font-normal text-slate-500">(tú)</span>}
+        </p>
+        {member.role === 'encargado' && member.site_ids.length > 0 && (
+          <p className="truncate text-[12px] text-slate-500">{member.site_ids.map(siteName).join(', ')}</p>
+        )}
+      </div>
+      <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-600">
+        {ROLE_LABEL[member.role] ?? member.role}
+      </span>
+      {isOwner && !member.is_self && member.role !== 'owner' && canManagers && (
+        <button
+          onClick={onEdit}
+          aria-label={`Editar acceso de ${member.email}`}
+          className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+        >
+          <Pencil className="size-4" aria-hidden />
+        </button>
+      )}
+      {isOwner && !member.is_self && member.role !== 'owner' && (
+        <button
+          onClick={onRemove}
+          aria-label={`Eliminar a ${member.email} del equipo`}
+          className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600"
+        >
+          <Trash2 className="size-4" aria-hidden />
+        </button>
+      )}
+    </div>
+  )
 }
 
 function RolePill({ active, onClick, label, hint }: { active: boolean; onClick: () => void; label: string; hint: string }) {

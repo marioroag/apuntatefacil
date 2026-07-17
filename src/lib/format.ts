@@ -107,6 +107,40 @@ export function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
+/**
+ * Color estable por miembro del equipo (email o id).
+ * Misma semilla → mismo tono en tablón, hilo y lista de miembros.
+ * Paleta fija, sin el ultramarine de marca (ese va solo a acción).
+ */
+const MEMBER_AVATAR_TONES = [
+  { bg: 'bg-slate-800', text: 'text-white', name: 'text-slate-800' },
+  { bg: 'bg-sky-700', text: 'text-white', name: 'text-sky-700' },
+  { bg: 'bg-teal-700', text: 'text-white', name: 'text-teal-700' },
+  { bg: 'bg-violet-700', text: 'text-white', name: 'text-violet-700' },
+  { bg: 'bg-amber-700', text: 'text-white', name: 'text-amber-800' },
+  { bg: 'bg-rose-700', text: 'text-white', name: 'text-rose-700' },
+  { bg: 'bg-emerald-700', text: 'text-white', name: 'text-emerald-700' },
+  { bg: 'bg-orange-700', text: 'text-white', name: 'text-orange-700' },
+  { bg: 'bg-cyan-800', text: 'text-white', name: 'text-cyan-800' },
+  { bg: 'bg-fuchsia-800', text: 'text-white', name: 'text-fuchsia-800' },
+] as const
+
+function hashSeed(seed: string): number {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+
+export function memberAvatarTone(seed: string | null | undefined): {
+  bg: string
+  text: string
+  name: string
+} {
+  const key = (seed ?? '').trim().toLowerCase()
+  if (!key) return MEMBER_AVATAR_TONES[0]
+  return MEMBER_AVATAR_TONES[hashSeed(key) % MEMBER_AVATAR_TONES.length]
+}
+
 /** Candidato en estado "nuevo" recibido en las últimas 48 h (prioridad de contacto). */
 export function isFreshNuevo(c: Pick<Candidate, 'status' | 'submittedAt'>, now = Date.now()): boolean {
   if (c.status !== 'nuevo') return false

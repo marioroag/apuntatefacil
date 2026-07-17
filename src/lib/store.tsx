@@ -1265,7 +1265,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .select('id,request_id,author_user_id,author_email,body,created_at')
         .single()
       if (error || !data) {
-        toast.error('No se pudo enviar la respuesta. Inténtalo de nuevo.')
+        toast.error('No se pudo enviar el mensaje. Inténtalo de nuevo.')
         return null
       }
       const comment = toTeamComment(data as TeamCommentRow)

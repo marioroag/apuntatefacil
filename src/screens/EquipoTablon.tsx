@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Building2, ClipboardList, Loader2, MessageSquare, Send } from 'lucide-react'
+import { ClipboardList, Loader2, Send } from 'lucide-react'
 import type { TeamRequest } from '../lib/types'
 import { TEAM_REQUEST_STATUS_META } from '../lib/types'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { candidateName, initials, relativeDate } from '../lib/format'
+import { candidateName, initials, memberAvatarTone, relativeDate } from '../lib/format'
 import { BTN_PRIMARY } from '../lib/buttons'
 import { useToast } from '../components/ui/Toast'
 import { TeamRequestPanel } from './TeamRequestPanel'
@@ -273,13 +273,15 @@ function RequestCard({
 }) {
   const meta = TEAM_REQUEST_STATUS_META[request.status]
   const done = request.status === 'completada'
+  const author =
+    mine ? 'Tú' : (request.authorEmail?.split('@')[0]?.trim() || request.authorEmail || 'Sin autor')
+  const authorTone = memberAvatarTone(request.authorEmail)
   return (
     <button
       onClick={onOpen}
       className="block w-full rounded-xl border border-slate-200 bg-white p-4 text-left shadow-card transition-colors hover:bg-slate-50"
     >
-      <div className="flex items-center gap-2.5">
-        <span className={`size-2 shrink-0 rounded-full ${meta.dot}`} aria-hidden />
+      <div className="flex items-start gap-2.5">
         <span className={`min-w-0 flex-1 truncate text-base font-semibold leading-snug ${done ? 'text-slate-500' : 'text-slate-900'}`}>
           {request.title}
         </span>
@@ -288,29 +290,37 @@ function RequestCard({
         </span>
       </div>
       {request.body && (
-        <p className="mt-1 truncate pl-[18px] text-[13px] text-slate-500">{request.body}</p>
+        <p className="mt-1 truncate text-[13px] text-slate-500">{request.body}</p>
       )}
-      <div className="mt-2 flex items-center gap-2 pl-[18px] text-[12px] text-slate-500">
-        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-slate-900 text-[9px] font-bold text-white">
-          {initials(request.authorEmail || '?')}
+      <div className="mt-2.5 flex items-center gap-2 text-[12px] text-slate-500">
+        <span className={`truncate font-semibold ${authorTone.name}`}>{author}</span>
+        <span aria-hidden className="text-slate-300">
+          ·
         </span>
-        <span className="truncate">{mine ? 'Tú' : request.authorEmail}</span>
-        <span aria-hidden>·</span>
         <span className="num shrink-0">{relativeDate(request.lastActivityAt)}</span>
         {request.commentCount > 0 && (
-          <span className="inline-flex shrink-0 items-center gap-1">
-            <MessageSquare className="size-3.5 text-slate-400" aria-hidden />
-            <span className="num">{request.commentCount}</span>
-          </span>
+          <>
+            <span aria-hidden className="text-slate-300">
+              ·
+            </span>
+            <span className="num shrink-0">
+              {request.commentCount} {request.commentCount === 1 ? 'mensaje' : 'mensajes'}
+            </span>
+          </>
         )}
         {siteName && (
-          <span className="inline-flex min-w-0 items-center gap-1">
-            <Building2 className="size-3.5 shrink-0 text-slate-400" aria-hidden />
-            <span className="truncate">{siteName}</span>
-          </span>
+          <>
+            <span aria-hidden className="text-slate-300">
+              ·
+            </span>
+            <span className="min-w-0 truncate">{siteName}</span>
+          </>
         )}
         {proposalNames.length > 0 && (
-          <span className="ml-auto flex shrink-0 items-center" aria-label={`${proposalNames.length} candidatos propuestos`}>
+          <span
+            className="ml-auto flex shrink-0 items-center"
+            aria-label={`${proposalNames.length} candidatos propuestos`}
+          >
             {proposalNames.slice(0, 3).map((name, i) => (
               <span
                 key={i}
