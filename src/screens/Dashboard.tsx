@@ -584,11 +584,12 @@ export function Dashboard() {
           )}
           <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
             <ShareMenu
+              campaignId={campaign.id}
               title={campaign.title}
               url={publicFormUrl(campaign.slug, brandLabel)}
               urlDisplay={publicUrl}
               template={campaign.shareReply}
-              editHref={canManage ? `${base}/puestos/${campaign.id}/formulario#compartir` : undefined}
+              canEdit={canManage}
               demo={base === '/demo'}
               compact={compactShare}
             />
@@ -1885,22 +1886,25 @@ function TestChip() {
 }
 
 function ShareMenu({
+  campaignId,
   title,
   url,
   urlDisplay,
   template,
-  editHref,
+  canEdit,
   demo,
   compact,
 }: {
+  campaignId: string
   title: string
   url: string
   urlDisplay: string
   template?: string | null
-  editHref?: string
+  canEdit: boolean
   demo: boolean
   compact: boolean
 }) {
+  const { updateCampaign } = useStore()
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -1944,18 +1948,22 @@ function ShareMenu({
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      const target = e.target as Node
-      if (!ref.current?.contains(target) && !panelRef.current?.contains(target)) close()
+    // pointerdown (no click): al pulsar Editar el botón se desmonta en el mismo
+    // evento y contains(target) falla con nodos ya desconectados. composedPath
+    // conserva el panel aunque React reemplace el botón. El blur del textarea
+    // ocurre antes y guarda la plantilla.
+    const onDoc = (e: PointerEvent) => {
+      const path = e.composedPath()
+      if (path.includes(ref.current!) || path.includes(panelRef.current!)) return
+      close()
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close()
     }
-    // click deja que el textarea pierda el foco y guarde su plantilla antes de cerrar.
-    document.addEventListener('click', onDoc)
+    document.addEventListener('pointerdown', onDoc)
     document.addEventListener('keydown', onKey)
     return () => {
-      document.removeEventListener('click', onDoc)
+      document.removeEventListener('pointerdown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
   }, [open])
@@ -2005,7 +2013,11 @@ function ShareMenu({
               demo={demo}
               variant="popover"
               template={template}
-              editHref={editHref}
+              onSaveReply={
+                canEdit
+                  ? (reply) => updateCampaign(campaignId, { shareReply: reply })
+                  : undefined
+              }
               onClose={close}
             />
           </motion.div>
@@ -2021,7 +2033,11 @@ function ShareMenu({
             demo={demo}
             variant="sheet"
             template={template}
-            editHref={editHref}
+            onSaveReply={
+              canEdit
+                ? (reply) => updateCampaign(campaignId, { shareReply: reply })
+                : undefined
+            }
           />
         </BottomSheet>
       )}

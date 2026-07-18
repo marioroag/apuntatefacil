@@ -1,14 +1,25 @@
-import { BriefcaseBusiness, Check, Copy, ExternalLink, Link2, Pencil, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
+import { Check, Copy, ExternalLink, Pencil, RotateCcw, X } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { BTN_PRIMARY } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
 import {
-  SHARE_LINK_TOKEN,
-  resolveReplyTemplate,
-  tokenizeReplyTemplate,
+  editableReplyBody,
+  replyBodyForCampaign,
+  replyForCampaign,
 } from '../lib/shareReply'
 import { useToast } from './ui/Toast'
+
+const ICON_ACTION =
+  'inline-flex size-8 max-sm:size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors ' +
+  'hover:bg-slate-100 hover:text-slate-800 ' +
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ' +
+  'disabled:opacity-50'
+
+const TEXT_ACTION =
+  'inline-flex min-h-8 max-sm:min-h-11 items-center gap-1.5 rounded-lg px-1.5 text-[13px] font-medium text-slate-600 ' +
+  'transition-colors hover:bg-slate-100 hover:text-slate-900 ' +
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ' +
+  'disabled:opacity-60'
 
 type ShareReplyProps = {
   title: string
@@ -18,13 +29,21 @@ type ShareReplyProps = {
   disabled?: boolean
   demo?: boolean
   className?: string
-  variant?: 'popover' | 'sheet' | 'section'
+  variant?: 'popover' | 'sheet'
   formHref?: string
   formDemo?: boolean
   onFormDemoClick?: () => void
-  editHref?: string
+  /** Si existe, "Editar" abre el mensaje aquí mismo. */
+  onSaveReply?: (reply: string | null) => Promise<boolean>
   onClose?: () => void
 }
+
+const FIELD =
+  'min-h-28 w-full resize-y rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm leading-relaxed text-slate-900 ' +
+  'outline-none placeholder:text-slate-500 transition-shadow ' +
+  'focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 ' +
+  'disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500 ' +
+  'pointer-coarse:text-base'
 
 export function ShareReply({
   title,
@@ -34,18 +53,35 @@ export function ShareReply({
   disabled = false,
   demo = false,
   className = '',
-  variant = 'section',
+  variant = 'popover',
   formHref,
   formDemo = false,
   onFormDemoClick,
-  editHref,
+  onSaveReply,
   onClose,
 }: ShareReplyProps) {
   const toast = useToast()
+  const draftId = useId()
+  const defaultBody = replyBodyForCampaign({ title })
+  const savedBody = editableReplyBody({ body: template, title })
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(savedBody)
   const [copied, setCopied] = useState<'reply' | 'link' | null>(null)
+  const [saving, setSaving] = useState(false)
+  const lastSaved = useRef(savedBody)
+  const savingRef = useRef(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const showHeader = variant === 'popover'
-  const reply = resolveReplyTemplate({ template, title, url })
   const display = urlDisplay ?? url.replace(/^https?:\/\//, '')
+  const canEdit = Boolean(onSaveReply) && !disabled
+  const edited = draft !== defaultBody
+
+  useEffect(() => {
+    if (savingRef.current) return
+    const next = editableReplyBody({ body: template, title })
+    setDraft(next)
+    lastSaved.current = next
+  }, [template, title])
 
   useEffect(() => {
     if (!copied) return
@@ -53,13 +89,41 @@ export function ShareReply({
     return () => window.clearTimeout(timeout)
   }, [copied])
 
+  useEffect(() => {
+    if (!editing) return
+    textareaRef.current?.focus()
+    const el = textareaRef.current
+    if (!el) return
+    const end = el.value.length
+    el.setSelectionRange(end, end)
+  }, [editing])
+
+  const saveDraft = async (value = draft) => {
+    if (!onSaveReply) return true
+    const next = value.trim() ? value : defaultBody
+    if (next === lastSaved.current) return true
+    savingRef.current = true
+    setSaving(true)
+    const saved = await onSaveReply(next === defaultBody ? null : next)
+    if (saved) lastSaved.current = next
+    savingRef.current = false
+    setSaving(false)
+    return saved
+  }
+
   const copyReply = async () => {
-    const copiedReply = await copyText(reply)
+    if (editing) await saveDraft()
+    const text = replyForCampaign({
+      body: editing ? draft : template,
+      title,
+      url,
+    })
+    const copiedReply = await copyText(text)
     if (copiedReply) {
       setCopied('reply')
       toast.success('Respuesta copiada')
     } else {
-      toast.show(`Copia manualmente:\n${reply}`)
+      toast.show(`Copia manualmente:\n${text}`)
     }
   }
 
@@ -73,20 +137,30 @@ export function ShareReply({
     }
   }
 
+  const resetDraft = async () => {
+    setDraft(defaultBody)
+    await saveDraft(defaultBody)
+  }
+
+  const finishEditing = async () => {
+    await saveDraft()
+    setEditing(false)
+  }
+
   return (
-    <div className={className}>
+    <div className={`${variant === 'sheet' ? 'px-4 pb-5 pt-3' : ''} ${className}`}>
       {showHeader && (
-        <header className="mb-4 flex items-start justify-between gap-3">
-          <div>
+        <header className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <h2 className="text-base font-semibold tracking-[-0.015em] text-slate-900">Compartir puesto</h2>
-            <p className="mt-1 text-[13px] leading-relaxed text-slate-500">Copia una respuesta lista para enviar.</p>
+            <p className="mt-0.5 text-[13px] leading-snug text-slate-600">Copia una respuesta lista para enviar.</p>
           </div>
           {onClose && (
             <button
               type="button"
               onClick={onClose}
               aria-label="Cerrar"
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              className="-mr-1.5 -mt-1 inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
             >
               <X className="size-4" aria-hidden />
             </button>
@@ -94,82 +168,117 @@ export function ShareReply({
         </header>
       )}
 
-      <p className="mb-2 text-[13px] font-semibold text-slate-800">Mensaje</p>
-      <div className="min-h-24 rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm leading-relaxed text-slate-800">
-        {tokenizeReplyTemplate(template).map((segment, index) => {
-          if (segment.type === 'text') {
-            return <span key={`${segment.value}-${index}`} className="whitespace-pre-wrap">{segment.value}</span>
-          }
-          const isLink = segment.value === SHARE_LINK_TOKEN
-          return (
-            <span
-              key={`${segment.value}-${index}`}
-              className="mx-0.5 inline-flex items-center gap-1 rounded-md border border-slate-300 bg-slate-100 px-1.5 py-0.5 align-baseline text-[12px] font-medium text-slate-700"
-            >
-              {isLink ? <Link2 className="size-3 text-slate-500" aria-hidden /> : <BriefcaseBusiness className="size-3 text-slate-500" aria-hidden />}
-              {isLink ? 'Enlace al formulario' : 'Puesto'}
-            </span>
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <label htmlFor={editing ? draftId : undefined} className="text-[13px] font-semibold text-slate-800">
+          Mensaje
+        </label>
+        {canEdit && (
+          editing ? (
+            <div className="flex items-center gap-0.5">
+              {edited && (
+                <button type="button" onClick={() => void resetDraft()} disabled={saving} className={TEXT_ACTION}>
+                  <RotateCcw className="size-3.5" aria-hidden /> Restablecer
+                </button>
+              )}
+              <button type="button" onClick={() => void finishEditing()} disabled={saving} className={TEXT_ACTION}>
+                Guardar
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setEditing(true)} className={TEXT_ACTION}>
+              <Pencil className="size-3.5" aria-hidden /> Editar
+            </button>
           )
-        })}
+        )}
       </div>
+
+      {editing ? (
+        <textarea
+          ref={textareaRef}
+          id={draftId}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => void saveDraft()}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault()
+              void finishEditing()
+            }
+          }}
+          disabled={disabled || saving}
+          rows={4}
+          spellCheck
+          className={FIELD}
+        />
+      ) : (
+        <div className="min-h-[4.5rem] whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm leading-relaxed text-slate-800">
+          {savedBody}
+        </div>
+      )}
+
+      <p className="mt-1.5 text-[12px] leading-relaxed text-slate-600">
+        {saving ? 'Guardando…' : 'El enlace se añade automáticamente al copiar.'}
+      </p>
+
       {demo && (
-        <p className="mt-2 rounded-lg bg-slate-100 px-3 py-2 text-[12px] leading-relaxed text-slate-600">
+        <p className="mt-2 text-[12px] leading-relaxed text-slate-600">
           Estás en la demo. Puedes copiar el texto, pero el enlace es solo de muestra.
         </p>
       )}
 
       <button
         type="button"
-        onClick={copyReply}
-        disabled={disabled}
+        onClick={() => void copyReply()}
+        disabled={disabled || saving}
         className={`${BTN_PRIMARY} mt-3 w-full max-sm:min-h-11 disabled:opacity-50`}
       >
-        {copied === 'reply' ? <><Check className="size-4 text-indigo-200" aria-hidden /> Copiado</> : <><Copy className="size-4 text-indigo-200" aria-hidden /> Copiar respuesta</>}
+        {copied === 'reply' ? (
+          <>
+            <Check className="size-4 text-indigo-200" aria-hidden /> Copiado
+          </>
+        ) : (
+          <>
+            <Copy className="size-4 text-indigo-200" aria-hidden /> Copiar respuesta
+          </>
+        )}
       </button>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        {editHref ? (
-          <Link
-            to={editHref}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-          >
-            <Pencil className="size-3.5" aria-hidden /> Editar plantilla
-          </Link>
-        ) : <span />}
-        <div className="flex items-center gap-1">
-          {formDemo ? (
-            <button
-              type="button"
-              onClick={onFormDemoClick}
-              className="inline-flex size-8 max-sm:size-11 items-center justify-center rounded-lg text-indigo-600 transition-colors hover:bg-indigo-50"
-              aria-label="Abrir formulario"
-              title="Abrir formulario"
-            >
-              <ExternalLink className="size-3.5" aria-hidden />
-            </button>
-          ) : (
-            <a
-              href={formHref ?? url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex size-8 max-sm:size-11 items-center justify-center rounded-lg text-indigo-600 transition-colors hover:bg-indigo-50"
-              aria-label="Abrir formulario"
-              title="Abrir formulario"
-            >
-              <ExternalLink className="size-3.5" aria-hidden />
-            </a>
-          )}
+      <div className="mt-2 flex min-w-0 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 py-1 pl-3 pr-1">
+        <p className="min-w-0 flex-1 truncate text-[12px] tabular-nums text-slate-600" title={display}>
+          {display}
+        </p>
+        {formDemo ? (
           <button
             type="button"
-            onClick={copyLink}
-            disabled={disabled}
-            className={`${BTN_SECONDARY} size-8 max-sm:size-11 px-0 text-slate-600 disabled:opacity-50`}
-            aria-label="Copiar enlace"
-            title="Copiar enlace"
+            onClick={onFormDemoClick}
+            className={ICON_ACTION}
+            aria-label="Abrir formulario"
+            title="Abrir formulario"
           >
-            {copied === 'link' ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+            <ExternalLink className="size-3.5" aria-hidden />
           </button>
-        </div>
+        ) : (
+          <a
+            href={formHref ?? url}
+            target="_blank"
+            rel="noreferrer"
+            className={ICON_ACTION}
+            aria-label="Abrir formulario"
+            title="Abrir formulario"
+          >
+            <ExternalLink className="size-3.5" aria-hidden />
+          </a>
+        )}
+        <button
+          type="button"
+          onClick={() => void copyLink()}
+          disabled={disabled}
+          className={ICON_ACTION}
+          aria-label="Copiar enlace"
+          title="Copiar enlace"
+        >
+          {copied === 'link' ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+        </button>
       </div>
     </div>
   )

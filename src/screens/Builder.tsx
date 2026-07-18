@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -36,8 +36,6 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { ShareReply } from '../components/ShareReply'
-import { ReplyTemplateEditor } from '../components/share/ReplyTemplateEditor'
 import { useStore } from '../lib/store'
 import { brandAssetUrl } from '../lib/brandAsset'
 import { useToast } from '../components/ui/Toast'
@@ -48,11 +46,9 @@ import { FIELD_TYPE_META } from '../lib/types'
 import type { Campaign, FieldType, FormField } from '../lib/types'
 import { SWATCHES, accentPassesWhite } from '../lib/colors'
 import { FORM_WELCOME_DEFAULT, FORM_THANKS_DEFAULT } from '../lib/defaults'
-import { publicFormPath, publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
-import { defaultReplyTemplate } from '../lib/shareReply'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
 
@@ -330,9 +326,6 @@ export function Builder() {
                 })}
               </div>
             </section>
-
-            {/* Compartir */}
-            <ShareCard campaign={campaign} />
           </div>
         </div>
 
@@ -702,92 +695,6 @@ function Branding({ campaign }: { campaign: Campaign }) {
           />
           Mostrar nombre de la empresa arriba
         </label>
-      </div>
-    </section>
-  )
-}
-
-// --- Compartir --------------------------------------------------------------
-function ShareCard({ campaign }: { campaign: Campaign }) {
-  const toast = useToast()
-  const demo = useAppBase() === '/demo'
-  const { company } = useAuth()
-  const { brands, updateCampaign } = useStore()
-  // Primer tramo del enlace: marca del puesto si la tiene, si no el nombre de la empresa.
-  const brandLabel = (campaign.brandId ? brands.find((b) => b.id === campaign.brandId)?.name : null) ?? company?.name
-  const url = publicFormUrlDisplay(campaign.slug, brandLabel)
-  const full = publicFormUrl(campaign.slug, brandLabel)
-  const disabled = campaign.fields.length === 0
-  const [template, setTemplate] = useState(() => campaign.shareReply ?? defaultReplyTemplate())
-  const [saving, setSaving] = useState(false)
-  const pendingTemplate = useRef(template)
-  const saveTimer = useRef<number | null>(null)
-
-  useEffect(() => {
-    const next = campaign.shareReply ?? defaultReplyTemplate()
-    pendingTemplate.current = next
-    setTemplate(next)
-  }, [campaign.id, campaign.shareReply])
-
-  useEffect(() => () => {
-    if (saveTimer.current !== null) {
-      window.clearTimeout(saveTimer.current)
-      void updateCampaign(campaign.id, {
-        shareReply: pendingTemplate.current === defaultReplyTemplate() ? null : pendingTemplate.current,
-      })
-    }
-  }, [campaign.id, updateCampaign])
-
-  const demoNotice = () => toast.show('Este formulario es una muestra. El enlace no recibe candidaturas.')
-  const saveTemplate = (next: string) => {
-    pendingTemplate.current = next
-    setTemplate(next)
-    if (saveTimer.current !== null) window.clearTimeout(saveTimer.current)
-    setSaving(true)
-    saveTimer.current = window.setTimeout(async () => {
-      saveTimer.current = null
-      await updateCampaign(campaign.id, { shareReply: next === defaultReplyTemplate() ? null : next })
-      setSaving(false)
-    }, 500)
-  }
-
-  return (
-    <section id="compartir">
-      <SectionTitle>Compartir</SectionTitle>
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[13px] font-semibold text-slate-800">Plantilla de respuesta</p>
-            <p className="mt-0.5 text-[12px] text-slate-500">Arrastra las fichas para colocarlas dentro del mensaje.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => saveTemplate(defaultReplyTemplate())}
-            disabled={disabled || saving}
-            className={`${BTN_SECONDARY} h-8 px-2 text-[12px] disabled:opacity-60`}
-          >
-            Restablecer
-          </button>
-        </div>
-        <ReplyTemplateEditor
-          template={template}
-          disabled={disabled}
-          onChange={saveTemplate}
-        />
-        <p className="mt-2 text-[12px] leading-relaxed text-slate-500">{saving ? 'Guardando plantilla…' : 'La URL y el puesto se actualizan al copiar.'}</p>
-        <div className="my-4 h-px bg-slate-200" />
-        <ShareReply
-          title={campaign.title}
-          url={full}
-          urlDisplay={url}
-          template={template}
-          disabled={disabled}
-          demo={demo}
-          variant="section"
-          formHref={demo ? undefined : publicFormPath(campaign.slug, brandLabel)}
-          formDemo={demo}
-          onFormDemoClick={demoNotice}
-        />
       </div>
     </section>
   )

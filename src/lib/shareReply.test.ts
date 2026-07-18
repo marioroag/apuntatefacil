@@ -1,60 +1,43 @@
 import { describe, expect, it } from 'vitest'
 import {
-  SHARE_LINK_TOKEN,
-  SHARE_POSITION_TOKEN,
-  defaultReplyTemplate,
-  normalizeReplyTemplate,
-  resolveReplyTemplate,
-  serializeReplySegments,
-  tokenizeReplyTemplate,
+  editableReplyBody,
+  replyBodyForCampaign,
+  replyForCampaign,
 } from './shareReply'
 
-describe('plantillas de respuesta compartida', () => {
-  it('crea una plantilla base con puesto y enlace', () => {
-    expect(defaultReplyTemplate()).toContain(SHARE_POSITION_TOKEN)
-    expect(defaultReplyTemplate()).toContain(SHARE_LINK_TOKEN)
+describe('respuesta compartida', () => {
+  it('crea un mensaje base con el puesto actual', () => {
+    expect(replyBodyForCampaign({ title: 'Carretillero/a' })).toContain('Carretillero/a')
   })
 
-  it('migra una plantilla antigua sin alterar sus saltos de línea', () => {
-    expect(normalizeReplyTemplate('Hola,\n\nte interesa este puesto')).toBe(
-      `Hola,\n\nte interesa este puesto\n${SHARE_LINK_TOKEN}`,
-    )
+  it('mantiene un mensaje personalizado como texto normal', () => {
+    expect(editableReplyBody({ body: 'Hola,\n\n¿Te interesa?', title: 'Puesto' })).toBe('Hola,\n\n¿Te interesa?')
   })
 
-  it('mantiene solo un enlace aunque la plantilla tenga duplicados', () => {
-    expect(normalizeReplyTemplate(`${SHARE_LINK_TOKEN}\nHola\n${SHARE_LINK_TOKEN}`)).toBe(
-      `${SHARE_LINK_TOKEN}\nHola\n`,
-    )
-  })
-
-  it('mantiene un único puesto dinámico', () => {
-    expect(normalizeReplyTemplate(`${SHARE_POSITION_TOKEN} y ${SHARE_POSITION_TOKEN}\n${SHARE_LINK_TOKEN}`)).toBe(
-      `${SHARE_POSITION_TOKEN} y \n${SHARE_LINK_TOKEN}`,
-    )
-  })
-
-  it('serializa segmentos y recupera la ficha obligatoria si falta', () => {
-    expect(serializeReplySegments([{ type: 'text', value: 'Gracias por escribir.' }])).toBe(
-      `Gracias por escribir.\n${SHARE_LINK_TOKEN}`,
-    )
-  })
-
-  it('tokeniza una plantilla manteniendo texto y fichas en orden', () => {
-    expect(tokenizeReplyTemplate(`Hola ${SHARE_POSITION_TOKEN}\n${SHARE_LINK_TOKEN}`)).toEqual([
-      { type: 'text', value: 'Hola ' },
-      { type: 'token', value: SHARE_POSITION_TOKEN },
-      { type: 'text', value: '\n' },
-      { type: 'token', value: SHARE_LINK_TOKEN },
-    ])
-  })
-
-  it('resuelve el puesto y enlace con los datos vigentes', () => {
+  it('convierte las fichas antiguas sin mostrar sintaxis interna', () => {
     expect(
-      resolveReplyTemplate({
-        template: `Hola ${SHARE_POSITION_TOKEN}\n${SHARE_LINK_TOKEN}`,
-        title: 'Carretillero/a',
-        url: 'https://apuntatefacil.com/a/carretillero',
+      editableReplyBody({
+        body: 'Hola {{puesto}}\n{{enlace}}',
+        title: 'Peón de albañil',
       }),
-    ).toBe('Hola Carretillero/a\nhttps://apuntatefacil.com/a/carretillero')
+    ).toBe('Hola Peón de albañil')
+  })
+
+  it('añade siempre el enlace al copiar', () => {
+    expect(
+      replyForCampaign({
+        body: 'Gracias por escribir.',
+        title: 'Puesto',
+        url: 'https://apuntatefacil.com/a/puesto',
+      }),
+    ).toBe(
+      'Gracias por escribir.\nhttps://apuntatefacil.com/a/puesto',
+    )
+  })
+
+  it('usa el mensaje base cuando no hay personalización', () => {
+    expect(replyForCampaign({ title: 'Mozo/a', url: 'https://example.com', body: null })).toBe(
+      `${replyBodyForCampaign({ title: 'Mozo/a' })}\nhttps://example.com`,
+    )
   })
 })
