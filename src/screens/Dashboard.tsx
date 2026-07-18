@@ -584,11 +584,11 @@ export function Dashboard() {
           )}
           <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
             <ShareMenu
-              campaignId={campaign.id}
               title={campaign.title}
               url={publicFormUrl(campaign.slug, brandLabel)}
               urlDisplay={publicUrl}
-              savedReply={campaign.shareReply}
+              template={campaign.shareReply}
+              editHref={canManage ? `${base}/puestos/${campaign.id}/formulario#compartir` : undefined}
               demo={base === '/demo'}
               compact={compactShare}
             />
@@ -1885,23 +1885,22 @@ function TestChip() {
 }
 
 function ShareMenu({
-  campaignId,
   title,
   url,
   urlDisplay,
-  savedReply,
+  template,
+  editHref,
   demo,
   compact,
 }: {
-  campaignId: string
   title: string
   url: string
   urlDisplay: string
-  savedReply?: string | null
+  template?: string | null
+  editHref?: string
   demo: boolean
   compact: boolean
 }) {
-  const { updateCampaign } = useStore()
   const [open, setOpen] = useState(false)
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -2005,9 +2004,8 @@ function ShareMenu({
               urlDisplay={urlDisplay}
               demo={demo}
               variant="popover"
-              savedReply={savedReply}
-              onSaveReply={(reply) => updateCampaign(campaignId, { shareReply: reply })}
-              autoFocus
+              template={template}
+              editHref={editHref}
               onClose={close}
             />
           </motion.div>
@@ -2022,9 +2020,8 @@ function ShareMenu({
             urlDisplay={urlDisplay}
             demo={demo}
             variant="sheet"
-            savedReply={savedReply}
-            onSaveReply={(reply) => updateCampaign(campaignId, { shareReply: reply })}
-            autoFocus
+            template={template}
+            editHref={editHref}
           />
         </BottomSheet>
       )}
