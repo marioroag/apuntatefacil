@@ -2,10 +2,13 @@ import { useEffect, useId, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import {
-  ArrowRight, Check, FileSpreadsheet, Filter, Infinity as InfinityIcon,
-  Link2, ListChecks, Megaphone, Menu, PhoneCall, Sliders, X,
+  ArrowRight, Check, ChevronRight, Database, FileSpreadsheet, Filter,
+  Infinity as InfinityIcon, Link2, ListChecks, Megaphone, Menu, MessagesSquare,
+  Phone, PhoneCall, RotateCcw, Sliders, Trash2, Users, X,
   type LucideIcon,
 } from 'lucide-react'
+import { initials, memberAvatarTone } from '../lib/format'
+import { STATUS_META, type CandidateStatus } from '../lib/types'
 import { BrowserMock } from '../components/BrowserMock'
 import { Logo } from '../components/Logo'
 import { BetaBadge } from '../components/BetaBadge'
@@ -61,6 +64,7 @@ export function Landing() {
         <Compare />
         <HowItWorks />
         <Features />
+        <Team />
         <Pricing />
         <Faq />
         <FinalCta />
@@ -496,6 +500,220 @@ function Features() {
             </Reveal>
           ))}
         </div>
+      </div>
+    </section>
+  )
+}
+
+// Mock condensado del panel real (req_inventario de la demo): misma anatomía
+// que TeamRequestPanel, pero solo el tramo que cuenta la historia, para empatar
+// la altura del copy de la sección.
+const TEAM_PROPOSALS: { name: string; role: string; status: CandidateStatus }[] = [
+  { name: 'Óscar Ortega', role: 'Mozo/a de almacén', status: 'contratado' },
+  { name: 'Elena Serrano', role: 'Mozo/a de almacén', status: 'contratado' },
+]
+
+function TeamBoardMock() {
+  const sergio = memberAvatarTone('sergio@tuempresa.es')
+  const laura = memberAvatarTone('laura@tuempresa.es')
+  const you = memberAvatarTone('demo@apuntatefacil.com')
+
+  return (
+    <div aria-hidden className="relative">
+      <div className="absolute -inset-4 -z-10 rounded-2xl bg-slate-50" />
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+        {/* Cabecera tipo SlideOver */}
+        <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
+          <p className="min-w-0 flex-1 text-balance text-[15px] font-semibold leading-snug text-slate-900 sm:text-base">
+            Refuerzo para el inventario del sábado
+          </p>
+          <div className="-mr-1 flex shrink-0 items-center gap-0.5 text-slate-500">
+            <span className="grid size-8 place-items-center rounded-lg">
+              <RotateCcw className="size-4" />
+            </span>
+            <span className="grid size-8 place-items-center rounded-lg">
+              <Trash2 className="size-4" />
+            </span>
+            <span className="grid size-8 place-items-center rounded-lg">
+              <X className="size-4" />
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4 px-4 py-4 sm:px-5">
+          <p className="text-[13px] leading-snug text-slate-600 sm:text-sm sm:leading-5">
+            Dos mozos para el recuento anual en Madrid, jornada de 8 a 15. Se paga plus de fin de semana.
+          </p>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-semibold text-slate-800">2 candidatos propuestos</p>
+            <ul className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              {TEAM_PROPOSALS.map((p, i) => {
+                const meta = STATUS_META[p.status]
+                return (
+                  <li
+                    key={p.name}
+                    className={`flex min-h-10 items-center gap-0.5 pr-1 ${i > 0 ? 'border-t border-slate-100' : ''}`}
+                  >
+                    <span className="flex min-w-0 flex-1 items-center gap-2.5 px-3 py-1.5">
+                      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+                        {initials(p.name)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium leading-4 text-slate-900">{p.name}</span>
+                        <span className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
+                          <span className="inline-flex items-center gap-1.5 text-[12px] leading-4 text-slate-500">
+                            <span className={`size-1.5 shrink-0 rounded-full ${meta.dot}`} />
+                            <span>{meta.label}</span>
+                          </span>
+                          <span className="shrink-0 text-slate-300">·</span>
+                          <span className="truncate text-[12px] leading-4 text-slate-500">{p.role}</span>
+                        </span>
+                      </span>
+                    </span>
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-500">
+                      <Phone className="size-3.5" />
+                    </span>
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-400">
+                      <X className="size-3.5" />
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-800">Actividad</p>
+              <span className="num text-[12px] text-slate-500">3 mensajes</span>
+            </div>
+            <ol className="flex flex-col">
+              <li className="flex gap-3">
+                <span className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-bold ${laura.bg} ${laura.text}`}>
+                  {initials('laura@tuempresa.es')}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-x-1.5 text-[13px]">
+                    <span className={`font-semibold ${laura.name}`}>laura</span>
+                    <span className="text-slate-300">·</span>
+                    <span className="num text-slate-500">19:24</span>
+                  </div>
+                  <p className="mt-1 text-[13px] leading-[1.45] text-slate-700 sm:text-[14px]">
+                    Solo sábado, 8 a 15. Plus de fin de semana incluido.
+                  </p>
+                </div>
+              </li>
+              <li className="mt-3 flex gap-3 border-t border-slate-100 pt-3">
+                <span className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-bold ${you.bg} ${you.text}`}>
+                  {initials('demo@apuntatefacil.com')}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-x-1.5 text-[13px]">
+                    <span className="font-semibold text-slate-900">Tú</span>
+                    <span className="text-slate-300">·</span>
+                    <span className="num text-slate-500">19:44</span>
+                  </div>
+                  <p className="mt-1 text-[13px] leading-[1.45] text-slate-700 sm:text-[14px]">
+                    Estos dos viven cerca de la nave y tienen disponibilidad inmediata.
+                  </p>
+                  <span className="mt-2 flex min-h-9 w-full max-w-md items-center gap-2.5 rounded-xl border border-slate-200 bg-white py-1.5 pl-2 pr-3">
+                    <span className="flex shrink-0 items-center pl-0.5">
+                      {TEAM_PROPOSALS.map((p, i) => (
+                        <span
+                          key={p.name}
+                          className={`grid size-7 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white ring-2 ring-white ${i > 0 ? '-ml-1.5' : ''}`}
+                          style={{ zIndex: TEAM_PROPOSALS.length - i }}
+                        >
+                          {initials(p.name)}
+                        </span>
+                      ))}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-800">2 candidatos</span>
+                    <ChevronRight className="size-3.5 shrink-0 text-slate-400" />
+                  </span>
+                </div>
+              </li>
+              <li className="mt-3 flex gap-3 border-t border-slate-100 pt-3">
+                <span className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-bold ${sergio.bg} ${sergio.text}`}>
+                  {initials('sergio@tuempresa.es')}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-x-1.5 text-[13px]">
+                    <span className="font-semibold text-slate-900">sergio</span>
+                    <span className="text-slate-300">·</span>
+                    <span className="num text-slate-500">03:24</span>
+                  </div>
+                  <p className="mt-1 text-[13px] leading-[1.45] text-slate-700 sm:text-[14px]">
+                    Les he escrito por WhatsApp. Confirman los dos. Los paso a contactado.
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
+          <p className="text-[13px] text-slate-500">Petición completada por ti.</p>
+          <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-medium text-slate-800 ring-1 ring-slate-300/80 shadow-[0_1px_2px_rgba(18,22,34,0.06)]">
+            <RotateCcw className="size-3.5" />
+            Reabrir
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Team() {
+  const points = [
+    {
+      icon: MessagesSquare,
+      title: 'Reúne en un tablón lo que hoy se reparte por mensajes',
+      body: 'Cada respuesta incluye perfil, estado y teléfono. Sin buscar el hilo en el chat.',
+    },
+    {
+      icon: Database,
+      title: 'Recupera candidatos de procesos anteriores',
+      body: 'Dejan de perderse en mensajes o correos. El equipo los propone cuando vuelve a hacer falta cubrir un puesto.',
+    },
+    {
+      icon: Users,
+      title: 'Mantén al equipo alineado sobre cada necesidad',
+      body: 'La petición, las propuestas y el contacto viven en el mismo flujo. Menos ida y vuelta, más decisiones con información completa.',
+    },
+  ]
+  return (
+    <section className="bg-white">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 section-x section-y lg:grid-cols-2 lg:items-start lg:gap-14">
+        <Reveal delay={0.08} className="max-lg:order-last lg:pl-4">
+          <TeamBoardMock />
+        </Reveal>
+        <Reveal>
+          <p className="text-sm font-semibold text-slate-500">Equipo, desde el plan Pro</p>
+          <h2 className="mt-3 max-w-xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            Coordina necesidades internas con tu base de candidatos
+          </h2>
+          <p className="mt-4 max-w-xl text-pretty text-lg leading-relaxed text-slate-600">
+            Publica en el tablón lo que necesitas cubrir. Tu equipo propone candidatos de la base, con estado y teléfono, listos para llamar.
+          </p>
+          <ul className="mt-7 space-y-4">
+            {points.map((p) => (
+              <li key={p.title} className="flex gap-3.5">
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700">
+                  <p.icon className="size-[18px]" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-copy-md font-semibold text-slate-900">{p.title}</h3>
+                  <p className="mt-1 max-w-md text-copy leading-relaxed text-slate-600">{p.body}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <Link to="/demo/equipo" className={`${BTN_SECONDARY_LG} mt-7`}>
+            Ver el tablón en la demo
+          </Link>
+        </Reveal>
       </div>
     </section>
   )
