@@ -27,6 +27,7 @@ type CampaignRow = {
   site_id: string | null
   brand_id: string | null
   notify_new: boolean
+  share_reply: string | null
   created_at: string
 }
 type CandidateRow = {
@@ -55,6 +56,7 @@ const toCampaign = (r: CampaignRow): Campaign => ({
   siteId: r.site_id ?? null,
   brandId: r.brand_id ?? null,
   notifyNew: r.notify_new ?? true,
+  shareReply: r.share_reply ?? undefined,
 })
 
 type SiteRow = { id: string; name: string; city: string }
@@ -738,6 +740,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (patch.siteId !== undefined) dbPatch.site_id = patch.siteId
       if (patch.brandId !== undefined) dbPatch.brand_id = patch.brandId
       if (patch.notifyNew !== undefined) dbPatch.notify_new = patch.notifyNew
+      if (patch.shareReply !== undefined) dbPatch.share_reply = patch.shareReply
       if (Object.keys(dbPatch).length) {
         const { error } = await supabase.from('campaigns').update(dbPatch).eq('id', campaignId)
         if (error) {
@@ -832,6 +835,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           siteId: src.siteId,
           brandId: src.brandId,
           notifyNew: src.notifyNew ?? true,
+          shareReply: src.shareReply,
         }
         setCampaigns((cs) => [...cs, campaign])
         return campaign
@@ -851,6 +855,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           site_id: src.siteId,
           brand_id: src.brandId,
           notify_new: src.notifyNew ?? true,
+          share_reply: src.shareReply ?? null,
         })
         .select('*')
         .single()

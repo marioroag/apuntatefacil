@@ -46,6 +46,7 @@ import { planHas, PLAN_CANDIDATE_LIMIT, TAGS_ENABLED, type PlanFeature } from '.
 import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { OnboardingTestCard } from '../components/OnboardingGuide'
+import { ShareReply } from '../components/ShareReply'
 import { useOnboarding } from '../lib/onboarding'
 import { useAppBase } from '../lib/useAppBase'
 import { MaskedPhone } from '../components/MaskedPhone'
@@ -582,16 +583,15 @@ export function Dashboard() {
             </span>
           )}
           <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
-            <button
-              onClick={copyLink}
-              className={`${BTN_SECONDARY} max-sm:h-8 max-sm:gap-1 max-sm:px-2.5 max-sm:text-[12px]`}
-              title="Copiar enlace"
-              aria-label="Copiar enlace"
-            >
-              <Share2 className="size-4 shrink-0 text-slate-400 max-sm:size-3.5" aria-hidden />
-              <span className={compactShare ? 'hidden' : 'sm:hidden'}>Copiar</span>
-              <span className="hidden sm:inline">Copiar enlace</span>
-            </button>
+            <ShareMenu
+              campaignId={campaign.id}
+              title={campaign.title}
+              url={publicFormUrl(campaign.slug, brandLabel)}
+              urlDisplay={publicUrl}
+              savedReply={campaign.shareReply}
+              demo={base === '/demo'}
+              compact={compactShare}
+            />
             {canManage && (
               <Link
                 to={`${base}/puestos/${campaign.id}/formulario`}
@@ -1881,6 +1881,154 @@ function TestChip() {
     <span className="inline-flex shrink-0 items-center rounded-full bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
       Prueba
     </span>
+  )
+}
+
+function ShareMenu({
+  campaignId,
+  title,
+  url,
+  urlDisplay,
+  savedReply,
+  demo,
+  compact,
+}: {
+  campaignId: string
+  title: string
+  url: string
+  urlDisplay: string
+  savedReply?: string | null
+  demo: boolean
+  compact: boolean
+}) {
+  const { updateCampaign } = useStore()
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 639px)').matches)
+
+  const close = () => {
+    setOpen(false)
+    window.requestAnimationFrame(() => buttonRef.current?.focus())
+  }
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null)
+      return
+    }
+    const place = () => {
+      const el = ref.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      setPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) })
+    }
+    place()
+    window.addEventListener('resize', place)
+    // El main scrollea: hay que reposicionar o el panel se queda huérfano.
+    const main = document.getElementById('contenido')
+    main?.addEventListener('scroll', place, { passive: true })
+    return () => {
+      window.removeEventListener('resize', place)
+      main?.removeEventListener('scroll', place)
+    }
+  }, [open])
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 639px)')
+    const update = () => setIsMobile(query.matches)
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (!ref.current?.contains(target) && !panelRef.current?.contains(target)) close()
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
+    // click deja que el textarea pierda el foco y guarde su plantilla antes de cerrar.
+    document.addEventListener('click', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('click', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`${BTN_SECONDARY} max-sm:min-h-11 max-sm:gap-1 max-sm:px-2.5 max-sm:text-[12px] ${
+          open ? 'bg-slate-50 ring-slate-300' : ''
+        }`}
+        title="Compartir"
+        aria-label="Compartir"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+      >
+        <Share2 className="size-4 shrink-0 text-slate-400 max-sm:size-3.5" aria-hidden />
+        <span className={compact ? 'hidden sm:inline' : undefined}>Compartir</span>
+        <ChevronDown
+          className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-150 max-sm:hidden ${
+            open ? 'rotate-180' : ''
+          }`}
+          aria-hidden
+        />
+      </button>
+      {/* Escritorio: fixed para no recortar con overflow del main. */}
+      <AnimatePresence>
+        {open && pos && !isMobile && (
+          <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="false"
+            aria-label="Compartir puesto"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.15, ease: [0, 0, 0.2, 1] }}
+            style={{ top: pos.top, right: pos.right }}
+            className="fixed z-50 hidden w-[min(100vw-1.5rem,25rem)] rounded-xl border border-slate-200 bg-white p-4 shadow-pop sm:block"
+          >
+            <ShareReply
+              title={title}
+              url={url}
+              urlDisplay={urlDisplay}
+              demo={demo}
+              variant="popover"
+              savedReply={savedReply}
+              onSaveReply={(reply) => updateCampaign(campaignId, { shareReply: reply })}
+              autoFocus
+              onClose={close}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Móvil: hoja inferior (mismo patrón que Filtros) */}
+      {isMobile && (
+        <BottomSheet open={open} onClose={close} title="Compartir">
+          <ShareReply
+            title={title}
+            url={url}
+            urlDisplay={urlDisplay}
+            demo={demo}
+            variant="sheet"
+            savedReply={savedReply}
+            onSaveReply={(reply) => updateCampaign(campaignId, { shareReply: reply })}
+            autoFocus
+          />
+        </BottomSheet>
+      )}
+    </div>
   )
 }
 

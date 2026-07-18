@@ -29,8 +29,6 @@ import {
   ChevronDown,
   ChevronUp,
   CloudOff,
-  Copy,
-  ExternalLink,
   GripVertical,
   Monitor,
   Plus,
@@ -38,6 +36,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
+import { ShareReply } from '../components/ShareReply'
 import { useStore } from '../lib/store'
 import { brandAssetUrl } from '../lib/brandAsset'
 import { useToast } from '../components/ui/Toast'
@@ -51,8 +50,7 @@ import { FORM_WELCOME_DEFAULT, FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { publicFormPath, publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
-import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
-import { copyText } from '../lib/clipboard'
+import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
 
@@ -712,53 +710,32 @@ function ShareCard({ campaign }: { campaign: Campaign }) {
   const toast = useToast()
   const demo = useAppBase() === '/demo'
   const { company } = useAuth()
-  const { brands } = useStore()
+  const { brands, updateCampaign } = useStore()
   // Primer tramo del enlace: marca del puesto si la tiene, si no el nombre de la empresa.
   const brandLabel = (campaign.brandId ? brands.find((b) => b.id === campaign.brandId)?.name : null) ?? company?.name
   const url = publicFormUrlDisplay(campaign.slug, brandLabel)
   const full = publicFormUrl(campaign.slug, brandLabel)
   const disabled = campaign.fields.length === 0
 
-  const demoNotice = () =>
-    toast.show('En la demo el enlace es de muestra. Crea tu cuenta para tener un enlace que reciba candidaturas de verdad.')
-
-  const copy = async () => {
-    if (demo) { demoNotice(); return }
-    const ok = await copyText(full)
-    if (ok) toast.success('Enlace copiado')
-    else toast.show('Copia manualmente: ' + url)
-  }
+  const demoNotice = () => toast.show('Este formulario es una muestra. El enlace no recibe candidaturas.')
 
   return (
     <section>
       <SectionTitle>Compartir</SectionTitle>
-      <div className="rounded-xl border border-slate-200 bg-white p-3.5">
-        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-3 pr-1.5">
-          <span className="min-w-0 flex-1 truncate text-sm text-slate-600">{url}</span>
-          <button
-            onClick={copy}
-            disabled={disabled}
-            className={`${BTN_PRIMARY_SM} shrink-0 disabled:opacity-50`}
-          >
-            <Copy className="size-3.5" aria-hidden /> Copiar
-          </button>
-        </div>
-        <div className="mt-2 flex items-center gap-3">
-          {demo ? (
-            <button type="button" onClick={demoNotice} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700">
-              <ExternalLink className="size-3.5" aria-hidden /> Abrir formulario
-            </button>
-          ) : (
-            <a href={publicFormPath(campaign.slug, brandLabel)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700">
-              <ExternalLink className="size-3.5" aria-hidden /> Abrir formulario
-            </a>
-          )}
-        </div>
-        <p className="mt-2.5 text-[12px] leading-relaxed text-slate-500">
-          {demo
-            ? 'En la demo el enlace es solo de muestra y no recibe candidaturas. Con tu cuenta, cada respuesta entra en tu panel.'
-            : 'Comparte este enlace con quien responda a tu anuncio. Cualquiera con el enlace puede enviar una candidatura a este puesto.'}
-        </p>
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <ShareReply
+          title={campaign.title}
+          url={full}
+          urlDisplay={url}
+          disabled={disabled}
+          demo={demo}
+          variant="section"
+          formHref={demo ? undefined : publicFormPath(campaign.slug, brandLabel)}
+          formDemo={demo}
+          onFormDemoClick={demoNotice}
+          savedReply={campaign.shareReply}
+          onSaveReply={(reply) => updateCampaign(campaign.id, { shareReply: reply })}
+        />
       </div>
     </section>
   )

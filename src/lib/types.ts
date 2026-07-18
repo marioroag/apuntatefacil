@@ -53,6 +53,8 @@ export interface Campaign {
   siteId: string | null // sede a la que pertenece (Multi); null = sin sede
   brandId: string | null // marca a la que pertenece (Multi); null = sin marca
   notifyNew?: boolean // avisar por email al entrar un candidato (por defecto sí)
+  /** Respuesta personalizada y reutilizable al compartir el enlace del puesto. */
+  shareReply?: string | null
 }
 
 // Sede (Multi): agrupa puestos de un mismo local. Entidad propia, separada de marca.
