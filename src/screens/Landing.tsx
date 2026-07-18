@@ -249,7 +249,7 @@ function Compare() {
             Mira la diferencia en el propio chat
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
-            A la izquierda, una conversación que se alarga sin cerrar la selección. A la derecha, un enlace: la candidatura llega completa y ordenada en tu lista.
+            Primero, la conversación de siempre: preguntas sueltas y respuestas a medias. Después, un enlace y el perfil completo en tu lista.
           </p>
         </Reveal>
 
@@ -333,7 +333,7 @@ function Compare() {
 
 function HowItWorks() {
   const steps = [
-    { icon: Megaphone, title: 'Publica tu anuncio', body: 'El anuncio sigue en Milanuncios y las respuestas llegan por el mismo canal. No cambias dónde publicas ni cómo te encuentran.' },
+    { icon: Megaphone, title: 'Publica tu anuncio', body: 'El anuncio sigue en tu canal habitual y las respuestas llegan por ahí. No cambias dónde publicas ni cómo te encuentran.' },
     { icon: Link2, title: 'Envía un enlace al candidato', body: 'Cuando llega una respuesta, compartes un enlace con las preguntas del puesto. El candidato completa el formulario en el móvil, con menos fricción que el chat.' },
     { icon: ListChecks, title: 'Gestiona todo desde un panel', body: 'Cada candidatura queda en tu lista, ordenada. Filtras por lo relevante, actualizas el estado y decides a quién contactar.' },
   ]
@@ -342,7 +342,7 @@ function HowItWorks() {
       <div className="mx-auto max-w-6xl section-x section-y">
         <Reveal>
           <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:mx-auto max-lg:text-center sm:text-4xl">
-            En tres pasos, operativo en cinco minutos
+            Tres pasos para dejar de gestionar por chat
           </h2>
         </Reveal>
         <div className="relative mt-12">
