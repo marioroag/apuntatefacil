@@ -14,7 +14,14 @@ import { Logo } from '../components/Logo'
 import { BetaBadge } from '../components/BetaBadge'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { SupportDialog } from '../components/SupportDialog'
-import { TIERS, PLAN_PROCESS_LIMIT, type Tier } from '../lib/pricing'
+import {
+  COST_TRUTHS,
+  COST_TRUTHS_FOOTNOTE,
+  TIERS,
+  TRIAL_REASSURANCE,
+  PLAN_PROCESS_LIMIT,
+  type Tier,
+} from '../lib/pricing'
 import { TierPrice } from '../components/TierPrice'
 import { BTN_INVERTED_LG, BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
 
@@ -65,6 +72,7 @@ export function Landing() {
         <HowItWorks />
         <Features />
         <Team />
+        <CostAnchor />
         <Pricing />
         <Faq />
         <FinalCta />
@@ -170,23 +178,23 @@ function Hero() {
     <section className="mx-auto grid grid-cols-1 max-w-6xl items-center gap-10 px-4 pb-12 pt-14 sm:px-6 lg:grid-cols-[1.04fr_1fr] lg:pb-20 lg:pt-24">
       <div>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-label font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
-          La forma más fácil de gestionar candidatos
+          Para contratar desde anuncios y mensajes
         </span>
         <h1 className="mt-4 text-balance text-hero font-[680] text-slate-900 sm:text-hero-lg">
-          Todas las respuestas de tu anuncio, en un solo lugar
+          Convierte las respuestas de tu anuncio en candidatos listos para elegir
         </h1>
         <p className="mt-5 max-w-xl text-pretty text-lg leading-relaxed text-slate-600">
-          Publica tu puesto donde quieras: Milanuncios, Instagram, WhatsApp, un QR en tu local o tu propia web. Envía un único enlace y recibe todos los candidatos ordenados, filtrados y listos para seleccionar.
+          Sigue publicando en Milanuncios, WhatsApp, Instagram o donde quieras. Envía un enlace y recibe cada candidatura completa, ordenada y filtrable en un solo sitio.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link to="/login" className={`${BTN_PRIMARY_LG} group`}>
-            Empieza gratis <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
+            Crea tu primer puesto gratis <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
           <Link to="/demo" className={BTN_SECONDARY_LG}>
             Ver la demo
           </Link>
         </div>
-        <p className="mt-4 text-sm text-slate-500">Empieza gratis, sin tarjeta. Sin permanencia.</p>
+        <p className="mt-4 text-sm text-slate-500">{TRIAL_REASSURANCE}</p>
       </div>
       <div className="relative">
         <div className="absolute -inset-4 -z-10 rounded-2xl bg-slate-50" aria-hidden />
@@ -469,35 +477,27 @@ function Features() {
   return (
     <section className="bg-white">
       <div className="mx-auto max-w-6xl section-x section-y">
-        <Reveal>
-          <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:mx-auto max-lg:text-center sm:text-4xl">
-            Todo lo que necesitas para elegir bien, sin perder a nadie
-          </h2>
-        </Reveal>
+        <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:mx-auto max-lg:text-center sm:text-4xl">
+          Todo lo que necesitas para elegir bien, sin perder a nadie
+        </h2>
 
         {/* Móvil/tablet: hero compacto + panel de filas */}
         <div className="mt-12 lg:hidden">
-          <Reveal>
-            <FeaturesHeroCard icon={hero.icon} title={hero.title} body={hero.body} compactMock />
-          </Reveal>
-          <Reveal delay={0.06} className="mt-5">
-            <div className="divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white shadow-card">
-              {rest.map((it) => (
-                <FeatureSecondaryRow key={it.title} icon={it.icon} title={it.title} body={it.body} />
-              ))}
-            </div>
-          </Reveal>
+          <FeaturesHeroCard icon={hero.icon} title={hero.title} body={hero.body} compactMock />
+          <div className="mt-5 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white shadow-card">
+            {rest.map((it) => (
+              <FeatureSecondaryRow key={it.title} icon={it.icon} title={it.title} body={it.body} />
+            ))}
+          </div>
         </div>
 
         {/* Escritorio: bento 2×2 + tarjetas */}
         <div className="mt-12 hidden gap-5 lg:grid lg:grid-cols-3">
-          <Reveal className="lg:col-span-2 lg:row-span-2">
+          <div className="lg:col-span-2 lg:row-span-2">
             <FeaturesHeroCard icon={hero.icon} title={hero.title} body={hero.body} compactMock={false} />
-          </Reveal>
-          {rest.map((it, i) => (
-            <Reveal key={it.title} delay={(i % 2) * 0.06}>
-              <FeatureSecondaryCard icon={it.icon} title={it.title} body={it.body} />
-            </Reveal>
+          </div>
+          {rest.map((it) => (
+            <FeatureSecondaryCard key={it.title} icon={it.icon} title={it.title} body={it.body} />
           ))}
         </div>
       </div>
@@ -520,7 +520,6 @@ function TeamBoardMock() {
 
   return (
     <div aria-hidden className="relative">
-      <div className="absolute -inset-4 -z-10 rounded-2xl bg-slate-50" />
       <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
         {/* Cabecera tipo SlideOver */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
@@ -684,7 +683,7 @@ function Team() {
     },
   ]
   return (
-    <section className="bg-white">
+    <section className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 section-x section-y lg:grid-cols-2 lg:items-start lg:gap-14">
         <Reveal delay={0.08} className="max-lg:order-last lg:pl-4">
           <TeamBoardMock />
@@ -813,6 +812,52 @@ function onTierTabKeyDown(
   focusTierTab(tierId)
 }
 
+function CostAnchor() {
+  return (
+    <section className="bg-white">
+      <div className="mx-auto max-w-6xl section-x section-y">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="text-sm font-semibold text-slate-500">Antes de comparar planes</p>
+          <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            Contratar desordenado también tiene un coste
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
+            Apúntate Fácil no sustituye dónde publicas. Evita que las respuestas se queden repartidas entre chats, llamadas y hojas de cálculo.
+          </p>
+        </div>
+        <div className="mt-10 grid gap-5 md:grid-cols-2">
+          {COST_TRUTHS.map((truth, index) => (
+            <div
+              key={truth.key}
+              className={index === 0
+                ? 'rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-7'
+                : 'rounded-2xl bg-slate-900 p-6 text-white sm:p-7'}
+            >
+              <h3 className={index === 0 ? 'text-lg font-semibold text-slate-900' : 'text-lg font-semibold text-white'}>
+                {truth.label}
+              </h3>
+              <ul className="mt-6 space-y-4">
+                {truth.items.map((item) => (
+                  <li key={item.lead} className="flex gap-3">
+                    <Check className={index === 0 ? 'mt-0.5 size-4 shrink-0 text-slate-500' : 'mt-0.5 size-4 shrink-0 text-slate-300'} aria-hidden />
+                    <p className={index === 0 ? 'text-copy-md leading-relaxed text-slate-600' : 'text-copy-md leading-relaxed text-slate-300'}>
+                      <strong className={index === 0 ? 'font-semibold text-slate-900' : 'font-semibold text-white'}>{item.lead}</strong>{' '}
+                      {item.text}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <p className="mx-auto mt-6 max-w-2xl text-center text-sm leading-relaxed text-slate-500">
+          {COST_TRUTHS_FOOTNOTE}
+        </p>
+      </div>
+    </section>
+  )
+}
+
 function Pricing() {
   const [annual, setAnnual] = useState(false)
   const [selectedTier, setSelectedTier] = useState(DEFAULT_PRICING_TIER)
@@ -821,45 +866,43 @@ function Pricing() {
   return (
     <section id="precio" className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl section-x section-y">
-      <Reveal className="text-center">
+      <div className="text-center">
         <h2 className="mx-auto max-w-3xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
           Un precio claro, sin “desde” ni letra pequeña
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
           Empieza gratis y sube de plan cuando lo necesites. Candidatos sin límite en los planes de pago; Equipo desde Pro.
         </p>
-      </Reveal>
+      </div>
 
       {/* Toggle mensual / anual */}
-      <Reveal delay={0.08}>
-        <div className="mt-10 flex justify-center">
-          <div
-            role="group"
-            aria-label="Periodicidad de facturación"
-            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1"
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-                e.preventDefault()
-                setAnnual(true)
-              } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-                e.preventDefault()
-                setAnnual(false)
-              }
-            }}
-          >
-            <button type="button" onClick={() => setAnnual(false)} aria-pressed={!annual} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${!annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
-              Mensual
-            </button>
-            <button type="button" onClick={() => setAnnual(true)} aria-pressed={annual} className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
-              Anual
-              <span className={`rounded-full px-1.5 py-0.5 text-micro font-semibold ${annual ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'}`}>2 meses gratis</span>
-            </button>
-          </div>
+      <div className="mt-10 flex justify-center">
+        <div
+          role="group"
+          aria-label="Periodicidad de facturación"
+          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1"
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+              e.preventDefault()
+              setAnnual(true)
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+              e.preventDefault()
+              setAnnual(false)
+            }
+          }}
+        >
+          <button type="button" onClick={() => setAnnual(false)} aria-pressed={!annual} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${!annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
+            Mensual
+          </button>
+          <button type="button" onClick={() => setAnnual(true)} aria-pressed={annual} className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
+            Anual
+            <span className={`rounded-full px-1.5 py-0.5 text-micro font-semibold ${annual ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'}`}>2 meses gratis</span>
+          </button>
         </div>
-      </Reveal>
+      </div>
 
       {/* Móvil: selector de plan + una tarjeta */}
-      <Reveal delay={0.1} className="mt-8 lg:hidden">
+      <div className="mt-8 lg:hidden">
         <div
           role="tablist"
           aria-label="Planes de suscripción"
@@ -900,14 +943,12 @@ function Pricing() {
         >
           <PricingTierCard tier={activeTier} annual={annual} />
         </div>
-      </Reveal>
+      </div>
 
       {/* Escritorio: tres columnas */}
       <div className="mt-8 hidden items-stretch gap-6 lg:grid lg:grid-cols-3">
-        {TIERS.map((t, i) => (
-          <Reveal key={t.id} delay={i * 0.06}>
-            <PricingTierCard tier={t} annual={annual} gridEmphasis={!!t.recommended} />
-          </Reveal>
+        {TIERS.map((t) => (
+          <PricingTierCard key={t.id} tier={t} annual={annual} gridEmphasis={!!t.recommended} />
         ))}
       </div>
 
@@ -976,9 +1017,7 @@ function Faq() {
   return (
     <section id="faq" className="bg-white">
       <div className="mx-auto max-w-3xl section-x section-y">
-        <Reveal>
-          <h2 className="text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:text-center sm:text-4xl">Respuestas claras antes de empezar</h2>
-        </Reveal>
+        <h2 className="text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:text-center sm:text-4xl">Respuestas claras antes de empezar</h2>
         <div className="mt-10 overflow-hidden border-y border-slate-200 bg-white">
           {qs.map(([q, a], i) => (
             <FaqItem
@@ -998,24 +1037,22 @@ function Faq() {
 function FinalCta() {
   return (
     <section className="mx-auto max-w-6xl section-x section-y">
-      <Reveal>
-        <div className="overflow-hidden rounded-3xl bg-slate-900 px-8 py-14 text-center sm:px-16">
-          <h2 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Prueba el panel con candidatos de ejemplo
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-slate-300">
-            Filtra, revisa estados y exporta a Excel como en un puesto real. La demo no pide registro ni tarjeta.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link to="/demo" className={`${BTN_INVERTED_LG} group`}>
-              Ver la demo <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
-            </Link>
-            <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-lg px-5 text-base font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:bg-white/15">
-              Empezar
-            </Link>
-          </div>
+      <div className="overflow-hidden rounded-3xl bg-slate-900 px-8 py-14 text-center sm:px-16">
+        <h2 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          Prueba el panel con candidatos de ejemplo
+        </h2>
+        <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-slate-300">
+          Filtra, revisa estados y exporta a Excel como en un puesto real. La demo no pide registro ni tarjeta.
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Link to="/demo" className={`${BTN_INVERTED_LG} group`}>
+            Ver la demo <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
+          </Link>
+          <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-lg px-5 text-base font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:bg-white/15">
+            Empezar
+          </Link>
         </div>
-      </Reveal>
+      </div>
     </section>
   )
 }

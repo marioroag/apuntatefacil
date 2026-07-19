@@ -130,7 +130,7 @@ export const TIERS: Tier[] = [
   {
     id: 'esencial',
     name: 'Esencial',
-    tagline: 'Todo lo que necesitas para contratar bien en un sitio',
+    tagline: 'Para contratar puntualmente sin perder respuestas',
     monthly: 149,
     annual: 1490,
     processes: '2 procesos a la vez',
@@ -148,7 +148,7 @@ export const TIERS: Tier[] = [
   {
     id: 'pro',
     name: 'Pro',
-    tagline: 'Para quien tiene varias vacantes abiertas a la vez',
+    tagline: 'Para varias contrataciones activas y trabajo en equipo',
     monthly: 249,
     annual: 2490,
     processes: '10 procesos a la vez',
@@ -166,7 +166,7 @@ export const TIERS: Tier[] = [
   {
     id: 'multi',
     name: 'Multi',
-    tagline: 'Para cadenas, franquicias y ETTs con varias sedes',
+    tagline: 'Para ETTs, cadenas y equipos con varias sedes',
     monthly: 499,
     annual: 4990,
     processes: 'Procesos ilimitados',
@@ -182,6 +182,9 @@ export const TIERS: Tier[] = [
     cta: 'Empezar con Multi',
   },
 ]
+
+/** Reassurance del trial en hero y CTAs. Derivada de los topes reales. */
+export const TRIAL_REASSURANCE = `${PLAN_PROCESS_LIMIT.trial} puesto y hasta ${PLAN_CANDIDATE_LIMIT.trial} candidatos gratis. Sin tarjeta ni permanencia.`
 
 // Presentación del precio anual como equivalente mensual. El importe facturado
 // es SIEMPRE visible junto al equivalente (transparencia: nada que calcular ni
@@ -201,12 +204,15 @@ export interface CostTruth {
   items: { lead: string; text: string }[]
 }
 
+// Sin precisión falsa: "56 candidatos" no tiene fuente interna defendible.
+// Rangos de InfoJobs / selección: orientativos, consultados julio 2026
+// (tarifas públicas de publicación destacada e industria de recruiting).
 export const COST_TRUTHS: CostTruth[] = [
   {
     key: 'mano',
     label: 'Si lo haces a mano',
     items: [
-      { lead: '56 candidatos', text: 'por vacante, en chats sueltos de Milanuncios' },
+      { lead: 'Decenas de respuestas', text: 'por puesto, en chats sueltos de Milanuncios' },
       { lead: 'Horas', text: 'revisando respuestas y copiándolas a Excel' },
       { lead: 'Buenos perfiles', text: 'que se pierden entre tanto mensaje' },
     ],
@@ -221,3 +227,6 @@ export const COST_TRUTHS: CostTruth[] = [
     ],
   },
 ]
+
+export const COST_TRUTHS_FOOTNOTE =
+  'Cifras orientativas de mercado, consultadas en julio de 2026. InfoJobs: tarifas públicas de publicación destacada. Selección y coste de mala contratación: rangos habituales del sector.'
