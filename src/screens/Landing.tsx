@@ -181,7 +181,7 @@ function Hero() {
           Para contratar desde anuncios y mensajes
         </span>
         <h1 className="mt-4 text-balance text-hero font-[680] text-slate-900 sm:text-hero-lg">
-          Convierte las respuestas de tu anuncio en candidatos listos para elegir
+          Todas las respuestas a tu anuncio, en un solo lugar
         </h1>
         <p className="mt-5 max-w-xl text-pretty text-lg leading-relaxed text-slate-600">
           Sigue publicando en Milanuncios, WhatsApp, Instagram o donde quieras. Envía un enlace y recibe cada candidatura completa, ordenada y filtrable en un solo sitio.
