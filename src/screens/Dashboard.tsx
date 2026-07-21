@@ -1003,14 +1003,6 @@ export function Dashboard() {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0 [&>*>button]:w-full">
-              <button
-                type="button"
-                onClick={() => setInterestDialogOpen(true)}
-                disabled={selected.size === 0}
-                className={`${BTN_PRIMARY} justify-center disabled:opacity-50`}
-              >
-                <MailCheck className="size-4 text-indigo-200" aria-hidden /> Interés
-              </button>
               {TAGS_ENABLED && (
                 <>
                   <BulkTagMenu
@@ -1029,6 +1021,14 @@ export function Dashboard() {
                   />
                 </>
               )}
+              <button
+                type="button"
+                onClick={() => setInterestDialogOpen(true)}
+                disabled={selected.size === 0}
+                className={`${BTN_PRIMARY} justify-center disabled:opacity-50`}
+              >
+                <MailCheck className="size-4 text-indigo-200" aria-hidden /> Interés
+              </button>
               <button
                 type="button"
                 onClick={exportSelected}

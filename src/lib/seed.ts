@@ -75,6 +75,7 @@ const f = (field: Omit<FormField, 'required'> & { required?: boolean }): FormFie
 
 const SYS_NOMBRE = f({ id: 'nombre', type: 'text', label: 'Nombre y apellidos', required: true, system: true, placeholder: 'Tu nombre completo' })
 const SYS_TEL = f({ id: 'telefono', type: 'phone', label: 'Teléfono', required: true, system: true, placeholder: '600 000 000' })
+const SYS_EMAIL = f({ id: 'email', type: 'email', label: 'Email', required: true, placeholder: 'nombre@email.com' })
 
 // ---------------------------------------------------------------------------
 // Sedes y marcas
@@ -137,6 +138,7 @@ const campaigns: Campaign[] = [
     fields: [
       SYS_NOMBRE,
       SYS_TEL,
+      SYS_EMAIL,
       f({ id: 'exp', type: 'number', label: 'Años de experiencia en obra', required: true, placeholder: '0' }),
       f({ id: 'carnet', type: 'boolean', label: '¿Tienes carnet de conducir B?', required: true }),
       f({ id: 'vehiculo', type: 'boolean', label: '¿Vehículo propio para desplazarte?' }),
@@ -165,6 +167,7 @@ const campaigns: Campaign[] = [
     fields: [
       SYS_NOMBRE,
       SYS_TEL,
+      SYS_EMAIL,
       f({ id: 'exp', type: 'number', label: 'Años de experiencia como oficial', required: true, placeholder: '0' }),
       f({ id: 'especialidad', type: 'multiselect', label: 'Especialidad', required: true, options: ['Encofrado', 'Solados y alicatados', 'Enfoscados y revestimientos', 'Estructura de hormigón', 'Rehabilitación', 'Pladur'] }),
       f({ id: 'prl', type: 'select', label: 'Formación PRL en construcción', required: true, options: ['No tengo', '20 horas', '60 horas'] }),
@@ -192,7 +195,7 @@ const campaigns: Campaign[] = [
     fields: [
       SYS_NOMBRE,
       SYS_TEL,
-      f({ id: 'email', type: 'email', label: 'Email', placeholder: 'tucorreo@email.com' }),
+      SYS_EMAIL,
       f({ id: 'exp', type: 'number', label: 'Años de experiencia', required: true, placeholder: '0' }),
       f({ id: 'tipo', type: 'multiselect', label: 'Tipo de instalaciones que dominas', required: true, options: ['Vivienda', 'Industrial', 'Terciario y oficinas', 'Fotovoltaica', 'Mantenimiento'] }),
       f({ id: 'instalador', type: 'boolean', label: '¿Carnet de instalador autorizado en baja tensión?', required: true }),
@@ -221,6 +224,7 @@ const campaigns: Campaign[] = [
     fields: [
       SYS_NOMBRE,
       SYS_TEL,
+      SYS_EMAIL,
       f({ id: 'carretillero', type: 'boolean', label: '¿Tienes carnet de carretillero?', required: true }),
       f({ id: 'turnos', type: 'multiselect', label: '¿Qué turnos puedes cubrir?', required: true, options: ['Mañana', 'Tarde', 'Noche'] }),
       f({ id: 'vehiculo', type: 'boolean', label: '¿Vehículo propio para llegar al polígono?', required: true }),
@@ -248,6 +252,7 @@ const campaigns: Campaign[] = [
     fields: [
       SYS_NOMBRE,
       SYS_TEL,
+      SYS_EMAIL,
       f({ id: 'carnet_vigente', type: 'boolean', label: '¿Carnet de carretillas en vigor?', required: true }),
       f({ id: 'tipo_carretilla', type: 'multiselect', label: '¿Qué carretillas manejas?', required: true, options: ['Frontal', 'Retráctil', 'Transpaleta eléctrica', 'Recogepedidos', 'Apiladora'] }),
       f({ id: 'exp', type: 'number', label: 'Años de experiencia con carretilla', required: true, placeholder: '0' }),
@@ -274,6 +279,7 @@ const campaigns: Campaign[] = [
     fields: [
       SYS_NOMBRE,
       SYS_TEL,
+      SYS_EMAIL,
       f({ id: 'pda', type: 'boolean', label: '¿Experiencia con PDA o radiofrecuencia?', required: true }),
       f({ id: 'turnos', type: 'multiselect', label: '¿Qué turnos puedes cubrir?', required: true, options: ['Mañana', 'Tarde', 'Noche'] }),
       f({ id: 'findes', type: 'boolean', label: '¿Disponible algún fin de semana?' }),
@@ -369,15 +375,21 @@ const EXP_RANGE: Record<string, [number, number]> = {
   cmp_preparador: [0, 8],
 }
 
-function answerFor(field: FormField, name: string, cmpId: string): Candidate['answers'][string] | undefined {
+function answerFor(field: FormField, name: string, cmpId: string, candidateNumber: number): Candidate['answers'][string] | undefined {
   switch (field.id) {
     case 'nombre':
       return name
     case 'telefono':
       return phone()
     case 'email': {
-      const slug = name.toLowerCase().normalize('NFD').replace(/[^a-z]/g, '')
-      return chance(0.85) ? `${slug}@${pick(['gmail.com', 'hotmail.com', 'outlook.es'])}` : ''
+      const slug = name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z]+/g, '.')
+        .replace(/^\.|\.$/g, '')
+      const domains = ['gmail.com', 'hotmail.com', 'outlook.es']
+      return `${slug}${candidateNumber}@${domains[candidateNumber % domains.length]}`
     }
   }
   switch (field.type) {
@@ -488,14 +500,15 @@ for (const cmp of campaigns) {
   const total = COUNTS[cmp.id] ?? 8
   for (let i = 0; i < total; i++) {
     const name = `${pick(NOMBRES)} ${pick(APELLIDOS)}`
+    const candidateNumber = n + 1
     const answers: Candidate['answers'] = {}
     for (const field of cmp.fields) {
-      const v = answerFor(field, name, cmp.id)
+      const v = answerFor(field, name, cmp.id, candidateNumber)
       if (v !== undefined) answers[field.id] = v
     }
     const status: CandidateStatus = i < 2 ? 'nuevo' : weightedStatus() // los 2 primeros (más recientes) siempre nuevos
     candidates.push({
-      id: `cand_${++n}`,
+      id: `cand_${candidateNumber}`,
       campaignId: cmp.id,
       answers,
       status,
@@ -505,6 +518,7 @@ for (const cmp of campaigns) {
       notes: noteFor(status),
       tagIds: tagsForStatus(status),
     })
+    n = candidateNumber
   }
 }
 // Orden: más recientes primero
