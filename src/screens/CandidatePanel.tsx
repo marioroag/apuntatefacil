@@ -14,6 +14,7 @@ import { copyText } from '../lib/clipboard'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { TagSection } from '../components/Tags'
 import { TAGS_ENABLED } from '../lib/pricing'
+import { InterestSignal } from '../components/InterestSignal'
 
 function answerText(v: Candidate['answers'][string] | undefined): string {
   if (v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) return 'Sin dato'
@@ -156,6 +157,12 @@ export function CandidatePanel({
                 )
               )}
             </div>
+          </div>
+
+          <div>
+            <p className="mb-1.5 text-sm font-semibold text-slate-800">Interés actual</p>
+            <InterestSignal campaign={campaign} candidate={candidate} />
+            <p className="mt-1.5 text-[12px] leading-5 text-slate-500">Esta señal es informativa y no cambia el estado de la candidatura.</p>
           </div>
 
           {/* Valoración */}

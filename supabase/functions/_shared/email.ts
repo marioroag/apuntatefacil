@@ -54,18 +54,21 @@ export function renderEmail(opts: {
   heading?: string // titular opcional: en avisos sí, en correos conversacionales no
   bodyHtml: string // HTML ya compuesto y escapado por el llamante
   button?: EmailButton
+  buttons?: EmailButton[]
   footnote?: string
 }): string {
-  const { preview, heading, bodyHtml, button, footnote } = opts
+  const { preview, heading, bodyHtml, button, buttons, footnote } = opts
   const head = heading
     ? `<h1 style="margin:24px 0 0;font-family:${FONT};font-size:19px;font-weight:600;letter-spacing:-0.01em;line-height:1.35;color:${C.ink}">${esc(heading)}</h1>`
     : ''
-  const btn = button
+  const allButtons = buttons ?? (button ? [button] : [])
+  const btn = allButtons.length
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0 0">
-            <tr><td style="border-radius:8px;background:${C.accent}">
-              <a href="${button.href}" style="display:inline-block;padding:12px 22px;font-family:${FONT};font-size:15px;font-weight:600;line-height:1;color:#ffffff;text-decoration:none;border-radius:8px">${esc(button.label)}</a>
-            </td></tr>
-          </table>`
+        ${allButtons.map((item, index) => `
+          <tr><td style="${index ? 'padding-top:8px;' : ''}">
+            <a href="${item.href}" style="display:block;padding:12px 22px;font-family:${FONT};font-size:15px;font-weight:600;line-height:1.15;text-align:center;text-decoration:none;border-radius:8px;${index === 0 ? `background:${C.accent};color:#ffffff` : `background:#ffffff;color:${C.ink};border:1px solid ${C.border}`}">${esc(item.label)}</a>
+          </td></tr>`).join('')}
+       </table>`
     : ''
   const foot = footnote
     ? `<p style="margin:24px 0 0;font-family:${FONT};font-size:13px;line-height:1.6;color:${C.ink3}">${esc(footnote)}</p>`

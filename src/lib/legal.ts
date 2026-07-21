@@ -118,10 +118,10 @@ export const PRIVACY_DOC: LegalDoc = {
           "type": "ul",
           "items": [
             "Nombre del candidato y teléfono.",
-            "Email del candidato, si la empresa configura ese campo (es opcional).",
+            "Email del candidato. Los formularios nuevos lo solicitan por defecto, aunque la empresa puede hacerlo opcional o eliminarlo.",
             "Campos personalizados que cada empresa decida pedir: experiencia, carnet, zona, disponibilidad o cualquier otro que configure en su formulario.",
             "Archivo adjunto opcional, como un CV o documento, almacenado en un espacio privado.",
-            "Respuestas a las preguntas del formulario, estado de la candidatura (nuevo, contactado, entrevista, contratado, descartado), calificación de 0 a 3 estrellas, etiquetas, y notas internas o comentarios sobre la candidatura que escriba la empresa, por ejemplo en el tablón de Equipo. Esa calificación y ese estado los pone y los usa una persona de la empresa, no un algoritmo: lo aclaramos en el apartado 6.",
+            "Respuestas a las preguntas del formulario, respuesta a las comprobaciones de interés y fechas de envío o respuesta, estado de la candidatura (nuevo, contactado, entrevista, contratado, descartado), calificación de 0 a 3 estrellas, etiquetas, y notas internas o comentarios sobre la candidatura que escriba la empresa, por ejemplo en el tablón de Equipo. Esas señales, calificaciones y estados los inicia o usa una persona de la empresa, no un algoritmo: lo aclaramos en el apartado 6.",
             "Fuente de la candidatura (por ejemplo la web de empleo donde publiques, como Milanuncios, un enlace o un QR) y fecha y hora de envío."
           ]
         },
@@ -164,7 +164,7 @@ export const PRIVACY_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Respecto a los datos de los candidatos, Apúntate Fácil no fija la finalidad ni la base de legitimación: lo hace la empresa cliente como responsable. La empresa es quien debe tener una base legal válida (normalmente la ejecución de medidas precontractuales a petición del candidato, su consentimiento o el interés legítimo del proceso de selección) y quien debe informar a los candidatos. Nosotros solo procesamos esos datos siguiendo las instrucciones de la empresa, para que pueda gestionar su selección."
+          "text": "Respecto a los datos de los candidatos, Apúntate Fácil no fija la finalidad ni la base de legitimación: lo hace la empresa cliente como responsable. La empresa es quien debe tener una base legal válida (normalmente la ejecución de medidas precontractuales a petición del candidato, su consentimiento o el interés legítimo del proceso de selección) y quien debe informar a los candidatos. Nosotros solo procesamos esos datos siguiendo sus instrucciones para que pueda gestionar la selección, incluida la comprobación manual de si una persona sigue interesada en un puesto."
         }
       ]
     },
@@ -215,7 +215,7 @@ export const PRIVACY_DOC: LegalDoc = {
           "type": "ul",
           "items": [
             "Stripe (Stripe, Inc.): procesa los pagos. Gestiona el cobro de tu suscripción según tu plan (149, 249 o 499 EUR más IVA), emite facturas y trata los datos de pago y facturación.",
-            "Resend (Resend, Inc.): envía los emails transaccionales y los de acceso. Manda el aviso al responsable de la empresa cuando entra una nueva candidatura (ese email incluye el nombre y el teléfono del candidato), los avisos de tu suscripción (activación, cancelación, renovación) y los emails de confirmación de cuenta y de restablecimiento de contraseña.",
+            "Resend (Resend, Inc.): envía los emails transaccionales y los de acceso. Manda el aviso al responsable de la empresa cuando entra una nueva candidatura (ese email incluye el nombre y el teléfono del candidato), las comprobaciones de interés que la empresa decide enviar a candidatos, los avisos de suscripción y los emails de confirmación de cuenta o restablecimiento de contraseña. Las comprobaciones de interés no incorporan seguimiento de aperturas ni de clics por parte de Apúntate Fácil.",
             "Supabase (Supabase, Inc.): es la infraestructura. Aloja la base de datos con las tablas de empresas, candidatos, puestos y campañas, gestiona la autenticación y las sesiones, y almacena los CV y documentos adjuntos en un espacio de archivos privado. Los datos se alojan en la región [REGIÓN DE ALOJAMIENTO].",
             "Vercel (Vercel, Inc.): aloja y sirve la aplicación web, es decir, las páginas que se cargan en el navegador, incluido el formulario público que rellenan los candidatos. Como cualquier servidor web, procesa datos técnicos de conexión (dirección IP, navegador) para entregar las páginas, y nos proporciona la medición de audiencia y rendimiento sin cookies descrita en el apartado 4, con datos agregados.",
             "Google (Google LLC): solo si eliges entrar con tu cuenta de Google. En esa función Google interviene en la autenticación y trata tu email de Google conforme a sus propias políticas, como responsable independiente de ese dato de inicio de sesión. Si entras con tu email y contraseña, Google no interviene."
@@ -476,6 +476,7 @@ export const TERMS_DOC: LegalDoc = {
             "Crear y personalizar el formulario público de candidatura, con los campos que tú decidas (por ejemplo nombre, teléfono, carnet, zona, experiencia o disponibilidad).",
             "Recibir las candidaturas en un panel, filtrarlas, ordenarlas, puntuarlas y cambiar su estado (nuevo, contactado, entrevista, contratado, descartado).",
             "Recibir un aviso por email cuando entra una nueva candidatura.",
+            "Seleccionar candidatos y enviarles una comprobación por email para saber si siguen interesados, mostrando la respuesta como una señal independiente del estado de la candidatura.",
             "Exportar tus candidaturas a un archivo Excel desde tu propio navegador.",
             "Guardar adjuntos de los candidatos, como un CV, en un almacenamiento privado."
           ]
@@ -950,11 +951,11 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Naturaleza y finalidad: recogida a través del formulario, almacenamiento, organización, consulta, filtrado, exportación y supresión de candidaturas, por cuenta tuya."
+          "text": "Naturaleza y finalidad: recogida a través del formulario, almacenamiento, organización, consulta, filtrado, comunicación operativa por email, registro de respuestas, exportación y supresión de candidaturas, por cuenta tuya."
         },
         {
           "type": "p",
-          "text": "Tipo de datos: datos identificativos y de contacto de los candidatos (nombre, teléfono y, si lo configuras, email), los campos personalizados que definas, los archivos adjuntos (por ejemplo, el CV) y los datos de gestión (estado, calificación, etiquetas, notas y comentarios internos, como los del tablón de Equipo, fuente y fecha). Categorías de interesados: las personas candidatas a tus ofertas."
+          "text": "Tipo de datos: datos identificativos y de contacto de los candidatos (nombre, teléfono y email, que se solicita por defecto pero puedes hacer opcional o eliminar), los campos personalizados que definas, los archivos adjuntos (por ejemplo, el CV) y los datos de gestión (respuesta y fechas de las comprobaciones de interés, estado, calificación, etiquetas, notas y comentarios internos, como los del tablón de Equipo, fuente y fecha). Categorías de interesados: las personas candidatas a tus ofertas."
         },
         {
           "type": "p",

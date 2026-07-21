@@ -21,6 +21,7 @@ const f = (field: Omit<FormField, 'required'> & { required?: boolean }): FormFie
 const SYS: FormField[] = [
   f({ id: 'nombre', type: 'text', label: 'Nombre y apellidos', required: true, system: true, placeholder: 'Tu nombre completo' }),
   f({ id: 'telefono', type: 'phone', label: 'Teléfono', required: true, system: true, placeholder: '600 000 000' }),
+  f({ id: 'email', type: 'email', label: 'Email', required: true, placeholder: 'nombre@email.com' }),
 ]
 
 export const TEMPLATES: SectorTemplate[] = [

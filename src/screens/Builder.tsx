@@ -49,6 +49,7 @@ import { FORM_WELCOME_DEFAULT, FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
 
@@ -58,7 +59,7 @@ function newField(type: FieldType): FormField {
     id: `f_${Date.now().toString(36)}_${fc++}`,
     type,
     label: defaultLabel(type),
-    required: false,
+    required: type === 'email',
   }
   if (type === 'select' || type === 'multiselect') base.options = ['Opción 1', 'Opción 2']
   return base
@@ -99,6 +100,7 @@ export function Builder() {
   const [device, setDevice] = useState<'mobile' | 'desktop'>('mobile')
   const [previewOpen, setPreviewOpen] = useState(false) // vista previa a pantalla completa (móvil)
   const [saveError, setSaveError] = useState(false) // el último autoguardado falló: el sello lo refleja y deja reintentar
+  const [emailWarning, setEmailWarning] = useState<{ kind: 'optional' | 'remove'; fieldId: string } | null>(null)
 
   // Sensores por dispositivo: ratón arrastra al mover 5px (ágil); táctil exige mantener
   // pulsada el asa un instante antes de arrastrar (el delay distingue arrastre de scroll y
@@ -158,6 +160,13 @@ export function Builder() {
   const activeField = activeIndex >= 0 ? fields[activeIndex] : null
   const updateField = (id: string, patch: Partial<FormField>) =>
     setFields(fields.map((f) => (f.id === id ? { ...f, ...patch } : f)))
+  const requestFieldUpdate = (field: FormField, patch: Partial<FormField>) => {
+    if (field.type === 'email' && field.required && patch.required === false) {
+      setEmailWarning({ kind: 'optional', fieldId: field.id })
+      return
+    }
+    updateField(field.id, patch)
+  }
   const removeField = (id: string) => {
     const idx = fields.findIndex((f) => f.id === id)
     if (idx === -1) return
@@ -179,6 +188,19 @@ export function Builder() {
     const nf = newField(type)
     setFields([...fields, nf])
     setExpandedId(nf.id)
+  }
+  const requestRemoveField = (field: FormField) => {
+    if (field.type === 'email') {
+      setEmailWarning({ kind: 'remove', fieldId: field.id })
+      return
+    }
+    removeField(field.id)
+  }
+  const confirmEmailChange = () => {
+    if (!emailWarning) return
+    if (emailWarning.kind === 'optional') updateField(emailWarning.fieldId, { required: false })
+    else removeField(emailWarning.fieldId)
+    setEmailWarning(null)
   }
 
   // Separar / unir el campo base de nombre. Al activar, renombra 'nombre' a
@@ -285,8 +307,8 @@ export function Builder() {
                         total={fields.length}
                         expanded={expandedId === f.id}
                         onToggle={() => setExpandedId(expandedId === f.id ? null : f.id)}
-                        onUpdate={(patch) => updateField(f.id, patch)}
-                        onRemove={() => removeField(f.id)}
+                        onUpdate={(patch) => requestFieldUpdate(f, patch)}
+                        onRemove={() => requestRemoveField(f)}
                         onMove={(dir) => move(f.id, dir)}
                         nameSplit={hasApellidos}
                         onToggleNameSplit={f.id === 'nombre' ? toggleNameSplit : undefined}
@@ -378,6 +400,20 @@ export function Builder() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={emailWarning !== null}
+        onClose={() => setEmailWarning(null)}
+        onConfirm={confirmEmailChange}
+        title={emailWarning?.kind === 'remove' ? 'Este puesto dejará de pedir email' : 'El email dejará de ser obligatorio'}
+        confirmLabel={emailWarning?.kind === 'remove' ? 'Eliminar email' : 'Hacer opcional'}
+        cancelLabel={emailWarning?.kind === 'remove' ? 'Mantener campo' : 'Mantener obligatorio'}
+        confirmVariant={emailWarning?.kind === 'remove' ? 'danger' : 'primary'}
+      >
+        {emailWarning?.kind === 'remove'
+          ? 'No podrás comprobar el interés por email de los candidatos que entren a partir de ahora.'
+          : 'Podrás seguir recibiendo candidaturas, pero no podrás comprobar el interés por email de quienes no lo rellenen.'}
+      </ConfirmDialog>
     </div>
   )
 }

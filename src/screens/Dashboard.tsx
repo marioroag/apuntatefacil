@@ -16,6 +16,7 @@ import {
   Inbox,
   Loader2,
   Lock,
+  MailCheck,
   Pause,
   PenLine,
   Play,
@@ -41,7 +42,7 @@ import { CandidatePanel } from './CandidatePanel'
 import { exportCandidatesToExcel } from '../lib/export'
 import { relativeDate, initials, miles, formatPhone, candidateName, isFreshNuevo } from '../lib/format'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
-import type { Brand, Campaign, Candidate, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
+import type { Brand, Campaign, Candidate, CandidateInterestState, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
 import { planHas, PLAN_CANDIDATE_LIMIT, TAGS_ENABLED, type PlanFeature } from '../lib/pricing'
 import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
@@ -56,6 +57,9 @@ import { BTN_DANGER, BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/b
 import { copyText } from '../lib/clipboard'
 import { supabase } from '../lib/supabase'
 import { searchScore } from '../lib/search'
+import { InterestCheckDialog } from '../components/InterestCheckDialog'
+import { InterestSignal } from '../components/InterestSignal'
+import { candidateInterestState, INTEREST_STATE_LABEL } from '../lib/interest'
 
 function answerStr(c: Candidate, fieldId: string): string {
   const v = c.answers[fieldId]
@@ -118,10 +122,12 @@ export function Dashboard() {
   const [numberFilters, setNumberFilters] = useState<NumberFilter[]>([])
   const [ratingFilter, setRatingFilter] = useState<number>(0)
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set()) // ids de etiqueta; OR dentro del grupo
+  const [interestFilter, setInterestFilter] = useState<Set<CandidateInterestState>>(new Set())
   const [manageTagsOpen, setManageTagsOpen] = useState(false)
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'fecha', dir: 'desc' })
   const [openId, setOpenId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [interestDialogOpen, setInterestDialogOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false) // modo selección múltiple (móvil)
   const [lockedDialogOpen, setLockedDialogOpen] = useState(false) // aviso al pulsar una candidatura bloqueada
   // Cabecera adaptativa (móvil): si el título no cabe, "Compartir" se reduce a icono
@@ -372,6 +378,7 @@ export function Dashboard() {
 
     let list = base0.filter((c) => {
       if (statusFilter.size && !statusFilter.has(c.status)) return false
+      if (interestFilter.size && !interestFilter.has(candidateInterestState(campaign, c))) return false
       if (ratingFilter > 0 && c.rating < ratingFilter) return false
       // Etiquetas: OR dentro del grupo (basta tener UNA de las seleccionadas), AND
       // con el resto de grupos (consistente con el comportamiento actual).
@@ -415,7 +422,7 @@ export function Dashboard() {
       })
     }
     return list
-  }, [all, campaign, dq, rpcIds, base, statusFilter, valueFilters, numberFilters, ratingFilter, tagFilter, sort])
+  }, [all, campaign, dq, rpcIds, base, statusFilter, interestFilter, valueFilters, numberFilters, ratingFilter, tagFilter, sort])
 
   // Dominio real (mín/máx) de cada pregunta numérica, para acotar sus sliders.
   const numberDomains = useMemo(() => {
@@ -440,7 +447,7 @@ export function Dashboard() {
   const lockedCount = lockedFor?.count ?? 0
   const lockedDates = lockedFor?.dates ?? []
   const isFiltered =
-    !!dq || statusFilter.size > 0 || ratingFilter > 0 || tagFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0
+    !!dq || statusFilter.size > 0 || interestFilter.size > 0 || ratingFilter > 0 || tagFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0
   // Los bloqueados (difuminados) salen ARRIBA, como las candidaturas nuevas (son
   // las más recientes), solo en la vista por defecto (más nuevos primero y sin
   // filtros): con otro orden no tendría sentido cronológico, así que ahí no se
@@ -466,9 +473,10 @@ export function Dashboard() {
     )
   }
 
-  const activeFilterCount = statusFilter.size + valueFilters.length + numberFilters.length + (ratingFilter > 0 ? 1 : 0) + tagFilter.size
+  const activeFilterCount = statusFilter.size + interestFilter.size + valueFilters.length + numberFilters.length + (ratingFilter > 0 ? 1 : 0) + tagFilter.size
   const cols = highlightFields(campaign)
   const openCandidate = openId ? all.find((c) => c.id === openId) ?? null : null
+  const selectedCandidates = all.filter((candidate) => selected.has(candidate.id))
   // Primer tramo del enlace: marca del puesto si la tiene, si no el nombre de la empresa.
   const brandLabel = (campaign.brandId ? brands.find((b) => b.id === campaign.brandId)?.name : null) ?? company?.name
   const publicUrl = publicFormUrlDisplay(campaign.slug, brandLabel)
@@ -482,6 +490,7 @@ export function Dashboard() {
   const applyView = (v: SavedView) => {
     setSearch(v.payload.search ?? '')
     setStatusFilter(new Set(v.payload.statuses ?? []))
+    setInterestFilter(new Set(v.payload.interestStates ?? []))
     setValueFilters(v.payload.valueFilters ?? [])
     setNumberFilters(v.payload.numberFilters ?? [])
     setRatingFilter(v.payload.ratingFilter ?? 0)
@@ -493,7 +502,7 @@ export function Dashboard() {
     const ok = await createSavedView({
       name,
       campaignId: scope === 'global' ? null : campaign.id,
-      payload: { search, statuses: [...statusFilter], valueFilters, numberFilters, ratingFilter, tagFilter: [...tagFilter], sort },
+      payload: { search, statuses: [...statusFilter], interestStates: [...interestFilter], valueFilters, numberFilters, ratingFilter, tagFilter: [...tagFilter], sort },
     })
     setSaveViewOpen(false)
     if (ok) toast.success('Vista guardada')
@@ -518,6 +527,7 @@ export function Dashboard() {
 
   const clearFilters = () => {
     setStatusFilter(new Set())
+    setInterestFilter(new Set())
     setValueFilters([])
     setNumberFilters([])
     setRatingFilter(0)
@@ -669,6 +679,8 @@ export function Dashboard() {
             campaign={campaign}
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
+            interestFilter={interestFilter}
+            setInterestFilter={setInterestFilter}
             valueFilters={valueFilters}
             setValueFilters={setValueFilters}
             numberFilters={numberFilters}
@@ -701,13 +713,16 @@ export function Dashboard() {
       </div>
 
       {/* Chips de filtros activos */}
-      {(statusFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0 || ratingFilter > 0 || tagFilter.size > 0) && (
+      {(statusFilter.size > 0 || interestFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0 || ratingFilter > 0 || tagFilter.size > 0) && (
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <button onClick={clearFilters} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
             <X className="size-3.5" aria-hidden /> Limpiar
           </button>
           {[...statusFilter].map((s) => (
             <Chip key={`s-${s}`} label={`Estado: ${STATUS_META[s].label}`} onRemove={() => setStatusFilter((p) => { const n = new Set(p); n.delete(s); return n })} />
+          ))}
+          {[...interestFilter].map((s) => (
+            <Chip key={`i-${s}`} label={`Interés: ${INTEREST_STATE_LABEL[s]}`} onRemove={() => setInterestFilter((p) => { const n = new Set(p); n.delete(s); return n })} />
           ))}
           {valueFilters.map((vf, i) => (
             <Chip key={`v-${i}`} label={`${vf.label}: ${vf.value}`} onRemove={() => setValueFilters((p) => p.filter((_, j) => j !== i))} />
@@ -759,10 +774,17 @@ export function Dashboard() {
 
       {/* Barra de selección (escritorio): aparece al marcar filas con los checks. */}
       {selected.size > 0 && !loading && (
-        <div className="mt-3 hidden items-center gap-2.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm text-white shadow-card sm:flex">
+        <div className="mt-3 hidden flex-wrap items-center gap-2.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm text-white shadow-card sm:flex">
           <span className="font-semibold">{selected.size} seleccionados</span>
+          <button
+            type="button"
+            onClick={() => setInterestDialogOpen(true)}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1 font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50"
+          >
+            <MailCheck className="size-4" aria-hidden /> Comprobar interés
+          </button>
           {TAGS_ENABLED && (
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <BulkTagMenu
                 mode="add"
                 selectedIds={[...selected]}
@@ -785,7 +807,7 @@ export function Dashboard() {
               const name = await exportCandidatesToExcel(campaign, subset, tags)
               toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
             }}
-            className={`${TAGS_ENABLED ? '' : 'ml-auto '}inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25`}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
           >
             <Download className="size-4" aria-hidden /> Exportar selección
           </button>
@@ -882,6 +904,16 @@ export function Dashboard() {
         }
       />
 
+      <InterestCheckDialog
+        open={interestDialogOpen}
+        campaign={campaign}
+        candidates={selectedCandidates}
+        base={base}
+        demo={base === '/demo'}
+        onClose={() => setInterestDialogOpen(false)}
+        onSent={() => toast.success(base === '/demo' ? 'Simulación completada.' : 'Comprobación enviada.')}
+      />
+
       {TAGS_ENABLED && canManageTags && (
         <ManageTagsModal open={manageTagsOpen} onClose={() => setManageTagsOpen(false)} />
       )}
@@ -970,7 +1002,15 @@ export function Dashboard() {
                 {allFilteredSelected ? 'Ninguno' : 'Todos'}
               </button>
             </div>
-            <div className="flex items-center gap-2 [&>*]:flex-1 [&>*>button]:w-full">
+            <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0 [&>*>button]:w-full">
+              <button
+                type="button"
+                onClick={() => setInterestDialogOpen(true)}
+                disabled={selected.size === 0}
+                className={`${BTN_PRIMARY} justify-center disabled:opacity-50`}
+              >
+                <MailCheck className="size-4 text-indigo-200" aria-hidden /> Interés
+              </button>
               {TAGS_ENABLED && (
                 <>
                   <BulkTagMenu
@@ -993,9 +1033,9 @@ export function Dashboard() {
                 type="button"
                 onClick={exportSelected}
                 disabled={selected.size === 0}
-                className={`${BTN_PRIMARY} justify-center disabled:opacity-50`}
+                className={`${BTN_SECONDARY} justify-center disabled:opacity-50`}
               >
-                <Download className="size-4 text-indigo-200" aria-hidden /> Exportar
+                <Download className="size-4 text-slate-400" aria-hidden /> Exportar
               </button>
             </div>
           </div>
@@ -1303,6 +1343,9 @@ function CandidateTable({
                  <TagCell tagIds={c.tagIds} tags={tags} />
                </div>
              )}
+             <div className="mt-2 pl-[3.25rem]">
+               <InterestSignal campaign={campaign} candidate={c} compact />
+             </div>
             </motion.li>
           )
         })}
@@ -1310,7 +1353,7 @@ function CandidateTable({
 
       {/* --- Vista escritorio: tabla (md+) --- */}
       <div ref={tableWrapRef} className="relative hidden overflow-x-auto md:block">
-      <table className="w-full min-w-[680px] table-fixed border-collapse">
+      <table className="w-full min-w-[860px] table-fixed border-collapse">
         <caption className="sr-only">Candidatos de {campaign.title}</caption>
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50/60">
@@ -1331,6 +1374,7 @@ function CandidateTable({
                 {f.label}
               </th>
             ))}
+            <th scope="col" className="w-[172px] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Interés</th>
             <SortHead k="estado" className="w-[148px]">Estado</SortHead>
             <SortHead k="fecha" className="w-[116px] text-right">Recibida</SortHead>
           </tr>
@@ -1364,6 +1408,7 @@ function CandidateTable({
                     <span aria-hidden className="block truncate text-[13px] text-slate-600 blur-[4px] select-none">•••</span>
                   </td>
                 ))}
+                <td className="px-3 py-3"><span aria-hidden className="block h-6 w-32 rounded-full bg-slate-200 blur-[4px]" /></td>
                 <td className="whitespace-nowrap px-3 py-3">
                   <span aria-hidden className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300 blur-[4px] select-none">
                     <span className="size-1.5 rounded-full bg-slate-400" /> Bloqueada
@@ -1435,6 +1480,9 @@ function CandidateTable({
                     <span className="block truncate" title={answerStr(c, f.id) || undefined}>{answerStr(c, f.id) || '–'}</span>
                   </td>
                 ))}
+                <td className="px-3 py-3">
+                  <InterestSignal campaign={campaign} candidate={c} compact />
+                </td>
                 <td className="whitespace-nowrap px-3 py-3" onClick={(e) => e.stopPropagation()}>
                   <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
                 </td>
@@ -1560,6 +1608,8 @@ function FilterMenu({
   campaign,
   statusFilter,
   setStatusFilter,
+  interestFilter,
+  setInterestFilter,
   valueFilters,
   setValueFilters,
   numberFilters,
@@ -1575,6 +1625,8 @@ function FilterMenu({
   campaign: Campaign
   statusFilter: Set<CandidateStatus>
   setStatusFilter: React.Dispatch<React.SetStateAction<Set<CandidateStatus>>>
+  interestFilter: Set<CandidateInterestState>
+  setInterestFilter: React.Dispatch<React.SetStateAction<Set<CandidateInterestState>>>
   valueFilters: { fieldId: string; label: string; value: string }[]
   setValueFilters: React.Dispatch<React.SetStateAction<{ fieldId: string; label: string; value: string }[]>>
   numberFilters: NumberFilter[]
@@ -1631,6 +1683,7 @@ function FilterMenu({
   // Limpia solo los filtros (no la búsqueda); lo usa el pie de la hoja en móvil.
   const clearAll = () => {
     setStatusFilter(new Set())
+    setInterestFilter(new Set())
     setValueFilters([])
     setNumberFilters([])
     setRatingFilter(0)
@@ -1659,6 +1712,23 @@ function FilterMenu({
             />
             <span className={`size-2 rounded-full ${STATUS_META[s].dot}`} aria-hidden />
             {STATUS_META[s].label}
+          </label>
+        ))}
+      </div>
+
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Interés</p>
+      <div className="mb-4 space-y-0.5 sm:mb-3">
+        {(['interested', 'not_interested', 'sent', 'no_response', 'never', 'unavailable'] as CandidateInterestState[]).map((state) => (
+          <label key={state} className={rowClass}>
+            <Checkbox
+              checked={interestFilter.has(state)}
+              onChange={() => setInterestFilter((previous) => {
+                const next = new Set(previous)
+                next.has(state) ? next.delete(state) : next.add(state)
+                return next
+              })}
+            />
+            {INTEREST_STATE_LABEL[state]}
           </label>
         ))}
       </div>

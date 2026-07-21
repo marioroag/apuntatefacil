@@ -31,6 +31,7 @@ const ResetPassword = lazy(() => import('./screens/ResetPassword').then((m) => (
 const Privacidad = lazy(() => import('./screens/Legal').then((m) => ({ default: m.Privacidad })))
 const Terminos = lazy(() => import('./screens/Legal').then((m) => ({ default: m.Terminos })))
 const PublicForm = lazy(() => import('./screens/PublicForm').then((m) => ({ default: m.PublicForm })))
+const InterestResponse = lazy(() => import('./screens/InterestResponse').then((m) => ({ default: m.InterestResponse })))
 const Dashboard = lazy(() => import('./screens/Dashboard').then((m) => ({ default: m.Dashboard })))
 const Bandeja = lazy(() => import('./screens/Bandeja').then((m) => ({ default: m.Bandeja })))
 const Sedes = lazy(() => import('./screens/Sedes').then((m) => ({ default: m.Sedes })))
@@ -69,6 +70,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/privacidad" element={<Privacidad />} />
                 <Route path="/terminos" element={<Terminos />} />
                 {Playground && <Route path="/dev/playground" element={<Playground />} />}
+                <Route path="/respuesta/:token" element={<InterestResponse />} />
                 {/* Enlace público. Lo que se comparte es estable: /<marca>/<slug> (2 tramos);
                     el slug del medio es el id real (lo resuelve el RPC), el resto es decorativo.
                     Al abrirlo, PublicForm embellece la barra a /<marca>/<slug>/<título> (3 tramos),

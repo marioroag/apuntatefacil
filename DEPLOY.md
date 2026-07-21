@@ -7,7 +7,7 @@ Guía para pasar de local a producción. Lo más importante (qué claves y de d�
 - **Frontend**: SPA (Vite + React). Se despliega como sitio estático (Vercel, Netlify o Cloudflare Pages). La config de hosting ya está en el repo (`vercel.json` y `public/_redirects`) para que las rutas profundas (`/login`, `/app`, `/restablecer`, `/privacidad`...) carguen sin 404.
 - **Backend**: Supabase (Postgres + Auth + Storage + Edge Functions). Necesitas un proyecto Supabase de producción.
 - **Pagos**: Stripe (suscripciones, 3 planes).
-- **Emails**: Resend, para los avisos de nueva candidatura y para los emails de acceso (confirmación y reset) vía el SMTP de Supabase Auth.
+- **Emails**: Resend, para los avisos de nueva candidatura, las comprobaciones manuales de interés y los emails de acceso (confirmación y reset) vía el SMTP de Supabase Auth.
 - **Login**: email + contraseña y Google.
 
 ---
@@ -70,7 +70,7 @@ Se "hornean" al construir, así que ponlas **antes** del build.
 3. **Stripe**: crea los 3 productos/precios y copia sus Price ID. Crea el webhook apuntando a
    `https://<ref>.supabase.co/functions/v1/stripe-webhook`, con los eventos:
    `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`. Copia el signing secret.
-4. **Resend**: verifica el dominio `apuntatefacil.com` (registros DNS), crea la API key y decide el remitente.
+4. **Resend**: verifica el dominio `apuntatefacil.com` (registros DNS), crea la API key y decide el remitente. Desactiva el seguimiento de aperturas y clics para el dominio o remitente usado por las comprobaciones de interés.
 5. **Supabase Auth**: SMTP de Resend, Google, política de contraseña + HIBP, confirmaciones, Site URL y Redirect URLs (sección C).
 6. **Google Cloud**: crea el OAuth client (Web), pon el redirect URI de Supabase, copia client id/secret al provider de Supabase.
 7. **Frontend**: conecta el repo a Vercel (build `npm run build`, output `dist`), pon `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en Environment Variables, despliega y apunta el dominio `apuntatefacil.com`.
@@ -91,6 +91,7 @@ Se "hornean" al construir, así que ponlas **antes** del build.
 - "¿Olvidaste tu contraseña?" → llega el email → `/restablecer` → contraseña nueva.
 - Login con Google.
 - Una candidatura de prueba en el formulario público → llega el email de aviso (mira el remitente y el botón "Ver en Apúntate Fácil").
+- Selecciona un candidato con email → **Comprobar interés** → llega un solo correo, ambos botones abren `/respuesta/:token` y solo **Confirmar respuesta** guarda el resultado en el panel.
 - Un alta de plan con [tarjeta de prueba de Stripe](https://stripe.com/docs/testing) → el plan se activa (lo hace el webhook).
 - Recargar en `/privacidad`, `/app`, `/restablecer` carga sin 404.
 

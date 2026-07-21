@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Brand, Branding, Campaign, Candidate, CandidateStatus, FormField, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
+import type { Brand, Branding, Campaign, Candidate, CandidateInterestSummary, CandidateStatus, FormField, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
 import { supabase, supabaseConfigured } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
 import { SEED, SEED_BRANDS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, freshenDemoData } from './seed'
+import { extractCandidateEmail, interestEligibility, type InterestSendResult } from './interest'
 
 // Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
 // quita espacios de los extremos y colapsa los interiores. La comparación de
@@ -85,6 +86,25 @@ const toCandidate = (r: CandidateRow, tagIds: string[] = []): Candidate => ({
   submittedAt: r.created_at,
   tagIds,
 })
+
+type InterestOverviewRow = {
+  candidate_id: string
+  check_id: string
+  response: CandidateInterestSummary['response']
+  sent_at: string
+  responded_at: string | null
+  reminder_sent_at: string | null
+  expires_at: string
+}
+const interestByCandidate = (rows: InterestOverviewRow[] | null | undefined) =>
+  new Map<string, CandidateInterestSummary>((rows ?? []).map((r) => [r.candidate_id, {
+    checkId: r.check_id,
+    response: r.response,
+    sentAt: r.sent_at,
+    respondedAt: r.responded_at,
+    reminderSentAt: r.reminder_sent_at,
+    expiresAt: r.expires_at,
+  }]))
 
 type TagRow = { id: string; name: string }
 const toTag = (r: TagRow): Tag => ({ id: r.id, name: r.name })
@@ -192,6 +212,7 @@ interface Store {
   // entrar en el panel; esto trae los que llegaron después, sin recargar la página).
   // Devuelve cuántos candidatos NUEVOS trajo (>= 0), o -1 si la recarga falló.
   reloadCandidatesFor: (campaignId: string) => Promise<number>
+  sendInterestCheck: (campaignId: string, candidateIds: string[], idempotencyKey: string) => Promise<InterestSendResult>
   // mutaciones
   setStatus: (candidateId: string, status: CandidateStatus) => Promise<void>
   setRating: (candidateId: string, rating: number) => Promise<void>
@@ -384,7 +405,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     // Acotamos a la empresa ACTIVA (company_id). La RLS sola no basta: para un usuario en
     // varios equipos devolvería datos de TODOS, sumándolos. Con esto ves solo el equipo activo.
-    const [c1, c2, c3, c4, c5, c6, c7, c8, c9] = await Promise.all([
+    const [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10] = await Promise.all([
       supabase.from('campaigns').select('*').eq('company_id', companyId).order('created_at', { ascending: true }),
       supabase.from('candidates').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
       supabase.from('saved_views').select('id,campaign_id,name,payload').eq('company_id', companyId).order('created_at', { ascending: true }),
@@ -399,6 +420,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.rpc('locked_candidates_preview'),
       // Tablón de equipo: cabeceras + candidatos propuestos + nº de respuestas.
       supabase.from('team_requests').select(TEAM_REQUEST_SELECT).eq('company_id', companyId).order('last_activity_at', { ascending: false }),
+      supabase.rpc('candidate_interest_overview_for_company', { p_company: companyId }),
     ])
     if (seq !== loadSeq.current) return // un cambio de equipo más nuevo ya está cargando
     if (c1.error || c2.error) {
@@ -411,7 +433,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } else {
       const tagMap = !c7.error && c7.data ? tagsByCandidate(c7.data as CandidateTagRow[]) : new Map<string, string[]>()
       setCampaigns((c1.data as CampaignRow[]).map(toCampaign))
-      setCandidates((c2.data as CandidateRow[]).map((r) => toCandidate(r, tagMap.get(r.id) ?? [])))
+      const interestMap = !c10.error ? interestByCandidate(c10.data as InterestOverviewRow[] | null) : new Map()
+      setCandidates((c2.data as CandidateRow[]).map((r) => ({
+        ...toCandidate(r, tagMap.get(r.id) ?? []),
+        interest: interestMap.get(r.id),
+      })))
     }
     setLockedInfo(!c8.error && c8.data ? (c8.data as Record<string, { count: number; dates: string[] }>) : {})
     // Vistas, sedes, marcas y etiquetas son secundarias: si la tabla aún no existe o falla, no rompe el panel.
@@ -439,11 +465,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const reloadCandidatesFor = useCallback(async (campaignId: string): Promise<number> => {
     if (!companyId || companyId === 'demo') return 0 // demo: datos en memoria, nada nuevo de red
-    const { data, error } = await supabase
-      .from('candidates')
-      .select('*')
-      .eq('campaign_id', campaignId)
-      .order('created_at', { ascending: false })
+    const [{ data, error }, { data: interestData }] = await Promise.all([
+      supabase
+        .from('candidates')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .order('created_at', { ascending: false }),
+      supabase.rpc('candidate_interest_overview', { p_campaign: campaignId }),
+    ])
     if (error || !data) return -1
     const rows = data as CandidateRow[]
     // Etiquetas de estos candidatos, en una sola consulta por lote.
@@ -452,7 +481,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .select('candidate_id,tag_id')
       .in('candidate_id', rows.map((r) => r.id))
     const tagMap = tagsByCandidate((ctData as CandidateTagRow[]) ?? [])
-    const fetched = rows.map((r) => toCandidate(r, tagMap.get(r.id) ?? []))
+    const interestMap = interestByCandidate(interestData as InterestOverviewRow[] | null)
+    const fetched = rows.map((r) => ({
+      ...toCandidate(r, tagMap.get(r.id) ?? []),
+      interest: interestMap.get(r.id),
+    }))
     // Cuántos vienen que no teníamos ya en local (para avisar "N nuevos").
     const knownIds = new Set(candidates.filter((c) => c.campaignId === campaignId).map((c) => c.id))
     const added = fetched.filter((f) => !knownIds.has(f.id)).length
@@ -528,6 +561,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (payload?.locked) lockedDirty = true
         else if (cid) pending.add(cid)
         if (!timer) timer = window.setTimeout(flush, 500) // amortigua ráfagas
+      })
+      .on('broadcast', { event: 'candidate_interest_ping' }, ({ payload }) => {
+        const cid = typeof payload?.campaign_id === 'string' ? payload.campaign_id : null
+        if (cid) pending.add(cid)
+        if (!timer) timer = window.setTimeout(flush, 500)
       })
       .on('broadcast', { event: 'team_board_ping' }, ({ payload }) => {
         // Lo propio ya está pintado en local (mutación optimista): solo recargamos
@@ -606,6 +644,85 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const sendInterestCheck = useCallback(async (
+    campaignId: string,
+    candidateIds: string[],
+    idempotencyKey: string,
+  ): Promise<InterestSendResult> => {
+    if (!companyId) return { ok: false, sent: 0, failed: 0, omitted: {}, error: 'No hay una empresa activa.' }
+    if (companyId === 'demo') {
+      const campaign = campaigns.find((c) => c.id === campaignId)
+      if (!campaign) return { ok: false, sent: 0, failed: 0, omitted: {}, error: 'Puesto no encontrado.' }
+      const ids = new Set(candidateIds)
+      const now = Date.now()
+      const nowIso = new Date(now).toISOString()
+      const expiresAt = new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString()
+      const omitted: InterestSendResult['omitted'] = {}
+      const grouped = new Map<string, { candidate: Candidate; mode: 'initial' | 'reminder' | 'recheck' }[]>()
+      for (const candidate of candidates) {
+        if (!ids.has(candidate.id) || candidate.campaignId !== campaignId) continue
+        const email = extractCandidateEmail(campaign.fields, candidate.answers)
+        const decision = interestEligibility(email, candidate.interest, now)
+        if (!decision.eligible || !email) {
+          const reason = decision.eligible ? 'missing_email' : decision.reason
+          omitted[reason] = (omitted[reason] ?? 0) + 1
+          continue
+        }
+        grouped.set(email, [...(grouped.get(email) ?? []), { candidate, mode: decision.mode }])
+      }
+      const summaries = new Map<string, CandidateInterestSummary>()
+      const priority = { initial: 1, recheck: 2, reminder: 3 }
+      for (const items of grouped.values()) {
+        omitted.duplicate = (omitted.duplicate ?? 0) + Math.max(0, items.length - 1)
+        const mode = items.reduce((best, item) => priority[item.mode] > priority[best] ? item.mode : best, items[0].mode)
+        const reminderSource = mode === 'reminder'
+          ? items.find((item) => item.mode === 'reminder' && item.candidate.interest)?.candidate.interest
+          : undefined
+        const summary: CandidateInterestSummary = reminderSource
+          ? { ...reminderSource, reminderSentAt: nowIso, expiresAt }
+          : {
+              checkId: `demo-interest-${crypto.randomUUID()}`,
+              response: null,
+              sentAt: nowIso,
+              respondedAt: null,
+              reminderSentAt: null,
+              expiresAt,
+            }
+        for (const item of items) summaries.set(item.candidate.id, summary)
+      }
+      setCandidates((rows) => rows.map((candidate) => {
+        const interest = summaries.get(candidate.id)
+        if (!interest) return candidate
+        return {
+          ...candidate,
+          interest,
+        }
+      }))
+      return { ok: true, sent: grouped.size, failed: 0, omitted }
+    }
+
+    const { data, error } = await supabase.functions.invoke('send-interest-check', {
+      body: { campaign_id: campaignId, candidate_ids: candidateIds, idempotency_key: idempotencyKey },
+    })
+    if (error || !data?.ok) {
+      return {
+        ok: false,
+        sent: 0,
+        failed: 0,
+        omitted: {},
+        error: (data?.error as string | undefined) ?? error?.message ?? 'No se pudo enviar la comprobación.',
+      }
+    }
+    await reloadCandidatesFor(campaignId)
+    return {
+      ok: true,
+      sent: Number(data.sent ?? 0),
+      failed: Number(data.failed ?? 0),
+      duplicate: Boolean(data.duplicate),
+      omitted: (data.omitted ?? {}) as InterestSendResult['omitted'],
+    }
+  }, [companyId, campaigns, candidates, reloadCandidatesFor])
+
   // loading expuesto = recarga en curso O cambio de empresa aún sin sus datos. El segundo
   // término es true en el MISMO render en que cambia la empresa activa, así el panel pasa a
   // "cargando" de golpe, sin un frame enseñando los puestos del equipo anterior. (Demo no
@@ -638,6 +755,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     reload,
     reloadCandidatesFor,
+    sendInterestCheck,
 
     setStatus: async (id, status) => {
       const prev = candidates.find((c) => c.id === id)?.status
@@ -1396,7 +1514,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTeamRequests(fresh.teamRequests)
       setDemoTeamComments(fresh.teamComments)
     },
-  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, teamRequests, demoTeamComments, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, toast])
+  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, teamRequests, demoTeamComments, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, sendInterestCheck, toast])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

@@ -86,6 +86,26 @@ export type CandidateStatus =
 
 export type CandidateSource = 'milanuncios' | 'enlace' | 'qr' | 'prueba'
 
+export type CandidateInterestResponse = 'interested' | 'not_interested'
+
+export type CandidateInterestState =
+  | 'never'
+  | 'sent'
+  | 'no_response'
+  | 'interested'
+  | 'not_interested'
+  | 'unavailable'
+
+/** Última comprobación de interés visible para una candidatura. */
+export interface CandidateInterestSummary {
+  checkId: string
+  response: CandidateInterestResponse | null
+  sentAt: string
+  respondedAt: string | null
+  reminderSentAt: string | null
+  expiresAt: string
+}
+
 export interface Candidate {
   id: string
   campaignId: string
@@ -98,6 +118,8 @@ export interface Candidate {
   notes: string
   cvPath?: string // ruta del CV en Supabase Storage (bucket cvs), si lo adjuntó
   tagIds: string[] // ids de las etiquetas que el empresario le ha puesto (ver Tag)
+  /** Señal independiente del estado de selección. Ausente = nunca comprobado. */
+  interest?: CandidateInterestSummary
 }
 
 // Etiqueta: clasificación libre que pone el empresario sobre los candidatos. Es
@@ -145,6 +167,7 @@ export interface SavedViewPayload {
   // Ids de etiquetas seleccionadas. Universal (las etiquetas valen en cualquier
   // puesto), como estados u orden: viaja también en vistas globales.
   tagFilter?: string[]
+  interestStates?: CandidateInterestState[]
 }
 
 export interface SavedView {

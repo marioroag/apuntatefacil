@@ -4,8 +4,8 @@ import { Logo } from '../components/Logo'
 import { BRAND } from '../lib/brand'
 import { PRIVACY_DOC, TERMS_DOC, type LegalDoc } from '../lib/legal'
 
-const LAST_UPDATED = '17 de julio de 2026'
-const VERSION = '1.1'
+const LAST_UPDATED = '21 de julio de 2026'
+const VERSION = '1.2'
 
 function LegalLayout({ doc, other }: { doc: LegalDoc; other: { to: string; label: string } }) {
   useEffect(() => {
