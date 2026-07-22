@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Archive,
+  ArrowUp,
   ArrowUpDown,
   Bookmark,
   Briefcase,
@@ -58,7 +59,7 @@ import { copyText } from '../lib/clipboard'
 import { supabase } from '../lib/supabase'
 import { searchScore } from '../lib/search'
 import { InterestCheckDialog } from '../components/InterestCheckDialog'
-import { InterestSignal } from '../components/InterestSignal'
+import { InterestOutcomeIcon } from '../components/InterestSignal'
 import { candidateInterestState, INTEREST_STATE_LABEL } from '../lib/interest'
 
 function answerStr(c: Candidate, fieldId: string): string {
@@ -839,7 +840,7 @@ export function Dashboard() {
       )}
 
       {/* Tabla / estados */}
-      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card md:overflow-visible">
         {loading ? (
           <SkeletonRows cols={cols.length} />
         ) : filtered.length === 0 ? (
@@ -1096,6 +1097,71 @@ function StatusSummary({
 }
 
 // --- Tabla -----------------------------------------------------------------
+function SortHead({
+  k,
+  children,
+  className = '',
+  sort,
+  onSort,
+}: {
+  k: SortKey
+  children: string
+  className?: string
+  sort: { key: SortKey; dir: 'asc' | 'desc' }
+  onSort: (k: SortKey) => void
+}) {
+  const active = sort.key === k
+  const currentOrder = sort.dir === 'asc' ? 'ascendente' : 'descendente'
+  const nextOrder = active && sort.dir === 'asc' ? 'descendente' : 'ascendente'
+
+  return (
+    <th
+      scope="col"
+      className={`overflow-hidden px-3 py-2.5 text-left ${className}`}
+      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(k)}
+        aria-label={active
+          ? `${children}: orden ${currentOrder}. Cambiar a ${nextOrder}`
+          : `${children}: sin ordenar. Ordenar de forma ascendente`}
+        className={`group inline-flex w-full min-w-0 items-center gap-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 motion-reduce:transition-none ${
+          active ? 'text-slate-700' : 'text-slate-500 hover:text-slate-800'
+        }`}
+      >
+        <span className="truncate">{children}</span>
+        <span className="relative grid size-3 shrink-0 place-items-center" aria-hidden>
+          <motion.span
+            initial={false}
+            animate={{ opacity: active ? 0 : 1, scale: active ? 0.82 : 1 }}
+            transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute inset-0 grid place-items-center text-slate-300 transition-colors duration-150 group-hover:text-slate-500 motion-reduce:transition-none"
+          >
+            <ArrowUpDown className="size-3" />
+          </motion.span>
+          <motion.span
+            initial={false}
+            animate={{
+              opacity: active ? 1 : 0,
+              rotate: active && sort.dir === 'desc' ? 180 : 0,
+              scale: active ? 1 : 0.82,
+            }}
+            transition={{
+              opacity: { duration: 0.1 },
+              rotate: { duration: 0.18, ease: [0.16, 1, 0.3, 1] },
+              scale: { duration: 0.16, ease: [0.16, 1, 0.3, 1] },
+            }}
+            className="absolute inset-0 grid place-items-center text-indigo-500"
+          >
+            <ArrowUp className="size-3" />
+          </motion.span>
+        </span>
+      </button>
+    </th>
+  )
+}
+
 function CandidateTable({
   campaign,
   cols,
@@ -1168,8 +1234,59 @@ function CandidateTable({
   // y colocamos el overlay dentro del <div> que envuelve la tabla, que sí es un
   // contenedor fiable en todos los navegadores.
   const tableWrapRef = useRef<HTMLDivElement>(null)
+  const tableRef = useRef<HTMLTableElement>(null)
+  const tableHeadRef = useRef<HTMLTableSectionElement>(null)
   const lockedBodyRef = useRef<HTMLTableSectionElement>(null)
   const [lockedBox, setLockedBox] = useState<{ top: number; height: number } | null>(null)
+  const [headerCanStick, setHeaderCanStick] = useState(false)
+  const [headerStuck, setHeaderStuck] = useState(false)
+
+  // Si la tabla cabe, liberamos su overflow horizontal para que el sticky se
+  // ancle al scroll principal. Cuando no cabe, conservamos el scroll horizontal
+  // local y evitamos introducir un segundo desplazamiento vertical.
+  useLayoutEffect(() => {
+    const wrap = tableWrapRef.current
+    const table = tableRef.current
+    if (!wrap || !table) return
+    const measure = () => {
+      const fits = table.scrollWidth <= wrap.clientWidth + 1
+      setHeaderCanStick((current) => current === fits ? current : fits)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(wrap)
+    ro.observe(table)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [cols.length])
+
+  useEffect(() => {
+    const wrap = tableWrapRef.current
+    const head = tableHeadRef.current
+    const scroller = wrap?.closest('main')
+    if (!headerCanStick || !wrap || !head || !scroller) {
+      setHeaderStuck(false)
+      return
+    }
+    const measure = () => {
+      const sr = scroller.getBoundingClientRect()
+      const wr = wrap.getBoundingClientRect()
+      const hr = head.getBoundingClientRect()
+      const stuck = wr.top <= sr.top && wr.bottom > sr.top + hr.height
+      setHeaderStuck((current) => current === stuck ? current : stuck)
+    }
+    measure()
+    scroller.addEventListener('scroll', measure, { passive: true })
+    window.addEventListener('resize', measure)
+    return () => {
+      scroller.removeEventListener('scroll', measure)
+      window.removeEventListener('resize', measure)
+    }
+  }, [headerCanStick])
+
   useLayoutEffect(() => {
     if (lockedDates.length === 0) {
       setLockedBox(null)
@@ -1205,15 +1322,6 @@ function CandidateTable({
     n.has(id) ? n.delete(id) : n.add(id)
     setSelected(n)
   }
-
-  const SortHead = ({ k, children, className = '' }: { k: SortKey; children: React.ReactNode; className?: string }) => (
-    <th scope="col" className={`overflow-hidden px-3 py-2.5 text-left ${className}`} aria-sort={sort.key === k ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      <button onClick={() => onSort(k)} className="inline-flex w-full min-w-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-800">
-        <span className="truncate">{children}</span>
-        <ArrowUpDown className={`size-3 shrink-0 ${sort.key === k ? 'text-indigo-500' : 'text-slate-300'}`} aria-hidden />
-      </button>
-    </th>
-  )
 
   return (
     <>
@@ -1269,11 +1377,11 @@ function CandidateTable({
             else onOpen(c.id)
           }
           return (
-            <motion.li
+            <li
               key={c.id}
-              initial={arrivedAt !== undefined ? { opacity: 0, y: -10 } : false}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ type: 'tween', duration: 0.24, ease: [0.16, 1, 0.3, 1], delay: Math.min(arrivedAt ?? 0, 4) * 0.045 }}
+              style={arrivedAt !== undefined
+                ? { animation: `drop-in 240ms var(--ease-out) ${Math.min(arrivedAt, 4) * 45}ms both` }
+                : undefined}
               className={`px-4 py-3 transition-colors ${selectMode && sel ? 'bg-indigo-50/70' : fresh ? 'bg-slate-50/80' : ''}`}
             >
              <div className="flex items-center gap-3">
@@ -1304,6 +1412,7 @@ function CandidateTable({
                   <p className="flex items-center gap-1.5 text-[15px] font-medium text-slate-900">
                     <span className="truncate">{name}</span>
                     {c.source === 'prueba' && <TestChip />}
+                    <InterestOutcomeIcon campaign={campaign} candidate={c} />
                   </p>
                   {phone && (
                     <p className="num mt-0.5 truncate text-sm text-slate-500">
@@ -1343,29 +1452,36 @@ function CandidateTable({
                  <TagCell tagIds={c.tagIds} tags={tags} />
                </div>
              )}
-             <div className="mt-2 pl-[3.25rem]">
-               <InterestSignal campaign={campaign} candidate={c} compact />
-             </div>
-            </motion.li>
+            </li>
           )
         })}
       </ul>
 
       {/* --- Vista escritorio: tabla (md+) --- */}
-      <div ref={tableWrapRef} className="relative hidden overflow-x-auto md:block">
-      <table className="w-full min-w-[860px] table-fixed border-collapse">
+      <div ref={tableWrapRef} className={`relative hidden md:block ${headerCanStick ? 'overflow-visible' : 'overflow-x-auto'}`}>
+      <table ref={tableRef} className="w-full min-w-[860px] table-fixed border-collapse">
         <caption className="sr-only">Candidatos de {campaign.title}</caption>
-        <thead>
-          <tr className="border-b border-slate-200 bg-slate-50/60">
-            <th scope="col" className="w-11 px-3 py-2.5">
+        <thead
+          ref={tableHeadRef}
+          className={`${headerCanStick ? 'sticky top-0 z-20' : ''} border-b transition-[background-color,border-color,box-shadow,backdrop-filter] duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+            headerStuck
+              ? 'border-slate-200/80 bg-white/82 shadow-[0_6px_8px_-7px_rgba(15,23,42,0.24)] backdrop-blur-md backdrop-saturate-125'
+              : 'border-transparent bg-transparent shadow-none backdrop-blur-0 backdrop-saturate-100'
+          }`}
+        >
+          <tr className={`border-b transition-[background-color,border-color] duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+            headerStuck ? 'border-transparent bg-transparent' : 'border-slate-200 bg-slate-50/60'
+          }`}>
+            <th scope="col" className="w-10 px-0 py-2.5 text-center align-middle leading-none">
               <Checkbox
+                className="translate-y-[1.5px]"
                 checked={allSel}
                 indeterminate={someSel && !allSel}
                 onChange={toggleAll}
                 aria-label="Seleccionar todos"
               />
             </th>
-            <SortHead k="nombre" className="w-[260px]">Candidato</SortHead>
+            <SortHead k="nombre" sort={sort} onSort={onSort} className="w-[260px]">Candidato</SortHead>
             <th scope="col" className="hidden w-[150px] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 md:table-cell">
               Teléfono
             </th>
@@ -1374,9 +1490,8 @@ function CandidateTable({
                 {f.label}
               </th>
             ))}
-            <th scope="col" className="w-[172px] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">Interés</th>
-            <SortHead k="estado" className="w-[148px]">Estado</SortHead>
-            <SortHead k="fecha" className="w-[116px] text-right">Recibida</SortHead>
+            <SortHead k="estado" sort={sort} onSort={onSort} className="w-[148px]">Estado</SortHead>
+            <SortHead k="fecha" sort={sort} onSort={onSort} className="w-[116px] text-right">Recibida</SortHead>
           </tr>
         </thead>
         {/* Bloqueados (escritorio): ARRIBA, como las candidaturas nuevas (son las
@@ -1388,17 +1503,12 @@ function CandidateTable({
         {lockedDates.length > 0 && (
           <tbody ref={lockedBodyRef}>
             {lockedDates.map((date, i) => (
-              <tr key={`locked-${i}`} className="border-b border-slate-100 bg-slate-50/70 last:border-0">
-                <td className="px-3 py-3">
+              <tr key={`locked-${i}`} className="h-16 border-b border-slate-100 bg-slate-50/70 last:border-0">
+                <td className="px-0 py-3 text-center align-middle leading-none">
                   <div aria-hidden className="size-4 rounded-[5px] border border-slate-300 bg-white blur-[4px] select-none" />
                 </td>
                 <td className="px-3 py-3">
-                  <div aria-hidden className="flex items-center gap-3 blur-[4px] select-none">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-200 text-[12.5px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-300">
-                      CB
-                    </span>
-                    <span className="truncate text-[14px] font-medium text-slate-700">Candidatura bloqueada</span>
-                  </div>
+                  <span aria-hidden className="block truncate text-[14px] font-medium text-slate-700 blur-[4px] select-none">Candidatura bloqueada</span>
                 </td>
                 <td className="hidden px-3 py-3 md:table-cell">
                   <span aria-hidden className="num block truncate text-[13px] text-slate-600 blur-[4px] select-none">612 345 678</span>
@@ -1408,7 +1518,6 @@ function CandidateTable({
                     <span aria-hidden className="block truncate text-[13px] text-slate-600 blur-[4px] select-none">•••</span>
                   </td>
                 ))}
-                <td className="px-3 py-3"><span aria-hidden className="block h-6 w-32 rounded-full bg-slate-200 blur-[4px]" /></td>
                 <td className="whitespace-nowrap px-3 py-3">
                   <span aria-hidden className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300 blur-[4px] select-none">
                     <span className="size-1.5 rounded-full bg-slate-400" /> Bloqueada
@@ -1426,46 +1535,46 @@ function CandidateTable({
             const sel = selected.has(c.id)
             const name = candidateName(c) || 'Sin nombre'
             const arrivedAt = arrivalOrder.get(c.id)
+            const hasTags = c.tagIds.some((id) => tags.some((tag) => tag.id === id))
             return (
-              <motion.tr
+              <tr
                 key={c.id}
-                initial={arrivedAt !== undefined ? { opacity: 0, y: -10 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ type: 'tween', duration: 0.24, ease: [0.16, 1, 0.3, 1], delay: Math.min(arrivedAt ?? 0, 4) * 0.045 }}
+                style={arrivedAt !== undefined
+                  ? { animation: `drop-in 240ms var(--ease-out) ${Math.min(arrivedAt, 4) * 45}ms both` }
+                  : undefined}
                 onClick={() => onOpen(c.id)}
-                className={`group cursor-pointer border-b border-slate-100 transition-colors duration-150 last:border-0 ${
+                className={`group h-16 cursor-pointer border-b border-slate-100 transition-colors duration-150 last:border-0 ${
                   sel ? 'bg-indigo-50/70' : 'hover:bg-slate-50'
                 }`}
               >
-                <td className="relative px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                <td className="relative px-0 py-3 text-center align-middle leading-none" onClick={(e) => e.stopPropagation()}>
                   <Checkbox
+                    className="translate-y-[1.5px]"
                     checked={sel}
                     onChange={() => toggleOne(c.id)}
                     aria-label={`Seleccionar ${name}`}
                   />
                 </td>
-                <td className="px-3 py-3">
-                  <div className="flex items-center gap-3">
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-[12.5px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
-                      {initials(name)}
-                    </span>
-                    <div className="min-w-0">
-                      {/* El nombre es el activador accesible de la ficha: <button> real,
-                          alcanzable por teclado (la fila entera sigue siendo clicable con
-                          ratón). stopPropagation evita el doble disparo con el onClick de la fila. */}
-                      <div className="flex min-w-0 items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
-                          className="block min-w-0 truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
-                          title={name}
-                        >
-                          {name}
-                        </button>
-                        {c.source === 'prueba' && <TestChip />}
-                      </div>
-                      <TagCell tagIds={c.tagIds} tags={tags} />
+                <td className="px-3 py-[11px]">
+                  <div className="flex h-[42px] min-w-0 flex-col justify-center gap-0.5">
+                    {/* Sin etiquetas, esta única línea queda centrada verticalmente. */}
+                    <div className="flex h-5 min-w-0 items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
+                        className="block min-w-0 truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
+                        title={name}
+                      >
+                        {name}
+                      </button>
+                      {c.source === 'prueba' && <TestChip />}
+                      <InterestOutcomeIcon campaign={campaign} candidate={c} />
                     </div>
+                    {hasTags && (
+                      <div className="h-5 min-w-0">
+                        <TagCell tagIds={c.tagIds} tags={tags} singleLine />
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="hidden px-3 py-3 text-[13px] text-slate-600 md:table-cell">
@@ -1480,16 +1589,13 @@ function CandidateTable({
                     <span className="block truncate" title={answerStr(c, f.id) || undefined}>{answerStr(c, f.id) || '–'}</span>
                   </td>
                 ))}
-                <td className="px-3 py-3">
-                  <InterestSignal campaign={campaign} candidate={c} compact />
-                </td>
                 <td className="whitespace-nowrap px-3 py-3" onClick={(e) => e.stopPropagation()}>
                   <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-[13px] text-slate-500">
                   <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
                 </td>
-              </motion.tr>
+              </tr>
             )
           })}
         </tbody>
@@ -1922,15 +2028,14 @@ function ExportButton({ count, total, onExport }: { count: number; total: number
 
 // --- Estados ----------------------------------------------------------------
 function SkeletonRows({ cols }: { cols: number }) {
-  // Replica la rejilla real de la fila (checkbox · avatar 36px · nombre, y a la
-  // derecha teléfono/columnas/estado/fecha) para que el paso a datos no salte.
+  // Replica la rejilla real de la fila (checkbox · nombre, y a la derecha
+  // teléfono/columnas/estado/fecha) para que el paso a datos no salte.
   return (
     <div role="status" aria-label="Cargando candidatos">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 border-b border-slate-100 px-3 py-3 last:border-0">
+        <div key={i} className="flex h-16 items-center gap-3 border-b border-slate-100 px-3 py-3 last:border-0">
           <div className="size-4 shrink-0 rounded skeleton" />
-          <div className="size-9 shrink-0 rounded-full skeleton" />
-          <div className="h-3.5 w-44 rounded skeleton" />
+          <div className="h-3.5 w-40 rounded skeleton" />
           <div className="ml-auto hidden items-center gap-8 md:flex">
             <div className="h-3 w-24 rounded skeleton" />
             {Array.from({ length: cols }).map((_, j) => (

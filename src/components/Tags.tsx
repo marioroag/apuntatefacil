@@ -42,7 +42,7 @@ export function TagChip({
   const pad = size === 'xs' ? 'py-0.5 pl-1.5 pr-1.5 text-[11px]' : 'py-1 pl-2 pr-2 text-[12px]'
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 font-medium text-slate-700 ring-1 ring-inset ring-slate-200 ${
+      className={`inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-slate-100 font-medium text-slate-700 ring-1 ring-inset ring-slate-200 ${
         onRemove ? (size === 'xs' ? 'pr-0.5' : 'pr-1') : ''
       } ${pad}`}
     >
@@ -63,8 +63,8 @@ export function TagChip({
 }
 
 // Celda de etiquetas para la tabla / Bandeja: bajo el nombre, máx 2 chips + "+N".
-// Si no hay etiquetas no pinta nada (la fila no crece). El "+N" abre un popover.
-export function TagCell({ tagIds, tags }: { tagIds: string[]; tags: Tag[] }) {
+// `singleLine` impide que las etiquetas alteren la altura de una fila de escritorio.
+export function TagCell({ tagIds, tags, singleLine = false }: { tagIds: string[]; tags: Tag[]; singleLine?: boolean }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const resolved = useMemo(
@@ -88,12 +88,12 @@ export function TagCell({ tagIds, tags }: { tagIds: string[]; tags: Tag[] }) {
   const rest = resolved.slice(2)
 
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-1">
+    <div className={singleLine ? 'flex h-5 min-w-0 flex-nowrap items-center gap-1' : 'mt-1 flex flex-wrap items-center gap-1'}>
       {shown.map((t) => (
         <TagChip key={t.id} name={t.name} size="xs" />
       ))}
       {rest.length > 0 && (
-        <div className="relative" ref={ref}>
+        <div className={`relative ${singleLine ? 'shrink-0' : ''}`} ref={ref}>
           <button
             type="button"
             onClick={(e) => {

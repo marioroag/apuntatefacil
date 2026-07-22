@@ -3,6 +3,29 @@ import { candidateInterestState, INTEREST_STATE_LABEL } from '../lib/interest'
 import type { Campaign, Candidate } from '../lib/types'
 import { relativeDate } from '../lib/format'
 
+/** Señal excepcional para listas: solo aparece cuando el candidato ya respondió. */
+export function InterestOutcomeIcon({ campaign, candidate }: { campaign: Campaign; candidate: Candidate }) {
+  const state = candidateInterestState(campaign, candidate)
+  if (state !== 'interested' && state !== 'not_interested') return null
+
+  const Icon = state === 'interested' ? ThumbsUp : ThumbsDown
+  const respondedAt = candidate.interest?.respondedAt
+  const label = respondedAt
+    ? `${INTEREST_STATE_LABEL[state]} · respondió ${relativeDate(respondedAt)}`
+    : INTEREST_STATE_LABEL[state]
+
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={label}
+      className={`inline-flex shrink-0 items-center ${state === 'interested' ? 'text-emerald-600' : 'text-slate-500'}`}
+    >
+      <Icon className="size-4" aria-hidden />
+    </span>
+  )
+}
+
 export function InterestSignal({ campaign, candidate, compact = false }: {
   campaign: Campaign
   candidate: Candidate
