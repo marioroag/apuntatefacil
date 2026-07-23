@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-07-23
 **Superficie:** landing (`/`)
-**Estado:** diseño aprobado por Mario; listo para revisión de esta especificación antes de implementar.
+**Estado:** diseño aprobado por Mario y revisado a la composición B: registro comparativo continuo.
 
 ## Objetivo
 
@@ -49,10 +49,10 @@ Una frase bajo la comparativa refuerza la honestidad operativa: no se prometen m
 
 ## Diseño e interacción
 
-- Comparativa de dos columnas en escritorio y una columna apilada en móvil.
-- La columna de coste usa una superficie neutra clara, borde `slate-200` y texto grafito.
-- La columna de resultado usa superficie `slate-900` con texto blanco para crear contraste estructural, no decorativo.
-- Cada consecuencia y contrapunto se presenta como una fila breve, sin cifras ni checks decorativos. Puede usar una división sutil entre filas para facilitar el escaneo.
+- Una única superficie comparativa con borde exterior. En escritorio se divide en una zona de coste neutra y una zona de resultado en `slate-900`, separadas por una línea vertical precisa.
+- Cada fila enfrenta directamente una consecuencia con su contrapunto equivalente. La correspondencia se debe poder leer sin cruzar visualmente dos listas independientes.
+- En móvil y tableta, una tabla compacta de dos columnas mantiene cada problema y su alternativa visibles a la vez, con copy más breve. El registro detallado queda reservado a escritorio.
+- Las filas usan divisores sutiles, sin cifras ni checks decorativos.
 - No usar ultramarine como elemento decorativo. El acento queda reservado para CTAs y foco.
 - No se incorporan efectos, datos dinámicos ni interacción adicional. El contenido debe conservar el orden de lectura lógico y funcionar sin JavaScript.
 
@@ -60,7 +60,7 @@ Una frase bajo la comparativa refuerza la honestidad operativa: no se prometen m
 
 - Encabezados semánticos (`h2`, `h3`) y listas (`ul`, `li`) para cada grupo.
 - Contraste AA para todo el copy significativo, incluido el texto sobre la superficie oscura.
-- En móvil, primero se expone el problema y después el resultado; los paddings y el tamaño de texto conservan buena legibilidad.
+- En móvil, el problema y el resultado equivalente permanecen en la misma fila; los paddings y el tamaño de texto conservan buena legibilidad incluso en anchos estrechos.
 - Sin animaciones nuevas ni dependencias.
 
 ## Verificación

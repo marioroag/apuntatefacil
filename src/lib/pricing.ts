@@ -194,39 +194,3 @@ export const annualPerMonth = (t: Tier): number => Math.floor(t.annual / 12)
 export const annualSavings = (t: Tier): number => t.monthly * 12 - t.annual
 // Números con separador de miles español (2490 -> "2.490").
 export const fmtEs = (n: number): string => n.toLocaleString('es-ES')
-
-// Ancla del coste real, contada como DOS VERDADES antes de mostrar el precio:
-// lo que cuesta hacerlo a mano (tiempo, candidatos perdidos) frente a lo que
-// cuesta pagar por hacerlo "bien" (dinero). Sin jerga tipo "ATS".
-export interface CostTruth {
-  key: string
-  label: string
-  items: { lead: string; text: string }[]
-}
-
-// Sin precisión falsa: "56 candidatos" no tiene fuente interna defendible.
-// Rangos de InfoJobs / selección: orientativos, consultados julio 2026
-// (tarifas públicas de publicación destacada e industria de recruiting).
-export const COST_TRUTHS: CostTruth[] = [
-  {
-    key: 'mano',
-    label: 'Si lo haces a mano',
-    items: [
-      { lead: 'Decenas de respuestas', text: 'por puesto, en chats sueltos de Milanuncios' },
-      { lead: 'Horas', text: 'revisando respuestas y copiándolas a Excel' },
-      { lead: 'Buenos perfiles', text: 'que se pierden entre tanto mensaje' },
-    ],
-  },
-  {
-    key: 'pagando',
-    label: 'Si pagas por hacerlo bien',
-    items: [
-      { lead: '295 a 369 €', text: 'por una oferta destacada en InfoJobs' },
-      { lead: '15 a 20% del salario', text: 'a una empresa de selección' },
-      { lead: 'Hasta 3 sueldos', text: 'cuesta una mala contratación' },
-    ],
-  },
-]
-
-export const COST_TRUTHS_FOOTNOTE =
-  'Cifras orientativas de mercado, consultadas en julio de 2026. InfoJobs: tarifas públicas de publicación destacada. Selección y coste de mala contratación: rangos habituales del sector.'

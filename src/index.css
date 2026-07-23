@@ -194,7 +194,7 @@
   }
 
   /* Las secciones ancladas caen bajo la nav sticky: margen al saltar a ellas. */
-  #como-funciona, #precio, #faq { scroll-margin-top: 5rem; }
+  #como-funciona, #precio, #faq, #coste-contratar-heading { scroll-margin-top: 5rem; }
 
   body {
     @apply bg-slate-50 text-slate-900 antialiased;

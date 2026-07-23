@@ -15,8 +15,6 @@ import { BetaBadge } from '../components/BetaBadge'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { SupportDialog } from '../components/SupportDialog'
 import {
-  COST_TRUTHS,
-  COST_TRUTHS_FOOTNOTE,
   TIERS,
   TRIAL_REASSURANCE,
   PLAN_PROCESS_LIMIT,
@@ -34,6 +32,54 @@ const TIER_TAB_HINT: Record<string, string> = {
 }
 
 const SECTORS = ['Construcción', 'Logística', 'Limpieza', 'Reformas', 'Comercio', 'Cuidados']
+
+const COST_COMPARISON_ROWS = [
+  {
+    cost: {
+      title: 'Tiempo que no vuelve',
+      body: 'Repites preguntas, persigues respuestas y vuelves a abrir conversaciones para completar los datos.',
+    },
+    benefit: {
+      title: 'Información desde el inicio',
+      body: 'Cada candidatura reúne las respuestas que has pedido para ese puesto.',
+    },
+  },
+  {
+    cost: {
+      title: 'Seguimiento a medias',
+      body: 'Las llamadas, las notas y los mensajes no siempre cuentan la misma historia.',
+    },
+    benefit: {
+      title: 'Todo el proceso, visible',
+      body: 'La lista, los filtros y los estados dejan claro a quién revisar y qué toca hacer.',
+    },
+  },
+  {
+    cost: {
+      title: 'Candidatos que se enfrían',
+      body: 'El perfil que encajaba puede aceptar otro puesto antes de que llegues a valorarlo.',
+    },
+    benefit: {
+      title: 'Decisiones con tiempo',
+      body: 'Encuentras antes a quien encaja y contactas con los datos delante.',
+    },
+  },
+] as const
+
+const COMPACT_COST_COMPARISON_ROWS = [
+  {
+    cost: 'Repites preguntas',
+    benefit: 'Recibes los datos que pediste',
+  },
+  {
+    cost: 'No sabes qué sigue',
+    benefit: 'Ves la lista y los estados claros',
+  },
+  {
+    cost: 'El candidato se enfría',
+    benefit: 'Decides y contactas antes',
+  },
+] as const
 
 // Muestra mini de "la lista en una pantalla" para el feature-héroe: estados con su
 // paleta fija (nuevo slate, contactado azul, contratado verde), punto + texto.
@@ -812,46 +858,101 @@ function onTierTabKeyDown(
   focusTierTab(tierId)
 }
 
+function CompactCostComparison() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+      <div className="grid grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
+        <div className="border-b border-r border-slate-200 px-4 py-4">
+          <h3 className="text-label font-semibold leading-snug text-slate-700">Lo que ocurre hoy</h3>
+        </div>
+        <div className="border-b border-white/15 bg-slate-900 px-4 py-4">
+          <h3 className="text-label font-semibold leading-snug text-white">Con Apúntate Fácil</h3>
+        </div>
+      </div>
+      <ul aria-label="Comparación entre el proceso actual y Apúntate Fácil">
+        {COMPACT_COST_COMPARISON_ROWS.map((row, index) => {
+          const isLast = index === COMPACT_COST_COMPARISON_ROWS.length - 1
+          const lightDivider = isLast ? '' : 'border-b border-slate-200'
+          const darkDivider = isLast ? '' : 'border-b border-white/15'
+          return (
+            <li key={row.cost} className="grid grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
+              <p className={`${lightDivider} flex min-h-28 items-center border-r border-slate-200 px-4 py-5 text-copy font-semibold leading-snug text-slate-900`}>
+                {row.cost}
+              </p>
+              <p className={`${darkDivider} flex min-h-28 items-center bg-slate-900 px-4 py-5 text-copy font-semibold leading-snug text-white`}>
+                {row.benefit}
+              </p>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+function CostComparisonLedger() {
+  return (
+    <>
+      <div className="lg:hidden">
+        <CompactCostComparison />
+      </div>
+      <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 lg:block">
+        <div className="grid lg:grid-cols-[0.92fr_1.08fr]">
+          <div className="border-b border-slate-200 px-6 py-7 sm:px-8 sm:py-9 lg:border-r lg:px-9">
+            <h3 className="max-w-sm text-title font-semibold tracking-tight text-slate-900">Cuando todo se queda repartido</h3>
+            <p className="mt-3 max-w-md text-copy-md leading-relaxed text-slate-600">
+              Cada paso exige volver a buscar lo que ya te habían contado.
+            </p>
+          </div>
+          <div className="border-b border-white/15 bg-slate-900 px-6 py-7 text-white sm:px-8 sm:py-9 lg:px-9">
+            <h3 className="max-w-sm text-title font-semibold tracking-tight text-white">Cuando cada candidatura entra ordenada</h3>
+            <p className="mt-3 max-w-md text-copy-md leading-relaxed text-slate-300">
+              El trabajo pasa de perseguir información a decidir con ella.
+            </p>
+          </div>
+        </div>
+        <ul aria-label="Comparación entre gestionar respuestas dispersas y candidaturas ordenadas">
+          {COST_COMPARISON_ROWS.map((row, index) => {
+            const isLast = index === COST_COMPARISON_ROWS.length - 1
+            const lightDivider = isLast ? '' : 'border-b border-slate-200'
+            const darkDivider = isLast ? '' : 'border-b border-white/15'
+            return (
+              <li key={row.cost.title} className="grid lg:grid-cols-[0.92fr_1.08fr]">
+                <div className={`${lightDivider} px-6 py-5 sm:grid sm:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] sm:gap-6 sm:px-8 sm:py-6 lg:border-r lg:border-slate-200 lg:px-9`}>
+                  <h4 className="text-copy-md font-semibold leading-snug text-slate-900">{row.cost.title}</h4>
+                  <p className="mt-2 text-copy leading-relaxed text-slate-600 sm:mt-0">{row.cost.body}</p>
+                </div>
+                <div className={`${darkDivider} bg-slate-900 px-6 py-5 text-white sm:grid sm:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] sm:gap-6 sm:px-8 sm:py-6 lg:px-9`}>
+                  <h4 className="text-copy-md font-semibold leading-snug text-white">{row.benefit.title}</h4>
+                  <p className="mt-2 text-copy leading-relaxed text-slate-300 sm:mt-0">{row.benefit.body}</p>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    </>
+  )
+}
+
 function CostAnchor() {
   return (
-    <section className="bg-white">
+    <section className="bg-white" aria-labelledby="coste-contratar-heading">
       <div className="mx-auto max-w-6xl section-x section-y">
-        <div className="mx-auto max-w-3xl text-center">
+        <div className="max-w-3xl">
           <p className="text-sm font-semibold text-slate-500">Antes de comparar planes</p>
-          <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          <h2 id="coste-contratar-heading" className="mt-3 text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             Contratar desordenado también tiene un coste
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
-            Apúntate Fácil no sustituye dónde publicas. Evita que las respuestas se queden repartidas entre chats, llamadas y hojas de cálculo.
+          <p className="mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
+            No siempre aparece en una factura. Se acumula cuando la información queda repartida justo cuando tienes que decidir rápido.
           </p>
         </div>
-        <div className="mt-10 grid gap-5 md:grid-cols-2">
-          {COST_TRUTHS.map((truth, index) => (
-            <div
-              key={truth.key}
-              className={index === 0
-                ? 'rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-7'
-                : 'rounded-2xl bg-slate-900 p-6 text-white sm:p-7'}
-            >
-              <h3 className={index === 0 ? 'text-lg font-semibold text-slate-900' : 'text-lg font-semibold text-white'}>
-                {truth.label}
-              </h3>
-              <ul className="mt-6 space-y-4">
-                {truth.items.map((item) => (
-                  <li key={item.lead} className="flex gap-3">
-                    <Check className={index === 0 ? 'mt-0.5 size-4 shrink-0 text-slate-500' : 'mt-0.5 size-4 shrink-0 text-slate-300'} aria-hidden />
-                    <p className={index === 0 ? 'text-copy-md leading-relaxed text-slate-600' : 'text-copy-md leading-relaxed text-slate-300'}>
-                      <strong className={index === 0 ? 'font-semibold text-slate-900' : 'font-semibold text-white'}>{item.lead}</strong>{' '}
-                      {item.text}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <div className="mt-12">
+          <CostComparisonLedger />
         </div>
-        <p className="mx-auto mt-6 max-w-2xl text-center text-sm leading-relaxed text-slate-500">
-          {COST_TRUTHS_FOOTNOTE}
+        <p className="mt-7 max-w-3xl text-copy leading-relaxed text-slate-500">
+          Apúntate Fácil no cambia dónde publicas ni atrae candidatos nuevos. Evita que las respuestas que ya recibes se pierdan por falta de información y seguimiento.
         </p>
       </div>
     </section>
