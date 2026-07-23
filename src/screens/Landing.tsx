@@ -1112,7 +1112,7 @@ function Faq() {
     ['¿Es difícil empezar?', 'No. En menos de cinco minutos tendrás tu primer formulario listo para recibir candidatos. Después solo tienes que compartir el enlace y empezar a recibir las candidaturas ordenadas.'],
     ['¿Hay permanencia?', 'No. Pagas mes a mes y puedes darte de baja cuando quieras, desde tu cuenta. Sin llamadas de retención ni trámites adicionales.'],
     ['¿Los candidatos son míos si cancelo?', 'Sí. Toda la lista es tuya: puedes exportarla a Excel en cualquier momento y llevártela contigo si dejas el servicio.'],
-    ['¿Hay costes ocultos o precios “desde”?', 'No. Son 149, 249 o 499 € al mes según el plan, con candidatos sin límite. El Equipo (tablón e invitaciones) entra en Pro. Lo que ves aquí es lo que pagas. IVA aparte.'],
+    ['¿Hay costes ocultos o precios “desde”?', 'No. Son 185, 237 o 533 € al mes según el plan, con candidatos sin límite. El Equipo (tablón e invitaciones) entra en Pro. Lo que ves aquí es lo que pagas. IVA aparte.'],
     ['¿Puedo probarlo sin registrarme ni tarjeta?', 'Sí. La demo funciona con datos de ejemplo, sin cuenta ni tarjeta. Si creas una cuenta, el plan de Prueba es gratuito: 1 puesto y hasta 15 candidatos, también sin tarjeta.'],
   ]
   return (
