@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Briefcase, Building2, Check, ChevronDown, Compass, ExternalLink, Gauge, Inbox, LayoutGrid, LifeBuoy, Loader2, LogOut, Menu, MessagesSquare, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
@@ -20,10 +21,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
 import { ArrowRight } from 'lucide-react'
 import { planHas, PLAN_LABEL } from '../lib/pricing'
-import { AppThemeBoundary } from '../components/app/AppThemeBoundary'
-import { Button, buttonVariants } from '../components/ui/button'
-import { Sheet, SheetContent } from '../components/ui/sheet'
-import { cn } from '../lib/utils'
+import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 
 // Item del menú lateral. Solo se muestra si el plan incluye la feature (la
 // visibilidad la decide quien lo renderiza); el límite se descubre al intentar
@@ -47,19 +45,17 @@ function SideNavItem({
       to={to}
       onClick={onNavigate}
       className={({ isActive }) =>
-        `group flex h-10 w-full items-center gap-2.5 rounded-xl border px-3 text-sm transition-[background-color,border-color,box-shadow,color] ${
-          isActive
-            ? 'border-border bg-card font-semibold text-foreground shadow-[0_1px_2px_rgba(18,22,34,0.06)]'
-            : 'border-transparent font-medium text-muted-foreground hover:bg-card/80 hover:text-foreground'
+        `flex h-9 w-full items-center gap-2 rounded-xl px-2.5 text-sm transition-colors ${
+          isActive ? 'bg-indigo-50 font-semibold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900'
         }`
       }
     >
       {({ isActive }) => (
         <>
-          <Icon className={`size-4 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground/80 group-hover:text-foreground'}`} aria-hidden />
+          <Icon className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
           <span className="flex-1">{label}</span>
           {count > 0 && (
-            <span className="num shrink-0 rounded-full bg-muted px-1.5 text-[11px] font-bold text-foreground" title={`${count} nuevos`}>
+            <span className="num shrink-0 rounded-full bg-slate-200 px-1.5 text-[11px] font-bold text-slate-700" title={`${count} nuevos`}>
               {count}
             </span>
           )}
@@ -115,31 +111,32 @@ function EmptyCompany() {
   return (
     <div className="grid h-full place-items-center px-6">
       <div className="w-full max-w-md text-center">
-        <div className="mx-auto grid size-12 place-items-center rounded-xl border border-border bg-card text-muted-foreground shadow-card">
+        <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
           <Inbox className="size-6" aria-hidden />
         </div>
-        <h1 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-foreground">Empieza tu primer puesto</h1>
-        <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+        <h1 className="mt-4 text-xl font-semibold text-slate-900">Empieza tu primer puesto</h1>
+        <p className="mt-1.5 text-sm text-slate-500">
           Crea un puesto, comparte su enlace con quien responda a tu anuncio y las candidaturas entran aquí solas.
         </p>
         <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
-          <Button
+          <button
             onClick={() => setWizardOpen(true)}
             disabled={busy}
+            className={`${BTN_PRIMARY} disabled:opacity-60`}
           >
             <Plus className="size-4" aria-hidden /> Crear un puesto
-          </Button>
+          </button>
           {/* En Prueba no se cargan datos de ejemplo: superarían los topes (1 puesto,
               15 candidatos) y pausarían el puesto al instante. Para curiosear está /demo. */}
           {company?.plan !== 'trial' && (
-            <Button
-              variant="outline"
+            <button
               onClick={loadDemo}
               disabled={busy}
+              className={`${BTN_SECONDARY} disabled:opacity-60`}
             >
               {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4 text-slate-400" aria-hidden />}
               Cargar datos de ejemplo
-            </Button>
+            </button>
           )}
         </div>
       </div>
@@ -241,9 +238,7 @@ export function AppLayout() {
   // a la izquierda lo cierra. Solo gestos claramente horizontales, para no pelear
   // con el scroll vertical ni con tirar para refrescar. Listeners pasivos.
   const openRef = useRef(open)
-  useEffect(() => {
-    openRef.current = open
-  }, [open])
+  openRef.current = open
   useEffect(() => {
     const THRESHOLD = 55 // px de recorrido horizontal para disparar
     const OPEN_ZONE = 0.7 // fracción del ancho (desde la izq.) donde puede iniciarse la apertura
@@ -320,8 +315,7 @@ export function AppLayout() {
   const toggleGroup = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+      next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
 
@@ -334,17 +328,15 @@ export function AppLayout() {
           to={`${base}/puestos/${c.id}`}
           onClick={() => setOpen(false)}
           className={({ isActive }) =>
-            `group relative flex min-h-9 items-center gap-2.5 rounded-xl border px-3 py-2 text-sm transition-[background-color,border-color,box-shadow,color] ${
-              isActive
-                ? 'border-border bg-card font-semibold text-foreground shadow-[0_1px_2px_rgba(18,22,34,0.06)]'
-                : 'border-transparent text-muted-foreground hover:bg-card/80 hover:text-foreground'
+            `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
+              isActive ? 'bg-indigo-50 font-semibold text-slate-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
             }`
           }
         >
           {({ isActive }) => (
             <>
-              {isActive && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-primary" aria-hidden />}
-              <Briefcase className={`size-4 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground/80'}`} aria-hidden />
+              {isActive && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-indigo-600" aria-hidden />}
+              <Briefcase className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
               <span className="min-w-0 flex-1 truncate">{c.title}</span>
               {c.status !== 'activa' && <span className="shrink-0 text-[11px] font-medium text-slate-500">{c.status === 'pausada' ? 'Pausado' : 'Cerrado'}</span>}
               {count > 0 && (
@@ -360,41 +352,34 @@ export function AppLayout() {
   }
 
   const nav = (
-    <nav className="flex h-full flex-col bg-sidebar" aria-label="Puestos">
-      <div className="flex h-[68px] items-center justify-between border-b border-sidebar-border px-4">
+    <nav className="flex h-full flex-col" aria-label="Puestos">
+      <div className="flex items-center justify-between px-4 pt-4">
         <Link to="/" className="flex items-center gap-2" aria-label={`${BRAND}, ir al inicio`}>
-          <span className="grid size-9 place-items-center rounded-xl border border-sidebar-border bg-card shadow-card">
-            <Logo className="size-6" />
-          </span>
-          <span className="text-[16px] brand-wordmark text-foreground" aria-hidden>apuntatefacil</span>
+          <Logo className="size-7" />
+          <span className="text-[17px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
           <BetaBadge />
         </Link>
-        <Button
-          variant="ghost"
-          size="icon-sm"
+        <button
           onClick={() => setOpen(false)}
-          className="lg:hidden"
+          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 lg:hidden"
           aria-label="Cerrar menú"
         >
           <X className="size-5" aria-hidden />
-        </Button>
+        </button>
       </div>
 
       {canCreate && (
-        <div className="px-3 pt-4">
-          <Button
+        <div className="px-3 pt-5">
+          <button
             onClick={() => { setWizardOpen(true); setOpen(false) }}
-            className="w-full"
+            className={`${BTN_PRIMARY} w-full`}
           >
             <Plus className="size-4" aria-hidden /> Nuevo puesto
-          </Button>
+          </button>
         </div>
       )}
 
-      <p className="px-5 pb-1.5 pt-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-        Espacio de trabajo
-      </p>
-      <div className="px-3">
+      <div className={`px-3 ${canCreate ? 'pt-2' : 'pt-5'}`}>
         <SideNavItem
           to={`${base}/resumen`}
           Icon={LayoutGrid}
@@ -403,7 +388,7 @@ export function AppLayout() {
         />
       </div>
 
-      <div className="px-3 pt-1">
+      <div className="px-3 pt-2">
         <SideNavItem
           to={`${base}/bandeja`}
           Icon={Inbox}
@@ -414,7 +399,7 @@ export function AppLayout() {
       </div>
 
       {showSedes && (
-        <div className="px-3 pt-1">
+        <div className="px-3 pt-2">
           <SideNavItem
             to={`${base}/sedes`}
             Icon={Building2}
@@ -425,7 +410,7 @@ export function AppLayout() {
       )}
 
       {showBrands && (
-        <div className="px-3 pt-1">
+        <div className="px-3 pt-2">
           <SideNavItem
             to={`${base}/marcas`}
             Icon={Tag}
@@ -436,7 +421,7 @@ export function AppLayout() {
       )}
 
       {showEquipo && (
-        <div className="px-3 pt-1">
+        <div className="px-3 pt-2">
           <SideNavItem
             to={`${base}/equipo`}
             Icon={Users}
@@ -451,7 +436,7 @@ export function AppLayout() {
           nunca en la demo. El resto de usuarios no ve nada de esto. */}
       {isStaff && !demo && (
         <>
-          <p className="px-5 pb-1.5 pt-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Admin</p>
+          <p className="px-4 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Admin</p>
           <div className="px-3">
             <SideNavItem to={`${base}/admin`} Icon={Gauge} label="Panel" onNavigate={() => setOpen(false)} />
           </div>
@@ -512,17 +497,17 @@ export function AppLayout() {
         </div>
       ) : (
         <>
-          <p className="px-5 pb-1.5 pt-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Puestos activos
+          <p className="px-4 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            Puestos
           </p>
-          <ul className="flex-1 space-y-1 overflow-y-auto px-3">{campaigns.map(renderPuesto)}</ul>
+          <ul className="flex-1 space-y-0.5 overflow-y-auto px-2">{campaigns.map(renderPuesto)}</ul>
         </>
       )}
 
-      <div className="mt-auto border-t border-sidebar-border bg-sidebar p-3">
+      <div className="mt-auto border-t border-slate-200 p-3">
         {demo ? (
           <>
-            <Link to="/login" className={cn(buttonVariants(), 'w-full')}>
+            <Link to="/login" className={`${BTN_PRIMARY} w-full`}>
               Empezar <ArrowRight className="size-4" aria-hidden />
             </Link>
             <Link
@@ -626,23 +611,41 @@ export function AppLayout() {
   void campaignId
 
   return (
-    <AppThemeBoundary className="fixed inset-0 flex overflow-hidden bg-background text-foreground">
-      <aside className="hidden w-[268px] shrink-0 border-r border-sidebar-border bg-sidebar lg:block">{nav}</aside>
+    <div className="fixed inset-0 flex overflow-hidden bg-slate-50">
+      <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">{nav}</aside>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="left" showCloseButton={false} className="w-[288px] gap-0 border-sidebar-border p-0 sm:max-w-[288px] lg:hidden">
-          {nav}
-        </SheetContent>
-      </Sheet>
+      <AnimatePresence>
+        {open && (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            <motion.div
+              className="absolute inset-0 bg-slate-900/40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => setOpen(false)}
+            />
+            <motion.div
+              className="absolute left-0 top-0 h-full w-72 bg-white shadow-pop"
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+            >
+              {nav}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-14 items-center gap-3 border-b border-border bg-card/95 px-4 backdrop-blur lg:hidden">
-          <Button onClick={() => setOpen(true)} aria-label="Abrir menú" variant="ghost" size="icon-sm">
+        <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5 lg:hidden">
+          <button onClick={() => setOpen(true)} aria-label="Abrir menú" className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100">
             <Menu className="size-5" aria-hidden />
-          </Button>
+          </button>
           <Link to="/" className="flex items-center gap-2" aria-label={`${BRAND}, ir al inicio`}>
             <Logo className="size-6" />
-            <span className="text-[16px] brand-wordmark text-foreground" aria-hidden>apuntatefacil</span>
+            <span className="text-[17px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
             <BetaBadge />
           </Link>
         </div>
@@ -687,7 +690,7 @@ export function AppLayout() {
         )}
         {/* Con la guía activa, hueco inferior para que la tarjeta flotante no tape
             el final del contenido (botones de guardar, últimas filas). */}
-        <main id="contenido" className={`min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background${onboarding.active ? ' pb-28' : ''}`}>
+        <main id="contenido" className={`min-h-0 flex-1 overflow-y-auto overscroll-contain${onboarding.active ? ' pb-28' : ''}`}>
           <Suspense fallback={<div className="grid h-full place-items-center" role="status" aria-label="Cargando"><Loader2 className="size-6 animate-spin text-slate-400" aria-hidden /></div>}>
             <Outlet />
           </Suspense>
@@ -716,6 +719,6 @@ export function AppLayout() {
       >
         Se recargan los datos de ejemplo y se pierden los cambios que hayas hecho durante esta demo.
       </ConfirmDialog>
-    </AppThemeBoundary>
+    </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Button } from '../legacy-ui/Button'
+import { Button } from './Button'
 
 // Modal de confirmación centrado. Foco atrapado, cierre con Escape o clic fuera,
 // scroll del fondo bloqueado. La animación respeta reduced-motion (MotionConfig global).

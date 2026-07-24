@@ -110,44 +110,6 @@
   --text-heading-xl--letter-spacing: -0.012em;
 }
 
-/* shadcn/ui usa nombres semánticos. Las utilidades existen de forma global,
-   pero sus valores solo se definen dentro de `.app-ui`, así landing, login y
-   formulario público conservan su sistema actual. */
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-status-new: var(--status-new);
-  --color-status-contacted: var(--status-contacted);
-  --color-status-interview: var(--status-interview);
-  --color-status-hired: var(--status-hired);
-  --color-status-discarded: var(--status-discarded);
-}
-
 @keyframes shimmer {
   0% { background-position: -480px 0; }
   100% { background-position: 480px 0; }
@@ -222,59 +184,6 @@
        y la preview del builder lo sobreescriben con el color del cliente. */
     --accent: #374cce;
     --accent-contrast: #ffffff; /* texto legible sobre el acento (guarda AA) */
-  }
-
-  /* Tema claro exclusivo del espacio de trabajo. `--accent` pasa aquí a ser la
-     superficie neutral de interacción de shadcn; el ultramarine vive en
-     `--primary`. */
-  .app-ui {
-    --background: #f9fafb;
-    --foreground: #131822;
-    --card: #ffffff;
-    --card-foreground: #131822;
-    --popover: #ffffff;
-    --popover-foreground: #131822;
-    --primary: #374cce;
-    --primary-foreground: #ffffff;
-    --secondary: #f4f5f7;
-    --secondary-foreground: #242833;
-    --muted: #f4f5f7;
-    --muted-foreground: #50545e;
-    --accent: #eef2fe;
-    --accent-foreground: #242833;
-    --destructive: #dc2626;
-    --destructive-foreground: #ffffff;
-    --border: #e5e7eb;
-    --input: #d1d4db;
-    --ring: #374cce;
-    --radius: 0.625rem;
-    --sidebar: #ffffff;
-    --sidebar-foreground: #242833;
-    --sidebar-primary: #374cce;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #eef2fe;
-    --sidebar-accent-foreground: #131822;
-    --sidebar-border: #e5e7eb;
-    --sidebar-ring: #374cce;
-    --status-new: #6f727c;
-    --status-contacted: #3b82f6;
-    --status-interview: #f59e0b;
-    --status-hired: #22c55e;
-    --status-discarded: #d1d4db;
-    background: var(--background);
-    color: var(--foreground);
-    font-family: var(--font-sans);
-  }
-
-  html.app-ui,
-  html.app-ui body {
-    background: var(--background);
-    color: var(--foreground);
-  }
-
-  .app-ui button:not(:disabled),
-  .app-ui [role='button']:not([aria-disabled='true']) {
-    cursor: pointer;
   }
 
   html {

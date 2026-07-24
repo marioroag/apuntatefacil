@@ -35,7 +35,7 @@ import {
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
-import { Checkbox } from '../components/legacy-ui/Checkbox'
+import { Checkbox } from '../components/ui/Checkbox'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -61,9 +61,6 @@ import { searchScore } from '../lib/search'
 import { InterestCheckDialog } from '../components/InterestCheckDialog'
 import { InterestOutcomeIcon } from '../components/InterestSignal'
 import { candidateInterestState, INTEREST_STATE_LABEL } from '../lib/interest'
-import { Button, buttonVariants } from '../components/ui/button'
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group'
-import { cn } from '../lib/utils'
 
 function answerStr(c: Candidate, fieldId: string): string {
   const v = c.answers[fieldId]
@@ -585,18 +582,14 @@ export function Dashboard() {
 
   return (
     <PullToRefresh onRefresh={refresh}>
-    <div className="mx-auto max-w-[1320px] px-4 py-7 sm:px-7 lg:px-10 lg:py-9">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8">
       {/* Cabecera del puesto */}
-      <header className="mb-6 border-b border-border pb-6">
-        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
-          <Briefcase className="size-3.5" aria-hidden />
-          Espacio de candidatos
-        </div>
+      <header className="mb-5">
         {/* Título + acciones: solo Compartir y Editar visibles; el resto en Ajustes del puesto. */}
         <div ref={titleRowRef} className="flex items-center gap-2.5">
-          <h1 ref={titleRef} className="min-w-0 truncate text-[26px] font-semibold leading-tight tracking-[-0.035em] text-foreground sm:text-[30px]">{campaign.title}</h1>
+          <h1 ref={titleRef} className="min-w-0 truncate text-[22px] font-semibold leading-tight tracking-[-0.02em] text-slate-900">{campaign.title}</h1>
           {campaign.status !== 'activa' && (
-            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[12px] font-semibold text-muted-foreground ring-1 ring-inset ring-border">
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
               {campaign.status === 'pausada' ? 'Pausado' : 'Cerrado'}
             </span>
           )}
@@ -614,30 +607,28 @@ export function Dashboard() {
             {canManage && (
               <Link
                 to={`${base}/puestos/${campaign.id}/formulario`}
-                className={cn(buttonVariants(), 'max-sm:h-8 max-sm:gap-1 max-sm:px-2.5 max-sm:text-[12px]')}
+                className={`${BTN_PRIMARY} max-sm:h-8 max-sm:gap-1 max-sm:px-2.5 max-sm:text-[12px]`}
                 title="Editar formulario"
                 aria-label="Editar formulario"
               >
-                <PenLine className="size-4 shrink-0 max-sm:size-3.5" aria-hidden />
+                <PenLine className="size-4 shrink-0 text-indigo-200 max-sm:size-3.5" aria-hidden />
                 <span className="sm:hidden">Editar</span>
                 <span className="hidden sm:inline">Editar formulario</span>
               </Link>
             )}
           </div>
         </div>
-        <p className="mt-1.5 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-slate-500">
           {[campaign.sector, campaign.location].map((s) => s?.trim()).filter(Boolean).join(', ')}
         </p>
         {canManage && (
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             type="button"
             onClick={() => setSettingsOpen(true)}
-            className="-ml-2 mt-2"
+            className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
           >
-            <SlidersHorizontal className="size-3.5" aria-hidden /> Ajustes del puesto
-          </Button>
+            <SlidersHorizontal className="size-3.5 text-slate-400" aria-hidden /> Ajustes del puesto
+          </button>
         )}
       </header>
 
@@ -652,33 +643,32 @@ export function Dashboard() {
       }} />
 
       {/* Barra de filtros */}
-      <div className="mt-5 flex flex-wrap items-center gap-2 rounded-[14px] border border-border bg-card p-2.5 shadow-[0_1px_2px_rgba(18,22,34,0.04)]">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <div className="flex min-w-0 w-full flex-1 items-center gap-2 sm:min-w-[200px]">
-          <InputGroup className="min-w-0 flex-1 border-transparent bg-muted/65 shadow-none focus-within:bg-background">
-            <InputGroupAddon><Search /></InputGroupAddon>
-            <InputGroupInput
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            <input
               type="search"
               aria-label="Buscar candidatos"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre, teléfono..."
+              className="h-9 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
             />
-          </InputGroup>
-          <Button
+          </div>
+          <button
             type="button"
-            variant="outline"
-            size="icon"
             onClick={async () => {
               const r = await refresh()
               if (r.message) r.ok ? toast.show(r.message) : toast.error(r.message)
             }}
             disabled={refreshing}
-            className="max-sm:hidden shrink-0"
+            className={`${BTN_SECONDARY} max-sm:hidden shrink-0 disabled:opacity-60`}
             title="Refrescar candidatos"
             aria-label="Refrescar candidatos"
           >
-            <RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
-          </Button>
+            <RefreshCw className={`size-4 text-slate-400 ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
+          </button>
         </div>
 
         {/* Acciones: en móvil reparten el ancho de la fila a partes iguales (limpio,
@@ -850,7 +840,7 @@ export function Dashboard() {
       )}
 
       {/* Tabla / estados */}
-      <div className="mt-4 overflow-hidden rounded-[14px] border border-border bg-card shadow-[0_1px_2px_rgba(18,22,34,0.04),0_10px_28px_-24px_rgba(18,22,34,0.24)] md:overflow-visible">
+      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card md:overflow-visible">
         {loading ? (
           <SkeletonRows cols={cols.length} />
         ) : filtered.length === 0 ? (
