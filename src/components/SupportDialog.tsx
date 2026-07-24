@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, X } from 'lucide-react'
-import { Button } from './ui/Button'
+import { Button } from './legacy-ui/Button'
 import { supabase } from '../lib/supabase'
 import { SUPPORT_EMAIL, supportMailto } from '../lib/brand'
 

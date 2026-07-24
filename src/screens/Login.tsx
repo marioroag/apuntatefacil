@@ -4,7 +4,7 @@ import { ArrowLeft, Check, Eye, EyeOff, Loader2, Mail } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { setRememberMe } from '../lib/supabase'
 import { Logo } from '../components/Logo'
-import { Checkbox } from '../components/ui/Checkbox'
+import { Checkbox } from '../components/legacy-ui/Checkbox'
 import { PWD_RULES, passwordValid } from '../lib/password'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/

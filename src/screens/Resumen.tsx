@@ -13,8 +13,9 @@ const STALE_DAYS = 7
 export function Resumen() {
   const { campaigns, candidates, newCountFor } = useStore()
   const base = useAppBase()
+  const [now] = useState(() => Date.now())
 
-  const staleCut = Date.now() - STALE_DAYS * 86400000
+  const staleCut = now - STALE_DAYS * 86400000
   const nuevosTotal = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
   const contratados = candidates.filter((c) => c.status === 'contratado').length
   const abiertos = campaigns.filter((c) => c.status === 'activa' || c.status === 'pausada').length
@@ -47,10 +48,11 @@ export function Resumen() {
     .slice(0, 6)
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-5">
-        <h1 className="text-xl font-semibold text-slate-900">Vista general</h1>
-        <p className="mt-0.5 text-sm text-slate-500">Cómo van todos tus puestos de un vistazo.</p>
+    <div className="mx-auto max-w-[1180px] px-4 py-7 sm:px-7 lg:px-10 lg:py-9">
+      <header className="mb-7 border-b border-border pb-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Pulso de contratación</p>
+        <h1 className="mt-2 text-[28px] font-semibold tracking-[-0.035em] text-foreground">Vista general</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Cómo van todos tus puestos de un vistazo.</p>
       </header>
 
       {campaigns.length === 0 ? (
@@ -134,7 +136,7 @@ function IntakeChart({ candidates }: { candidates: Candidate[] }) {
 
 function ChartPlaceholder() {
   return (
-    <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+    <div className="mt-5 rounded-[14px] border border-border bg-card p-4 shadow-[0_1px_2px_rgba(18,22,34,0.04)] sm:p-5">
       <p className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</p>
       <div className="mt-2 flex h-40 items-center justify-center rounded-lg border border-dashed border-slate-200">
         <p className="max-w-xs px-6 text-center text-[13px] text-slate-500">La tendencia aparece en cuanto tengas 2 o más semanas de datos.</p>
@@ -148,6 +150,7 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
   // y texto legible dentro del SVG (preserveAspectRatio="none" los deformaba).
   const ref = useRef<HTMLDivElement>(null)
   const [w, setW] = useState(560)
+  const [currentWeek] = useState(() => weekStartMonday(Date.now()))
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
@@ -159,7 +162,7 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
   }, [])
 
   const n = weeks.length
-  const partialLast = weeks[n - 1].start === weekStartMonday(Date.now())
+  const partialLast = weeks[n - 1].start === currentWeek
   const complete = partialLast ? weeks.slice(0, -1) : weeks
   const avg = complete.length
     ? Math.round(complete.reduce((s, x) => s + x.count, 0) / complete.length)
@@ -188,7 +191,7 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
   const labelEach = n <= 8
 
   return (
-    <figure className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+    <figure className="mt-5 rounded-[14px] border border-border bg-card p-4 shadow-[0_1px_2px_rgba(18,22,34,0.04)] sm:p-5">
       <figcaption className="flex items-baseline justify-between">
         <span className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</span>
         <span className="text-[12px] tabular-nums text-slate-500">media de {miles(avg)}/semana</span>
@@ -292,19 +295,19 @@ function weeklyIntake(candidates: Candidate[]): Week[] {
 
 function Kpi({ label, n }: { label: string; n: number }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
-      <p className="text-[12px] text-slate-500">{label}</p>
-      <p className="mt-0.5 text-2xl font-semibold tabular-nums text-slate-900">{miles(n)}</p>
+    <div className="rounded-[14px] border border-border bg-card px-4 py-4 shadow-[0_1px_2px_rgba(18,22,34,0.04)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
+      <p className="mt-1.5 text-[28px] font-semibold leading-none tabular-nums tracking-[-0.035em] text-foreground">{miles(n)}</p>
     </div>
   )
 }
 
 function Panel({ title, right, children }: { title: string; right?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+    <div className="rounded-[14px] border border-border bg-card p-4 shadow-[0_1px_2px_rgba(18,22,34,0.04)] sm:p-5">
       <div className="mb-1 flex items-baseline justify-between">
-        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-        {right && <span className="text-[13px] tabular-nums text-slate-500">{right}</span>}
+        <h2 className="text-base font-semibold tracking-[-0.015em] text-foreground">{title}</h2>
+        {right && <span className="text-[13px] tabular-nums text-muted-foreground">{right}</span>}
       </div>
       {children}
     </div>
@@ -313,8 +316,8 @@ function Panel({ title, right, children }: { title: string; right?: string; chil
 
 function Empty({ text }: { text: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-      <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
+    <div className="rounded-[14px] border border-dashed border-border bg-card px-6 py-16 text-center">
+      <div className="mx-auto grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground">
         <Building2 className="size-6" aria-hidden />
       </div>
       <p className="mt-3 text-sm text-slate-500">{text}</p>

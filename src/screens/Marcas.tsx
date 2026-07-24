@@ -4,7 +4,7 @@ import { Check, ImagePlus, Loader2, Pencil, Plus, Tag, Trash2, X } from 'lucide-
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
-import { Checkbox } from '../components/ui/Checkbox'
+import { Checkbox } from '../components/legacy-ui/Checkbox'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { FeatureLocked } from '../components/FeatureLocked'
 import { useAppBase } from '../lib/useAppBase'

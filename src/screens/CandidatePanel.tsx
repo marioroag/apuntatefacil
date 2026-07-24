@@ -7,7 +7,6 @@ import { SOURCE_META } from '../lib/types'
 import { fullDateTime, initials, formatPhone, candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { copyText } from '../lib/clipboard'
@@ -15,6 +14,8 @@ import { MaskedPhone } from '../components/MaskedPhone'
 import { TagSection } from '../components/Tags'
 import { TAGS_ENABLED } from '../lib/pricing'
 import { InterestSignal } from '../components/InterestSignal'
+import { Button, buttonVariants } from '../components/ui/button'
+import { Textarea } from '../components/ui/textarea'
 
 function answerText(v: Candidate['answers'][string] | undefined): string {
   if (v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) return 'Sin dato'
@@ -73,8 +74,10 @@ export function CandidatePanel({
   // Solo al cambiar de candidato, no en cada mutación del store (si no, borra
   // las notas que el usuario está escribiendo al tocar estado o valoración).
   useEffect(() => {
-    setLocalNotes(candidate?.notes ?? '')
-  }, [candidate?.id])
+    const value = candidate?.notes ?? ''
+    const timer = window.setTimeout(() => setLocalNotes(value), 0)
+    return () => window.clearTimeout(timer)
+  }, [candidate?.id, candidate?.notes])
 
   const open = !!candidate
   const name = candidate ? candidateName(candidate) || 'Sin nombre' : ''
@@ -88,12 +91,12 @@ export function CandidatePanel({
       title={
         candidate && (
           <div className="flex items-center gap-3">
-            <div className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-bold text-slate-600 ring-1 ring-inset ring-slate-200">
+            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-foreground text-sm font-semibold text-background shadow-card">
               {initials(name)}
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-xl font-semibold leading-tight text-slate-900">{name}</h2>
-              <p className="text-[13px] text-slate-500">{campaign.title}</p>
+              <h2 className="truncate text-xl font-semibold leading-tight tracking-[-0.025em] text-foreground">{name}</h2>
+              <p className="text-[13px] text-muted-foreground">{campaign.title}</p>
             </div>
           </div>
         )
@@ -126,32 +129,31 @@ export function CandidatePanel({
             <div className="ml-auto flex gap-2">
               {phone && (
                 maskPhone ? (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => toast.show('En la demo solo puedes mirar. Crea tu cuenta para llamar o escribir a tus candidatos.')}
-                    className={BTN_PRIMARY}
                   >
-                    <Phone className="size-3.5 text-indigo-200" aria-hidden /> Llamar
-                  </button>
+                    <Phone className="size-3.5" aria-hidden /> Llamar
+                  </Button>
                 ) : (
-                  <a href={`tel:${phone.replace(/\s/g, '')}`} className={BTN_PRIMARY}>
-                    <Phone className="size-3.5 text-indigo-200" aria-hidden /> Llamar
+                  <a href={`tel:${phone.replace(/\s/g, '')}`} className={buttonVariants()}>
+                    <Phone className="size-3.5" aria-hidden /> Llamar
                   </a>
                 )
               )}
               {phone && (
                 maskPhone ? (
-                  <button
+                  <Button
+                    variant="outline"
                     type="button"
                     onClick={() => toast.show('En la demo solo puedes mirar. Crea tu cuenta para llamar o escribir a tus candidatos.')}
-                    className={BTN_SECONDARY}
                   >
-                    <MessageCircle className="size-3.5 text-slate-400" aria-hidden /> WhatsApp
-                  </button>
+                    <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
+                  </Button>
                 ) : (
                   waPhone && (
-                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className={BTN_SECONDARY}>
-                      <MessageCircle className="size-3.5 text-slate-400" aria-hidden /> WhatsApp
+                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'outline' })}>
+                      <MessageCircle className="size-3.5" aria-hidden /> WhatsApp
                     </a>
                   )
                 )
@@ -199,14 +201,14 @@ export function CandidatePanel({
 
           {/* Respuestas */}
           <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.13em] text-muted-foreground">
               Respuestas del formulario
             </p>
-            <dl className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
+            <dl className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
               {campaign.fields.map((f) => (
                 <div key={f.id} className="grid grid-cols-[42%_58%] gap-3 px-3.5 py-2.5">
-                  <dt className="break-words text-[13px] text-slate-500">{f.label}</dt>
-                  <dd className={`break-words text-sm font-medium text-slate-900 ${['phone', 'number', 'date'].includes(f.type) ? 'num' : ''}`}>
+                  <dt className="break-words text-[13px] text-muted-foreground">{f.label}</dt>
+                  <dd className={`break-words text-sm font-medium text-foreground ${['phone', 'number', 'date'].includes(f.type) ? 'num' : ''}`}>
                     {f.type === 'file' && candidate.cvPath ? (
                       <button
                         type="button"
@@ -255,14 +257,14 @@ export function CandidatePanel({
             <label htmlFor="notas" className="mb-1.5 block text-sm font-semibold text-slate-800">
               Notas internas
             </label>
-            <textarea
+            <Textarea
               id="notas"
               value={notes}
               onChange={(e) => setLocalNotes(e.target.value)}
               onBlur={() => setNotes(candidate.id, notes)}
               rows={3}
               placeholder="Lo que hablasteis por teléfono, disponibilidad real, etc."
-              className="w-full resize-y rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+              className="min-h-28"
             />
             <p className="mt-1 text-[12px] text-slate-500">Solo las ve tu equipo. No se envían al candidato.</p>
           </div>

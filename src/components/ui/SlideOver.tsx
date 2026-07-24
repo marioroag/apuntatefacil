@@ -29,7 +29,9 @@ export function SlideOver({
   // (lo normal) reejecutaría el cleanup, que hace opener.focus() y robaría el foco
   // del campo activo en cada tecla. Ver bug del textarea de respuesta en Soporte.
   const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (!open) return
@@ -92,7 +94,7 @@ export function SlideOver({
           inert={inert || undefined}
         >
           <motion.div
-            className="absolute inset-0 bg-slate-900/40"
+            className="absolute inset-0 bg-slate-950/20 backdrop-blur-[2px]"
             aria-hidden
             initial={reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -103,13 +105,13 @@ export function SlideOver({
           <motion.div
             ref={panelRef}
             tabIndex={inert ? undefined : -1}
-            className="absolute right-0 top-0 flex h-full w-full max-w-[460px] flex-col bg-white shadow-pop outline-none"
+            className="absolute right-0 top-0 flex h-full w-full max-w-[500px] flex-col border-l border-border bg-card shadow-pop outline-none"
             initial={reducedMotion ? false : { x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0, 0, 0.2, 1] }}
           >
-            <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
+            <header className="flex min-h-[72px] items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
               {/* flex-1: sin esto, un título con contenido inline-flex (p. ej. un botón
                   con truncate dentro) calcula su ancho intrínseco de forma ambigua y
                   puede clipar 1-2 caracteres de más aunque sobre espacio en la cabecera. */}
@@ -120,15 +122,15 @@ export function SlideOver({
                   type="button"
                   onClick={onClose}
                   aria-label="Cerrar panel"
-                  className="grid size-9 pointer-coarse:size-11 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className="grid size-9 pointer-coarse:size-11 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <X className="size-5" aria-hidden />
                 </button>
               </div>
             </header>
-            <div className="flex-1 overscroll-contain overflow-y-auto px-4 py-5 sm:px-5">{children}</div>
+            <div className="flex-1 overscroll-contain overflow-y-auto px-4 py-6 sm:px-6">{children}</div>
             {footer && (
-              <footer className="border-t border-slate-200 bg-slate-50 px-3 py-3 sm:px-5">
+              <footer className="border-t border-border bg-muted/45 px-3 py-3 sm:px-6">
                 {footer}
               </footer>
             )}

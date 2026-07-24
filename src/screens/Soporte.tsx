@@ -3,7 +3,7 @@ import { Building2, Copy, Globe, Loader2, LifeBuoy, Mail, Send } from 'lucide-re
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { SlideOver } from '../components/ui/SlideOver'
-import { Button } from '../components/ui/Button'
+import { Button } from '../components/legacy-ui/Button'
 import { relativeDate, fullDateTime } from '../lib/format'
 import { copyText } from '../lib/clipboard'
 

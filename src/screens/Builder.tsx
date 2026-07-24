@@ -39,7 +39,7 @@ import {
 import { useStore } from '../lib/store'
 import { brandAssetUrl } from '../lib/brandAsset'
 import { useToast } from '../components/ui/Toast'
-import { Checkbox } from '../components/ui/Checkbox'
+import { Checkbox } from '../components/legacy-ui/Checkbox'
 import { ApplicationForm } from '../components/ApplicationForm'
 import type { FieldValue } from '../components/FieldRenderer'
 import { FIELD_TYPE_META } from '../lib/types'
@@ -48,8 +48,9 @@ import { SWATCHES, accentPassesWhite } from '../lib/colors'
 import { FORM_WELCOME_DEFAULT, FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
-import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { Button, buttonVariants } from '../components/ui/button'
+import { cn } from '../lib/utils'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
 
@@ -120,7 +121,7 @@ export function Builder() {
           </div>
           <h1 className="mt-4 text-xl font-semibold text-slate-900">Puesto no encontrado</h1>
           <p className="mt-1.5 text-sm text-slate-500">Puede que se haya cerrado o que el enlace ya no sea válido.</p>
-          <Link to={base} className={`${BTN_PRIMARY} mt-6`}>
+          <Link to={base} className={cn(buttonVariants(), 'mt-6')}>
             Ir a mis puestos
           </Link>
         </div>
@@ -234,16 +235,24 @@ export function Builder() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-background">
       {/* Cabecera */}
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+      <div className="flex min-h-[68px] items-center justify-between gap-3 border-b border-border bg-card/95 px-4 py-3 backdrop-blur sm:px-7">
         <div className="flex min-w-0 items-center gap-3">
-          <Link to={`${base}/puestos/${campaign.id}`} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700" aria-label="Volver al puesto">
+          <Link
+            to={`${base}/puestos/${campaign.id}`}
+            className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
+            aria-label="Volver al puesto"
+          >
             <ArrowLeft className="size-5" aria-hidden />
           </Link>
           <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold text-slate-900">Formulario de {campaign.title}</h1>
-            <p className="text-[13px] text-slate-500">Lo que ve quien abre tu enlace</p>
+            <div className="flex items-center gap-2">
+              <span className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground sm:inline">Constructor</span>
+              <span className="hidden size-1 rounded-full bg-border sm:block" aria-hidden />
+              <h1 className="truncate text-base font-semibold tracking-[-0.015em] text-foreground">{campaign.title}</h1>
+            </div>
+            <p className="text-[12px] text-muted-foreground">Edita a la izquierda, comprueba el resultado a la derecha</p>
           </div>
         </div>
         {saveError ? (
@@ -261,18 +270,19 @@ export function Builder() {
         )}
       </div>
 
-      <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden lg:grid-cols-[minmax(440px,0.9fr)_minmax(520px,1.1fr)]">
         {/* Panel de edición */}
-        <div className="overflow-y-auto border-r border-slate-200 px-4 py-6 sm:px-6">
-          <div className="mx-auto max-w-xl space-y-7">
+        <div className="overflow-y-auto border-r border-border bg-background px-4 py-7 sm:px-7">
+          <div className="mx-auto max-w-[620px] space-y-8">
             {/* Vista previa en vivo a pantalla completa donde la columna no cabe (móvil/tablet) */}
-            <button
+            <Button
+              variant="outline"
               type="button"
               onClick={() => setPreviewOpen(true)}
-              className={`${BTN_SECONDARY} w-full lg:hidden`}
+              className="w-full lg:hidden"
             >
-              <Smartphone className="size-4 text-slate-500" aria-hidden /> Ver la vista previa del formulario
-            </button>
+              <Smartphone className="size-4" aria-hidden /> Ver vista previa
+            </Button>
 
             {/* Apariencia (datos del puesto: título, mensajes y aspecto) */}
             <Branding key={campaign.id} campaign={campaign} />
@@ -352,11 +362,12 @@ export function Builder() {
         </div>
 
         {/* Preview en vivo */}
-        <div className="hidden overflow-y-auto bg-slate-100 lg:block">
-          <div className="sticky top-0 z-10 flex items-center justify-center gap-1 border-b border-slate-200 bg-slate-100/80 py-2 backdrop-blur">
+        <div className="hidden overflow-y-auto bg-[#f1f2f5] lg:block">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/80 bg-[#f1f2f5]/90 px-6 py-3 backdrop-blur-xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Vista previa en vivo</p>
             <DeviceToggle device={device} setDevice={setDevice} />
           </div>
-          <div className="flex justify-center px-6 py-8">
+          <div className="flex justify-center px-8 py-10">
             <PreviewFrame device={device}>
               <Preview key={campaign.id} campaign={campaign} />
             </PreviewFrame>
@@ -419,7 +430,7 @@ export function Builder() {
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="mb-2.5 text-[13px] font-semibold uppercase tracking-wider text-slate-500">{children}</h2>
+  return <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{children}</h2>
 }
 
 // Cabecera (colapsada) de una fila de campo: asa de arrastre, etiqueta/tipo y botones
@@ -739,17 +750,20 @@ function Branding({ campaign }: { campaign: Campaign }) {
 // --- Preview ----------------------------------------------------------------
 function DeviceToggle({ device, setDevice }: { device: 'mobile' | 'desktop'; setDevice: (d: 'mobile' | 'desktop') => void }) {
   return (
-    <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+    <div className="inline-flex rounded-xl border border-border bg-card p-1 shadow-[0_1px_2px_rgba(18,22,34,0.05)]">
       {([['mobile', Smartphone], ['desktop', Monitor]] as const).map(([d, Icon]) => (
-        <button
+        <Button
           key={d}
+          type="button"
+          variant={device === d ? 'secondary' : 'ghost'}
+          size="sm"
           onClick={() => setDevice(d)}
           aria-pressed={device === d}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[13px] font-medium ${device === d ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-700'}`}
+          className="h-7 px-2.5"
         >
           <Icon className="size-3.5" aria-hidden />
           {d === 'mobile' ? 'Móvil' : 'Escritorio'}
-        </button>
+        </Button>
       ))}
     </div>
   )
@@ -758,12 +772,12 @@ function DeviceToggle({ device, setDevice }: { device: 'mobile' | 'desktop'; set
 function PreviewFrame({ device, children }: { device: 'mobile' | 'desktop'; children: React.ReactNode }) {
   if (device === 'mobile') {
     return (
-      <div className="w-[380px] overflow-hidden rounded-[2rem] border-[8px] border-slate-900 bg-white shadow-pop">
+      <div className="w-[380px] overflow-hidden rounded-[2.2rem] border-[8px] border-foreground bg-white shadow-pop">
         <div className="max-h-[640px] overflow-y-auto p-5">{children}</div>
       </div>
     )
   }
-  return <div className="w-full max-w-[520px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-7 shadow-pop">{children}</div>
+  return <div className="w-full max-w-[560px] overflow-hidden rounded-[18px] border border-border bg-white p-8 shadow-pop">{children}</div>
 }
 
 function Preview({ campaign }: { campaign: Campaign }) {

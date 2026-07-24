@@ -1,196 +1,325 @@
-// -----------------------------------------------------------------------------
-// PLAYGROUND DE DISEÑO (solo desarrollo, no se compila en producción).
-//
-// Sitio para probar piezas visuales nuevas (un botón, un chip, una variante de
-// campo...) usando los tokens y componentes REALES del proyecto, antes de
-// cablearlas a una pantalla de verdad. Es lienzo, no producto: nada de aquí se
-// enlaza desde la app ni se expone a un cliente.
-//
-// Cómo usarlo: entra a /dev/playground con `npm run dev`. Para probar una idea
-// nueva, añade una <Section> al final del componente con el fragmento a probar.
-// Si el experimento cuaja, muévelo a su sitio final y (si aplica) bórralo de aquí.
-// -----------------------------------------------------------------------------
+// Laboratorio visual de la aplicación. Solo existe en desarrollo.
 import { useState } from 'react'
-import { Trash2, Plus, ArrowRight, Loader2 } from 'lucide-react'
 import {
-  BTN_PRIMARY,
-  BTN_SECONDARY,
-  BTN_DANGER,
-  BTN_PRIMARY_LG,
-  BTN_SECONDARY_LG,
-  BTN_PRIMARY_SM,
-} from '../lib/buttons'
-import { STATUS_META, FIELD_TYPE_META, type CandidateStatus, type FormField } from '../lib/types'
+  ArrowRight,
+  BriefcaseBusiness,
+  Check,
+  ChevronRight,
+  CircleAlert,
+  Filter,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Sparkles,
+  UserRound,
+} from 'lucide-react'
+import { AppThemeBoundary } from '../components/app/AppThemeBoundary'
 import { FieldRenderer, type FieldValue } from '../components/FieldRenderer'
-import { SWATCHES } from '../lib/colors'
+import { STATUS_META, type CandidateStatus, type FormField } from '../lib/types'
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert'
+import { Badge } from '../components/ui/badge'
+import { Button } from '../components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
+import { Checkbox } from '../components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '../components/ui/field'
+import { Input } from '../components/ui/input'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '../components/ui/input-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import { Separator } from '../components/ui/separator'
+import { Skeleton } from '../components/ui/skeleton'
+import { Switch } from '../components/ui/switch'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
+import { Textarea } from '../components/ui/textarea'
 
-function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+const SAMPLE_FIELDS: FormField[] = [
+  { id: 'text', type: 'text', label: 'Nombre completo', placeholder: 'Ana García', required: true },
+  { id: 'phone', type: 'phone', label: 'Teléfono', required: true },
+  { id: 'select', type: 'select', label: 'Disponibilidad', options: ['Inmediata', 'En 15 días', 'En 1 mes'], required: true },
+  { id: 'boolean', type: 'boolean', label: '¿Tienes carnet de conducir?', required: true },
+]
+
+const LAB_CANDIDATES = [
+  { name: 'Lucía Marrero', initials: 'LM', status: 'nuevo' as CandidateStatus, time: 'hace 8 min', score: '5/5' },
+  { name: 'Carlos Medina', initials: 'CM', status: 'contactado' as CandidateStatus, time: 'hace 2 h', score: '4/5' },
+  { name: 'Eva Santana', initials: 'ES', status: 'entrevista' as CandidateStatus, time: 'ayer', score: '5/5' },
+]
+
+function StatusChip({ status }: { status: CandidateStatus }) {
+  const meta = STATUS_META[status]
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-card">
-      <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-      {note && <p className="mt-1 text-sm text-slate-500">{note}</p>}
-      <div className="mt-5">{children}</div>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${meta.chip}`}>
+      <span className={`size-1.5 rounded-full ${meta.dot}`} aria-hidden />
+      {meta.label}
+    </span>
+  )
+}
+
+function LabSection({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow: string
+  title: string
+  description: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="grid gap-5 border-t border-border py-10 first:border-t-0 first:pt-0 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{eyebrow}</p>
+        <h2 className="mt-2 text-lg font-semibold tracking-[-0.015em] text-foreground">{title}</h2>
+        <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{description}</p>
+      </div>
+      <div className="min-w-0">{children}</div>
     </section>
   )
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 py-4 first:border-t-0 first:pt-0">
-      <span className="w-32 shrink-0 text-xs font-medium uppercase tracking-wide text-slate-500">{label}</span>
-      <div className="flex flex-wrap items-center gap-3">{children}</div>
-    </div>
-  )
-}
-
-const SAMPLE_FIELDS: FormField[] = [
-  { id: 'text', type: 'text', label: 'Nombre completo', placeholder: 'Ana García', required: true },
-  { id: 'textarea', type: 'textarea', label: 'Experiencia previa', helpText: 'Cuenta brevemente en qué has trabajado antes', required: false },
-  { id: 'phone', type: 'phone', label: 'Teléfono', required: true },
-  { id: 'email', type: 'email', label: 'Email', required: true },
-  { id: 'select', type: 'select', label: 'Disponibilidad', options: ['Inmediata', 'En 15 días', 'En 1 mes'], required: true },
-  { id: 'multiselect', type: 'multiselect', label: 'Turnos disponibles', options: ['Mañana', 'Tarde', 'Noche', 'Fin de semana'], required: false },
-  { id: 'boolean', type: 'boolean', label: '¿Tienes carnet de conducir?', required: true },
-  { id: 'number', type: 'number', label: 'Años de experiencia', required: false },
-  { id: 'date', type: 'date', label: 'Fecha de nacimiento', required: false },
-  { id: 'file', type: 'file', label: 'CV', helpText: 'PDF o Word, máx. 5 MB', required: false },
-]
-
 export function Playground() {
   const [values, setValues] = useState<Record<string, FieldValue>>({})
+  const [dialogOpen, setDialogOpen] = useState(false)
 
   return (
-    <div className="min-h-svh bg-[#f9fafb] pb-24">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-4xl px-6 py-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Solo desarrollo</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">Playground de diseño</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Componentes y tokens reales del sistema. No se despliega ni se enlaza desde la app.
-          </p>
+    <AppThemeBoundary className="min-h-svh bg-background text-foreground">
+      <header className="sticky top-0 z-20 border-b border-border bg-background/92 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1180px] items-center gap-4 px-5 py-3.5 sm:px-8">
+          <div className="grid size-9 place-items-center rounded-xl bg-foreground text-background shadow-card">
+            <Sparkles className="size-4" aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold tracking-[-0.01em]">App UI Lab</p>
+            <p className="text-xs text-muted-foreground">Apúntate Fácil · dirección premium funcional</p>
+          </div>
+          <Badge variant="outline" className="ml-auto bg-card">Solo desarrollo</Badge>
         </div>
       </header>
 
-      <main className="mx-auto mt-8 flex max-w-4xl flex-col gap-6 px-6">
-        {/* -------------------------------------------------------------------
-            Sandbox libre: pega aquí el fragmento que quieras enseñar a Mario
-            (un botón nuevo, una variante de tarjeta...) y bórralo cuando ya
-            no haga falta. No cuenta como parte del sistema hasta que se saque
-            de aquí y se le dé un sitio de verdad. Arriba del todo para verlo
-            sin tener que bajar por las secciones de referencia.
-        ------------------------------------------------------------------- */}
-        <Section title="Sandbox libre" note="Prototipo suelto. Bórralo o muévelo cuando termines.">
-          <p className="text-sm text-slate-400">Vacío por ahora. (La fila de candidatos bloqueados se probó aquí y ya vive en Dashboard.tsx.)</p>
-        </Section>
-
-        <Section title="Botones" note="lib/buttons.ts. Radio 8px, relieve nítido, press = translate-y-px.">
-          <Row label="Primario">
-            <button className={BTN_PRIMARY}>Guardar</button>
-            <button className={BTN_PRIMARY} disabled>
-              <Loader2 className="size-4 animate-spin" aria-hidden /> Guardando
-            </button>
-            <button className={BTN_PRIMARY_SM}>Copiar enlace</button>
-            <button className={BTN_PRIMARY_LG}>
-              Empezar gratis <ArrowRight className="size-4" aria-hidden />
-            </button>
-          </Row>
-          <Row label="Secundario">
-            <button className={BTN_SECONDARY}>Cancelar</button>
-            <button className={BTN_SECONDARY_LG}>Ver planes</button>
-          </Row>
-          <Row label="Peligro">
-            <button className={BTN_DANGER}>
-              <Trash2 className="size-4" aria-hidden /> Eliminar puesto
-            </button>
-          </Row>
-          <Row label="Idea nueva">
-            {/* Prototipa aquí una variante antes de darla de alta en buttons.ts */}
-            <button className={BTN_SECONDARY}>
-              <Plus className="size-4" aria-hidden /> Añadir campo
-            </button>
-          </Row>
-        </Section>
-
-        <Section title="Estados de candidato" note="lib/types.ts → STATUS_META. Punto + texto, nunca solo color.">
-          <div className="flex flex-wrap gap-2">
-            {(Object.keys(STATUS_META) as CandidateStatus[]).map((status) => {
-              const meta = STATUS_META[status]
-              return (
-                <span
-                  key={status}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${meta.chip}`}
-                >
-                  <span className={`size-1.5 rounded-full ${meta.dot}`} aria-hidden />
-                  {meta.label}
-                </span>
-              )
-            })}
-          </div>
-        </Section>
-
-        <Section title="Acento de marca" note="lib/colors.ts → SWATCHES. Acento configurable por cliente, con guarda AA.">
-          <div className="flex flex-wrap gap-3">
-            {SWATCHES.map((hex) => (
-              <div key={hex} className="flex flex-col items-center gap-1.5">
-                <div className="size-10 rounded-lg ring-1 ring-inset ring-black/10" style={{ backgroundColor: hex }} />
-                <span className="num text-xs text-slate-500">{hex}</span>
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        <Section title="Neutros grafito" note="rampa slate reasignada en @theme. Texto con significado ≥ 4.5:1.">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { c: 'bg-[#f9fafb]', l: 'fondo app', ring: true },
-              { c: 'bg-white', l: 'superficie', ring: true },
-              { c: 'bg-[#131822]', l: 'texto', ring: false },
-              { c: 'bg-[#50545e]', l: 'texto secundario', ring: false },
-              { c: 'bg-[#6f727c]', l: 'texto terciario', ring: false },
-              { c: 'bg-[#e5e7eb]', l: 'borde', ring: true },
-              { c: 'bg-[#374cce]', l: 'acento', ring: false },
-              { c: 'bg-[#DC2626]', l: 'error', ring: false },
-            ].map((s) => (
-              <div key={s.l} className="flex flex-col gap-1.5">
-                <div className={`h-12 rounded-lg ${s.c} ${s.ring ? 'ring-1 ring-inset ring-black/10' : ''}`} />
-                <span className="text-xs text-slate-500">{s.l}</span>
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        <Section title="Radios por rol" note="inputs/tarjetas/modales 10px · botones/controles 8px · pills 999px.">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex h-16 w-24 items-center justify-center rounded-xl border border-slate-300 text-xs text-slate-500">10px</div>
-            <div className="flex h-9 w-24 items-center justify-center rounded-lg border border-slate-300 text-xs text-slate-500">8px</div>
-            <div className="flex h-9 w-24 items-center justify-center rounded-full border border-slate-300 text-xs text-slate-500">999px</div>
-          </div>
-        </Section>
-
-        <Section title="Sombras" note="una por elevación: shadow-card para tarjetas, shadow-pop para overlays.">
-          <div className="flex flex-wrap gap-6">
-            <div className="flex h-20 w-36 items-center justify-center rounded-xl bg-white text-xs text-slate-500 shadow-card">shadow-card</div>
-            <div className="flex h-20 w-36 items-center justify-center rounded-xl bg-white text-xs text-slate-500 shadow-pop">shadow-pop</div>
-          </div>
-        </Section>
-
-        <Section title="Campos de formulario" note="components/FieldRenderer.tsx. El mismo componente pinta el builder y el formulario público.">
-          <div className="flex flex-col gap-5">
-            {SAMPLE_FIELDS.map((field) => (
-              <FieldRenderer
-                key={field.id}
-                field={field}
-                value={values[field.id]}
-                onChange={(v) => setValues((prev) => ({ ...prev, [field.id]: v }))}
-                idPrefix="pg"
-              />
-            ))}
-          </div>
-          <p className="mt-4 text-xs text-slate-400">
-            {Object.keys(FIELD_TYPE_META).length} tipos de campo disponibles en el constructor.
+      <main className="mx-auto max-w-[1180px] px-5 py-10 sm:px-8">
+        <div className="mb-12 max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Sistema de aplicación</p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">
+            Precisión sin fricción.
+          </h1>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
+            Una interfaz más silenciosa, táctil y editorial. El ultramarine guía la acción; los datos y el contenido llevan el peso visual.
           </p>
-        </Section>
+        </div>
+
+        <LabSection
+          eyebrow="01 · Acciones"
+          title="Jerarquía contenida"
+          description="Controles compactos, relieve mínimo y estados inequívocos. El color de marca solo aparece donde hay una decisión."
+        >
+          <Card>
+            <CardContent className="flex flex-wrap items-center gap-3">
+              <Button><Plus /> Nuevo puesto</Button>
+              <Button variant="outline">Compartir</Button>
+              <Button variant="ghost">Cancelar</Button>
+              <Button variant="destructive">Eliminar</Button>
+              <Button size="icon" variant="outline" aria-label="Más opciones"><MoreHorizontal /></Button>
+            </CardContent>
+          </Card>
+        </LabSection>
+
+        <LabSection
+          eyebrow="02 · Entrada"
+          title="Formularios que respiran"
+          description="Etiquetas nítidas, ayudas próximas al campo y foco accesible sin convertir cada input en una caja pesada."
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle>Crear puesto</CardTitle>
+              <CardDescription>La información básica que verá tu equipo.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FieldGroup className="grid gap-5 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="lab-title">Nombre del puesto</FieldLabel>
+                  <Input id="lab-title" defaultValue="Camarero/a de sala" />
+                  <FieldDescription>Usa el mismo título que en tu anuncio.</FieldDescription>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="lab-site">Sede</FieldLabel>
+                  <Select defaultValue="las-palmas">
+                    <SelectTrigger id="lab-site" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="las-palmas">Las Palmas</SelectItem>
+                      <SelectItem value="telde">Telde</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field className="sm:col-span-2">
+                  <FieldLabel htmlFor="lab-description">Nota interna</FieldLabel>
+                  <Textarea id="lab-description" placeholder="Añade contexto para el equipo…" />
+                </Field>
+                <Field orientation="horizontal" className="sm:col-span-2">
+                  <Switch id="lab-auto" defaultChecked />
+                  <FieldLabel htmlFor="lab-auto">Avisar al equipo cuando llegue una candidatura</FieldLabel>
+                </Field>
+              </FieldGroup>
+            </CardContent>
+          </Card>
+        </LabSection>
+
+        <LabSection
+          eyebrow="03 · Workspace"
+          title="Datos como protagonista"
+          description="La tabla gana estructura y aire sin perder densidad. Estado, identidad y tiempo se reconocen antes de leer."
+        >
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b border-border">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div>
+                  <CardTitle>Camarero/a de sala</CardTitle>
+                  <CardDescription>24 candidatos · 3 nuevos hoy</CardDescription>
+                </div>
+                <div className="flex gap-2 sm:ml-auto">
+                  <InputGroup className="w-full sm:w-64">
+                    <InputGroupAddon><Search /></InputGroupAddon>
+                    <InputGroupInput placeholder="Buscar candidatos…" />
+                  </InputGroup>
+                  <Button variant="outline" size="icon" aria-label="Filtrar"><Filter /></Button>
+                </div>
+              </div>
+            </CardHeader>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/45 hover:bg-muted/45">
+                  <TableHead className="w-10"><Checkbox aria-label="Seleccionar todos" /></TableHead>
+                  <TableHead>Candidato</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="hidden sm:table-cell">Valoración</TableHead>
+                  <TableHead className="text-right">Entrada</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {LAB_CANDIDATES.map((candidate) => (
+                  <TableRow key={candidate.name} className="group">
+                    <TableCell><Checkbox aria-label={`Seleccionar ${candidate.name}`} /></TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <span className="grid size-8 place-items-center rounded-full bg-muted text-[11px] font-semibold text-foreground">
+                          {candidate.initials}
+                        </span>
+                        <span className="font-medium">{candidate.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell><StatusChip status={candidate.status} /></TableCell>
+                    <TableCell className="hidden font-medium tabular-nums sm:table-cell">{candidate.score}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      <span className="inline-flex items-center gap-2">{candidate.time}<ChevronRight className="size-4 opacity-0 transition-opacity group-hover:opacity-100" /></span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </LabSection>
+
+        <LabSection
+          eyebrow="04 · Capas"
+          title="Profundidad con propósito"
+          description="Las acciones secundarias viven en capas accesibles. Las superficies flotantes usan una elevación única y contenida."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <Alert className="rounded-xl bg-card p-4">
+              <CircleAlert className="text-muted-foreground" />
+              <AlertTitle>3 candidaturas por revisar</AlertTitle>
+              <AlertDescription>Entraron desde tu última visita y todavía no tienen responsable.</AlertDescription>
+            </Alert>
+            <Card>
+              <CardContent className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-accent text-primary"><BriefcaseBusiness className="size-5" /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">Puesto listo para publicar</p>
+                  <p className="text-xs text-muted-foreground">8 campos · enlace configurado</p>
+                </div>
+                <Button size="icon-sm" variant="ghost" aria-label="Ver"><ArrowRight /></Button>
+              </CardContent>
+            </Card>
+          </div>
+          <Button className="mt-4" variant="outline" onClick={() => setDialogOpen(true)}>Abrir diálogo</Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Publicar formulario</DialogTitle>
+                <DialogDescription>El enlace quedará activo y empezará a recibir candidaturas.</DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/45 p-3">
+                <span className="grid size-9 place-items-center rounded-full bg-background"><Check className="size-4 text-primary" /></span>
+                <div><p className="font-medium">Todo preparado</p><p className="text-xs text-muted-foreground">Puedes editarlo después sin cambiar el enlace.</p></div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>Ahora no</Button>
+                <Button onClick={() => setDialogOpen(false)}>Publicar</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </LabSection>
+
+        <LabSection
+          eyebrow="05 · Estados"
+          title="Sistema completo"
+          description="Carga, vacío y selección comparten la misma geometría. Nada salta cuando cambia el estado de la interfaz."
+        >
+          <Tabs defaultValue="ready">
+            <TabsList>
+              <TabsTrigger value="ready">Listo</TabsTrigger>
+              <TabsTrigger value="loading">Cargando</TabsTrigger>
+              <TabsTrigger value="empty">Vacío</TabsTrigger>
+            </TabsList>
+            <TabsContent value="ready" className="mt-4">
+              <Card><CardContent className="flex items-center gap-3"><UserRound className="size-5 text-primary" /><span className="text-sm font-medium">24 candidatos disponibles</span><Badge className="ml-auto">Actualizado</Badge></CardContent></Card>
+            </TabsContent>
+            <TabsContent value="loading" className="mt-4">
+              <Card><CardContent className="space-y-3"><Skeleton className="h-4 w-2/5" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></CardContent></Card>
+            </TabsContent>
+            <TabsContent value="empty" className="mt-4">
+              <Card><CardContent className="py-10 text-center"><p className="font-medium">Todavía no hay candidatos</p><p className="mt-1 text-sm text-muted-foreground">Comparte el enlace para empezar a recibirlos.</p><Button className="mt-4" variant="outline">Copiar enlace</Button></CardContent></Card>
+            </TabsContent>
+          </Tabs>
+        </LabSection>
+
+        <LabSection
+          eyebrow="06 · WYSIWYG"
+          title="El formulario real"
+          description="El constructor y la experiencia pública siguen compartiendo FieldRenderer: el revamp no rompe esa única fuente de verdad."
+        >
+          <Card>
+            <CardContent className="mx-auto max-w-xl">
+              <div className="mb-6 flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-xl bg-foreground text-background"><BriefcaseBusiness className="size-5" /></span>
+                <div><p className="font-semibold">Camarero/a de sala</p><p className="text-sm text-muted-foreground">Completa tu candidatura</p></div>
+              </div>
+              <Separator className="mb-6" />
+              <div className="space-y-5">
+                {SAMPLE_FIELDS.map((field) => (
+                  <FieldRenderer
+                    key={field.id}
+                    field={field}
+                    value={values[field.id]}
+                    onChange={(value) => setValues((previous) => ({ ...previous, [field.id]: value }))}
+                    idPrefix="lab"
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </LabSection>
       </main>
-    </div>
+    </AppThemeBoundary>
   )
 }
