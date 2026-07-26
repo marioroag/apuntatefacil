@@ -19,6 +19,7 @@ const now = Date.UTC(2026, 6, 21, 12)
 function summary(patch: Partial<CandidateInterestSummary> = {}): CandidateInterestSummary {
   return {
     checkId: 'check-1',
+    batchId: 'batch-1',
     response: null,
     sentAt: at(2),
     respondedAt: null,

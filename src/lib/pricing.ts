@@ -65,13 +65,13 @@ export const PLAN_LABEL: Record<string, string> = {
 // Capacidades por plan. Es el ÚNICO interruptor de las features avanzadas: una
 // feature Pro/Multi solo aparece si el plan la incluye aquí. Esencial nunca
 // pierde un básico; estas son capacidades NETO-NUEVAS que se desbloquean al subir.
-export type PlanFeature = 'savedViews' | 'sites' | 'brands' | 'managers' | 'teamBoard'
+export type PlanFeature = 'savedViews' | 'sites' | 'brands' | 'managers' | 'teamBoard' | 'meridian'
 
 export const PLAN_FEATURES: Record<string, PlanFeature[]> = {
   trial: [],
   esencial: [],
-  pro: ['savedViews', 'brands', 'teamBoard'],
-  multi: ['savedViews', 'sites', 'brands', 'managers', 'teamBoard'],
+  pro: ['savedViews', 'brands', 'teamBoard', 'meridian'],
+  multi: ['savedViews', 'sites', 'brands', 'managers', 'teamBoard', 'meridian'],
 }
 
 export function planHas(plan: string | undefined | null, feature: PlanFeature): boolean {
@@ -115,6 +115,11 @@ export const FEATURE_COPY: Record<PlanFeature, { label: string; blurb: string; m
     blurb: 'Publica peticiones internas, responde con candidatos de la base e invita a tu equipo.',
     minPlan: 'pro',
   },
+  meridian: {
+    label: 'Meridian',
+    blurb: 'Resume cada candidatura y calcula su ajuste al puesto para que veas primero a quien encaja.',
+    minPlan: 'pro',
+  },
 }
 
 // Tope de marcas por plan (espejo del trigger enforce_brand_limit en servidor).
@@ -156,6 +161,7 @@ export const TIERS: Tier[] = [
     available: true,
     features: [
       'Todo lo de Esencial',
+      'Meridian: resume cada candidatura y calcula su ajuste al puesto',
       'Hasta 10 procesos a la vez',
       'Equipo: tablón de peticiones e invitaciones',
       'Guarda tus vistas de filtros y reaplícalas',

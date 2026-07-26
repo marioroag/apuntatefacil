@@ -37,6 +37,7 @@ const Bandeja = lazy(() => import('./screens/Bandeja').then((m) => ({ default: m
 const Sedes = lazy(() => import('./screens/Sedes').then((m) => ({ default: m.Sedes })))
 const Marcas = lazy(() => import('./screens/Marcas').then((m) => ({ default: m.Marcas })))
 const Resumen = lazy(() => import('./screens/Resumen').then((m) => ({ default: m.Resumen })))
+const MeridianBriefing = lazy(() => import('./screens/MeridianBriefing').then((m) => ({ default: m.MeridianBriefing })))
 const Equipo = lazy(() => import('./screens/Equipo').then((m) => ({ default: m.Equipo })))
 const Invitacion = lazy(() => import('./screens/Invitacion').then((m) => ({ default: m.Invitacion })))
 const Builder = lazy(() => import('./screens/Builder').then((m) => ({ default: m.Builder })))
@@ -88,6 +89,7 @@ createRoot(document.getElementById('root')!).render(
                 >
                   <Route index element={<FirstCampaignRedirect />} />
                   <Route path="resumen" element={<Resumen />} />
+                  <Route path="meridian" element={<MeridianBriefing />} />
                   <Route path="bandeja" element={<Bandeja />} />
                   <Route path="sedes" element={<Sedes />} />
                   <Route path="marcas" element={<Marcas />} />
@@ -110,6 +112,7 @@ createRoot(document.getElementById('root')!).render(
                 >
                   <Route index element={<FirstCampaignRedirect />} />
                   <Route path="resumen" element={<Resumen />} />
+                  <Route path="meridian" element={<MeridianBriefing />} />
                   <Route path="bandeja" element={<Bandeja />} />
                   <Route path="sedes" element={<Sedes />} />
                   <Route path="marcas" element={<Marcas />} />

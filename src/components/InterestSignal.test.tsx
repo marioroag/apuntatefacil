@@ -20,6 +20,7 @@ function candidate(response: CandidateInterestResponse | null, withCheck = true)
     tagIds: [],
     interest: withCheck ? {
       checkId: 'check-1',
+      batchId: 'batch-1',
       response,
       sentAt: '2026-07-20T10:00:00.000Z',
       respondedAt: response ? '2026-07-21T11:00:00.000Z' : null,

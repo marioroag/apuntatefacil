@@ -96,9 +96,38 @@ export type CandidateInterestState =
   | 'not_interested'
   | 'unavailable'
 
+/** Triaje de IA (Meridian) de una candidatura. Lo produce la edge function
+ *  `analyze-candidate` y se guarda en `candidates.ai`. Es una lectura asistida,
+ *  NUNCA un veredicto: el merchant decide. `fit` (0..100) es "ajuste al puesto",
+ *  orientativo. `error` presente = el último intento falló (permite reintentar). */
+/**
+ * Juicio del triaje sobre un criterio fijo. `no_consta` es "no hay dato", NO un
+ * punto negativo. Las claves y los pesos viven en `analyze-candidate`: el número
+ * lo calcula el servidor, aquí solo se guarda para poder explicarlo.
+ */
+export interface AiCriterion {
+  clave: string
+  valor: 'cumple' | 'parcial' | 'no_consta' | 'no_cumple'
+}
+
+export interface CandidateAI {
+  summary: string
+  highlights: string[]
+  concerns: string[]
+  fit: number // 0..100, ajuste al puesto (orientativo, nunca gate)
+  /** De dónde sale `fit`. Ausente en análisis anteriores a jul 2026. */
+  criterios?: AiCriterion[]
+  model: string // procedencia: qué modelo lo generó
+  analyzedAt: string // ISO
+  cvUsed?: boolean // false = analizado solo con las respuestas (CV ausente o no PDF)
+  error?: string
+}
+
 /** Última comprobación de interés visible para una candidatura. */
 export interface CandidateInterestSummary {
   checkId: string
+  /** Lote de envío al que pertenece. Meridian agrupa la actividad por lote. */
+  batchId: string
   response: CandidateInterestResponse | null
   sentAt: string
   respondedAt: string | null
@@ -120,6 +149,8 @@ export interface Candidate {
   tagIds: string[] // ids de las etiquetas que el empresario le ha puesto (ver Tag)
   /** Señal independiente del estado de selección. Ausente = nunca comprobado. */
   interest?: CandidateInterestSummary
+  /** Triaje de IA (Meridian). Ausente = nunca analizado. */
+  ai?: CandidateAI
 }
 
 // Etiqueta: clasificación libre que pone el empresario sobre los candidatos. Es
@@ -138,6 +169,8 @@ export interface Company {
 
 // --- Vistas guardadas (Pro/Multi) -----------------------------------------
 // Clave de orden de la tabla de candidatos (compartida por el panel y las vistas).
+// 'ajuste' se retiró al quitar Meridian del puesto (jul 2026). Una vista guardada
+// antigua puede traerlo todavía en su payload: no rompe, cae al orden por fecha.
 export type SortKey = 'nombre' | 'fecha' | 'estado'
 
 export interface ValueFilter {

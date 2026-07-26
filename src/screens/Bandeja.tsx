@@ -6,7 +6,9 @@ import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { CandidatePanel } from './CandidatePanel'
-import { relativeDate, initials, formatPhone, candidateName } from '../lib/format'
+import { relativeDate, formatPhone, candidateName } from '../lib/format'
+import { MeridianAvatar, FitLabel } from '../components/Meridian'
+import { candidateFit } from '../lib/meridian'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { useAppBase } from '../lib/useAppBase'
 import { TAGS_ENABLED } from '../lib/pricing'
@@ -80,11 +82,12 @@ export function Bandeja() {
                       onClick={() => setOpenId(c.id)}
                       className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors active:bg-slate-50"
                     >
-                      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-[13px] font-bold text-slate-600">
-                        {initials(name)}
-                      </span>
+                      <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={40} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[15px] font-medium text-slate-900">{name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-[15px] font-medium text-slate-900">{name}</p>
+                          {candidateFit(c.ai) != null && <FitLabel fit={candidateFit(c.ai)!} className="shrink-0 text-[12px]" />}
+                        </div>
                         {camp && (
                           <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-1.5 pr-2 text-[12px] font-medium text-slate-600">
                             <Briefcase className="size-3 shrink-0 text-slate-500" aria-hidden />
@@ -144,11 +147,12 @@ export function Bandeja() {
                       >
                         <td className="px-3 py-2.5">
                           <div className="flex items-start gap-2.5">
-                            <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-slate-100 text-[12px] font-bold text-slate-600">
-                              {initials(name)}
-                            </span>
+                            <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={34} />
                             <div className="min-w-0">
-                              <span className="block truncate font-medium text-slate-900" title={name}>{name}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="truncate font-medium text-slate-900" title={name}>{name}</span>
+                                {candidateFit(c.ai) != null && <FitLabel fit={candidateFit(c.ai)!} className="shrink-0 text-[12px]" />}
+                              </div>
                               <TagCell tagIds={c.tagIds} tags={tags} />
                             </div>
                           </div>

@@ -191,9 +191,12 @@ export function PublicForm() {
       formTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
-    // Aviso al merchant por email (no bloquea la pantalla de gracias).
+    // Aviso al merchant por email + triaje de Meridian (ambos best-effort, no
+    // bloquean la pantalla de gracias). La función gatea por plan y clave: si la
+    // empresa no es Pro/Multi, es un no-op silencioso.
     if (candidateId) {
       supabase.functions.invoke('notify-new-candidate', { body: { candidate_id: candidateId } }).catch(() => {})
+      supabase.functions.invoke('analyze-candidate', { body: { candidate_id: candidateId } }).catch(() => {})
     }
     setDone(true)
   }

@@ -21,6 +21,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
 import { ArrowRight } from 'lucide-react'
 import { planHas, PLAN_LABEL } from '../lib/pricing'
+import { MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 
 // Item del menú lateral. Solo se muestra si el plan incluye la feature (la
@@ -312,6 +313,12 @@ export function AppLayout() {
   const canCreate = !isEncargado // crear puestos
   const groupBySite = planHas(company.plan, 'sites') && sites.length > 0
   const totalNuevos = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
+  // Meridian (Pro/Multi): entrada al Parte diario. Badge = candidaturas nuevas que
+  // Meridian destaca (encajan bien) y aún no has revisado.
+  const showMeridian = hasMeridian(company.plan)
+  const meridianDestacados = showMeridian
+    ? candidates.filter((c) => c.status === 'nuevo' && (candidateFit(c.ai) ?? -1) >= 70).length
+    : 0
   const toggleGroup = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev)
@@ -387,6 +394,18 @@ export function AppLayout() {
           onNavigate={() => setOpen(false)}
         />
       </div>
+
+      {showMeridian && (
+        <div className="px-3 pt-2">
+          <SideNavItem
+            to={`${base}/meridian`}
+            Icon={Sparkles}
+            label={MERIDIAN_NAME}
+            count={meridianDestacados}
+            onNavigate={() => setOpen(false)}
+          />
+        </div>
+      )}
 
       <div className="px-3 pt-2">
         <SideNavItem
