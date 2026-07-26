@@ -1,9 +1,9 @@
 // -----------------------------------------------------------------------------
 // Pricing de Apúntate Fácil. Posicionamiento PREMIUM ("los mejores", no los más baratos).
 // Doctrina de presentación (Mario, jul 2026, sustituye a "números redondos"):
-//  - Efecto dígito izquierdo: 149 / 249 en vez de 150 / 250.
-//  - Multi (499) es el ANCLA del catálogo: hace que Pro (249, "la mitad del tope")
-//    parezca la jugada inteligente. Quien necesita Multi no es sensible a 50 €.
+//  - Efecto dígito izquierdo: 185 / 237 (por debajo del redondo de arriba).
+//  - Multi (533) es el ANCLA del catálogo: hace que Pro (237, casi la mitad del
+//    tope) parezca la jugada inteligente. Quien necesita Multi no es sensible a 50 €.
 //  - Anual = ×10 (2 meses gratis exactos). En anual se enseña el equivalente
 //    mensual con el mensual tachado y el ahorro EN EUROS (regla de 100), no en %.
 //  - El símbolo € se pinta pequeño y arriba (menos "dolor de pago"); "Sin
@@ -136,8 +136,8 @@ export const TIERS: Tier[] = [
     id: 'esencial',
     name: 'Esencial',
     tagline: 'Para contratar puntualmente sin perder respuestas',
-    monthly: 149,
-    annual: 1490,
+    monthly: 185,
+    annual: 1850,
     processes: '2 procesos a la vez',
     available: true,
     features: [
@@ -154,8 +154,8 @@ export const TIERS: Tier[] = [
     id: 'pro',
     name: 'Pro',
     tagline: 'Para varias contrataciones activas y trabajo en equipo',
-    monthly: 249,
-    annual: 2490,
+    monthly: 237,
+    annual: 2370,
     processes: '10 procesos a la vez',
     recommended: true,
     available: true,
@@ -173,8 +173,8 @@ export const TIERS: Tier[] = [
     id: 'multi',
     name: 'Multi',
     tagline: 'Para ETTs, cadenas y equipos con varias sedes',
-    monthly: 499,
-    annual: 4990,
+    monthly: 533,
+    annual: 5330,
     processes: 'Procesos ilimitados',
     available: true,
     features: [
@@ -198,5 +198,5 @@ export const TRIAL_REASSURANCE = `${PLAN_PROCESS_LIMIT.trial} puesto y hasta ${P
 // exacto se muestra al lado; el ahorro son exactamente 2 mensualidades.
 export const annualPerMonth = (t: Tier): number => Math.floor(t.annual / 12)
 export const annualSavings = (t: Tier): number => t.monthly * 12 - t.annual
-// Números con separador de miles español (2490 -> "2.490").
+// Números con separador de miles español (2370 -> "2.370").
 export const fmtEs = (n: number): string => n.toLocaleString('es-ES')
