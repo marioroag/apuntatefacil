@@ -608,12 +608,11 @@ export function Dashboard() {
               <Link
                 to={`${base}/puestos/${campaign.id}/formulario`}
                 className={`${BTN_PRIMARY} max-sm:h-8 max-sm:gap-1 max-sm:px-2.5 max-sm:text-[12px]`}
-                title="Editar formulario"
-                aria-label="Editar formulario"
+                title="Editar"
+                aria-label="Editar"
               >
                 <PenLine className="size-4 shrink-0 text-indigo-200 max-sm:size-3.5" aria-hidden />
-                <span className="sm:hidden">Editar</span>
-                <span className="hidden sm:inline">Editar formulario</span>
+                <span>Editar</span>
               </Link>
             )}
           </div>
@@ -621,15 +620,13 @@ export function Dashboard() {
         <p className="mt-1 text-sm text-slate-500">
           {[campaign.sector, campaign.location].map((s) => s?.trim()).filter(Boolean).join(', ')}
         </p>
-        {canManage && (
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
-          >
-            <SlidersHorizontal className="size-3.5 text-slate-400" aria-hidden /> Ajustes del puesto
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
+        >
+          <SlidersHorizontal className="size-3.5 text-slate-400" aria-hidden /> Ajustes del puesto
+        </button>
       </header>
 
       {/* Resumen de estados. Oculto en móvil (poco esencial y come pantalla); el
@@ -709,7 +706,6 @@ export function Dashboard() {
             </button>
           )}
 
-          <ExportButton count={filtered.length} total={all.length} onExport={doExport} />
         </div>
       </div>
 
@@ -932,28 +928,30 @@ export function Dashboard() {
         <UpgradeDialog open feature={upgrade} onClose={() => setUpgrade(null)} />
       )}
 
-      {canManage && (
-        <PuestoSettingsSheet
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          campaign={campaign}
-          sites={sites}
-          brands={brands}
-          hasSites={hasSites}
-          hasBrands={hasBrands}
-          base={base}
-          onSetSite={(siteId) => updateCampaign(campaign.id, { siteId })}
-          onSetBrand={applyBrand}
-          onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
-          onUpgrade={setUpgrade}
-          onDuplicate={handleDuplicate}
-          duplicating={duplicating}
-          onPauseResume={togglePause}
-          onReopen={reopen}
-          onClosePuesto={() => setConfirmClose(true)}
-          onDelete={() => setConfirmDelete(true)}
-        />
-      )}
+      <PuestoSettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        campaign={campaign}
+        sites={sites}
+        brands={brands}
+        hasSites={hasSites}
+        hasBrands={hasBrands}
+        base={base}
+        canManage={canManage}
+        exportCount={filtered.length}
+        exportTotal={all.length}
+        onExport={doExport}
+        onSetSite={(siteId) => updateCampaign(campaign.id, { siteId })}
+        onSetBrand={applyBrand}
+        onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
+        onUpgrade={setUpgrade}
+        onDuplicate={handleDuplicate}
+        duplicating={duplicating}
+        onPauseResume={togglePause}
+        onReopen={reopen}
+        onClosePuesto={() => setConfirmClose(true)}
+        onDelete={() => setConfirmDelete(true)}
+      />
 
       <ConfirmDialog
         open={confirmClose}
@@ -1683,15 +1681,7 @@ function FilterPanelHeader({
     <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2.5">
       <p className="min-w-0 truncate text-sm font-semibold text-slate-900">
         {variant === 'dropdown' ? (
-          <>
-            Filtros
-            {activeText && (
-              <>
-                <span className="font-normal text-slate-400"> · </span>
-                <span className="num font-medium text-slate-600">{activeText}</span>
-              </>
-            )}
-          </>
+          'Filtros'
         ) : activeText ? (
           <span className="num font-medium text-slate-600">{activeText}</span>
         ) : (
@@ -1965,19 +1955,17 @@ function FilterMenu({
   )
 }
 
-function ExportButton({ count, total, onExport }: { count: number; total: number; onExport: () => void | Promise<void> }) {
-  const [open, setOpen] = useState(false)
+function SettingsExportButton({
+  count,
+  total,
+  onExport,
+}: {
+  count: number
+  total: number
+  onExport: () => void | Promise<void>
+}) {
   const [busy, setBusy] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
   const filtered = count !== total
-  // El primer export carga el chunk de xlsx (~400KB): mostramos "Generando…" para
-  // que el clic no parezca muerto en una red lenta. Mismo patrón que "Duplicando…".
   const run = async () => {
     if (busy) return
     setBusy(true)
@@ -1985,44 +1973,27 @@ function ExportButton({ count, total, onExport }: { count: number; total: number
       await onExport()
     } finally {
       setBusy(false)
-      setOpen(false)
     }
   }
 
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        disabled={count === 0}
-        className={`${BTN_PRIMARY} disabled:opacity-50`}
-      >
-        <Download className="size-4 text-indigo-200" aria-hidden />
-        <span className="hidden sm:inline">Exportar a Excel</span>
-        <span className="sm:hidden">Excel</span>
-      </button>
-      {open && (
-        <div className="absolute right-0 z-50 mt-1 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-pop">
-          <p className="text-sm text-slate-700">
-            Vas a exportar{' '}
-            <strong className="font-semibold text-slate-900">
-              {miles(count)} {count === 1 ? 'candidato' : 'candidatos'}
-            </strong>
-            {filtered ? ' (los filtrados)' : ''} a un archivo Excel.
-          </p>
-          <button onClick={run} disabled={busy} className={`${BTN_PRIMARY} mt-2.5 w-full disabled:opacity-70`}>
-            {busy ? (
-              <>
-                <Loader2 className="size-4 animate-spin" aria-hidden /> Generando…
-              </>
-            ) : (
-              <>
-                <Check className="size-4" aria-hidden /> Descargar Excel
-              </>
-            )}
-          </button>
-        </div>
+    <button
+      type="button"
+      onClick={run}
+      disabled={count === 0 || busy}
+      className={`${BTN_SECONDARY} w-full disabled:opacity-60`}
+    >
+      {busy ? (
+        <Loader2 className="size-4 animate-spin text-slate-400" aria-hidden />
+      ) : (
+        <Download className="size-4 text-slate-400" aria-hidden />
       )}
-    </div>
+      {busy
+        ? 'Generando Excel…'
+        : count === 0
+          ? 'No hay candidatos para exportar'
+          : `Exportar ${miles(count)} ${filtered ? 'filtrados' : count === 1 ? 'candidato' : 'candidatos'} a Excel`}
+    </button>
   )
 }
 
@@ -2686,6 +2657,10 @@ function PuestoSettingsSheet({
   hasSites,
   hasBrands,
   base,
+  canManage,
+  exportCount,
+  exportTotal,
+  onExport,
   onSetSite,
   onSetBrand,
   onToggleNotify,
@@ -2705,6 +2680,10 @@ function PuestoSettingsSheet({
   hasSites: boolean
   hasBrands: boolean
   base: string
+  canManage: boolean
+  exportCount: number
+  exportTotal: number
+  onExport: () => void | Promise<void>
   onSetSite: (siteId: string | null) => void
   onSetBrand: (brandId: string | null) => void
   onToggleNotify: () => void
@@ -2720,6 +2699,7 @@ function PuestoSettingsSheet({
   const status = campaign.status
   const body = (
     <div className="space-y-5 px-4 py-4 sm:px-5 sm:py-5">
+              {canManage && (
               <section className="space-y-4">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Organización</p>
                 {hasSites ? (
@@ -2775,7 +2755,9 @@ function PuestoSettingsSheet({
                   <LockedSetting onClick={() => { onUpgrade('brands'); onClose() }} text="Aplica la identidad de tus marcas con el plan Multi." />
                 )}
               </section>
+              )}
 
+              {canManage && (
               <section className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3.5 py-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-800">Avisos por email</p>
@@ -2783,7 +2765,14 @@ function PuestoSettingsSheet({
                 </div>
                 <SettingSwitch checked={notify} onChange={onToggleNotify} label="Avisos por email" />
               </section>
+              )}
 
+              <section className="space-y-2">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Datos</p>
+                <SettingsExportButton count={exportCount} total={exportTotal} onExport={onExport} />
+              </section>
+
+              {canManage && (
               <section className="space-y-2">
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Acciones</p>
                 <button onClick={onDuplicate} disabled={duplicating} className={`${BTN_SECONDARY} w-full disabled:opacity-60`}>
@@ -2812,6 +2801,7 @@ function PuestoSettingsSheet({
                   Eliminar puesto
                 </button>
               </section>
+              )}
     </div>
   )
   return (

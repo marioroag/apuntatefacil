@@ -328,14 +328,15 @@ export function AppLayout() {
           to={`${base}/puestos/${c.id}`}
           onClick={() => setOpen(false)}
           className={({ isActive }) =>
-            `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
-              isActive ? 'bg-indigo-50 font-semibold text-slate-900' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            `group flex min-h-11 items-center gap-2.5 rounded-xl border px-2.5 py-2 text-sm outline-none transition-[background-color,border-color,box-shadow,color] duration-150 ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 lg:min-h-9 ${
+              isActive
+                ? 'border-indigo-200/80 bg-indigo-50 font-semibold text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]'
+                : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
             }`
           }
         >
           {({ isActive }) => (
             <>
-              {isActive && <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-indigo-600" aria-hidden />}
               <Briefcase className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
               <span className="min-w-0 flex-1 truncate">{c.title}</span>
               {c.status !== 'activa' && <span className="shrink-0 text-[11px] font-medium text-slate-500">{c.status === 'pausada' ? 'Pausado' : 'Cerrado'}</span>}
