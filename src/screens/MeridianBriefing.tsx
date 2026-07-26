@@ -311,11 +311,17 @@ export function MeridianBriefing() {
           lastResultIds.current = reply.block.ids
         }
         const confirm = confirmFor(reply.proposal)
+        // Delegado = escribir. `askWrite` va a poner su propio turno con el correo
+        // real y el botón, así que este NO se pinta: si no, salen dos mensajes
+        // seguidos y el primero se queda desmentido por el segundo ("propongo
+        // enviarles" a 2, y acto seguido "de 2 puedo escribir a 1"). Es lo mismo
+        // que ya hacía el intérprete heurístico devolviendo null.
+        if (confirm === 'delegado') return null
         return {
           text: reply.text,
           block: reply.block,
           suggestions: reply.suggestions,
-          confirm: confirm === 'delegado' ? undefined : confirm,
+          confirm,
         }
       })
       return
@@ -396,6 +402,10 @@ export function MeridianBriefing() {
   const askWrite = (ids: string[], anunciar = false) => {
     if (!ids.length) return
     if (anunciar) actUser(ids.length === 1 ? 'Escríbele' : `Escribe a ${ids.length} candidatos`)
+    // Sin anunciar = venimos de una propuesta que YA hizo esperar al usuario
+    // (el modelo o el intérprete). Repetir el retardo de "pensando" ahí solo
+    // produce un parpadeo: el indicador se va y vuelve. Desde un botón sí, que
+    // es la primera espera.
     respond(() => {
       const plan = planInterestSend(ids, candidates, campaigns)
       if (plan.sendable.length === 0) {
@@ -414,7 +424,7 @@ export function MeridianBriefing() {
         block: { kind: 'interestEmail', preview, recipients: plan.sendable.length },
         confirm: { label: `Enviar a ${plan.sendable.length}`, busyLabel: 'Enviando', run: () => runSend(plan) },
       }
-    })
+    }, anunciar ? 560 : 0)
   }
 
   const askMark = (ids: string[], status: CandidateStatus, anunciar = false) => {
