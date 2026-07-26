@@ -72,6 +72,9 @@ async function cvText(cvPath: string | null): Promise<string | null> {
  * iguales, y el número lo calcula el código. Juzgar "¿tiene el carnet?" es
  * mucho más estable que puntuar de 0 a 100, y de paso el ajuste es explicable.
  */
+/** Tipos de campo que NUNCA salen hacia el modelo. Espejo de meridian-chat. */
+const PRIVATE_FIELD_TYPES = new Set(['email', 'phone', 'tel', 'file'])
+
 const CRITERIOS = [
   { clave: 'experiencia', pregunta: 'Tiene experiencia en un trabajo equivalente al del puesto.' },
   { clave: 'disponibilidad', pregunta: 'Su disponibilidad encaja con lo que pide el puesto (jornada, turnos, incorporación).' },
@@ -217,8 +220,14 @@ Deno.serve(async (req) => {
 
     const cv = await cvText(cand.cv_path)
 
+    // Minimización: al modelo no le hace falta saber el correo ni el teléfono
+    // para juzgar experiencia o disponibilidad, así que no salen de aquí. Es el
+    // mismo criterio que aplica `meridian-chat` en tools.ts; antes esta función
+    // mandaba todos los campos menos los adjuntos, contacto incluido.
+    // (El texto del CV sí va: sin él no se puede valorar la experiencia. Suele
+    // llevar datos de contacto dentro y eso hay que declararlo en la política.)
     const respuestas = fields
-      .filter((f) => f.type !== 'file')
+      .filter((f) => !PRIVATE_FIELD_TYPES.has(f.type))
       .map((f) => `- ${f.label}: ${answerLine(answers[f.id])}`)
       .join('\n')
 

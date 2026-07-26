@@ -812,9 +812,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         toast.error('Meridian no pudo analizar la candidatura. Inténtalo de nuevo.')
         return false
       }
+      // La función responde ok:true también cuando NO ha analizado (sin clave en
+      // el servidor, plan sin Meridian, otro análisis en curso). Sin este aviso
+      // el botón se pulsaba y no pasaba absolutamente nada, ni cambio ni error.
+      if (!data.analyzed) {
+        const motivo = String(data.skipped ?? '')
+        toast.show(
+          motivo === 'análisis en curso'
+            ? 'Ya lo estoy analizando, dame un momento.'
+            : 'Meridian todavía no está disponible en tu cuenta.',
+        )
+        return false
+      }
       // El resultado lo escribe la función con service_role; lo traemos de vuelta.
       await reloadCandidatesFor(cand.campaignId)
-      return Boolean(data.analyzed)
+      return true
     },
 
     deleteCandidate: (id) => {
