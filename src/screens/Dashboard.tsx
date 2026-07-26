@@ -1424,11 +1424,10 @@ function CandidateTable({
                 </time>
               </div>
              </div>
-             {c.tagIds.length > 0 && (
-               <div className="pl-[3.25rem]">
-                 <TagCell tagIds={c.tagIds} tags={tags} />
-               </div>
-             )}
+             {/* Sin etiquetas en la tarjeta: en móvil la fila tiene que leerse de
+                 un vistazo (quién, teléfono, estado, cuándo) y una segunda línea
+                 de chips la hacía crecer y competir con eso. Se ven al abrir la
+                 ficha, y en la tabla de escritorio, donde sí hay sitio. */}
             </li>
           )
         })}
