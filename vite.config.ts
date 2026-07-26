@@ -15,8 +15,17 @@ export default defineConfig({
   optimizeDeps: { exclude: ['@shadcn/react'] },
   resolve: { dedupe: ['react', 'react-dom'] },
   test: {
-    // Las edge functions son Deno y se prueban con `deno test`: sus imports
-    // (jsr:, npm:) no los resuelve vitest.
-    exclude: ['**/node_modules/**', '**/dist/**', 'supabase/functions/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      // Las edge functions son Deno y se prueban con `deno test`: sus imports
+      // (jsr:, npm:) no los resuelve vitest. Con comodín delante porque también
+      // aparecen dentro de los worktrees.
+      '**/supabase/functions/**',
+      // Los worktrees de git viven DENTRO del checkout principal, así que sin
+      // esto `npm test` en main ejecuta además los tests de todas las ramas
+      // abiertas: 19 ficheros en vez de 5, y fallos que no son de main.
+      '**/.claude/worktrees/**',
+    ],
   },
 })
