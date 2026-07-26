@@ -1,9 +1,11 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, Building2, ChevronRight, Clock, PauseCircle } from 'lucide-react'
+import { Briefcase, Building2, ChevronRight, Clock, PauseCircle, Sparkles } from 'lucide-react'
 import { useStore } from '../lib/store'
+import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { miles } from '../lib/format'
+import { MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
 import type { Candidate } from '../lib/types'
 
 const STALE_DAYS = 7
@@ -12,7 +14,10 @@ const STALE_DAYS = 7
 // Solo lectura. El detalle por sede y su gestión viven en la pestaña Sedes.
 export function Resumen() {
   const { campaigns, candidates, newCountFor } = useStore()
+  const { company } = useAuth()
   const base = useAppBase()
+  const showMeridian = hasMeridian(company?.plan)
+  const meridianDestacados = candidates.filter((c) => c.status === 'nuevo' && (candidateFit(c.ai) ?? -1) >= 70).length
 
   const staleCut = Date.now() - STALE_DAYS * 86400000
   const nuevosTotal = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
@@ -57,8 +62,12 @@ export function Resumen() {
         <Empty text="Aún no tienes puestos. Crea el primero para ver aquí cómo van tus puestos." />
       ) : (
         <>
+          {showMeridian && (
+            <MeridianHomeCard base={base} destacados={meridianDestacados} nuevos={nuevosTotal} />
+          )}
+
           {/* KPIs */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className={`grid grid-cols-2 gap-3 sm:grid-cols-4 ${showMeridian ? 'mt-4' : ''}`}>
             <Kpi label="Candidatos" n={candidates.length} />
             <Kpi label="Nuevos sin revisar" n={nuevosTotal} />
             <Kpi label="Contratados" n={contratados} />
@@ -289,6 +298,34 @@ function weeklyIntake(candidates: Candidate[]): Week[] {
 }
 
 // --- Tarjetas ---------------------------------------------------------------
+
+// Tarjeta de entrada al Parte de Meridian (ritual diario). Voz de asistente,
+// honesta con lo que hay. El acento solo en la acción (el enlace al parte).
+function MeridianHomeCard({ base, destacados, nuevos }: { base: string; destacados: number; nuevos: number }) {
+  const line =
+    destacados > 0
+      ? `He revisado tus candidaturas nuevas. Te destaco ${destacados} que ${destacados === 1 ? 'encaja' : 'encajan'} bien.`
+      : nuevos > 0
+        ? `He revisado tus ${nuevos} ${nuevos === 1 ? 'candidatura nueva' : 'candidaturas nuevas'}. Hoy no destaco a nadie de lleno, pero échales un ojo.`
+        : 'Estás al día. Cuando entren candidaturas nuevas, te las reviso y destaco a quien encaja.'
+  return (
+    <div className="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-card">
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-slate-900 text-white">
+        <Sparkles className="size-5" aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[12px] font-semibold text-slate-500">Parte de {MERIDIAN_NAME}</p>
+        <p className="text-sm leading-5 text-slate-800">{line}</p>
+      </div>
+      <Link
+        to={`${base}/meridian`}
+        className="shrink-0 whitespace-nowrap text-sm font-medium text-indigo-600 hover:text-indigo-700"
+      >
+        Ver el parte
+      </Link>
+    </div>
+  )
+}
 
 function Kpi({ label, n }: { label: string; n: number }) {
   return (

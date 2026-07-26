@@ -208,7 +208,7 @@ export function Login() {
               </h1>
               <p className="mt-1 text-sm text-slate-500">Gestiona tus puestos y candidatos.</p>
 
-              <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+              <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1.5">
                 <button
                   type="button"
                   onClick={() => switchMode('signin')}

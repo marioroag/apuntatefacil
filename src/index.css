@@ -75,11 +75,16 @@
   --animate-shimmer: shimmer 1.6s linear infinite;
 
   /* --- Escala de spacing (4px base, ritmo Geist) --------------------------------
-     tight 8 · stack 16 · loose 24 · block 40 · section 80/96 */
+     tight 8 · stack 16 · loose 24 · group 40 · section 80/96
+     OJO con los nombres: de cada token de spacing, Tailwind genera una familia
+     de utilidades (`p-*`, `gap-*`, `inline-*`...). Este valía `block` y su
+     `.inline-block` pisaba al `inline-block` de toda la vida, así que CUALQUIER
+     `inline-block` de la app se quedaba clavado a 40px de ancho. No usar aquí
+     palabras que Tailwind ya use como utilidad. */
   --spacing-stack-tight: 0.5rem;   /* 8px */
   --spacing-stack: 1rem;           /* 16px */
   --spacing-stack-loose: 1.5rem;   /* 24px */
-  --spacing-block: 2.5rem;         /* 40px */
+  --spacing-group: 2.5rem;         /* 40px */
   --spacing-section: 5rem;         /* 80px */
   --spacing-section-lg: 6rem;      /* 96px */
 
@@ -347,6 +352,35 @@
     animation: var(--animate-shimmer);
   }
 
+  /* --- Conversación de Meridian ------------------------------------------
+     Fundido de cada palabra que Meridian va escribiendo. Quién y cuándo monta
+     cada palabra lo decide `StreamedText`; aquí solo está el suavizado de su
+     entrada, en CSS para que no cueste una animación de JS por palabra. */
+  @keyframes word-in {
+    from { opacity: 0; filter: blur(4px); }
+    to   { opacity: 1; filter: blur(0); }
+  }
+  .word-in { animation: word-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* Barrido de luz sobre el texto de estado mientras Meridian piensa. */
+  @keyframes shimmer-text {
+    to { background-position: -100% 0; }
+  }
+  .shimmer-text {
+    background-image: linear-gradient(
+      90deg,
+      var(--color-slate-400) 0%, var(--color-slate-400) 40%,
+      var(--color-slate-800) 50%,
+      var(--color-slate-400) 60%, var(--color-slate-400) 100%
+    );
+    background-size: 200% 100%;
+    background-position: 100% 0;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: shimmer-text 1.8s linear infinite;
+  }
+
   /* Pomo de un slider de rango: dos inputs superpuestos; solo el pomo captura el
      puntero (la pista es transparente y no interactiva). */
   .range-thumb { -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none; }
@@ -379,6 +413,12 @@
     scroll-behavior: auto !important;
   }
   .skeleton { background: #e5e7eb; }
+  /* Sin barrido el degradado se congelaría a media pasada: texto plano. */
+  .shimmer-text {
+    background-image: none;
+    color: var(--color-slate-500);
+    animation: none;
+  }
 }
 
 /* En forced-colors la sombra deja de verse: reforzar con borde. */

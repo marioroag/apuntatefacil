@@ -37,6 +37,9 @@ Se "hornean" al construir, así que ponlas **antes** del build.
 | `RESEND_API_KEY` | enviar emails | Resend → **API Keys** (`re_...`): https://resend.com/api-keys |
 | `NOTIFY_FROM` | remitente de los avisos | Un email de tu dominio verificado en Resend, p. ej. `Apúntate Fácil <avisos@apuntatefacil.com>`. Verifica el dominio en https://resend.com/domains |
 | `APP_URL` | enlace al panel en el email | Tu URL de producción: `https://apuntatefacil.com` |
+| `OPENAI_API_KEY` | Meridian (la capa de IA) | OpenAI → **API keys** (`sk-...`): https://platform.openai.com/api-keys . **Sin esta clave Meridian no analiza nada**, pero no rompe: las funciones hacen no-op silencioso. Antes de ponerla en producción hay que cerrar el RGPD (OpenAI pasa a ser subencargado del tratamiento: DPA firmado, retención cero y aviso de privacidad actualizado). |
+| `OPENAI_MODEL` | opcional, modelo a usar | Por defecto `gpt-5.6-luna`. Ojo: el alias `gpt-5.6` NO es Luna, apunta a Sol. |
+| `OPENAI_REASONING_EFFORT` | opcional, esfuerzo de razonamiento | Por defecto `low`, que sobra para resumir y enrutar. Valores: `none`, `low`, `medium`, `high`, `xhigh`, `max`. |
 
 > **Importante:** `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` los inyecta Supabase **automáticamente** en las funciones. **No los pongas tú.**
 

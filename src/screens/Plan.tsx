@@ -193,7 +193,7 @@ export function Plan() {
       <div className="mt-6 flex justify-center sm:justify-start">
         {/* El periodo se bloquea mientras hay un cambio en curso o el modal abierto:
             así lo que se cobra coincide siempre con lo que muestra la confirmación. */}
-        <div role="group" aria-label="Periodicidad de facturación" className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1">
+        <div role="group" aria-label="Periodicidad de facturación" className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1.5">
           <button type="button" disabled={!!dialog || !!busy} onClick={() => setAnnual(false)} aria-pressed={!annual} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors disabled:opacity-60 ${!annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
             Mensual
           </button>

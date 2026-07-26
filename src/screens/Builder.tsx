@@ -739,7 +739,7 @@ function Branding({ campaign }: { campaign: Campaign }) {
 // --- Preview ----------------------------------------------------------------
 function DeviceToggle({ device, setDevice }: { device: 'mobile' | 'desktop'; setDevice: (d: 'mobile' | 'desktop') => void }) {
   return (
-    <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+    <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
       {([['mobile', Smartphone], ['desktop', Monitor]] as const).map(([d, Icon]) => (
         <button
           key={d}

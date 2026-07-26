@@ -41,7 +41,10 @@ import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { CandidatePanel } from './CandidatePanel'
 import { exportCandidatesToExcel } from '../lib/export'
-import { relativeDate, initials, miles, formatPhone, candidateName, isFreshNuevo } from '../lib/format'
+import { relativeDate, miles, formatPhone, candidateName, isFreshNuevo } from '../lib/format'
+// El anillo de ajuste se queda en el avatar (Mario, jul 2026). Lo que se retiró
+// del puesto fue la COLUMNA "Ajuste", su orden y el buscador en lenguaje natural.
+import { MeridianAvatar } from '../components/Meridian'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { Brand, Campaign, Candidate, CandidateInterestState, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
 import { planHas, PLAN_CANDIDATE_LIMIT, TAGS_ENABLED, type PlanFeature } from '../lib/pricing'
@@ -524,6 +527,7 @@ export function Dashboard() {
   }
 
   const toggleSort = (key: SortKey) =>
+    // Al elegir una columna nueva empieza ascendente.
     setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
 
   const clearFilters = () => {
@@ -1402,9 +1406,7 @@ function CandidateTable({
                     {sel && <Check className="size-5 text-white" />}
                   </span>
                 ) : (
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-[13px] font-bold text-slate-600">
-                    {initials(name)}
-                  </span>
+                  <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={40} />
                 )}
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1.5 text-[15px] font-medium text-slate-900">
@@ -1554,25 +1556,28 @@ function CandidateTable({
                   />
                 </td>
                 <td className="px-3 py-[11px]">
-                  <div className="flex h-[42px] min-w-0 flex-col justify-center gap-0.5">
-                    {/* Sin etiquetas, esta única línea queda centrada verticalmente. */}
-                    <div className="flex h-5 min-w-0 items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
-                        className="block min-w-0 truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
-                        title={name}
-                      >
-                        {name}
-                      </button>
-                      {c.source === 'prueba' && <TestChip />}
-                      <InterestOutcomeIcon campaign={campaign} candidate={c} />
-                    </div>
-                    {hasTags && (
-                      <div className="h-5 min-w-0">
-                        <TagCell tagIds={c.tagIds} tags={tags} singleLine />
+                  <div className="flex items-center gap-2.5">
+                    <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={34} />
+                    <div className="flex h-[42px] min-w-0 flex-1 flex-col justify-center gap-0.5">
+                      {/* Sin etiquetas, esta única línea queda centrada verticalmente. */}
+                      <div className="flex h-5 min-w-0 items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
+                          className="block min-w-0 truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
+                          title={name}
+                        >
+                          {name}
+                        </button>
+                        {c.source === 'prueba' && <TestChip />}
+                        <InterestOutcomeIcon campaign={campaign} candidate={c} />
                       </div>
-                    )}
+                      {hasTags && (
+                        <div className="h-5 min-w-0">
+                          <TagCell tagIds={c.tagIds} tags={tags} singleLine />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td className="hidden px-3 py-3 text-[13px] text-slate-600 md:table-cell">
@@ -1949,7 +1954,7 @@ function FilterMenu({
         <div className="sticky top-0 z-10">
           <FilterPanelHeader count={count} onClear={clearAll} variant="sheet" />
         </div>
-        <div className="px-4 pb-3">{controls}</div>
+        <div className="px-4 pb-3 pt-3">{controls}</div>
       </BottomSheet>
     </div>
   )

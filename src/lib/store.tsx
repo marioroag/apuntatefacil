@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Brand, Branding, Campaign, Candidate, CandidateInterestSummary, CandidateStatus, FormField, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
+import type { Brand, Branding, Campaign, Candidate, CandidateAI, CandidateInterestSummary, CandidateStatus, FormField, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
 import { supabase, supabaseConfigured } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
-import { SEED, SEED_BRANDS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, freshenDemoData } from './seed'
+import { SEED, SEED_BRANDS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, freshenDemoData } from './seed'
 import { extractCandidateEmail, interestEligibility, type InterestSendResult } from './interest'
 
 // Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
@@ -41,6 +41,7 @@ type CandidateRow = {
   notes: string
   cv_path: string | null
   created_at: string
+  ai: CandidateAI | null
 }
 
 const toCampaign = (r: CampaignRow): Campaign => ({
@@ -85,11 +86,13 @@ const toCandidate = (r: CandidateRow, tagIds: string[] = []): Candidate => ({
   cvPath: r.cv_path ?? undefined,
   submittedAt: r.created_at,
   tagIds,
+  ai: r.ai ?? undefined,
 })
 
 type InterestOverviewRow = {
   candidate_id: string
   check_id: string
+  batch_id: string
   response: CandidateInterestSummary['response']
   sent_at: string
   responded_at: string | null
@@ -99,6 +102,7 @@ type InterestOverviewRow = {
 const interestByCandidate = (rows: InterestOverviewRow[] | null | undefined) =>
   new Map<string, CandidateInterestSummary>((rows ?? []).map((r) => [r.candidate_id, {
     checkId: r.check_id,
+    batchId: r.batch_id,
     response: r.response,
     sentAt: r.sent_at,
     respondedAt: r.responded_at,
@@ -217,6 +221,10 @@ interface Store {
   setStatus: (candidateId: string, status: CandidateStatus) => Promise<void>
   setRating: (candidateId: string, rating: number) => Promise<void>
   setNotes: (candidateId: string, notes: string) => Promise<void>
+  // Meridian: pide (o repite) el triaje de IA de una candidatura. Devuelve true si
+  // quedó analizada. La edge function gatea por plan y es idempotente; en demo se
+  // fabrica un análisis plausible en memoria.
+  analyzeCandidate: (candidateId: string) => Promise<boolean>
   deleteCandidate: (candidateId: string) => Candidate | undefined
   restoreCandidate: (candidate: Candidate) => Promise<void>
   updateFields: (campaignId: string, fields: FormField[]) => Promise<boolean>
@@ -672,6 +680,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       const summaries = new Map<string, CandidateInterestSummary>()
       const priority = { initial: 1, recheck: 2, reminder: 3 }
+      // Una llamada = un lote, igual que en el servidor. Meridian agrupa por él.
+      const batchId = `demo-batch-${crypto.randomUUID()}`
       for (const items of grouped.values()) {
         omitted.duplicate = (omitted.duplicate ?? 0) + Math.max(0, items.length - 1)
         const mode = items.reduce((best, item) => priority[item.mode] > priority[best] ? item.mode : best, items[0].mode)
@@ -682,6 +692,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ? { ...reminderSource, reminderSentAt: nowIso, expiresAt }
           : {
               checkId: `demo-interest-${crypto.randomUUID()}`,
+              batchId,
               response: null,
               sentAt: nowIso,
               respondedAt: null,
@@ -705,12 +716,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       body: { campaign_id: campaignId, candidate_ids: candidateIds, idempotency_key: idempotencyKey },
     })
     if (error || !data?.ok) {
+      // En un no-2xx, invoke() no parsea el cuerpo y `error.message` es el texto
+      // en inglés del SDK ("Edge Function returned a non-2xx status code"), que no
+      // se puede enseñar en la interfaz. El motivo de verdad, en español, viene en
+      // el JSON de la función, así que lo sacamos de la Response.
+      let message = (data?.error as string | undefined) ?? null
+      const response = (error as { context?: unknown } | null)?.context
+      if (!message && response instanceof Response) {
+        try {
+          const body = await response.clone().json()
+          if (typeof body?.error === 'string') message = body.error
+        } catch { /* sin cuerpo JSON: nos quedamos con el mensaje genérico */ }
+      }
       return {
         ok: false,
         sent: 0,
         failed: 0,
         omitted: {},
-        error: (data?.error as string | undefined) ?? error?.message ?? 'No se pudo enviar la comprobación.',
+        error: message ?? 'No se pudo enviar la comprobación. Inténtalo otra vez.',
       }
     }
     await reloadCandidatesFor(campaignId)
@@ -770,6 +793,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setNotes: async (id, notes) => {
       patchCandidateLocal(id, { notes })
       await dbCandidate(id, { notes }, () => {})
+    },
+
+    analyzeCandidate: async (id) => {
+      const cand = candidates.find((c) => c.id === id)
+      if (!cand) return false
+      if (companyId === 'demo') {
+        // Demo: sin red. Fabricamos un triaje coherente con estado/valoración,
+        // como hace la rama demo de sendInterestCheck.
+        const ai = aiFor(cand.status, cand.rating, new Date().toISOString())
+        patchCandidateLocal(id, { ai })
+        return true
+      }
+      const { data, error } = await supabase.functions.invoke('analyze-candidate', {
+        body: { candidate_id: id },
+      })
+      if (error || !data?.ok) {
+        toast.error('Meridian no pudo analizar la candidatura. Inténtalo de nuevo.')
+        return false
+      }
+      // La función responde ok:true también cuando NO ha analizado (sin clave en
+      // el servidor, plan sin Meridian, otro análisis en curso). Sin este aviso
+      // el botón se pulsaba y no pasaba absolutamente nada, ni cambio ni error.
+      if (!data.analyzed) {
+        const motivo = String(data.skipped ?? '')
+        toast.show(
+          motivo === 'análisis en curso'
+            ? 'Ya lo estoy analizando, dame un momento.'
+            : 'Meridian todavía no está disponible en tu cuenta.',
+        )
+        return false
+      }
+      // El resultado lo escribe la función con service_role; lo traemos de vuelta.
+      await reloadCandidatesFor(cand.campaignId)
+      return true
     },
 
     deleteCandidate: (id) => {

@@ -981,7 +981,7 @@ function Pricing() {
         <div
           role="group"
           aria-label="Periodicidad de facturación"
-          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1"
+          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1.5"
           onKeyDown={(e) => {
             if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
               e.preventDefault()
@@ -1007,7 +1007,7 @@ function Pricing() {
         <div
           role="tablist"
           aria-label="Planes de suscripción"
-          className="mx-auto flex w-full max-w-md gap-1 rounded-full border border-slate-200 bg-white p-1"
+          className="mx-auto flex w-full max-w-md gap-1 rounded-full border border-slate-200 bg-white p-1.5"
           onKeyDown={(e) => onTierTabKeyDown(e, selectedTier, setSelectedTier)}
         >
           {TIERS.map((t) => {

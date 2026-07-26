@@ -4,7 +4,7 @@ import { SlideOver } from '../components/ui/SlideOver'
 import { StatusSelect } from '../components/ui/StatusPill'
 import type { Campaign, Candidate } from '../lib/types'
 import { SOURCE_META } from '../lib/types'
-import { fullDateTime, initials, formatPhone, candidateName } from '../lib/format'
+import { fullDateTime, formatPhone, candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
@@ -15,6 +15,8 @@ import { MaskedPhone } from '../components/MaskedPhone'
 import { TagSection } from '../components/Tags'
 import { TAGS_ENABLED } from '../lib/pricing'
 import { InterestSignal } from '../components/InterestSignal'
+import { MeridianAvatar, MeridianPanelBlock, FitLabel } from '../components/Meridian'
+import { candidateFit } from '../lib/meridian'
 
 function answerText(v: Candidate['answers'][string] | undefined): string {
   if (v === undefined || v === '' || (Array.isArray(v) && v.length === 0)) return 'Sin dato'
@@ -88,12 +90,21 @@ export function CandidatePanel({
       title={
         candidate && (
           <div className="flex items-center gap-3">
-            <div className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-100 text-sm font-bold text-slate-600 ring-1 ring-inset ring-slate-200">
-              {initials(name)}
-            </div>
+            <MeridianAvatar name={name} fit={candidate.ai && !candidate.ai.error ? candidate.ai.fit : undefined} size={44} />
             <div className="min-w-0">
               <h2 className="truncate text-xl font-semibold leading-tight text-slate-900">{name}</h2>
-              <p className="text-[13px] text-slate-500">{campaign.title}</p>
+              {/* El veredicto va aquí, pegado al anillo que ya lo dibuja: cuesta una
+                  línea en vez de una tarjeta, y deja de empujar hacia abajo la
+                  valoración y las etiquetas, que son lo que el empresario edita. */}
+              <p className="flex items-center gap-1.5 text-[13px] text-slate-500">
+                <span className="truncate">{campaign.title}</span>
+                {candidateFit(candidate.ai) != null && (
+                  <>
+                    <span className="text-slate-300" aria-hidden>·</span>
+                    <FitLabel fit={candidateFit(candidate.ai)!} />
+                  </>
+                )}
+              </p>
             </div>
           </div>
         )
@@ -196,6 +207,11 @@ export function CandidatePanel({
               onOpenManage={() => onOpenManageTags?.()}
             />
           )}
+
+          {/* Lectura de Meridian: va DESPUÉS de lo que decide el empresario
+              (estado, valoración, etiquetas) y antes de las respuestas en crudo,
+              que es de donde sale. El veredicto ya está arriba, en la cabecera. */}
+          <MeridianPanelBlock candidate={candidate} />
 
           {/* Respuestas */}
           <div>

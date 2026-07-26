@@ -2,6 +2,7 @@ import type {
   Brand,
   Campaign,
   Candidate,
+  CandidateAI,
   CandidateSource,
   CandidateStatus,
   AppData,
@@ -475,6 +476,86 @@ function noteFor(status: CandidateStatus): string {
   return pool.length ? pick(pool) : ''
 }
 
+// ---------------------------------------------------------------------------
+// Triaje de Meridian (solo demo). En producción lo genera la edge function con
+// OpenAI; aquí fabricamos un análisis plausible y estable con el PRNG del seed,
+// para que el anillo de ajuste y el bloque del panel se vean desde el primer
+// segundo. El ajuste correlaciona con el estado/valoración para que ordenar por
+// ajuste "cuente una historia" coherente. Nunca es un veredicto: es orientativo.
+// ---------------------------------------------------------------------------
+
+// Banda de ajuste (0..100) por estado, ya trabajado por el responsable.
+function fitFor(status: CandidateStatus, rating: number): number {
+  const base =
+    status === 'contratado' ? between(82, 96)
+    : status === 'entrevista' ? between(72, 90)
+    : status === 'contactado' ? between(56, 80)
+    : status === 'descartado' ? between(26, 54)
+    : between(46, 86) // nuevo: aún por ver
+  // La valoración manual, si existe, tira un poco del ajuste hacia arriba.
+  const bump = rating >= 4 ? 6 : rating >= 3 ? 3 : 0
+  return Math.max(15, Math.min(98, base + bump))
+}
+
+const AI_SUMMARY_HIGH = [
+  'Perfil sólido para el puesto: experiencia directa y disponibilidad que encaja.',
+  'Encaja bien con lo que pides. Trayectoria en el oficio y buena disposición.',
+  'Candidatura fuerte: cumple los requisitos clave y aporta experiencia reciente.',
+]
+const AI_SUMMARY_MID = [
+  'Perfil correcto con algún punto por confirmar antes de decidir.',
+  'Podría encajar. Cubre parte de lo que buscas, conviene una llamada.',
+  'Candidatura razonable: base válida, faltan un par de detalles por aclarar.',
+]
+const AI_SUMMARY_LOW = [
+  'Encaja de forma parcial: revisa si compensa por otros motivos.',
+  'Se aleja de lo que pides en algún requisito importante.',
+  'Cobertura justa del perfil. Mejor contrastar antes de avanzar.',
+]
+const AI_HIGHLIGHTS = [
+  'Experiencia en el sector',
+  'Disponibilidad inmediata',
+  'Vive cerca del puesto',
+  'Carnet y vehículo propio',
+  'Turnos flexibles',
+  'Continuidad en empleos previos',
+]
+const AI_CONCERNS = [
+  'Confirmar años de experiencia reales',
+  'Disponibilidad por confirmar',
+  'No indica vehículo propio',
+  'Salario esperado por aclarar',
+  'Experiencia algo alejada del puesto',
+]
+
+function pickN<T>(pool: T[], n: number): T[] {
+  const out: T[] = []
+  const used = new Set<number>()
+  while (out.length < n && used.size < pool.length) {
+    const i = Math.floor(rnd() * pool.length)
+    if (used.has(i)) continue
+    used.add(i)
+    out.push(pool[i])
+  }
+  return out
+}
+
+export function aiFor(status: CandidateStatus, rating: number, submittedAt: string): CandidateAI {
+  const fit = fitFor(status, rating)
+  const summary = fit >= 70 ? pick(AI_SUMMARY_HIGH) : fit >= 50 ? pick(AI_SUMMARY_MID) : pick(AI_SUMMARY_LOW)
+  const highlights = pickN(AI_HIGHLIGHTS, fit >= 70 ? between(2, 3) : between(1, 2))
+  const concerns = fit >= 78 ? pickN(AI_CONCERNS, chance(0.5) ? 1 : 0) : pickN(AI_CONCERNS, between(1, 2))
+  return {
+    summary,
+    highlights,
+    concerns,
+    fit,
+    model: 'demo',
+    analyzedAt: submittedAt,
+    cvUsed: chance(0.65),
+  }
+}
+
 // Volumen por puesto: denso a propósito (80–160) para que filtros, etiquetas
 // y export se sientan como una ETT real en plena oleada.
 const COUNTS: Record<string, number> = {
@@ -507,16 +588,23 @@ for (const cmp of campaigns) {
       if (v !== undefined) answers[field.id] = v
     }
     const status: CandidateStatus = i < 2 ? 'nuevo' : weightedStatus() // los 2 primeros (más recientes) siempre nuevos
+    const rating = ratingFor(status)
+    const submittedAt = dateAgo(DAYS_OPEN[cmp.id] ?? 20)
+    // Meridian analiza al entrar, así que la mayoría ya tiene triaje. Dejamos ~12%
+    // sin analizar (sesgado a alguna candidatura recién llegada) para que se vea
+    // también el estado "Analizar con Meridian".
+    const analyzed = !(status === 'nuevo' && chance(0.3)) && chance(0.97)
     candidates.push({
       id: `cand_${candidateNumber}`,
       campaignId: cmp.id,
       answers,
       status,
-      submittedAt: dateAgo(DAYS_OPEN[cmp.id] ?? 20),
+      submittedAt,
       source: pick(SOURCES),
-      rating: ratingFor(status),
+      rating,
       notes: noteFor(status),
       tagIds: tagsForStatus(status),
+      ai: analyzed ? aiFor(status, rating, submittedAt) : undefined,
     })
     n = candidateNumber
   }
