@@ -1,4 +1,15 @@
 // Documentos legales de Apúntate Fácil (privacidad y términos).
+//
+// ⚠️ NO PUBLICAR sin haber hecho antes estas dos cosas (jul 2026, Meridian):
+//   1. Firmar el DPA de OpenAI. El apartado 6 afirma "tenemos suscrito con
+//      OpenAI el acuerdo de tratamiento de datos del artículo 28": publicarlo
+//      antes de firmarlo es declarar un hecho falso en un documento legal.
+//   2. Avisar a los clientes con antelación de que se añade OpenAI como
+//      subencargado. El apartado 6 se lo promete por escrito, con derecho a
+//      oponerse y a darse de baja sin penalización.
+// El texto dice retención de HASTA 30 DÍAS, no cero: la retención cero de
+// OpenAI exige aprobación previa y contrato enterprise. Si algún día se
+// consigue, actualizar la frase; mientras tanto es la verdad.
 // Privacidad: revisada y ampliada por panel experto RGPD/LOPDGDD (20 jun 2026).
 // Revisión 1.1 (17 jul 2026), tras cotejar el texto con el producto real:
 // declarada la analítica sin cookies (Vercel Analytics + Speed Insights) y Vercel
@@ -219,7 +230,7 @@ export const PRIVACY_DOC: LegalDoc = {
             "Supabase (Supabase, Inc.): es la infraestructura. Aloja la base de datos con las tablas de empresas, candidatos, puestos y campañas, gestiona la autenticación y las sesiones, y almacena los CV y documentos adjuntos en un espacio de archivos privado. Los datos se alojan en la región [REGIÓN DE ALOJAMIENTO].",
             "Vercel (Vercel, Inc.): aloja y sirve la aplicación web, es decir, las páginas que se cargan en el navegador, incluido el formulario público que rellenan los candidatos. Como cualquier servidor web, procesa datos técnicos de conexión (dirección IP, navegador) para entregar las páginas, y nos proporciona la medición de audiencia y rendimiento sin cookies descrita en el apartado 4, con datos agregados.",
             "Google (Google LLC): solo si eliges entrar con tu cuenta de Google. En esa función Google interviene en la autenticación y trata tu email de Google conforme a sus propias políticas, como responsable independiente de ese dato de inicio de sesión. Si entras con tu email y contraseña, Google no interviene.",
-            "OpenAI (OpenAI Ireland Ltd.): solo en los planes Pro y Multi, y solo si tu empresa usa Meridian. Es el modelo de lenguaje que resume cada candidatura, calcula su ajuste al puesto y responde a lo que le preguntas en el panel. Le enviamos las respuestas del formulario y, cuando el candidato lo adjunta, el texto de su CV, que puede contener datos de contacto y trayectoria. NO le enviamos el correo ni el teléfono que el candidato escribe en el formulario, ni el archivo del CV en sí. Meridian nunca decide ni descarta por su cuenta: solo resume y ordena, y cualquier acción la confirmas tú. [PENDIENTE: confirmar aquí el acuerdo de tratamiento de datos suscrito con OpenAI, la exclusión del uso de estos datos para entrenar sus modelos y la retención cero de las llamadas a la API. No publicar esta frase como un hecho hasta que las tres cosas estén firmadas.]"
+            "OpenAI (OpenAI Ireland Ltd.): solo en los planes Pro y Multi, y solo si tu empresa usa Meridian. Es el modelo de lenguaje que resume cada candidatura, calcula su ajuste al puesto y responde a lo que le preguntas en el panel. Le enviamos las respuestas del formulario y, cuando el candidato lo adjunta, el texto de su CV, que puede contener datos de contacto y trayectoria. NO le enviamos el correo ni el teléfono que el candidato escribe en el formulario, ni el archivo del CV en sí. Meridian nunca decide ni descarta por su cuenta: solo resume y ordena, y cualquier acción la confirmas tú. Tenemos suscrito con OpenAI el acuerdo de tratamiento de datos del artículo 28. Estos datos no se usan para entrenar sus modelos. OpenAI conserva las llamadas hasta 30 días en registros de detección de abusos y después las elimina, salvo que la ley le obligue a guardarlas más tiempo."
           ]
         },
         {
