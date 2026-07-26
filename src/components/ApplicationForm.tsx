@@ -158,8 +158,11 @@ export function ApplicationForm({
             </button>
           ) : (
             <>
-              Solo {companyName} verá tu candidatura para este puesto: no la compartimos con terceros ni la
-              usamos para publicidad. Puedes pedir que actualicen o borren tus datos contactando con la empresa.{' '}
+              Solo {companyName} verá tu candidatura para este puesto: no la vendemos, no la damos a otras
+              empresas y no la usamos para publicidad. Para que esto funcione nos apoyamos en proveedores
+              (alojamiento, correo y, si la empresa lo usa, un asistente que resume las candidaturas), que
+              solo la tratan por cuenta de {companyName} y están listados en la política de privacidad.
+              Puedes pedir que actualicen o borren tus datos contactando con la empresa.{' '}
               <button type="button" onClick={() => setShowPrivacy(false)} className="underline hover:text-slate-600">
                 Leer menos
               </button>
