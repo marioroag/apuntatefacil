@@ -134,37 +134,11 @@ export function Dashboard() {
   const [interestDialogOpen, setInterestDialogOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false) // modo selección múltiple (móvil)
   const [lockedDialogOpen, setLockedDialogOpen] = useState(false) // aviso al pulsar una candidatura bloqueada
-  // Cabecera adaptativa (móvil): si el título no cabe, "Compartir" se reduce a icono
-  // para darle sitio. Medimos el título y aplicamos histéresis para que no parpadee.
-  const titleRowRef = useRef<HTMLDivElement | null>(null)
-  const titleRef = useRef<HTMLHeadingElement | null>(null)
-  const [compactShare, setCompactShare] = useState(false)
-  const [rowW, setRowW] = useState(0)
-  const [measureTick, setMeasureTick] = useState(0)
-  useEffect(() => {
-    const el = titleRowRef.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver((entries) => setRowW(entries[0].contentRect.width))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-  // Re-mide tras el primer layout y al terminar de cargar la fuente: el ancho real
-  // del título cambia con la tipografía, después de la primera medición.
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => setMeasureTick((t) => t + 1))
-    const fonts = (document as unknown as { fonts?: { ready?: Promise<unknown> } }).fonts
-    fonts?.ready?.then(() => setMeasureTick((t) => t + 1))
-    return () => cancelAnimationFrame(raf)
-  }, [campaignId])
-  useLayoutEffect(() => {
-    const el = titleRef.current
-    if (!el) return
-    if (!compactShare && el.scrollWidth - el.clientWidth > 1) {
-      setCompactShare(true) // el título se corta: oculta la etiqueta de Compartir
-    } else if (compactShare && el.clientWidth - el.scrollWidth > 90) {
-      setCompactShare(false) // hay holgura de sobra: recupera la etiqueta sin volver a cortar
-    }
-  }, [compactShare, rowW, measureTick, campaignId])
+  // Aquí vivía una cabecera adaptativa: medía el título con un ResizeObserver y,
+  // si no cabía, reducía "Compartir" a solo icono. Dejó de servir para nada
+  // cuando los dos botones pasaron a ser cuadrados de icono en móvil: la etiqueta
+  // ya se oculta siempre por debajo de `sm`. Se quitó el estado, las dos
+  // mediciones y el observer, que seguían corriendo en cada render del panel.
   const [saveViewOpen, setSaveViewOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false) // hoja de ajustes del puesto (móvil)
@@ -590,8 +564,8 @@ export function Dashboard() {
       {/* Cabecera del puesto */}
       <header className="mb-5">
         {/* Título + acciones: solo Compartir y Editar visibles; el resto en Ajustes del puesto. */}
-        <div ref={titleRowRef} className="flex items-center gap-2.5">
-          <h1 ref={titleRef} className="min-w-0 truncate text-[22px] font-semibold leading-tight tracking-[-0.02em] text-slate-900">{campaign.title}</h1>
+        <div className="flex items-center gap-2.5">
+          <h1 className="min-w-0 truncate text-[22px] font-semibold leading-tight tracking-[-0.02em] text-slate-900">{campaign.title}</h1>
           {campaign.status !== 'activa' && (
             <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
               {campaign.status === 'pausada' ? 'Pausado' : 'Cerrado'}
@@ -606,7 +580,6 @@ export function Dashboard() {
               template={campaign.shareReply}
               canEdit={canManage}
               demo={base === '/demo'}
-              compact={compactShare}
             />
             {/* En móvil los dos botones de la cabecera son cuadrados de 44px: solo
                 icono, mismo tamaño y mismo alto. Antes este medía 32 de alto y
@@ -2048,7 +2021,6 @@ function ShareMenu({
   template,
   canEdit,
   demo,
-  compact,
 }: {
   campaignId: string
   title: string
@@ -2057,7 +2029,6 @@ function ShareMenu({
   template?: string | null
   canEdit: boolean
   demo: boolean
-  compact: boolean
 }) {
   const { updateCampaign } = useStore()
   const [open, setOpen] = useState(false)
@@ -2138,7 +2109,7 @@ function ShareMenu({
         aria-haspopup="dialog"
       >
         <Share2 className="size-4 shrink-0 text-slate-400" aria-hidden />
-        <span className={compact ? 'hidden sm:inline' : 'max-sm:hidden'}>Compartir</span>
+        <span className="max-sm:hidden">Compartir</span>
         <ChevronDown
           className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-150 max-sm:hidden ${
             open ? 'rotate-180' : ''
