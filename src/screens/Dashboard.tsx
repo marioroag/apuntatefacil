@@ -608,15 +608,19 @@ export function Dashboard() {
               demo={base === '/demo'}
               compact={compactShare}
             />
+            {/* En móvil los dos botones de la cabecera son cuadrados de 44px: solo
+                icono, mismo tamaño y mismo alto. Antes este medía 32 de alto y
+                llevaba texto, y el de compartir 44, así que quedaban desparejos.
+                44 es además el mínimo de objetivo táctil. */}
             {canManage && (
               <Link
                 to={`${base}/puestos/${campaign.id}/formulario`}
-                className={`${BTN_PRIMARY} max-sm:h-8 max-sm:gap-1 max-sm:px-2.5 max-sm:text-[12px]`}
-                title="Editar"
-                aria-label="Editar"
+                className={`${BTN_PRIMARY} max-sm:size-11 max-sm:px-0`}
+                title="Editar formulario"
+                aria-label="Editar formulario"
               >
-                <PenLine className="size-4 shrink-0 text-indigo-200 max-sm:size-3.5" aria-hidden />
-                <span>Editar</span>
+                <PenLine className="size-4 shrink-0 text-indigo-200" aria-hidden />
+                <span className="max-sm:hidden">Editar</span>
               </Link>
             )}
           </div>
@@ -2125,7 +2129,7 @@ function ShareMenu({
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`${BTN_SECONDARY} max-sm:min-h-11 max-sm:gap-1 max-sm:px-2.5 max-sm:text-[12px] ${
+        className={`${BTN_SECONDARY} max-sm:size-11 max-sm:px-0 ${
           open ? 'bg-slate-50 ring-slate-300' : ''
         }`}
         title="Compartir"
@@ -2133,8 +2137,8 @@ function ShareMenu({
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <Share2 className="size-4 shrink-0 text-slate-400 max-sm:size-3.5" aria-hidden />
-        <span className={compact ? 'hidden sm:inline' : undefined}>Compartir</span>
+        <Share2 className="size-4 shrink-0 text-slate-400" aria-hidden />
+        <span className={compact ? 'hidden sm:inline' : 'max-sm:hidden'}>Compartir</span>
         <ChevronDown
           className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-150 max-sm:hidden ${
             open ? 'rotate-180' : ''
