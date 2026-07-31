@@ -63,6 +63,14 @@ export function SlideOver({
         const first = els[0]
         const last = els[els.length - 1]
         const active = document.activeElement
+        // Si el foco se ha quedado fuera (por ejemplo al hacer clic en una zona
+        // del panel que no es un control, que lo manda a <body>), el Tab se iría
+        // a la página de detrás. Lo devolvemos al panel: el diálogo es modal.
+        if (!panelRef.current?.contains(active)) {
+          e.preventDefault()
+          ;(e.shiftKey ? last : first).focus()
+          return
+        }
         if (e.shiftKey && (active === first || active === panelRef.current)) {
           e.preventDefault()
           last.focus()

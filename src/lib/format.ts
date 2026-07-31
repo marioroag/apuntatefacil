@@ -100,6 +100,30 @@ export function candidateName(c: Candidate): string {
   return raw ? toTitleCase(raw) : raw
 }
 
+/**
+ * Cómo se llama una persona del equipo cuando solo tenemos su email. No hay
+ * tabla de perfiles: la identidad se deriva del correo en toda la app (hilos del
+ * tablón, chat del candidato, lista de miembros), así que la regla vive aquí y
+ * no repetida en cada pantalla. 'laura.gil@empresa.es' -> 'Laura Gil'.
+ */
+export function personLabel(email: string | null | undefined): string {
+  const local = (email ?? '').split('@')[0]?.trim()
+  if (!local) return 'Alguien del equipo'
+  return toTitleCase(local.replace(/[._-]+/g, ' '))
+}
+
+/**
+ * Texto de una respuesta del formulario. Un dato que el candidato no dio se dice
+ * "No disponible", nunca en blanco: en una ficha, el hueco vacío se lee como un
+ * fallo de la app y no como una pregunta sin contestar.
+ */
+export function answerText(v: Candidate['answers'][string] | undefined): string {
+  if (v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)) return 'No disponible'
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No'
+  if (Array.isArray(v)) return v.join(', ')
+  return String(v)
+}
+
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/)
   if (parts.length === 0 || parts[0] === '') return '?'

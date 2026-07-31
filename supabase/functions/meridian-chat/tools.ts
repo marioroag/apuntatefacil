@@ -52,7 +52,7 @@ export interface CandidateRow {
   campaign_id: string
   answers: Answers
   status: string
-  rating: number
+  favorito: boolean
   notes: string | null
   ai: CandidateAI | null
   created_at: string
@@ -160,7 +160,7 @@ function brief(ctx: ToolContext, c: CandidateRow) {
     // El modelo NO recibe el número (minimización): solo si se le puede llamar.
     tiene_telefono: hasPhone(c.answers, fields),
     dias_desde_candidatura: daysSince(c.created_at),
-    valoracion: c.rating || null,
+    favorito: !!c.favorito,
   }
 }
 

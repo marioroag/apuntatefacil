@@ -135,6 +135,60 @@ export interface CandidateInterestSummary {
   expiresAt: string
 }
 
+/**
+ * Un mensaje del hilo de equipo de un candidato. Sustituye a las notas internas:
+ * lo mismo, pero se sabe quién lo dijo y cuándo. Inmutable por diseño (no hay
+ * editar ni borrar): es lo que hace fiable un hilo compartido.
+ */
+export interface CandidateComment {
+  id: string
+  candidateId: string
+  /** Ausente = lo escribió alguien que ya no está, o es una nota migrada. */
+  authorUserId: string | null
+  /** Denormalizado: el hilo sobrevive a las bajas del equipo. */
+  authorEmail: string
+  body: string
+  /** A quién se avisó. El servidor descarta a quien no sea del equipo. */
+  mentions: string[]
+  /** Nota interna de la época anterior, migrada al hilo. Se pinta sin autor. */
+  isNote: boolean
+  createdAt: string // ISO
+}
+
+/**
+ * Qué le ha pasado a esta candidatura. El texto se compone en el cliente a
+ * partir de `kind` + `details`, para poder usar las etiquetas de estado reales
+ * y el nombre de Meridian sin congelarlos en la base de datos.
+ *
+ * Los comentarios NO son eventos: el chat está en la pestaña de al lado y
+ * duplicarlo solo llenaría el historial de ruido.
+ */
+export type CandidateEventKind =
+  | 'recibida'
+  | 'analisis'
+  | 'estado'
+  | 'favorito'
+  | 'interes_enviada'
+  | 'interes_respuesta'
+
+export interface CandidateEvent {
+  id: string
+  candidateId: string
+  /** '' = lo hizo el sistema (el formulario público, Meridian), no una persona. */
+  actorEmail: string
+  kind: CandidateEventKind
+  details: Record<string, unknown>
+  createdAt: string // ISO
+}
+
+/** Miembro del equipo, tal y como lo devuelve el RPC `list_company_members`. */
+export interface CompanyMember {
+  userId: string
+  email: string
+  role: 'owner' | 'member' | 'encargado'
+  isSelf: boolean
+}
+
 export interface Candidate {
   id: string
   campaignId: string
@@ -143,7 +197,17 @@ export interface Candidate {
   status: CandidateStatus
   submittedAt: string // ISO
   source: CandidateSource
-  rating: number // 0..5 estrellas, 0 = sin valorar
+  /**
+   * Guardado en favoritos. Sustituye a la valoración de 1-5 estrellas (jul 2026):
+   * marcar a alguien es una SELECCIÓN ("a este lo quiero"), no una nota con
+   * matices, y nadie usaba la diferencia entre 2 y 3 estrellas.
+   */
+  favorito: boolean
+  /**
+   * @deprecated Notas internas de la época anterior al chat de equipo. Ya no se
+   * escribe: su contenido se migró al hilo como primer mensaje ("Nota anterior").
+   * Se conserva para poder revertir; se retira en una limpieza posterior.
+   */
   notes: string
   cvPath?: string // ruta del CV en Supabase Storage (bucket cvs), si lo adjuntó
   tagIds: string[] // ids de las etiquetas que el empresario le ha puesto (ver Tag)
@@ -195,7 +259,8 @@ export interface SavedViewPayload {
   statuses: CandidateStatus[]
   valueFilters: ValueFilter[]
   sort: { key: SortKey; dir: 'asc' | 'desc' }
-  ratingFilter?: number
+  /** Una vista guardada antigua puede traer todavía `ratingFilter`: se ignora. */
+  favoritosOnly?: boolean
   numberFilters?: NumberFilter[]
   // Ids de etiquetas seleccionadas. Universal (las etiquetas valen en cualquier
   // puesto), como estados u orden: viaja también en vistas globales.

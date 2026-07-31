@@ -234,7 +234,7 @@ export function interpret(raw: string, ctx: AgentContext): MeridianResponse {
     const ids = actionTargets(q, ctx)
     if (!ids.length) return { text: '¿Qué candidatos quieres exportar? Dime un puesto o unos filtros y los preparo.', cards: [], suggestions: starterSuggestions(ctx) }
     return {
-      text: `Te preparo un Excel con ${CAND(ids.length)}. Incluye sus respuestas, estado, valoración y el ajuste que he calculado.`,
+      text: `Te preparo un Excel con ${CAND(ids.length)}. Incluye sus respuestas, estado, favoritos y el ajuste que he calculado.`,
       cards: [{ kind: 'candidates', ids: ids.slice(0, 5), hiddenCount: Math.max(0, ids.length - 5) }],
       action: { type: 'export', ids },
       actionLabel: `Exportar ${ids.length} a Excel`,

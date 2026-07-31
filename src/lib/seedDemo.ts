@@ -33,7 +33,7 @@ export async function seedDemoData(companyId: string): Promise<{ error?: string 
       answers: cand.answers,
       status: cand.status,
       source: cand.source,
-      rating: cand.rating,
+      favorito: cand.favorito,
       notes: cand.notes,
       created_at: cand.submittedAt,
     }))

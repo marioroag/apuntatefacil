@@ -17,11 +17,12 @@ import type { Candidate, TeamRequest, TeamRequestComment } from '../lib/types'
 import { STATUS_META, TEAM_REQUEST_STATUS_META } from '../lib/types'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { candidateName, clockTime, initials, memberAvatarTone, relativeDate } from '../lib/format'
+import { candidateName, initials } from '../lib/format'
 import { BTN_PRIMARY_SM, BTN_SECONDARY_SM } from '../lib/buttons'
 import { SlideOver } from '../components/ui/SlideOver'
+import { ChatSkeleton, ChatThread } from '../components/ui/Chat'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import { CandidatePanel } from './CandidatePanel'
+import { CandidateModal } from './CandidateModal'
 
 function candidatePhone(c: Candidate): string {
   const raw = c.answers['telefono']
@@ -395,51 +396,55 @@ export function TeamRequestPanel({
                 )}
               </div>
               {commentsLoading && comments.length === 0 ? (
-                <ActivitySkeleton />
+                <ChatSkeleton />
               ) : comments.length === 0 ? (
                 <p className="text-sm leading-5 text-slate-500">
                   {isOpen ? 'Todavía no hay mensajes.' : 'Nadie ha escrito todavía.'}
                 </p>
               ) : (
-                <ol className="flex flex-col">
-                  {comments.map((c, i) => {
-                    const chips = request.proposals.filter((p) => p.commentId === c.id)
-                    const mine = c.authorUserId === user?.id
-                    const label = mine ? 'Tú' : threadAuthorLabel(c.authorEmail)
-                    const hasBody = !!c.body.trim()
-                    const isRequestAuthor =
-                      (!!c.authorUserId && c.authorUserId === request.authorUserId) ||
-                      (!!c.authorEmail &&
-                        !!request.authorEmail &&
-                        c.authorEmail.toLowerCase() === request.authorEmail.toLowerCase())
-                    return (
-                      <ActivityEntry
-                        key={c.id}
-                        email={c.authorEmail}
-                        label={label}
-                        at={c.createdAt}
-                        body={hasBody ? c.body : null}
-                        divided={i > 0}
-                        authority={isRequestAuthor}
-                        proposalHint={
-                          !hasBody && chips.length > 0
-                            ? `Propuso ${chips.length === 1 ? '1 candidato' : `${chips.length} candidatos`}`
-                            : null
-                        }
-                      >
-                        {chips.length > 0 ? (
-                          <ThreadProposals
-                            chips={chips}
-                            candidateById={candidateById}
-                            maskPhone={maskPhone}
-                            onOpen={(cand) => setOpenCandidate(cand)}
-                          />
-                        ) : null}
-                      </ActivityEntry>
-                    )
-                  })}
+                <>
+                  {/* Misma conversación que en el candidato: el hilo del tablón y
+                      el del candidato son lo mismo (gente del equipo hablando de
+                      un caso), así que se leen igual. Lo propio de aquí, los
+                      candidatos propuestos, entra debajo del cuerpo por `slot`. */}
+                  <ChatThread
+                    currentUserId={user?.id}
+                    messages={comments.map((c) => {
+                      const chips = request.proposals.filter((p) => p.commentId === c.id)
+                      const hasBody = !!c.body.trim()
+                      const isRequestAuthor =
+                        (!!c.authorUserId && c.authorUserId === request.authorUserId) ||
+                        (!!c.authorEmail &&
+                          !!request.authorEmail &&
+                          c.authorEmail.toLowerCase() === request.authorEmail.toLowerCase())
+                      return {
+                        id: c.id,
+                        authorUserId: c.authorUserId,
+                        authorEmail: c.authorEmail,
+                        body: c.body,
+                        createdAt: c.createdAt,
+                        authority: isRequestAuthor,
+                        slot:
+                          chips.length > 0 ? (
+                            <>
+                              {!hasBody && (
+                                <p className="mt-0.5 text-[13px] leading-5 text-slate-500">
+                                  Propuso {chips.length === 1 ? '1 candidato' : `${chips.length} candidatos`}
+                                </p>
+                              )}
+                              <ThreadProposals
+                                chips={chips}
+                                candidateById={candidateById}
+                                maskPhone={maskPhone}
+                                onOpen={(cand) => setOpenCandidate(cand)}
+                              />
+                            </>
+                          ) : null,
+                      }
+                    })}
+                  />
                   <div ref={threadEndRef} aria-hidden />
-                </ol>
+                </>
               )}
             </section>
           </div>
@@ -447,7 +452,7 @@ export function TeamRequestPanel({
       </SlideOver>
 
       {openCandidate && getCampaign(openCandidate.campaignId) && (
-        <CandidatePanel
+        <CandidateModal
           campaign={getCampaign(openCandidate.campaignId)!}
           candidate={openCandidate}
           onClose={() => setOpenCandidate(null)}
@@ -473,86 +478,6 @@ export function TeamRequestPanel({
         </p>
       </ConfirmDialog>
     </>
-  )
-}
-
-function threadAuthorLabel(email: string | null | undefined): string {
-  if (!email) return 'Miembro del equipo'
-  const local = email.split('@')[0]?.trim()
-  return local || email
-}
-
-function ActivitySkeleton() {
-  return (
-    <div
-      className="flex gap-3 py-1"
-      role="status"
-      aria-label="Cargando actividad"
-    >
-      <span
-        className="size-7 shrink-0 animate-pulse rounded-full bg-slate-200 motion-reduce:animate-none"
-        aria-hidden
-      />
-      <div className="min-w-0 flex-1 space-y-2.5 pt-0.5" aria-hidden>
-        <div className="h-3 w-28 animate-pulse rounded bg-slate-200 motion-reduce:animate-none" />
-        <div className="space-y-1.5">
-          <div className="h-3 w-full animate-pulse rounded bg-slate-100 motion-reduce:animate-none" />
-          <div className="h-3 w-4/5 animate-pulse rounded bg-slate-100 motion-reduce:animate-none" />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/** Entrada del feed de actividad. */
-function ActivityEntry({
-  email,
-  label,
-  at,
-  body,
-  divided = false,
-  authority = false,
-  proposalHint = null,
-  children,
-}: {
-  email: string | null | undefined
-  label: string
-  at: string
-  body?: string | null
-  divided?: boolean
-  /** Autor de la petición: el nombre lleva su color de miembro (autoridad). */
-  authority?: boolean
-  proposalHint?: string | null
-  children?: ReactNode
-}) {
-  const tone = memberAvatarTone(email)
-  return (
-    <li className={`flex gap-3 ${divided ? 'mt-5 border-t border-slate-100 pt-5' : ''}`}>
-      <span
-        className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-bold ${tone.bg} ${tone.text}`}
-        aria-hidden
-      >
-        {initials(email || '?')}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[13px]">
-          <span className={`font-semibold ${authority ? tone.name : 'text-slate-900'}`}>{label}</span>
-          <span className="text-slate-300" aria-hidden>
-            ·
-          </span>
-          <time dateTime={at} title={relativeDate(at)} className="num text-slate-500">
-            {clockTime(at)}
-          </time>
-        </div>
-        {body ? (
-          <p className="mt-1.5 whitespace-pre-wrap break-words text-[14px] leading-[1.45] text-slate-700 text-pretty">
-            {body}
-          </p>
-        ) : null}
-        {proposalHint ? <p className="mt-1.5 text-[13px] leading-5 text-slate-500">{proposalHint}</p> : null}
-        {children}
-      </div>
-    </li>
   )
 }
 

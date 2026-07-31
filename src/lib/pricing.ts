@@ -78,7 +78,7 @@ export function planHas(plan: string | undefined | null, feature: PlanFeature): 
   return !!plan && (PLAN_FEATURES[plan]?.includes(feature) ?? false)
 }
 
-// Las Etiquetas son una primitiva de clasificación (como notas o valoración), no una
+// Las Etiquetas son una primitiva de clasificación (como el favorito), no una
 // feature de escala: disponibles en TODOS los planes, incluido Prueba. No se gatea ni
 // se cobra por número de etiquetas. Único punto de configuración: si algún día se
 // quisiera como upsell a Pro+, este flag es el sitio donde cambiarlo.
@@ -112,7 +112,7 @@ export const FEATURE_COPY: Record<PlanFeature, { label: string; blurb: string; m
   },
   teamBoard: {
     label: 'el Equipo',
-    blurb: 'Publica peticiones internas, responde con candidatos de la base e invita a tu equipo.',
+    blurb: 'Comenta cada candidato con tu equipo, publica peticiones internas y responde con candidatos de la base.',
     minPlan: 'pro',
   },
   meridian: {
@@ -144,7 +144,7 @@ export const TIERS: Tier[] = [
       'Candidatos ilimitados',
       'Formulario de candidatura a tu medida',
       'Vista general y Bandeja de candidatos nuevos',
-      'Filtros, notas y valoraciones',
+      'Filtros, favoritos y etiquetas',
       'Exporta a Excel cuando quieras',
       'Soporte humano, te responde una persona',
     ],
@@ -163,7 +163,7 @@ export const TIERS: Tier[] = [
       'Todo lo de Esencial',
       'Meridian: resume cada candidatura y calcula su ajuste al puesto',
       'Hasta 10 procesos a la vez',
-      'Equipo: tablón de peticiones e invitaciones',
+      'Equipo: chat en cada candidato y tablón de peticiones',
       'Guarda tus vistas de filtros y reaplícalas',
       'Una marca con logo, banner y colores en el formulario',
     ],

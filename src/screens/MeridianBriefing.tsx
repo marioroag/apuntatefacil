@@ -11,7 +11,7 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { useAppBase } from '../lib/useAppBase'
-import { CandidatePanel } from './CandidatePanel'
+import { CandidateModal } from './CandidateModal'
 import { MeridianAvatar, FitLabel } from '../components/Meridian'
 import { MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
 import { STATUS_META, STATUS_ORDER, type Campaign, type Candidate, type CandidateStatus } from '../lib/types'
@@ -121,7 +121,7 @@ const RECIPES: RecipeDef[] = [
 // Lo que queda en marcha (envíos, vigilancias) vive en Actividad, y su detalle completo
 // se abre en el propio hilo. La "inteligencia" es demo (heurística).
 export function MeridianBriefing() {
-  const { candidates, campaigns, tags, brands, getCampaign, setStatus, restoreCandidate, sendInterestCheck } = useStore()
+  const { candidates, campaigns, tags, brands, getCampaign, setStatus, restoreCandidate, sendInterestCheck, loadCommentsForMany } = useStore()
   const { company } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -495,7 +495,7 @@ export function MeridianBriefing() {
       const campaign = getCampaign(campaignId)
       if (!campaign) continue
       try {
-        names.push(await exportCandidatesToExcel(campaign, rows, tags))
+        names.push(await exportCandidatesToExcel(campaign, rows, tags, [], await loadCommentsForMany(rows.map((c) => c.id))))
       } catch {
         pushMeridian({ text: 'No he podido preparar el Excel. Inténtalo otra vez.' })
         return
@@ -621,7 +621,7 @@ export function MeridianBriefing() {
       </div>
 
       {openCampaign && (
-        <CandidatePanel
+        <CandidateModal
           campaign={openCampaign}
           candidate={openCandidate}
           maskPhone={maskPhone}

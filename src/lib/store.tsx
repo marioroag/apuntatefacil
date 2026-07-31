@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Brand, Branding, Campaign, Candidate, CandidateAI, CandidateInterestSummary, CandidateStatus, FormField, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
+import type { Brand, Branding, Campaign, Candidate, CandidateAI, CandidateComment, CandidateEvent, CandidateInterestSummary, CandidateStatus, CompanyMember, FormField, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
 import { supabase, supabaseConfigured } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
-import { SEED, SEED_BRANDS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, freshenDemoData } from './seed'
+import { SEED, SEED_BRANDS, SEED_CANDIDATE_COMMENTS, SEED_CANDIDATE_EVENTS, SEED_MEMBERS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, freshenDemoData } from './seed'
 import { extractCandidateEmail, interestEligibility, type InterestSendResult } from './interest'
 
 // Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
@@ -37,7 +37,7 @@ type CandidateRow = {
   answers: Candidate['answers']
   status: CandidateStatus
   source: Candidate['source']
-  rating: number
+  favorito: boolean
   notes: string
   cv_path: string | null
   created_at: string
@@ -81,7 +81,7 @@ const toCandidate = (r: CandidateRow, tagIds: string[] = []): Candidate => ({
   answers: r.answers ?? {},
   status: r.status,
   source: r.source,
-  rating: r.rating,
+  favorito: r.favorito ?? false,
   notes: r.notes ?? '',
   cvPath: r.cv_path ?? undefined,
   submittedAt: r.created_at,
@@ -189,6 +189,59 @@ const toTeamComment = (r: TeamCommentRow): TeamRequestComment => ({
   createdAt: r.created_at,
 })
 
+type CandidateCommentRow = {
+  id: string
+  candidate_id: string
+  author_user_id: string | null
+  author_email: string
+  body: string
+  mentions: string[] | null
+  is_note: boolean
+  created_at: string
+}
+const toCandidateComment = (r: CandidateCommentRow): CandidateComment => ({
+  id: r.id,
+  candidateId: r.candidate_id,
+  authorUserId: r.author_user_id,
+  authorEmail: r.author_email ?? '',
+  body: r.body ?? '',
+  mentions: r.mentions ?? [],
+  isNote: r.is_note ?? false,
+  createdAt: r.created_at,
+})
+const CANDIDATE_COMMENT_SELECT = 'id,candidate_id,author_user_id,author_email,body,mentions,is_note,created_at'
+
+type CandidateEventRow = {
+  id: string
+  candidate_id: string
+  actor_email: string
+  kind: CandidateEvent['kind']
+  details: Record<string, unknown> | null
+  created_at: string
+}
+const toCandidateEvent = (r: CandidateEventRow): CandidateEvent => ({
+  id: r.id,
+  candidateId: r.candidate_id,
+  actorEmail: r.actor_email ?? '',
+  kind: r.kind,
+  details: r.details ?? {},
+  createdAt: r.created_at,
+})
+
+function countByCandidate(rows: { candidate_id: string }[] | null | undefined): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const r of rows ?? []) out[r.candidate_id] = (out[r.candidate_id] ?? 0) + 1
+  return out
+}
+
+type MemberRow = { user_id: string; email: string; role: CompanyMember['role']; is_self: boolean }
+const toMember = (r: MemberRow): CompanyMember => ({
+  userId: r.user_id,
+  email: r.email ?? '',
+  role: r.role,
+  isSelf: !!r.is_self,
+})
+
 export interface NewCampaignInput {
   title: string
   sector: string
@@ -219,8 +272,7 @@ interface Store {
   sendInterestCheck: (campaignId: string, candidateIds: string[], idempotencyKey: string) => Promise<InterestSendResult>
   // mutaciones
   setStatus: (candidateId: string, status: CandidateStatus) => Promise<void>
-  setRating: (candidateId: string, rating: number) => Promise<void>
-  setNotes: (candidateId: string, notes: string) => Promise<void>
+  setFavorito: (candidateId: string, favorito: boolean) => Promise<void>
   // Meridian: pide (o repite) el triaje de IA de una candidatura. Devuelve true si
   // quedó analizada. La edge function gatea por plan y es idempotente; en demo se
   // fabrica un análisis plausible en memoria.
@@ -281,6 +333,23 @@ interface Store {
   setTeamRequestStatus: (id: string, status: TeamRequestStatus) => Promise<void>
   deleteTeamRequest: (id: string) => Promise<boolean>
   retractProposal: (requestId: string, candidateId: string) => Promise<void>
+  // Chat de equipo dentro del candidato (sustituye a las notas internas). Como el
+  // hilo del tablón, no se cachea: se carga al abrir el detalle y se refresca con
+  // el ping realtime. Un candidato tiene pocos mensajes; el coste es una consulta.
+  loadCandidateComments: (candidateId: string) => Promise<CandidateComment[]>
+  // Hilos de varios candidatos a la vez, agrupados por id. Lo usa el export a
+  // Excel: lo que escribió el equipo tiene que salir en el fichero.
+  loadCommentsForMany: (candidateIds: string[]) => Promise<Record<string, CandidateComment[]>>
+  addCandidateComment: (candidateId: string, body: string, mentions: string[]) => Promise<CandidateComment | null>
+  // Nº de mensajes por candidato, para el indicador de la lista. Se llena en la
+  // carga general: saber DÓNDE hay conversación no debe costar abrir el detalle.
+  commentCounts: Record<string, number>
+  loadCandidateEvents: (candidateId: string) => Promise<CandidateEvent[]>
+  // Sube con cada ping realtime del chat de candidatos: un detalle abierto lo usa
+  // para refrescar su hilo sin sondear.
+  chatVersion: number
+  // Miembros de la empresa, para el autocompletado de menciones. Se pide una vez.
+  members: CompanyMember[]
   resetDemo: () => void
 }
 
@@ -288,7 +357,9 @@ const Ctx = createContext<Store | null>(null)
 
 // --- Persistencia de la DEMO en localStorage --------------------------------
 // La demo es 100% local; guardamos su estado para que aguante recargas.
-const DEMO_KEY = 'apuntatefacil.demo.v6'
+// v7: los candidatos pasaron de `rating` (0-5) a `favorito` (sí/no) y el hilo de
+// equipo entró en la demo. Un estado v6 guardado traería candidatos sin favorito.
+const DEMO_KEY = 'apuntatefacil.demo.v7'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
@@ -313,7 +384,7 @@ function readBoardSeen(): Record<string, string> {
   }
 }
 
-function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; savedViews: SavedView[]; sites: Site[]; brands: Brand[]; tags: Tag[]; teamRequests: TeamRequest[]; teamComments: TeamRequestComment[] } | null {
+function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; savedViews: SavedView[]; sites: Site[]; brands: Brand[]; tags: Tag[]; teamRequests: TeamRequest[]; teamComments: TeamRequestComment[]; candidateComments: CandidateComment[] } | null {
   try {
     const raw = localStorage.getItem(DEMO_KEY)
     if (!raw) return null
@@ -330,6 +401,7 @@ function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; save
         // Demos guardadas antes del tablón: datos de ejemplo.
         teamRequests: Array.isArray(parsed.teamRequests) ? parsed.teamRequests : SEED_TEAM_REQUESTS,
         teamComments: Array.isArray(parsed.teamComments) ? parsed.teamComments : SEED_TEAM_COMMENTS,
+        candidateComments: Array.isArray(parsed.candidateComments) ? parsed.candidateComments : SEED_CANDIDATE_COMMENTS,
       }
   } catch {
     /* ignora storage corrupto */
@@ -361,6 +433,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [demoTeamComments, setDemoTeamComments] = useState<TeamRequestComment[]>([])
   const [boardSeen, setBoardSeen] = useState<Record<string, string>>(() => readBoardSeen())
   const [boardVersion, setBoardVersion] = useState(0)
+  // Chat de candidatos: igual que el tablón, el hilo no se cachea (se carga al
+  // abrir) pero el RECUENTO sí, porque lo pinta la lista entera.
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
+  const [chatVersion, setChatVersion] = useState(0)
+  const [members, setMembers] = useState<CompanyMember[]>([])
+  // Hilos de candidato en DEMO (en real se cargan perezosos, sin estado global).
+  const [demoCandidateComments, setDemoCandidateComments] = useState<CandidateComment[]>([])
+  // Los eventos de demo se derivan del seed, no se guardan: se recalculan al cargar.
+  const [demoCandidateEvents, setDemoCandidateEvents] = useState<CandidateEvent[]>([])
   // Candidatos con una escritura optimista aún sin confirmar en el servidor. Un
   // refetch (reloadCandidatesFor) NO debe pisar su estado local con datos viejos
   // del servidor mientras la escritura está en vuelo.
@@ -383,6 +464,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTags([])
       setTeamRequests([])
       setDemoTeamComments([])
+      setDemoCandidateComments([])
+      setCommentCounts({})
+      setMembers([])
       setLoadedCompanyId(null)
       return
     }
@@ -396,6 +480,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         candidates: saved?.candidates ?? SEED.candidates,
         teamRequests: saved?.teamRequests ?? SEED_TEAM_REQUESTS,
         teamComments: saved?.teamComments ?? SEED_TEAM_COMMENTS,
+        candidateComments: saved?.candidateComments ?? SEED_CANDIDATE_COMMENTS,
+        candidateEvents: SEED_CANDIDATE_EVENTS,
       })
       setCampaigns(fresh.campaigns)
       setCandidates(fresh.candidates)
@@ -405,6 +491,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTags(saved?.tags ?? SEED_TAGS)
       setTeamRequests(fresh.teamRequests)
       setDemoTeamComments(fresh.teamComments)
+      setDemoCandidateComments(fresh.candidateComments)
+      setDemoCandidateEvents(fresh.candidateEvents)
+      setCommentCounts(countByCandidate(fresh.candidateComments.map((c) => ({ candidate_id: c.candidateId }))))
+      // Sin miembros no hay autocompletado de menciones, y la demo es donde se
+      // enseña que el chat avisa a un compañero.
+      setMembers(SEED_MEMBERS.map((m) => ({ userId: m.user_id, email: m.email, role: m.role as CompanyMember['role'], isSelf: m.is_self })))
       setLockedInfo({})
       setLoadedCompanyId('demo')
       setLoading(false)
@@ -413,7 +505,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     // Acotamos a la empresa ACTIVA (company_id). La RLS sola no basta: para un usuario en
     // varios equipos devolvería datos de TODOS, sumándolos. Con esto ves solo el equipo activo.
-    const [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10] = await Promise.all([
+    const [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12] = await Promise.all([
       supabase.from('campaigns').select('*').eq('company_id', companyId).order('created_at', { ascending: true }),
       supabase.from('candidates').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
       supabase.from('saved_views').select('id,campaign_id,name,payload').eq('company_id', companyId).order('created_at', { ascending: true }),
@@ -429,6 +521,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // Tablón de equipo: cabeceras + candidatos propuestos + nº de respuestas.
       supabase.from('team_requests').select(TEAM_REQUEST_SELECT).eq('company_id', companyId).order('last_activity_at', { ascending: false }),
       supabase.rpc('candidate_interest_overview_for_company', { p_company: companyId }),
+      // Solo el id del candidato: el recuento se agrega aquí. Los mensajes son
+      // muchos menos que los candidatos, así que una consulta basta y evita el
+      // N+1 de preguntar hilo a hilo solo para pintar un número en la lista.
+      supabase.from('candidate_comments').select('candidate_id').eq('company_id', companyId),
+      // Miembros del equipo: los necesita el autocompletado de menciones del chat.
+      supabase.rpc('list_company_members', { p_company_id: companyId }),
     ])
     if (seq !== loadSeq.current) return // un cambio de equipo más nuevo ya está cargando
     if (c1.error || c2.error) {
@@ -454,6 +552,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setBrands(!c5.error && c5.data ? (c5.data as BrandRow[]).map(toBrand) : [])
     setTags(!c6.error && c6.data ? (c6.data as TagRow[]).map(toTag) : [])
     setTeamRequests(!c9.error && c9.data ? (c9.data as TeamRequestRow[]).map(toTeamRequest) : [])
+    setCommentCounts(countByCandidate(!c11.error ? (c11.data as { candidate_id: string }[] | null) : null))
+    setMembers(!c12.error && c12.data ? (c12.data as MemberRow[]).map(toMember) : [])
     setLoadedCompanyId(companyId)
     setLoading(false)
   }, [companyId, toast])
@@ -541,6 +641,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!companyId || companyId === 'demo' || !supabaseConfigured) return
     const pending = new Set<string>() // campaign_ids acumulados (ráfagas)
+    const chatPending = new Set<string>() // candidate_ids con mensajes nuevos
     let lockedDirty = false
     let boardDirty = false
     let timer = 0
@@ -561,6 +662,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         boardDirty = false
         flushBoard()
       }
+      if (chatPending.size) {
+        // El recuento sube aquí (lo pinta la lista entera); el hilo que esté
+        // abierto se recarga solo, mirando chatVersion.
+        const cids = [...chatPending]
+        chatPending.clear()
+        setCommentCounts((prev) => {
+          const next = { ...prev }
+          for (const cid of cids) next[cid] = (next[cid] ?? 0) + 1
+          return next
+        })
+        setChatVersion((v) => v + 1)
+      }
     }
     const channel = supabase
       .channel(`company:${companyId}`, { config: { private: true } })
@@ -580,6 +693,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // por actividad de OTROS miembros.
         if (payload?.by && payload.by === userIdRef.current) return
         boardDirty = true
+        if (!timer) timer = window.setTimeout(flush, 500)
+      })
+      .on('broadcast', { event: 'candidate_chat_ping' }, ({ payload }) => {
+        // Mismo criterio que el tablón: tu propio mensaje ya está pintado.
+        if (payload?.by && payload.by === userIdRef.current) return
+        const cid = typeof payload?.candidate_id === 'string' ? payload.candidate_id : null
+        if (cid) chatPending.add(cid)
         if (!timer) timer = window.setTimeout(flush, 500)
       })
     // Canal privado: el token debe estar fijado en Realtime antes de suscribir
@@ -612,21 +732,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [companyId])
 
-  // Persiste la demo en localStorage tras cada cambio. Salta la primera ejecución
-  // (la hidratación inicial con el estado vacío) para no pisar lo guardado.
-  const demoPersistReady = useRef(false)
+  // Persiste la demo en localStorage tras cada cambio.
+  //
+  // NUNCA se guarda una demo sin puestos. El "saltar la primera ejecución" no
+  // basta: en desarrollo StrictMode monta el efecto dos veces y la segunda ya
+  // pasa el guardián con el estado todavía vacío. Y una demo vacía guardada se
+  // relee como demo vacía (`[]` también es un array), así que la demo se queda
+  // muerta hasta borrar el almacenamiento a mano. Con esta condición no puede
+  // pasar: para vaciarla del todo está "Reiniciar demo", que borra la clave.
   useEffect(() => {
     if (companyId !== 'demo') return
-    if (!demoPersistReady.current) {
-      demoPersistReady.current = true
-      return
-    }
+    if (campaigns.length === 0) return
     try {
-      localStorage.setItem(DEMO_KEY, JSON.stringify({ campaigns, candidates, savedViews, sites, brands, tags, teamRequests, teamComments: demoTeamComments }))
+      localStorage.setItem(DEMO_KEY, JSON.stringify({ campaigns, candidates, savedViews, sites, brands, tags, teamRequests, teamComments: demoTeamComments, candidateComments: demoCandidateComments }))
     } catch {
       /* cuota llena, ignora */
     }
-  }, [companyId, campaigns, candidates, savedViews, sites, brands, tags, teamRequests, demoTeamComments])
+  }, [companyId, campaigns, candidates, savedViews, sites, brands, tags, teamRequests, demoTeamComments, demoCandidateComments])
 
   const patchCandidateLocal = (id: string, patch: Partial<Candidate>) =>
     setCandidates((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)))
@@ -639,6 +761,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const notifyBoard = (kind: 'peticion' | 'respuesta', id: string) => {
     if (companyId === 'demo' || !supabaseConfigured) return
     void supabase.functions.invoke('notify-team-board', { body: { kind, id } }).catch(() => {})
+  }
+
+  // En real el historial lo escriben los triggers de la base de datos; en la demo
+  // no hay base, así que lo anotamos aquí. Sin esto, marcar un favorito en la
+  // demo no aparecía en Historial y la pestaña parecía rota justo al probarla.
+  const logDemoEvent = (candidateId: string, kind: CandidateEvent['kind'], details: Record<string, unknown>) => {
+    if (companyId !== 'demo') return
+    setDemoCandidateEvents((es) => [
+      ...es,
+      {
+        id: `ce_demo_${Math.random().toString(36).slice(2, 9)}`,
+        candidateId,
+        actorEmail: user?.email ?? '',
+        kind,
+        details,
+        createdAt: new Date().toISOString(),
+      },
+    ])
   }
 
   const dbCandidate = async (id: string, patch: Record<string, unknown>, revert: () => void) => {
@@ -783,25 +923,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setStatus: async (id, status) => {
       const prev = candidates.find((c) => c.id === id)?.status
       patchCandidateLocal(id, { status })
+      logDemoEvent(id, 'estado', { de: prev, a: status })
       await dbCandidate(id, { status }, () => prev && patchCandidateLocal(id, { status: prev }))
     },
-    setRating: async (id, rating) => {
-      const prev = candidates.find((c) => c.id === id)?.rating
-      patchCandidateLocal(id, { rating })
-      await dbCandidate(id, { rating }, () => prev != null && patchCandidateLocal(id, { rating: prev }))
-    },
-    setNotes: async (id, notes) => {
-      patchCandidateLocal(id, { notes })
-      await dbCandidate(id, { notes }, () => {})
+    setFavorito: async (id, favorito) => {
+      const prev = candidates.find((c) => c.id === id)?.favorito
+      patchCandidateLocal(id, { favorito })
+      logDemoEvent(id, 'favorito', { favorito })
+      await dbCandidate(id, { favorito }, () => prev != null && patchCandidateLocal(id, { favorito: prev }))
     },
 
     analyzeCandidate: async (id) => {
       const cand = candidates.find((c) => c.id === id)
       if (!cand) return false
       if (companyId === 'demo') {
-        // Demo: sin red. Fabricamos un triaje coherente con estado/valoración,
+        // Demo: sin red. Fabricamos un triaje coherente con estado/favorito,
         // como hace la rama demo de sendInterestCheck.
-        const ai = aiFor(cand.status, cand.rating, new Date().toISOString())
+        const ai = aiFor(cand.status, cand.favorito, new Date().toISOString())
         patchCandidateLocal(id, { ai })
         return true
       }
@@ -855,7 +993,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         answers: candidate.answers,
         status: candidate.status,
         source: candidate.source,
-        rating: candidate.rating,
+        favorito: candidate.favorito,
         notes: candidate.notes,
         cv_path: candidate.cvPath ?? null,
         created_at: candidate.submittedAt,
@@ -1550,6 +1688,100 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     },
 
+    commentCounts,
+    chatVersion,
+    members,
+
+    loadCandidateComments: async (candidateId) => {
+      if (companyId === 'demo')
+        return demoCandidateComments
+          .filter((c) => c.candidateId === candidateId)
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      const { data, error } = await supabase
+        .from('candidate_comments')
+        .select(CANDIDATE_COMMENT_SELECT)
+        .eq('candidate_id', candidateId)
+        .order('created_at', { ascending: true })
+      if (error || !data) return []
+      return (data as CandidateCommentRow[]).map(toCandidateComment)
+    },
+
+    loadCommentsForMany: async (candidateIds) => {
+      const group = (list: CandidateComment[]) => {
+        const out: Record<string, CandidateComment[]> = {}
+        for (const c of list) (out[c.candidateId] ??= []).push(c)
+        for (const k of Object.keys(out)) out[k].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        return out
+      }
+      if (!candidateIds.length) return {}
+      if (companyId === 'demo')
+        return group(demoCandidateComments.filter((c) => candidateIds.includes(c.candidateId)))
+      // En lotes: una URL con miles de ids en el `in.()` la rechaza el servidor.
+      const out: CandidateComment[] = []
+      for (let i = 0; i < candidateIds.length; i += 200) {
+        const { data, error } = await supabase
+          .from('candidate_comments')
+          .select(CANDIDATE_COMMENT_SELECT)
+          .in('candidate_id', candidateIds.slice(i, i + 200))
+        if (error || !data) continue
+        out.push(...(data as CandidateCommentRow[]).map(toCandidateComment))
+      }
+      return group(out)
+    },
+
+    addCandidateComment: async (candidateId, body, mentions) => {
+      const bump = () =>
+        setCommentCounts((prev) => ({ ...prev, [candidateId]: (prev[candidateId] ?? 0) + 1 }))
+      if (companyId === 'demo') {
+        const comment: CandidateComment = {
+          id: `cc_demo_${Math.random().toString(36).slice(2, 9)}`,
+          candidateId,
+          authorUserId: userId,
+          authorEmail: user?.email ?? '',
+          body,
+          mentions,
+          isNote: false,
+          createdAt: new Date().toISOString(),
+        }
+        setDemoCandidateComments((cs) => [...cs, comment])
+        bump()
+        return comment
+      }
+      // Como en el tablón: servidor primero. El id, el autor y las menciones
+      // válidas los fija el trigger, así que no hay nada que pintar antes.
+      const { data, error } = await supabase
+        .from('candidate_comments')
+        .insert({ candidate_id: candidateId, body, mentions })
+        .select(CANDIDATE_COMMENT_SELECT)
+        .single()
+      if (error || !data) {
+        toast.error('No se pudo enviar el mensaje. Inténtalo de nuevo.')
+        return null
+      }
+      const comment = toCandidateComment(data as CandidateCommentRow)
+      bump()
+      // Aviso por email a los mencionados, best-effort: el mensaje ya está
+      // guardado y en vivo; si el correo falla no se molesta a nadie.
+      if (comment.mentions.length && supabaseConfigured) {
+        void supabase.functions
+          .invoke('notify-candidate-mention', { body: { comment_id: comment.id } })
+          .catch(() => {})
+      }
+      return comment
+    },
+
+    loadCandidateEvents: async (candidateId) => {
+      if (companyId === 'demo')
+        return demoCandidateEvents.filter((e) => e.candidateId === candidateId)
+      const { data, error } = await supabase
+        .from('candidate_events')
+        .select('id,candidate_id,actor_email,kind,details,created_at')
+        .eq('candidate_id', candidateId)
+        .order('created_at', { ascending: true })
+      if (error || !data) return []
+      return (data as CandidateEventRow[]).map(toCandidateEvent)
+    },
+
     resetDemo: () => {
       try {
         localStorage.removeItem(DEMO_KEY)
@@ -1561,6 +1793,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         candidates: SEED.candidates,
         teamRequests: SEED_TEAM_REQUESTS,
         teamComments: SEED_TEAM_COMMENTS,
+        candidateComments: SEED_CANDIDATE_COMMENTS,
+        candidateEvents: SEED_CANDIDATE_EVENTS,
       })
       setCampaigns(fresh.campaigns)
       setCandidates(fresh.candidates)
@@ -1570,8 +1804,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTags(SEED_TAGS)
       setTeamRequests(fresh.teamRequests)
       setDemoTeamComments(fresh.teamComments)
+      setDemoCandidateComments(fresh.candidateComments)
+      setDemoCandidateEvents(fresh.candidateEvents)
+      setCommentCounts(countByCandidate(fresh.candidateComments.map((c) => ({ candidate_id: c.candidateId }))))
+      // Sin miembros no hay autocompletado de menciones, y la demo es donde se
+      // enseña que el chat avisa a un compañero.
+      setMembers(SEED_MEMBERS.map((m) => ({ userId: m.user_id, email: m.email, role: m.role as CompanyMember['role'], isSelf: m.is_self })))
     },
-  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, teamRequests, demoTeamComments, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, sendInterestCheck, toast])
+  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, teamRequests, demoTeamComments, demoCandidateComments, demoCandidateEvents, commentCounts, chatVersion, members, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, sendInterestCheck, toast])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

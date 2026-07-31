@@ -34,7 +34,7 @@ function candidate(
   return {
     id, campaignId,
     answers: email ? { nombre: id, email } : { nombre: id },
-    status: 'nuevo', submittedAt: iso(20), source: 'enlace', rating: 0, notes: '', tagIds: [],
+    status: 'nuevo', submittedAt: iso(20), source: 'enlace', favorito: false, notes: '', tagIds: [],
     interest: interest === undefined || interest === null ? undefined : {
       checkId: `check-${id}`,
       batchId: 'batch-1',

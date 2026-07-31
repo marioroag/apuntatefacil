@@ -129,11 +129,19 @@ export function TagPicker({
   tagIds,
   canManage,
   onOpenManage,
+  inline = false,
 }: {
   candidateId: string
   tagIds: string[]
   canManage: boolean
   onOpenManage: () => void
+  /**
+   * Variante para la cabecera del detalle: primero los chips, y el campo de
+   * añadir sale de un "+ Etiqueta" discreto. En la ficha manda el campo (vas a
+   * etiquetar); en la cabecera mandan las etiquetas que YA tiene, y un combobox
+   * siempre abierto se comía el sitio de las acciones de contacto.
+   */
+  inline?: boolean
 }) {
   const { tags, applyTag, removeTag, createTag } = useStore()
   const toast = useToast()
@@ -217,6 +225,124 @@ export function TagPicker({
 
   const showDropdown = open && (options.length > 0 || canManage)
 
+  const opciones = (
+      <ul
+        id={listId}
+        role="listbox"
+        className={`absolute left-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-pop ${
+          // En línea el contenedor es una fila de chips de ancho variable: el
+          // desplegable necesita ancho propio, no el del contenedor.
+          inline ? 'w-64 max-w-[80vw]' : 'right-0'
+        }`}
+      >
+        {options.length === 0 && !showCreate && (
+          <li className="px-2.5 py-2 text-[13px] text-slate-500">
+            {tags.length === 0
+              ? canManage
+                ? 'Escribe para crear tu primera etiqueta.'
+                : 'Tu empresa aún no tiene etiquetas.'
+              : 'Ninguna etiqueta coincide.'}
+          </li>
+        )}
+        {options.map((opt, i) => {
+          const isActive = i === active
+          if (opt.kind === 'create') {
+            return (
+              <li key="__create" role="option" aria-selected={isActive}>
+                <button
+                  type="button"
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => choose(opt)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-indigo-700 ${
+                    isActive ? 'bg-indigo-50' : 'hover:bg-indigo-50'
+                  }`}
+                >
+                  <Plus className="size-4 shrink-0" aria-hidden />
+                  <span className="truncate">{COPY.create(normalizeTagName(query))}</span>
+                </button>
+              </li>
+            )
+          }
+          return (
+            <li key={opt.tag.id} role="option" aria-selected={isActive}>
+              <button
+                type="button"
+                onMouseEnter={() => setActive(i)}
+                onClick={() => choose(opt)}
+                className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 ${
+                  isActive ? 'bg-slate-100' : 'hover:bg-slate-100'
+                }`}
+              >
+                <TagIcon className="size-3.5 shrink-0 text-slate-500" aria-hidden />
+                <span className="truncate">{opt.tag.name}</span>
+              </button>
+            </li>
+          )
+        })}
+        {canManage && (
+          <li className="mt-1 border-t border-slate-100 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                onOpenManage()
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+            >
+              <Settings2 className="size-3.5 shrink-0" aria-hidden />
+              {COPY.manage}
+            </button>
+          </li>
+        )}
+      </ul>
+  )
+
+  if (inline) {
+    return (
+      <div ref={wrapRef} className="relative flex flex-wrap items-center gap-1.5">
+        {applied.map((t) => (
+          <TagChip key={t.id} name={t.name} onRemove={() => removeTag(candidateId, t.id)} />
+        ))}
+        {open ? (
+          <input
+            ref={inputRef}
+            type="text"
+            role="combobox"
+            aria-expanded={showDropdown}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            aria-label={COPY.add}
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                // Cierra el campo, no el modal de detrás.
+                e.stopPropagation()
+                setOpen(false)
+                setQuery('')
+                return
+              }
+              onKeyDown(e)
+            }}
+            placeholder={COPY.add}
+            maxLength={40}
+            className="h-7 w-36 rounded-full border border-slate-300 bg-white px-2.5 text-[13px] outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="rounded-full px-2 py-0.5 text-[12px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200 transition-colors hover:bg-slate-50 hover:text-slate-800"
+          >
+            + Etiqueta
+          </button>
+        )}
+        {showDropdown && opciones}
+      </div>
+    )
+  }
+
   return (
     <div ref={wrapRef} className="relative">
       <div className="relative">
@@ -241,73 +367,7 @@ export function TagPicker({
         />
       </div>
 
-      {showDropdown && (
-        <ul
-          id={listId}
-          role="listbox"
-          className="absolute left-0 right-0 z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-pop"
-        >
-          {options.length === 0 && !showCreate && (
-            <li className="px-2.5 py-2 text-[13px] text-slate-500">
-              {tags.length === 0
-                ? canManage
-                  ? 'Escribe para crear tu primera etiqueta.'
-                  : 'Tu empresa aún no tiene etiquetas.'
-                : 'Ninguna etiqueta coincide.'}
-            </li>
-          )}
-          {options.map((opt, i) => {
-            const isActive = i === active
-            if (opt.kind === 'create') {
-              return (
-                <li key="__create" role="option" aria-selected={isActive}>
-                  <button
-                    type="button"
-                    onMouseEnter={() => setActive(i)}
-                    onClick={() => choose(opt)}
-                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-indigo-700 ${
-                      isActive ? 'bg-indigo-50' : 'hover:bg-indigo-50'
-                    }`}
-                  >
-                    <Plus className="size-4 shrink-0" aria-hidden />
-                    <span className="truncate">{COPY.create(normalizeTagName(query))}</span>
-                  </button>
-                </li>
-              )
-            }
-            return (
-              <li key={opt.tag.id} role="option" aria-selected={isActive}>
-                <button
-                  type="button"
-                  onMouseEnter={() => setActive(i)}
-                  onClick={() => choose(opt)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 ${
-                    isActive ? 'bg-slate-100' : 'hover:bg-slate-100'
-                  }`}
-                >
-                  <TagIcon className="size-3.5 shrink-0 text-slate-500" aria-hidden />
-                  <span className="truncate">{opt.tag.name}</span>
-                </button>
-              </li>
-            )
-          })}
-          {canManage && (
-            <li className="mt-1 border-t border-slate-100 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false)
-                  onOpenManage()
-                }}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-              >
-                <Settings2 className="size-3.5 shrink-0" aria-hidden />
-                {COPY.manage}
-              </button>
-            </li>
-          )}
-        </ul>
-      )}
+      {showDropdown && opciones}
 
       {applied.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
