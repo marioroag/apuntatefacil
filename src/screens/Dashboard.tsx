@@ -28,6 +28,7 @@ import {
   Share2,
   SlidersHorizontal,
   Star,
+  MessagesSquare,
   Tag,
   Trash2,
   X,
@@ -39,7 +40,7 @@ import { Checkbox } from '../components/ui/Checkbox'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import { CandidatePanel } from './CandidatePanel'
+import { CandidateModal } from './CandidateModal'
 import { exportCandidatesToExcel } from '../lib/export'
 import { relativeDate, miles, formatPhone, candidateName, isFreshNuevo } from '../lib/format'
 // El anillo de ajuste se queda en el avatar (Mario, jul 2026). Lo que se retiró
@@ -97,8 +98,8 @@ function numberFilterLabel(nf: NumberFilter): string {
 
 export function Dashboard() {
   const { campaignId } = useParams()
-  const [searchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, lockedInfo } = useStore()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, lockedInfo, loadCommentsForMany } = useStore()
   const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -124,12 +125,27 @@ export function Dashboard() {
   const [statusFilter, setStatusFilter] = useState<Set<CandidateStatus>>(new Set())
   const [valueFilters, setValueFilters] = useState<{ fieldId: string; label: string; value: string }[]>([])
   const [numberFilters, setNumberFilters] = useState<NumberFilter[]>([])
-  const [ratingFilter, setRatingFilter] = useState<number>(0)
+  const [favoritosOnly, setFavoritosOnly] = useState(false)
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set()) // ids de etiqueta; OR dentro del grupo
   const [interestFilter, setInterestFilter] = useState<Set<CandidateInterestState>>(new Set())
   const [manageTagsOpen, setManageTagsOpen] = useState(false)
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'fecha', dir: 'desc' })
-  const [openId, setOpenId] = useState<string | null>(null)
+  // El candidato abierto vive en la URL (?candidato=<id>), no en estado local:
+  // así el aviso de una mención puede enlazar directamente a su ficha, y volver
+  // atrás cierra el detalle en vez de salir del puesto.
+  const openId = searchParams.get('candidato')
+  const setOpenId = (id: string | null) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (id) next.set('candidato', id)
+        else next.delete('candidato')
+        return next
+      },
+      // replace: recorrer 40 candidatos con las flechas no debe dejar 40 entradas
+      // en el historial del navegador.
+      { replace: true },
+    )
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [interestDialogOpen, setInterestDialogOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false) // modo selección múltiple (móvil)
@@ -218,7 +234,7 @@ export function Dashboard() {
     setStatusFilter(initialEstado ? new Set([initialEstado]) : new Set())
     setValueFilters([])
     setNumberFilters([])
-    setRatingFilter(0)
+    setFavoritosOnly(false)
     setTagFilter(new Set())
     setSelected(new Set())
     setSelectMode(false)
@@ -357,7 +373,7 @@ export function Dashboard() {
     let list = base0.filter((c) => {
       if (statusFilter.size && !statusFilter.has(c.status)) return false
       if (interestFilter.size && !interestFilter.has(candidateInterestState(campaign, c))) return false
-      if (ratingFilter > 0 && c.rating < ratingFilter) return false
+      if (favoritosOnly && !c.favorito) return false
       // Etiquetas: OR dentro del grupo (basta tener UNA de las seleccionadas), AND
       // con el resto de grupos (consistente con el comportamiento actual).
       if (tagFilter.size && !c.tagIds.some((id) => tagFilter.has(id))) return false
@@ -400,7 +416,7 @@ export function Dashboard() {
       })
     }
     return list
-  }, [all, campaign, dq, rpcIds, base, statusFilter, interestFilter, valueFilters, numberFilters, ratingFilter, tagFilter, sort])
+  }, [all, campaign, dq, rpcIds, base, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
 
   // Dominio real (mín/máx) de cada pregunta numérica, para acotar sus sliders.
   const numberDomains = useMemo(() => {
@@ -425,7 +441,7 @@ export function Dashboard() {
   const lockedCount = lockedFor?.count ?? 0
   const lockedDates = lockedFor?.dates ?? []
   const isFiltered =
-    !!dq || statusFilter.size > 0 || interestFilter.size > 0 || ratingFilter > 0 || tagFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0
+    !!dq || statusFilter.size > 0 || interestFilter.size > 0 || favoritosOnly || tagFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0
   // Los bloqueados (difuminados) salen ARRIBA, como las candidaturas nuevas (son
   // las más recientes), solo en la vista por defecto (más nuevos primero y sin
   // filtros): con otro orden no tendría sentido cronológico, así que ahí no se
@@ -451,7 +467,7 @@ export function Dashboard() {
     )
   }
 
-  const activeFilterCount = statusFilter.size + interestFilter.size + valueFilters.length + numberFilters.length + (ratingFilter > 0 ? 1 : 0) + tagFilter.size
+  const activeFilterCount = statusFilter.size + interestFilter.size + valueFilters.length + numberFilters.length + (favoritosOnly ? 1 : 0) + tagFilter.size
   const cols = highlightFields(campaign)
   const openCandidate = openId ? all.find((c) => c.id === openId) ?? null : null
   const selectedCandidates = all.filter((candidate) => selected.has(candidate.id))
@@ -471,7 +487,7 @@ export function Dashboard() {
     setInterestFilter(new Set(v.payload.interestStates ?? []))
     setValueFilters(v.payload.valueFilters ?? [])
     setNumberFilters(v.payload.numberFilters ?? [])
-    setRatingFilter(v.payload.ratingFilter ?? 0)
+    setFavoritosOnly(v.payload.favoritosOnly ?? false)
     setTagFilter(new Set(v.payload.tagFilter ?? []))
     setSort(v.payload.sort ?? { key: 'fecha', dir: 'desc' })
   }
@@ -480,7 +496,7 @@ export function Dashboard() {
     const ok = await createSavedView({
       name,
       campaignId: scope === 'global' ? null : campaign.id,
-      payload: { search, statuses: [...statusFilter], interestStates: [...interestFilter], valueFilters, numberFilters, ratingFilter, tagFilter: [...tagFilter], sort },
+      payload: { search, statuses: [...statusFilter], interestStates: [...interestFilter], valueFilters, numberFilters, favoritosOnly, tagFilter: [...tagFilter], sort },
     })
     setSaveViewOpen(false)
     if (ok) toast.success('Vista guardada')
@@ -509,7 +525,7 @@ export function Dashboard() {
     setInterestFilter(new Set())
     setValueFilters([])
     setNumberFilters([])
-    setRatingFilter(0)
+    setFavoritosOnly(false)
     setTagFilter(new Set())
     setSearch('')
   }
@@ -524,7 +540,7 @@ export function Dashboard() {
       const { data } = await supabase.rpc('locked_candidates_export', { p_campaign: campaign.id })
       if (Array.isArray(data)) lockedDates = data as string[]
     }
-    const name = await exportCandidatesToExcel(campaign, filtered, tags, lockedDates)
+    const name = await exportCandidatesToExcel(campaign, filtered, tags, lockedDates, await loadCommentsForMany(filtered.map((c) => c.id)))
     toast.success(`Excel listo, ${name}`)
   }
 
@@ -541,7 +557,7 @@ export function Dashboard() {
   const exportSelected = async () => {
     const subset = all.filter((c) => selected.has(c.id))
     if (subset.length === 0) return
-    const name = await exportCandidatesToExcel(campaign, subset, tags)
+    const name = await exportCandidatesToExcel(campaign, subset, tags, [], await loadCommentsForMany(subset.map((c) => c.id)))
     toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
     exitSelect()
   }
@@ -665,8 +681,8 @@ export function Dashboard() {
             numberFilters={numberFilters}
             setNumberFilters={setNumberFilters}
             numberDomains={numberDomains}
-            ratingFilter={ratingFilter}
-            setRatingFilter={setRatingFilter}
+            favoritosOnly={favoritosOnly}
+            setFavoritosOnly={setFavoritosOnly}
             tags={tags}
             tagFilter={tagFilter}
             setTagFilter={setTagFilter}
@@ -691,7 +707,7 @@ export function Dashboard() {
       </div>
 
       {/* Chips de filtros activos */}
-      {(statusFilter.size > 0 || interestFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0 || ratingFilter > 0 || tagFilter.size > 0) && (
+      {(statusFilter.size > 0 || interestFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0 || favoritosOnly || tagFilter.size > 0) && (
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <button onClick={clearFilters} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
             <X className="size-3.5" aria-hidden /> Limpiar
@@ -708,8 +724,8 @@ export function Dashboard() {
           {numberFilters.map((nf) => (
             <Chip key={`n-${nf.fieldId}`} label={`${nf.label}: ${numberFilterLabel(nf)}`} onRemove={() => setNumberFilters((p) => p.filter((x) => x.fieldId !== nf.fieldId))} />
           ))}
-          {ratingFilter > 0 && (
-            <Chip label={`Valoración: ${ratingFilter}+ ${'★'.repeat(ratingFilter)}`} onRemove={() => setRatingFilter(0)} />
+          {favoritosOnly && (
+            <Chip label="Solo favoritos" onRemove={() => setFavoritosOnly(false)} />
           )}
           {[...tagFilter].map((id) => {
             const t = tags.find((x) => x.id === id)
@@ -782,7 +798,7 @@ export function Dashboard() {
               // Exporta TODA la selección, también filas que un filtro posterior
               // haya ocultado (si no, exportaría menos de lo que dice la barra).
               const subset = all.filter((c) => selected.has(c.id))
-              const name = await exportCandidatesToExcel(campaign, subset, tags)
+              const name = await exportCandidatesToExcel(campaign, subset, tags, [], await loadCommentsForMany(subset.map((c) => c.id)))
               toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
             }}
             className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
@@ -871,7 +887,7 @@ export function Dashboard() {
         </p>
       </ConfirmDialog>
 
-      <CandidatePanel
+      <CandidateModal
         campaign={campaign}
         candidate={openCandidate}
         maskPhone={maskPhone}
@@ -880,6 +896,10 @@ export function Dashboard() {
         onDeleted={(c) =>
           toast.success('Candidato eliminado', { action: { label: 'Deshacer', onClick: () => restoreCandidate(c) } })
         }
+        // Las flechas recorren lo que se está viendo, no toda la base: si has
+        // filtrado por "entrevista", "siguiente" es el siguiente de esa lista.
+        siblings={filtered}
+        onNavigate={setOpenId}
       />
 
       <InterestCheckDialog
@@ -1174,7 +1194,7 @@ function CandidateTable({
   selectMode: boolean
   onEnterSelect: () => void
 }) {
-  const { setStatus } = useStore()
+  const { setStatus, commentCounts } = useStore()
   // Candidato cuyo estado se está cambiando desde la hoja (solo móvil).
   const [statusFor, setStatusFor] = useState<Candidate | null>(null)
   // Pulsación larga (móvil) para entrar en modo selección. longPressed evita que
@@ -1207,6 +1227,32 @@ function CandidateTable({
   }, [rows, justArrived])
 
   // CTA de las filas bloqueadas (escritorio): un ÚNICO botón centrado sobre el
+/**
+ * Señales de la fila: si está en favoritos y si hay conversación. Sin esto, el
+ * filtro "Solo favoritos" ordenaba por algo que no se veía en ninguna parte, y
+ * había que abrir candidato a candidato para saber dónde había hablado alguien.
+ */
+function RowSignals({ favorito, comments }: { favorito: boolean; comments: number }) {
+  if (!favorito && !comments) return null
+  return (
+    <span className="flex shrink-0 items-center gap-1.5">
+      {favorito && (
+        <>
+          <Star className="size-3.5 fill-current text-indigo-600" aria-hidden />
+          <span className="sr-only">En favoritos.</span>
+        </>
+      )}
+      {comments > 0 && (
+        <span className="flex items-center gap-0.5 text-[12px] text-slate-500">
+          <MessagesSquare className="size-3.5 text-slate-400" aria-hidden />
+          <span className="num">{comments}</span>
+          <span className="sr-only">{comments === 1 ? 'mensaje del equipo' : 'mensajes del equipo'}</span>
+        </span>
+      )}
+    </span>
+  )
+}
+
   // bloque entero. No se puede anclar con position sobre un <tbody>/<tr>/<td>
   // (Safari no crea contenedor de posicionamiento sobre elementos de tabla: el
   // overlay se escaparía al viewport). Así que medimos el bloque de filas con JS
@@ -1390,6 +1436,7 @@ function CandidateTable({
                     <span className="truncate">{name}</span>
                     {c.source === 'prueba' && <TestChip />}
                     <InterestOutcomeIcon campaign={campaign} candidate={c} />
+                    <RowSignals favorito={c.favorito} comments={commentCounts[c.id] ?? 0} />
                   </p>
                   {phone && (
                     <p className="num mt-0.5 truncate text-sm text-slate-500">
@@ -1547,6 +1594,7 @@ function CandidateTable({
                         </button>
                         {c.source === 'prueba' && <TestChip />}
                         <InterestOutcomeIcon campaign={campaign} candidate={c} />
+                        <RowSignals favorito={c.favorito} comments={commentCounts[c.id] ?? 0} />
                       </div>
                       {hasTags && (
                         <div className="h-5 min-w-0">
@@ -1692,8 +1740,8 @@ function FilterMenu({
   numberFilters,
   setNumberFilters,
   numberDomains,
-  ratingFilter,
-  setRatingFilter,
+  favoritosOnly,
+  setFavoritosOnly,
   tags,
   tagFilter,
   setTagFilter,
@@ -1709,8 +1757,8 @@ function FilterMenu({
   numberFilters: NumberFilter[]
   setNumberFilters: React.Dispatch<React.SetStateAction<NumberFilter[]>>
   numberDomains: Record<string, [number, number]>
-  ratingFilter: number
-  setRatingFilter: React.Dispatch<React.SetStateAction<number>>
+  favoritosOnly: boolean
+  setFavoritosOnly: React.Dispatch<React.SetStateAction<boolean>>
   tags: TagType[]
   tagFilter: Set<string>
   setTagFilter: React.Dispatch<React.SetStateAction<Set<string>>>
@@ -1763,7 +1811,7 @@ function FilterMenu({
     setInterestFilter(new Set())
     setValueFilters([])
     setNumberFilters([])
-    setRatingFilter(0)
+    setFavoritosOnly(false)
     setTagFilter(new Set())
   }
 
@@ -1773,6 +1821,15 @@ function FilterMenu({
     'flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2.5 text-[15px] text-slate-700 hover:bg-slate-50 sm:gap-2 sm:px-1.5 sm:py-1 sm:text-sm'
   const controls = (
     <>
+      {/* Favoritos primero: es el filtro de una línea que más se usa ("enséñame
+          a los que quiero"), y antes vivía al final del panel como cinco
+          estrellas, que era el widget más grande para la decisión más simple. */}
+      <label className={`${rowClass} mb-4 sm:mb-3`}>
+        <Checkbox checked={favoritosOnly} onChange={() => setFavoritosOnly((v) => !v)} />
+        <Star className="size-4 shrink-0 text-slate-400" aria-hidden />
+        Solo favoritos
+      </label>
+
       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Estado</p>
       <div className="mb-4 space-y-0.5 sm:mb-3">
         {STATUS_ORDER.map((s) => (
@@ -1864,29 +1921,6 @@ function FilterMenu({
         )
       })}
 
-      <div>
-        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Valoración mínima</p>
-        <div className="flex gap-0.5" role="group" aria-label="Filtrar por valoración mínima">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setRatingFilter(ratingFilter === n ? 0 : n)}
-              aria-label={`${n} estrella${n > 1 ? 's' : ''} o más`}
-              aria-pressed={ratingFilter >= n}
-              className="rounded-lg p-1.5 text-slate-300 transition-colors hover:text-amber-400 sm:p-0.5"
-            >
-              <Star
-                className={`size-7 sm:size-5 ${ratingFilter >= n ? 'fill-amber-400 text-amber-400' : ''}`}
-                aria-hidden
-              />
-            </button>
-          ))}
-        </div>
-        {ratingFilter > 0 && (
-          <p className="mt-1 text-[12px] text-slate-500">{ratingFilter} estrella{ratingFilter > 1 ? 's' : ''} o más</p>
-        )}
-      </div>
     </>
   )
 

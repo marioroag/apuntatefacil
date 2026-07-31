@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Briefcase, Check, ChevronRight, Loader2, Lock, Sparkles } from 'lucide-react'
 import type { Candidate } from '../lib/types'
-import { initials, fullDate, candidateName } from '../lib/format'
+import { initials, candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
+import { useAppBase } from '../lib/useAppBase'
 import { BTN_SECONDARY } from '../lib/buttons'
 import { MERIDIAN_NAME, hasMeridian, fitTier, candidateFit } from '../lib/meridian'
 
@@ -139,6 +141,9 @@ export function MeridianCandidateRow({
 export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
   const { analyzeCandidate } = useStore()
   const { company } = useAuth()
+  // El enlace al plan tiene que respetar la demo: con /app/plan a pelo, pulsarlo
+  // desde /demo te sacaba de la demo a la app real.
+  const base = useAppBase()
   const [busy, setBusy] = useState(false)
   const enabled = hasMeridian(company?.plan)
   const ai = candidate.ai
@@ -159,12 +164,12 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
         <p className="mt-1.5 text-[13px] leading-5 text-slate-500">
           Reviso cada candidatura y calculo su ajuste al puesto para que veas primero a quien encaja.
         </p>
-        <a
-          href="/app/plan"
+        <Link
+          to={`${base}/plan`}
           className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-600 hover:text-indigo-700"
         >
           <Lock className="size-3.5" aria-hidden /> Disponible con Pro
-        </a>
+        </Link>
       </div>
     )
   }
@@ -184,10 +189,14 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
           <ItemList label="A favor" items={ai.highlights} marker="check" />
           <ItemList label="A confirmar" items={ai.concerns} marker="dot" />
         </div>
-        <p className="mt-3 border-t border-slate-100 pt-2.5 text-[11px] leading-4 text-slate-400">
-          {ai.cvUsed === false ? 'Sin CV, lo he mirado por sus respuestas. ' : ''}
-          {ai.model} · <span className="num">{fullDate(ai.analyzedAt)}</span>
-        </p>
+        {/* Sin línea de procedencia (modelo · fecha): cuándo se analizó ya está
+            en Historial. Lo único que sigue siendo AVISO, y no metadato, es que
+            no había CV: eso cambia cuánto te puedes fiar de la lectura. */}
+        {ai.cvUsed === false && (
+          <p className="mt-3 border-t border-slate-100 pt-2.5 text-[12px] leading-4 text-slate-500">
+            Sin CV: lo he mirado solo por sus respuestas.
+          </p>
+        )}
       </div>
     )
   }

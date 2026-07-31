@@ -218,7 +218,7 @@ Deno.serve(async (req) => {
     // Contexto: SIEMPRE por el cliente del usuario, para que la RLS acote.
     const [{ data: campaignRows }, { data: candidateRows }] = await Promise.all([
       userClient.from('campaigns').select('id,title,sector,location,status,fields').eq('company_id', companyId),
-      userClient.from('candidates').select('id,campaign_id,answers,status,rating,notes,ai,created_at').eq('company_id', companyId),
+      userClient.from('candidates').select('id,campaign_id,answers,status,favorito,notes,ai,created_at').eq('company_id', companyId),
     ])
     const campaigns = (campaignRows ?? []) as CampaignRow[]
     const candidates = (candidateRows ?? []) as CandidateRow[]

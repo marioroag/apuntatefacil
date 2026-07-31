@@ -23,7 +23,7 @@ function candidate(patch: Partial<CandidateRow> & { id: string }): CandidateRow 
   return {
     campaign_id: 'c1',
     answers: { nombre: `Nombre ${patch.id}`, email: `${patch.id}@ejemplo.com`, tel: '600111222', carnet: 'Sí', exp: '6' },
-    status: 'nuevo', rating: 0, notes: null, ai: null, created_at: dias(1),
+    status: 'nuevo', favorito: false, notes: null, ai: null, created_at: dias(1),
     ...patch,
   }
 }

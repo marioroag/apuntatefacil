@@ -4,6 +4,7 @@ import { planHas } from '../lib/pricing'
 import { FeatureLocked } from '../components/FeatureLocked'
 import { EquipoTablon } from './EquipoTablon'
 import { EquipoMiembros } from './EquipoMiembros'
+import { Tabs, TabPanel } from '../components/ui/Tabs'
 
 // Página de equipo (Pro+), en dos pestañas:
 //   * Tablón (por defecto, TODO el equipo): peticiones internas con respuestas
@@ -46,50 +47,22 @@ export function Equipo() {
       </header>
 
       {showMiembros && (
-        <div role="tablist" aria-label="Secciones de equipo" className="mb-5 flex gap-5 border-b border-slate-200">
-          <TabButton active={tab === 'tablon'} onClick={() => switchTab('tablon')} id="tab-tablon" controls="panel-tablon">
-            Tablón
-          </TabButton>
-          <TabButton active={tab === 'miembros'} onClick={() => switchTab('miembros')} id="tab-miembros" controls="panel-miembros">
-            Miembros
-          </TabButton>
-        </div>
+        <Tabs
+          items={[
+            { value: 'tablon', label: 'Tablón' },
+            { value: 'miembros', label: 'Miembros' },
+          ]}
+          value={tab}
+          onChange={switchTab}
+          idPrefix="equipo"
+          label="Secciones de equipo"
+          className="mb-5"
+        />
       )}
 
-      <div role="tabpanel" id={tab === 'tablon' ? 'panel-tablon' : 'panel-miembros'} aria-labelledby={tab === 'tablon' ? 'tab-tablon' : 'tab-miembros'}>
+      <TabPanel idPrefix="equipo" value={tab}>
         {tab === 'tablon' ? <EquipoTablon /> : <EquipoMiembros />}
-      </div>
+      </TabPanel>
     </div>
-  )
-}
-
-function TabButton({
-  active,
-  onClick,
-  id,
-  controls,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  id: string
-  controls: string
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      role="tab"
-      id={id}
-      aria-selected={active}
-      aria-controls={controls}
-      onClick={onClick}
-      className={`-mb-px border-b-2 pb-2.5 text-sm transition-colors ${
-        active
-          ? 'border-indigo-600 font-semibold text-slate-900'
-          : 'border-transparent font-medium text-slate-500 hover:border-slate-300 hover:text-slate-700'
-      }`}
-    >
-      {children}
-    </button>
   )
 }

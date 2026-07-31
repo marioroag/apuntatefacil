@@ -3,6 +3,8 @@ import type {
   Campaign,
   Candidate,
   CandidateAI,
+  CandidateComment,
+  CandidateEvent,
   CandidateSource,
   CandidateStatus,
   AppData,
@@ -423,14 +425,15 @@ function answerFor(field: FormField, name: string, cmpId: string, candidateNumbe
   }
 }
 
-// Valoración coherente con la fase: a quien avanza se le ha puesto más estrellas.
-function ratingFor(status: CandidateStatus): number {
+// Favorito coherente con la fase: a quien avanza se le ha marcado más. Es un
+// interruptor, no una nota: nadie guarda en favoritos a quien ya ha descartado.
+function favoritoFor(status: CandidateStatus): boolean {
   switch (status) {
-    case 'contratado': return between(4, 5)
-    case 'entrevista': return between(3, 5)
-    case 'contactado': return chance(0.5) ? between(3, 4) : 0
-    case 'descartado': return chance(0.4) ? between(1, 2) : 0
-    default: return chance(0.18) ? 4 : 0 // algún "nuevo" ya marcado como prometedor
+    case 'contratado': return true
+    case 'entrevista': return chance(0.7)
+    case 'contactado': return chance(0.35)
+    case 'descartado': return false
+    default: return chance(0.18) // algún "nuevo" ya marcado como prometedor
   }
 }
 
@@ -480,21 +483,20 @@ function noteFor(status: CandidateStatus): string {
 // Triaje de Meridian (solo demo). En producción lo genera la edge function con
 // OpenAI; aquí fabricamos un análisis plausible y estable con el PRNG del seed,
 // para que el anillo de ajuste y el bloque del panel se vean desde el primer
-// segundo. El ajuste correlaciona con el estado/valoración para que ordenar por
-// ajuste "cuente una historia" coherente. Nunca es un veredicto: es orientativo.
+// segundo. El ajuste correlaciona con el estado y el favorito para que ordenar
+// por ajuste "cuente una historia" coherente. Nunca es un veredicto: orientativo.
 // ---------------------------------------------------------------------------
 
 // Banda de ajuste (0..100) por estado, ya trabajado por el responsable.
-function fitFor(status: CandidateStatus, rating: number): number {
+function fitFor(status: CandidateStatus, favorito: boolean): number {
   const base =
     status === 'contratado' ? between(82, 96)
     : status === 'entrevista' ? between(72, 90)
     : status === 'contactado' ? between(56, 80)
     : status === 'descartado' ? between(26, 54)
     : between(46, 86) // nuevo: aún por ver
-  // La valoración manual, si existe, tira un poco del ajuste hacia arriba.
-  const bump = rating >= 4 ? 6 : rating >= 3 ? 3 : 0
-  return Math.max(15, Math.min(98, base + bump))
+  // Estar en favoritos tira un poco del ajuste hacia arriba.
+  return Math.max(15, Math.min(98, base + (favorito ? 6 : 0)))
 }
 
 const AI_SUMMARY_HIGH = [
@@ -540,8 +542,8 @@ function pickN<T>(pool: T[], n: number): T[] {
   return out
 }
 
-export function aiFor(status: CandidateStatus, rating: number, submittedAt: string): CandidateAI {
-  const fit = fitFor(status, rating)
+export function aiFor(status: CandidateStatus, favorito: boolean, submittedAt: string): CandidateAI {
+  const fit = fitFor(status, favorito)
   const summary = fit >= 70 ? pick(AI_SUMMARY_HIGH) : fit >= 50 ? pick(AI_SUMMARY_MID) : pick(AI_SUMMARY_LOW)
   const highlights = pickN(AI_HIGHLIGHTS, fit >= 70 ? between(2, 3) : between(1, 2))
   const concerns = fit >= 78 ? pickN(AI_CONCERNS, chance(0.5) ? 1 : 0) : pickN(AI_CONCERNS, between(1, 2))
@@ -588,7 +590,7 @@ for (const cmp of campaigns) {
       if (v !== undefined) answers[field.id] = v
     }
     const status: CandidateStatus = i < 2 ? 'nuevo' : weightedStatus() // los 2 primeros (más recientes) siempre nuevos
-    const rating = ratingFor(status)
+    const favorito = favoritoFor(status)
     const submittedAt = dateAgo(DAYS_OPEN[cmp.id] ?? 20)
     // Meridian analiza al entrar, así que la mayoría ya tiene triaje. Dejamos ~12%
     // sin analizar (sesgado a alguna candidatura recién llegada) para que se vea
@@ -601,10 +603,10 @@ for (const cmp of campaigns) {
       status,
       submittedAt,
       source: pick(SOURCES),
-      rating,
+      favorito,
       notes: noteFor(status),
       tagIds: tagsForStatus(status),
-      ai: analyzed ? aiFor(status, rating, submittedAt) : undefined,
+      ai: analyzed ? aiFor(status, favorito, submittedAt) : undefined,
     })
     n = candidateNumber
   }
@@ -670,6 +672,115 @@ markProposed(mozos[1], 'contratado', ['tag_buen_perfil', 'tag_cerca_obra'])
 markProposed(oficiales[0], 'contratado', ['tag_buen_perfil', 'tag_doc_ok', 'tag_vehiculo'])
 markProposed(preparadores[0], 'entrevista', ['tag_buen_perfil', 'tag_turno_noche'])
 markProposed(preparadores[1], 'contactado', ['tag_recontactar'])
+
+// ---------------------------------------------------------------------------
+// Chat de equipo dentro del candidato (demo). Sale de las mismas notas que
+// antes vivían en el campo `notes`, pero ahora con autor y hora: es justo lo
+// que hace que la pestaña Equipo se entienda de un vistazo. Se genera DESPUÉS
+// de markProposed para que los candidatos del tablón también tengan su hilo.
+// ---------------------------------------------------------------------------
+
+// 'demo-user' es el id del visitante en /demo (ver DemoAuthProvider): sus
+// mensajes deben leerse como "Tú", no como un compañero más.
+const CHAT_AUTHORS: { email: string; userId: string | null }[] = [
+  { email: 'laura@tuempresa.es', userId: null },
+  { email: 'sergio@tuempresa.es', userId: null },
+  { email: 'demo@apuntatefacil.com', userId: 'demo-user' },
+]
+
+// Segunda voz: alguien contesta. Un hilo con una sola línea no parece un chat.
+const CHAT_REPLIES: Partial<Record<CandidateStatus, string[]>> = {
+  contactado: ['Perfecto, aviso yo si no contesta mañana.', 'Ok, lo dejo en tu lista.'],
+  entrevista: ['Anotado. Le preparo la documentación.', 'Voy yo a la entrevista si no puedes.'],
+  contratado: ['Genial. Le doy de alta esta semana.', 'Aviso a la sede para el equipo.'],
+  descartado: ['De acuerdo, lo dejamos para la próxima oleada.'],
+}
+
+export const SEED_CANDIDATE_COMMENTS: CandidateComment[] = (() => {
+  const out: CandidateComment[] = []
+  let n = 0
+  for (const c of SEED.candidates) {
+    if (!c.notes) continue
+    const base = Date.parse(c.submittedAt)
+    const autor = CHAT_AUTHORS[n % CHAT_AUTHORS.length]
+    out.push({
+      id: `cc_seed_${++n}`,
+      candidateId: c.id,
+      authorUserId: autor.userId,
+      authorEmail: autor.email,
+      body: c.notes,
+      mentions: [],
+      isNote: false,
+      createdAt: new Date(base + between(2, 20) * 3_600_000).toISOString(),
+    })
+    const replies = CHAT_REPLIES[c.status]
+    if (replies && chance(0.45)) {
+      const otro = CHAT_AUTHORS[(n + 1) % CHAT_AUTHORS.length]
+      out.push({
+        id: `cc_seed_${++n}`,
+        candidateId: c.id,
+        authorUserId: otro.userId,
+        authorEmail: otro.email,
+        body: pick(replies),
+        mentions: [],
+        isNote: false,
+        createdAt: new Date(base + between(22, 40) * 3_600_000).toISOString(),
+      })
+    }
+  }
+  return out
+})()
+
+// ---------------------------------------------------------------------------
+// Historial del candidato (demo). Se deriva de lo que ya cuentan los datos: si
+// alguien está "contratado" es que su estado cambió, y si tiene análisis es que
+// Meridian pasó por ahí. Sin esto, la pestaña Historial saldría vacía en la
+// demo, que es justo donde hay que enseñar que existe.
+// ---------------------------------------------------------------------------
+
+export const SEED_CANDIDATE_EVENTS: CandidateEvent[] = (() => {
+  const out: CandidateEvent[] = []
+  let n = 0
+  const push = (
+    candidateId: string,
+    kind: CandidateEvent['kind'],
+    at: number,
+    details: Record<string, unknown> = {},
+    actorEmail = '',
+  ) => {
+    out.push({ id: `ce_seed_${++n}`, candidateId, actorEmail, kind, details, createdAt: new Date(at).toISOString() })
+  }
+
+  for (const c of SEED.candidates) {
+    const base = Date.parse(c.submittedAt)
+    push(c.id, 'recibida', base, { source: c.source })
+    if (c.ai && !c.ai.error) push(c.id, 'analisis', base + 60_000, { fit: c.ai.fit, cvUsed: c.ai.cvUsed })
+    if (c.interest) {
+      push(c.id, 'interes_enviada', Date.parse(c.interest.sentAt))
+      if (c.interest.response && c.interest.respondedAt)
+        push(c.id, 'interes_respuesta', Date.parse(c.interest.respondedAt), { response: c.interest.response })
+    }
+    // El recorrido por los estados: quien está contratado pasó antes por
+    // contactado y entrevista. Un salto directo a "contratado" no lo hace nadie.
+    const camino: CandidateStatus[] =
+      c.status === 'contratado' ? ['contactado', 'entrevista', 'contratado']
+      : c.status === 'entrevista' ? ['contactado', 'entrevista']
+      : c.status === 'nuevo' ? []
+      : [c.status]
+    let previo: CandidateStatus = 'nuevo'
+    camino.forEach((s, i) => {
+      const autor = CHAT_AUTHORS[(n + i) % CHAT_AUTHORS.length]
+      push(c.id, 'estado', base + (i + 1) * 26 * 3_600_000, { de: previo, a: s }, autor.email)
+      previo = s
+    })
+    if (c.favorito) {
+      const autor = CHAT_AUTHORS[n % CHAT_AUTHORS.length]
+      push(c.id, 'favorito', base + 20 * 3_600_000, { favorito: true }, autor.email)
+    }
+  }
+  out.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  return out
+})()
 
 export const SEED_TEAM_REQUESTS: TeamRequest[] = [
   {
@@ -1182,6 +1293,8 @@ export type DemoFreshable = {
   candidates: Candidate[]
   teamRequests: TeamRequest[]
   teamComments: TeamRequestComment[]
+  candidateComments: CandidateComment[]
+  candidateEvents: CandidateEvent[]
 }
 
 /** Clona el bundle de demo y ancla la fecha más reciente a `now`. */
@@ -1201,6 +1314,8 @@ export function freshenDemoData<T extends DemoFreshable>(data: T, now = Date.now
     note(r.lastActivityAt)
   }
   for (const c of clone.teamComments) note(c.createdAt)
+  for (const c of clone.candidateComments) note(c.createdAt)
+  for (const e of clone.candidateEvents) note(e.createdAt)
 
   if (times.length === 0) return clone
   const delta = now - Math.max(...times)
@@ -1221,5 +1336,7 @@ export function freshenDemoData<T extends DemoFreshable>(data: T, now = Date.now
     r.lastActivityAt = shiftDemoTime(r.lastActivityAt, delta)
   }
   for (const c of clone.teamComments) c.createdAt = shiftDemoTime(c.createdAt, delta)
+  for (const c of clone.candidateComments) c.createdAt = shiftDemoTime(c.createdAt, delta)
+  for (const e of clone.candidateEvents) e.createdAt = shiftDemoTime(e.createdAt, delta)
   return clone
 }

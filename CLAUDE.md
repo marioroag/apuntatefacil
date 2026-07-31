@@ -18,7 +18,8 @@ supabase start   # stack local: Postgres + Auth + Storage + Studio (necesita Doc
 cp .env.example .env.local   # claves locales de Supabase (anon key + URL)
 npm run dev      # http://localhost:5173
 npm run build    # debe quedar verde
-npx tsc --noEmit # sin errores de tipos
+npx tsc -b --noEmit # sin errores de tipos (OJO: `tsc --noEmit` a secas NO comprueba nada,
+                    # el tsconfig raíz usa project references y no tiene ficheros propios)
 ```
 - Login local: email + contraseña (con confirmación de email obligatoria) y Google. Los emails de acceso (confirmación, reset) llegan a Mailpit (http://127.0.0.1:54324). Google OAuth necesita credenciales reales (pendiente).
 - Migraciones en `supabase/migrations/`. Tras tocar el esquema: `supabase db reset`. Tras tocar `config.toml`: `supabase stop && supabase start`.
@@ -33,7 +34,7 @@ npx tsc --noEmit # sin errores de tipos
 | `/app/puestos/:id/formulario` | Constructor del formulario (drag & drop) + preview en vivo |
 | `/a/:slug` | Formulario público que rellena el candidato (mobile-first) |
 
-Datos demo: una ETT con 6 puestos (construcción + logística), ~680 candidatos (80–160 por puesto) y tablón de Equipo en `localStorage` (clave `apuntatefacil.demo.v6`). Las fechas se anclan a la visita para que no envejezcan. Reinicio: borrar la clave o `resetDemo()`.
+Datos demo: una ETT con 6 puestos (construcción + logística), ~680 candidatos (80–160 por puesto) y tablón de Equipo en `localStorage` (clave `apuntatefacil.demo.v7`). Las fechas se anclan a la visita para que no envejezcan. Reinicio: borrar la clave o `resetDemo()`.
 
 ## Doctrina visual "Instrumento de precisión" (NO cambiar sin debate)
 Sobria, nítida y premium, carácter Linear (registro "SaaS confiable"). **Multisector**: nunca debe oler a construcción (cero cascos, naranjas de obra, mascotas). La identidad vieja (índigo `#4F46E5` + Inter/Manrope + slate) está **retirada**: Mario aprobó el remake total (jun 2026). Tokens en `src/index.css`; botones en `src/lib/buttons.ts`.
@@ -49,7 +50,10 @@ Sobria, nítida y premium, carácter Linear (registro "SaaS confiable"). **Multi
 - **Un único `FieldRenderer`** (`src/components/FieldRenderer.tsx`) pinta **a la vez** la preview del builder y el formulario público: WYSIWYG real. Si tocas uno, tocas los dos. No hacer una versión "bonita" distinta del producto.
 - **Formulario público mobile-first**: una columna, max 480px, inputs 48px alto y **16px de fuente** (evita zoom iOS), targets ≥ 44px. Validación **al blur y al enviar, nunca al teclear**. **Nunca borrar lo que el candidato escribió** (ni el CV) en un envío fallido. Teclados correctos (`type=tel/email/number`, `inputmode`).
 - **Acento configurable del cliente** con **guarda de contraste AA** (`src/lib/colors.ts`): si el blanco no llega a 4.5:1 sobre su color, el texto del botón pasa a tinta oscura automáticamente.
-- **Detalle del candidato** = panel lateral (SlideOver), nunca modal a pantalla completa que tape la lista filtrada.
+- **Detalle del candidato** = **pop-up con pestañas** (`src/screens/CandidateModal.tsx`, jul 2026). Sustituyó al SlideOver de 460 px: el panel lateral protegía que la lista siguiera a la vista, pero eso lo da igual el telón translúcido, y a cambio obligaba a apilar en una columna estrecha todo lo que hay que saber de una persona. Reparto fijo: izquierda lo que dice el candidato (Resumen / Respuestas / CV), derecha lo que dice tu equipo (Equipo / Historial); por debajo de 1024px la conversación entra como una pestaña más. Trae lo que faltaba: **flechas para pasar al siguiente candidato** de la lista filtrada y **enlace directo** (`?candidato=<id>`). El SlideOver sigue siendo lo correcto para detalles secundarios (peticiones del tablón).
+- **Favorito (una estrella) sustituye a la valoración de 5 estrellas** (jul 2026). Es un interruptor ("a este lo quiero"), no una nota con matices. Va en el acento porque es **selección**, no en ámbar: el ámbar ya significa "entrevista" y aparece en la misma cabecera. Migración: `rating >= 4` pasó a favorito.
+- **El chat de equipo sustituye a las notas internas** (`candidate_comments`). Con autor, fecha y menciones `@` que avisan por correo. Es una capacidad **Pro** (misma llave que el tablón, `planHas(plan, 'teamBoard')`); en Esencial la pestaña Equipo enseña el bloqueo. Una sola primitiva de conversación, `src/components/ui/Chat.tsx`, para el candidato y para el tablón: si tocas una, tocas las dos.
+- **Historial del candidato** (`candidate_events`): lo escriben triggers de base de datos, y el TEXTO se compone en el cliente (`eventoTexto`) para poder usar las etiquetas de estado reales sin migrar filas. Los comentarios NO son eventos: el chat está en la pestaña de al lado.
 - **Accesibilidad suelo**: foco visible con `:focus-visible` (nunca quitar el outline), `<button>`/`<a>` reales, `<table>` semántica con `aria-sort`, drag-to-reorder SIEMPRE con alternativa de teclado y subir/bajar, `prefers-reduced-motion` respetado.
 - **Movimiento**: corto y sobrio (120/180/240ms), solo `transform`/`opacity`. Sin springs ni rebotes. El verde "contratado" es el único hito con un pulse sutil; "descartado" solo cambia de color, sin shake ni rojo.
 

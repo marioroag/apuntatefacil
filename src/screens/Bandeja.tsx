@@ -5,7 +5,7 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
-import { CandidatePanel } from './CandidatePanel'
+import { CandidateModal } from './CandidateModal'
 import { relativeDate, formatPhone, candidateName } from '../lib/format'
 import { MeridianAvatar, FitLabel } from '../components/Meridian'
 import { candidateFit } from '../lib/meridian'
@@ -192,7 +192,7 @@ export function Bandeja() {
       )}
 
       {openCampaign && (
-        <CandidatePanel
+        <CandidateModal
           campaign={openCampaign}
           candidate={openCandidate}
           maskPhone={maskPhone}
@@ -201,6 +201,10 @@ export function Bandeja() {
           onDeleted={(c) =>
             toast.success('Candidato eliminado', { action: { label: 'Deshacer', onClick: () => restoreCandidate(c) } })
           }
+          // La bandeja mezcla puestos: al pasar al siguiente, `openCampaign` se
+          // recalcula desde el propio candidato, así que la cabecera acompaña.
+          siblings={nuevos}
+          onNavigate={setOpenId}
         />
       )}
 

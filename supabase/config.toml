@@ -436,6 +436,10 @@ verify_jwt = true
 [functions.notify-team-board]
 verify_jwt = true
 
+# Aviso de mención en el chat de un candidato. Lo llama un miembro autenticado.
+[functions.notify-candidate-mention]
+verify_jwt = true
+
 [functions.send-interest-check]
 verify_jwt = true
 

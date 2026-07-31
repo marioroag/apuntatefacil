@@ -15,7 +15,7 @@ function candidate(response: CandidateInterestResponse | null, withCheck = true)
     status: 'nuevo',
     submittedAt: '2026-07-21T10:00:00.000Z',
     source: 'enlace',
-    rating: 0,
+    favorito: false,
     notes: '',
     tagIds: [],
     interest: withCheck ? {
