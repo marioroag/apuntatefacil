@@ -719,13 +719,17 @@ export const SEED_CANDIDATE_COMMENTS: CandidateComment[] = (() => {
     const replies = CHAT_REPLIES[c.status]
     if (replies && chance(0.45)) {
       const otro = CHAT_AUTHORS[(n + 1) % CHAT_AUTHORS.length]
+      // Alguna respuesta te interpela a ti: es lo que hace que el timbre de
+      // avisos tenga algo real que enseñar en la demo. Solo cuando contesta un
+      // compañero, claro: mencionarte a ti mismo no es un aviso.
+      const teMenciona = otro.userId !== 'demo-user' && chance(0.3)
       out.push({
         id: `cc_seed_${++n}`,
         candidateId: c.id,
         authorUserId: otro.userId,
         authorEmail: otro.email,
-        body: pick(replies),
-        mentions: [],
+        body: teMenciona ? `@demo ${pick(replies)}` : pick(replies),
+        mentions: teMenciona ? ['demo-user'] : [],
         isNote: false,
         createdAt: new Date(base + between(22, 40) * 3_600_000).toISOString(),
       })

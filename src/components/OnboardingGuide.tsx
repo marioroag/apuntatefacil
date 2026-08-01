@@ -101,7 +101,7 @@ export function OnboardingGuide() {
 
   const dismiss = async () => {
     await setOnboardingDone(true)
-    toast.show('Guía cerrada. La tienes en el menú como Primeros pasos.', {
+    toast.show('Guía cerrada. La tienes arriba, en Primeros pasos.', {
       action: { label: 'Deshacer', onClick: () => void setOnboardingDone(false) },
     })
   }

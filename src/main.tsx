@@ -17,6 +17,7 @@ import './index.css'
 
 import { AuthProvider, DemoAuthProvider } from './lib/auth'
 import { StoreProvider } from './lib/store'
+import { ProfilesProvider } from './lib/profiles'
 import { ToastProvider } from './components/ui/Toast'
 import { AuthGate } from './components/AuthGate'
 import { AppLayout, FirstCampaignRedirect } from './screens/AppLayout'
@@ -42,6 +43,7 @@ const Invitacion = lazy(() => import('./screens/Invitacion').then((m) => ({ defa
 const Builder = lazy(() => import('./screens/Builder').then((m) => ({ default: m.Builder })))
 const Plan = lazy(() => import('./screens/Plan').then((m) => ({ default: m.Plan })))
 const Soporte = lazy(() => import('./screens/Soporte').then((m) => ({ default: m.Soporte })))
+const Ajustes = lazy(() => import('./screens/Ajustes').then((m) => ({ default: m.Ajustes })))
 const AdminOverview = lazy(() => import('./screens/AdminOverview').then((m) => ({ default: m.AdminOverview })))
 // Playground de diseño: solo en `npm run dev`, no entra en el build de producción.
 const Playground = import.meta.env.DEV
@@ -49,14 +51,14 @@ const Playground = import.meta.env.DEV
   : null
 
 // El hilo de Meridian está apagado (MERIDIAN_CHAT_ENABLED). La ruta no se borra:
-// redirige a la Vista general, así quien la tuviera guardada aterriza en su panel
+// redirige a Vista general, así quien la tuviera guardada aterriza en su panel
 // y no en la landing por el comodín del final.
 const meridianRoute = MERIDIAN_CHAT_ENABLED
   ? <Route path="meridian" element={<MeridianBriefing />} />
   : <Route path="meridian" element={<Navigate to="../resumen" replace />} />
 
-// Sedes y Marcas dejaron de ser pantallas (ago 2026): la sede se gestiona en Vista
-// general y los ajustes del puesto, y la marca en el constructor del formulario.
+// Sedes y Marcas dejaron de ser pantallas (ago 2026): la sede se gestiona en Vista general
+// y en los ajustes del puesto, y la marca en el constructor del formulario.
 // Las rutas viejas no se borran, redirigen: quien las tuviera guardadas aterriza en
 // su panel y no en la landing por el comodín del final.
 const rutasRetiradas = (
@@ -100,7 +102,9 @@ createRoot(document.getElementById('root')!).render(
                   path="/app"
                   element={
                     <AuthGate>
-                      <AppLayout />
+                      <ProfilesProvider>
+                        <AppLayout />
+                      </ProfilesProvider>
                     </AuthGate>
                   }
                 >
@@ -112,6 +116,8 @@ createRoot(document.getElementById('root')!).render(
                   {rutasRetiradas}
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
+                  <Route path="ajustes" element={<Ajustes />} />
+                  <Route path="ajustes/:seccion" element={<Ajustes />} />
                   <Route path="plan" element={<Plan />} />
                   <Route path="admin" element={<AdminOverview />} />
                   <Route path="soporte" element={<Soporte />} />
@@ -121,7 +127,9 @@ createRoot(document.getElementById('root')!).render(
                   element={
                     <DemoAuthProvider>
                       <StoreProvider>
-                        <AppLayout />
+                        <ProfilesProvider>
+                          <AppLayout />
+                        </ProfilesProvider>
                       </StoreProvider>
                     </DemoAuthProvider>
                   }
@@ -134,6 +142,8 @@ createRoot(document.getElementById('root')!).render(
                   {rutasRetiradas}
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
+                  <Route path="ajustes" element={<Ajustes />} />
+                  <Route path="ajustes/:seccion" element={<Ajustes />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

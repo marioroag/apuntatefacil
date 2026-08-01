@@ -166,7 +166,10 @@ async function callOpenAI(prompt: { system: string; user: string }): Promise<{
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
-    const { candidate_id } = await req.json()
+    // `auto` = lo dispara la llegada de la candidatura (formulario público), no
+    // una persona. Solo eso lo puede apagar la empresa en Ajustes: analizar UNA
+    // ficha a mano siempre se puede, o el botón de su ficha mentiría.
+    const { candidate_id, auto } = await req.json()
     if (!candidate_id) return json({ error: 'Falta candidate_id' }, 400)
 
     const { data: cand } = await admin
@@ -178,9 +181,13 @@ Deno.serve(async (req) => {
 
     // Gating de plan (fail-closed): la IA es diferenciador de Pro/Multi.
     const { data: comp } = await admin
-      .from('companies').select('plan').eq('id', cand.company_id).single()
+      .from('companies').select('plan,meridian_auto').eq('id', cand.company_id).single()
     if (!planHasMeridian(comp?.plan)) {
       return json({ ok: true, analyzed: false, skipped: 'plan sin Meridian' })
+    }
+    // Triaje automático apagado en Ajustes: no se analiza al entrar.
+    if (auto === true && comp?.meridian_auto === false) {
+      return json({ ok: true, analyzed: false, skipped: 'triaje automático desactivado' })
     }
 
     // Idempotencia: un análisis correcto ya existente no se repite (no gasta OpenAI).

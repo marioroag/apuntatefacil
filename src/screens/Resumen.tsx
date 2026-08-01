@@ -13,10 +13,12 @@ import type { Candidate, Site } from '../lib/types'
 
 const STALE_DAYS = 7
 
-// Vista general: panel "home" con el pulso global de todos los puestos. La sede
-// no tiene pantalla propia (ago 2026): se asigna y se crea en los ajustes del
-// puesto, y el ÚNICO sitio donde se renombra o se elimina es el bloque "Por sede"
-// de aquí abajo, que ya las lista. El menú lateral solo la usa de separador.
+// Vista general: el estado de todos los puestos de un vistazo. Es la primera
+// entrada del menú lateral, no un nivel aparte: se probó sacarla a una pestaña
+// de la barra superior y Mario lo descartó (ago 2026). La sede no tiene pantalla
+// propia (ago 2026): se asigna y se crea en los ajustes del puesto, y el ÚNICO
+// sitio donde se renombra o se elimina es el bloque "Por sede" de aquí abajo,
+// que ya las lista. El menú lateral solo la usa de separador.
 export function Resumen() {
   const { campaigns, candidates, newCountFor, sites, renameSite, deleteSite } = useStore()
   const { company, role } = useAuth()
@@ -90,6 +92,7 @@ export function Resumen() {
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
       <header className="mb-5">
+        {/* El mismo nombre que su entrada en el menú: un destino, un nombre. */}
         <h1 className="text-xl font-semibold text-slate-900">Vista general</h1>
         <p className="mt-0.5 text-sm text-slate-500">Cómo van todos tus puestos de un vistazo.</p>
       </header>

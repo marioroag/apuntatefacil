@@ -14,7 +14,17 @@ export interface Company {
   cancel_at_period_end: boolean // suscripción marcada para cancelarse al final del periodo
   onboarding_done_at: string | null // null = guía de primer uso activa (el progreso se deriva de los datos)
   downgrade_reconcile_at: string | null // no null = bajaste de plan y debes elegir qué puestos mantener activos
+  meridian_auto: boolean // analizar cada candidatura nueva al entrar (ajustes)
 }
+
+/**
+ * Ajustes de la EMPRESA que se tocan desde /app/ajustes. El tipo es cerrado a
+ * propósito: `companies` tiene el UPDATE acotado por columnas desde el
+ * endurecimiento de facturación, así que añadir una clave aquí obliga a añadir
+ * su `grant update (columna)` en una migración. Si no, el guardado fallaría en
+ * silencio.
+ */
+export type CompanySettings = Pick<Company, 'meridian_auto'>
 
 // Empresa + el rol del usuario en ella (lo devuelve el RPC my_companies).
 type CompanyWithRole = Company & { role: string }
@@ -44,6 +54,8 @@ interface AuthApi {
   refreshCompany: (preferId?: string) => Promise<Company | null>
   // Cierra (done=true) o reabre (done=false) la guía de primer uso de la empresa activa.
   setOnboardingDone: (done: boolean) => Promise<void>
+  /** Guarda ajustes de la empresa activa. Optimista, como el resto. */
+  updateCompanySettings: (patch: Partial<CompanySettings>) => Promise<{ error?: string }>
 }
 
 const Ctx = createContext<AuthApi | null>(null)
@@ -195,6 +207,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCompanies((cs) => cs.map((c) => (c.id === company.id ? { ...c, onboarding_done_at: value } : c)))
       await supabase.from('companies').update({ onboarding_done_at: value }).eq('id', company.id)
     },
+    updateCompanySettings: async (patch) => {
+      if (!company) return { error: 'Sin empresa.' }
+      const previous = company
+      setCompany({ ...company, ...patch })
+      setCompanies((cs) => cs.map((c) => (c.id === company.id ? { ...c, ...patch } : c)))
+      const { error } = await supabase.from('companies').update(patch).eq('id', company.id)
+      if (error) {
+        setCompany(previous)
+        setCompanies((cs) => cs.map((c) => (c.id === previous.id ? { ...c, ...previous, role: c.role } : c)))
+        return { error: 'No hemos podido guardar el ajuste. Inténtalo de nuevo.' }
+      }
+      return {}
+    },
   }
 
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>
@@ -221,16 +246,20 @@ export const DEMO_COMPANY: Company = {
   // La demo nunca enseña la guía de primer uso (ya ES la visita guiada).
   onboarding_done_at: '2026-01-01T00:00:00Z',
   downgrade_reconcile_at: null,
+  meridian_auto: true,
 }
 
 export function DemoAuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
+  // La empresa de la demo es estado, no una constante: así los ajustes de
+  // empresa se mueven durante la visita (no se guardan, se pierden al recargar).
+  const [demoCompany, setDemoCompany] = useState<Company>(DEMO_COMPANY)
   const api: AuthApi = {
     loading: false,
     session: { user: { id: 'demo-user', email: 'demo@apuntatefacil.com' } } as unknown as Session,
     user: { id: 'demo-user', email: 'demo@apuntatefacil.com' } as unknown as User,
-    company: DEMO_COMPANY,
-    companies: [DEMO_COMPANY],
+    company: demoCompany,
+    companies: [demoCompany],
     companyLoading: false,
     role: 'owner',
     setActiveCompany: () => {},
@@ -242,8 +271,12 @@ export function DemoAuthProvider({ children }: { children: ReactNode }) {
     resendConfirmation: async () => ({}),
     signOut: async () => { navigate('/') },
     createCompany: async () => ({}),
-    refreshCompany: async (): Promise<Company | null> => DEMO_COMPANY,
+    refreshCompany: async (): Promise<Company | null> => demoCompany,
     setOnboardingDone: async () => {},
+    updateCompanySettings: async (patch) => {
+      setDemoCompany((c) => ({ ...c, ...patch }))
+      return {}
+    },
   }
   return <Ctx.Provider value={api}>{children}</Ctx.Provider>
 }

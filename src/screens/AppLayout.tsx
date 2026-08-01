@@ -1,16 +1,15 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Briefcase, Check, ChevronDown, Compass, ExternalLink, Gauge, Inbox, LayoutGrid, LifeBuoy, Loader2, LogOut, Menu, MessagesSquare, Plus, Sparkles, Users, X } from 'lucide-react'
+import { Briefcase, ChevronDown, Gauge, Inbox, LayoutGrid, Loader2, MessagesSquare, Plus, Sparkles, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
-import { BRAND } from '../lib/brand'
-import { Logo } from '../components/Logo'
 import { BetaBadge } from '../components/BetaBadge'
-import { initials } from '../lib/format'
 import { seedDemoData } from '../lib/seedDemo'
+import { TopBar } from '../components/TopBar'
+import { ProfileDialog } from '../components/ProfileDialog'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
 import { SupportDialog } from '../components/SupportDialog'
 import { useIsSupportStaff } from '../lib/useSupportStaff'
@@ -19,7 +18,6 @@ import { OnboardingGuide, OnboardingCreatePuesto } from '../components/Onboardin
 import { useOnboarding } from '../lib/onboarding'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
-import { ArrowRight } from 'lucide-react'
 import { planHas, PLAN_LABEL } from '../lib/pricing'
 import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
@@ -173,79 +171,9 @@ function EmptyCompany() {
   )
 }
 
-// Cambiador de equipos (solo si el usuario pertenece a 2+ empresas). Va al pie del
-// sidebar, así que el desplegable abre hacia ARRIBA.
-function CompanySwitcher({
-  companies,
-  activeId,
-  onSwitch,
-}: {
-  companies: { id: string; name: string }[]
-  activeId: string
-  onSwitch: (id: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const active = companies.find((c) => c.id === activeId)
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100"
-      >
-        <div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-[12px] font-bold text-white">
-          {initials(active?.name ?? '')}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-semibold text-slate-800">{active?.name}</p>
-          <p className="truncate text-[11px] text-slate-500">Cambiar de equipo</p>
-        </div>
-        <ChevronDown className="size-4 shrink-0 text-slate-400" aria-hidden />
-      </button>
-      {open && (
-        <ul
-          role="listbox"
-          className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-pop"
-        >
-          {companies.map((c) => (
-            <li key={c.id}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={c.id === activeId}
-                onClick={() => {
-                  onSwitch(c.id)
-                  setOpen(false)
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-slate-100"
-              >
-                <div className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-900 text-[11px] font-bold text-white">
-                  {initials(c.name)}
-                </div>
-                <span className="min-w-0 flex-1 truncate text-[13px] text-slate-800">{c.name}</span>
-                {c.id === activeId && <Check className="size-4 shrink-0 text-indigo-600" aria-hidden />}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
 export function AppLayout() {
   const { campaigns, candidates, newCountFor, newSinceFor, resetDemo, sites, loading, boardNewCount } = useStore()
-  const { company, companies, setActiveCompany, signOut, role, user, setOnboardingDone } = useAuth()
+  const { company, role, user, setOnboardingDone } = useAuth()
   const onboarding = useOnboarding()
   const { campaignId } = useParams()
   const base = useAppBase()
@@ -255,11 +183,32 @@ export function AppLayout() {
   const [open, setOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [supportOpen, setSupportOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [confirmReset, setConfirmReset] = useState(false)
   const [betaBannerOpen, setBetaBannerOpen] = useState(
     () => typeof localStorage !== 'undefined' && !localStorage.getItem('apuntatefacil.beta-banner-dismissed')
   )
+
+  // Guía de primer uso, ahora anclada en la barra con su anillo de progreso. El
+  // paso que enseña es el MISMO que numera la propia guía ("Paso N de 4"), para
+  // que no haya dos cuentas distintas del mismo avance. Se ve mientras quede
+  // algo por hacer, la hayas cerrado o no; al pulsarla, si estaba cerrada se
+  // reabre y en cualquier caso te lleva al paso pendiente.
+  const pasoGuia =
+    onboarding.eligible && onboarding.phase !== 'hecho'
+      ? onboarding.phase === 'puesto'
+        ? 2
+        : onboarding.phase === 'formulario'
+          ? 3
+          : 4
+      : null
+  const abrirGuia = () => {
+    if (onboarding.dismissed) void setOnboardingDone(false)
+    const c = onboarding.campaign
+    if (!c) return navigate(base)
+    navigate(onboarding.phase === 'formulario' ? `${base}/puestos/${c.id}/formulario` : `${base}/puestos/${c.id}`)
+  }
 
   // Gesto de navegación en móvil: deslizar hacia la derecha desde los primeros ~70%
   // del ancho abre el menú (zona generosa, acorde a la memoria muscular); deslizar
@@ -394,17 +343,16 @@ export function AppLayout() {
     )
   }
 
+  // El menú lateral ya no lleva cabecera de marca: el logo salió del shell y la
+  // esquina superior izquierda es ahora la persona (barra superior). Lo primero
+  // que ves aquí es la acción, no la valla.
   const nav = (
     <nav className="flex h-full flex-col" aria-label="Puestos">
-      <div className="flex items-center justify-between px-4 pt-4">
-        <Link to="/" className="flex items-center gap-2" aria-label={`${BRAND}, ir al inicio`}>
-          <Logo className="size-7" />
-          <span className="text-[17px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
-          <BetaBadge />
-        </Link>
+      {/* Solo en el cajón móvil: en escritorio el lateral es fijo y no se cierra. */}
+      <div className="flex justify-end px-2 pt-2 lg:hidden">
         <button
           onClick={() => setOpen(false)}
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 lg:hidden"
+          className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           aria-label="Cerrar menú"
         >
           <X className="size-5" aria-hidden />
@@ -412,7 +360,7 @@ export function AppLayout() {
       </div>
 
       {canCreate && (
-        <div className="px-3 pt-5">
+        <div className="px-3 pt-3 lg:pt-4">
           <button
             onClick={() => { setWizardOpen(true); setOpen(false) }}
             className={`${BTN_PRIMARY} w-full`}
@@ -422,17 +370,18 @@ export function AppLayout() {
         </div>
       )}
 
-      <div className={`px-3 ${canCreate ? 'pt-2' : 'pt-5'}`}>
+      <div className={`space-y-1 px-3 ${canCreate ? 'pt-2' : 'pt-3 lg:pt-4'}`}>
+        {/* Vista general es una pantalla más del Panel, la primera: se sacó
+            arriba como pestaña y Mario lo descartó (ago 2026). Va con Bandeja y
+            Equipo porque las tres son destinos de toda la empresa, por encima de
+            la lista de puestos. */}
         <SideNavItem
           to={`${base}/resumen`}
           Icon={LayoutGrid}
           label="Vista general"
           onNavigate={() => setOpen(false)}
         />
-      </div>
-
-      {showMeridian && (
-        <div className="px-3 pt-2">
+        {showMeridian && (
           <SideNavItem
             to={`${base}/meridian`}
             Icon={Sparkles}
@@ -440,10 +389,7 @@ export function AppLayout() {
             count={meridianDestacados}
             onNavigate={() => setOpen(false)}
           />
-        </div>
-      )}
-
-      <div className="px-3 pt-2">
+        )}
         <SideNavItem
           to={`${base}/bandeja`}
           Icon={Inbox}
@@ -451,10 +397,7 @@ export function AppLayout() {
           count={totalNuevos}
           onNavigate={() => setOpen(false)}
         />
-      </div>
-
-      {showEquipo && (
-        <div className="px-3 pt-2">
+        {showEquipo && (
           <SideNavItem
             to={`${base}/equipo`}
             Icon={Users}
@@ -462,18 +405,16 @@ export function AppLayout() {
             count={boardNewCount}
             onNavigate={() => setOpen(false)}
           />
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Zona de ADMIN: SOLO para el equipo de Apúntate Fácil (allowlist en el backend),
           nunca en la demo. El resto de usuarios no ve nada de esto. */}
       {isStaff && !demo && (
         <>
           <p className="px-4 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Admin</p>
-          <div className="px-3">
+          <div className="space-y-1 px-3">
             <SideNavItem to={`${base}/admin`} Icon={Gauge} label="Panel" onNavigate={() => setOpen(false)} />
-          </div>
-          <div className="px-3 pt-1">
             <SideNavItem to={`${base}/soporte`} Icon={MessagesSquare} label="Soporte" onNavigate={() => setOpen(false)} />
           </div>
         </>
@@ -531,152 +472,54 @@ export function AppLayout() {
         </>
       )}
 
-      <div className="mt-auto border-t border-slate-200 p-3">
-        {demo ? (
-          <>
-            <Link to="/login" className={`${BTN_PRIMARY} w-full`}>
-              Empezar <ArrowRight className="size-4" aria-hidden />
-            </Link>
-            <Link
-              to="/"
-              className="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            >
-              <ExternalLink className="size-3.5" aria-hidden /> Salir de la demo
-            </Link>
-          </>
-        ) : (
-          <>
-            {/* Bloque del usuario: para el owner TODO el bloque (avatar + nombre +
-                subtítulo) lleva a gestionar el plan, no solo el texto. "Salir" queda
-                aparte (abajo), así no anidamos interactivos dentro del Link. */}
-            {companies.length > 1 ? (
-              <>
-                <CompanySwitcher
-                  companies={companies}
-                  activeId={company.id}
-                  onSwitch={(id) => {
-                    if (id === company.id) return
-                    setActiveCompany(id)
-                    setOpen(false) // cerrar el drawer móvil, como el resto de acciones del menú
-                    // Vamos a la base: el store entra en "cargando" de golpe (loadedCompanyId aún
-                    // es el viejo) y el redirect de /app lleva a Vista general del nuevo equipo
-                    // cuando llegan sus datos. Evita quedar en un :id que ya no existe.
-                    navigate(base)
-                  }}
-                />
-                {isOwner && (
-                  <Link
-                    to="/app/plan"
-                    className="mt-0.5 block truncate rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:text-indigo-600"
-                  >
-                    Gestionar plan {PLAN_LABEL[company.plan] ?? 'Prueba'}
-                  </Link>
-                )}
-              </>
-            ) : isOwner ? (
-              <Link
-                to="/app/plan"
-                aria-label={`Gestionar plan ${PLAN_LABEL[company.plan] ?? 'Prueba'}`}
-                className="group flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-slate-100"
-              >
-                <div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-[12px] font-bold text-white">
-                  {initials(company.name)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-semibold text-slate-800">{company.name}</p>
-                  <p className="truncate text-[11px] text-slate-500 group-hover:text-indigo-600">
-                    Gestionar plan {PLAN_LABEL[company.plan] ?? 'Prueba'}
-                  </p>
-                </div>
-              </Link>
-            ) : (
-              <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
-                <div className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-[12px] font-bold text-white">
-                  {initials(company.name)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-semibold text-slate-800">{company.name}</p>
-                  <p className="truncate text-[11px] text-slate-500">Plan {PLAN_LABEL[company.plan] ?? 'Prueba'}</p>
-                </div>
-              </div>
-            )}
-            <div className="mt-1 space-y-0.5">
-              {/* Reabre la guía de primer uso: solo para el dueño que la cerró sin
-                  terminarla (aún sin candidatos). Al reabrirla, la fase se rederiva
-                  de los datos y se navega directo al paso pendiente. */}
-              {onboarding.eligible && onboarding.dismissed && candidates.length === 0 && (
-                <button
-                  onClick={() => {
-                    void setOnboardingDone(false)
-                    setOpen(false)
-                    navigate(onboarding.campaign ? `${base}/puestos/${onboarding.campaign.id}` : base)
-                  }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                >
-                  <Compass className="size-3.5" aria-hidden /> Primeros pasos
-                </button>
-              )}
-              <button
-                onClick={() => { setSupportOpen(true); setOpen(false) }}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-              >
-                <LifeBuoy className="size-3.5" aria-hidden /> Ayuda
-              </button>
-              <button
-                onClick={() => signOut()}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-              >
-                <LogOut className="size-3.5" aria-hidden /> Salir
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+      {/* El pie del lateral se vació: la empresa, el plan, la ayuda y salir viven
+          ahora en el menú de perfil de la barra superior. El lateral navega y
+          nada más. */}
+      <div className="h-3 shrink-0" aria-hidden />
     </nav>
   )
 
   void campaignId
 
   return (
-    <div className="fixed inset-0 flex overflow-hidden bg-slate-50">
-      <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">{nav}</aside>
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
+      <TopBar
+        onOpenMenu={() => setOpen(true)}
+        onOpenSupport={() => setSupportOpen(true)}
+        onOpenProfile={() => setProfileOpen(true)}
+        onOpenOnboarding={abrirGuia}
+        onboardingPaso={pasoGuia}
+        betaBannerOpen={!demo && betaBannerOpen}
+      />
 
-      <AnimatePresence>
-        {open && (
-          <div className="fixed inset-0 z-40 lg:hidden">
-            <motion.div
-              className="absolute inset-0 bg-slate-900/40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              onClick={() => setOpen(false)}
-            />
-            <motion.div
-              className="absolute left-0 top-0 h-full w-72 bg-white shadow-pop"
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
-            >
-              {nav}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <div className="flex min-h-0 flex-1">
+        <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">{nav}</aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2.5 lg:hidden">
-          <button onClick={() => setOpen(true)} aria-label="Abrir menú" className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100">
-            <Menu className="size-5" aria-hidden />
-          </button>
-          <Link to="/" className="flex items-center gap-2" aria-label={`${BRAND}, ir al inicio`}>
-            <Logo className="size-6" />
-            <span className="text-[17px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
-            <BetaBadge />
-          </Link>
-        </div>
+        <AnimatePresence>
+          {open && (
+            <div className="fixed inset-0 z-40 lg:hidden">
+              <motion.div
+                className="absolute inset-0 bg-slate-900/40"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                onClick={() => setOpen(false)}
+              />
+              <motion.div
+                className="absolute left-0 top-0 h-full w-72 bg-white shadow-pop"
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+              >
+                {nav}
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
+        <div className="flex min-w-0 flex-1 flex-col">
         {demo && (
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 border-b border-indigo-100 bg-indigo-50 px-4 py-2 text-center text-[13px] text-indigo-800">
             <span>Demo de empresario en Plan {PLAN_LABEL[company.plan]}.</span>
@@ -722,9 +565,11 @@ export function AppLayout() {
             <Outlet />
           </Suspense>
         </main>
+        </div>
       </div>
 
       <OnboardingGuide />
+      <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
       <NewCampaignWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
       <SupportDialog
         open={supportOpen}

@@ -17,7 +17,7 @@ export const MERIDIAN_NAME = 'Meridian'
  * apagado a propósito (Mario, jul 2026): de Meridian se usan de momento las otras
  * capacidades (triaje de cada candidatura, ajuste al puesto, orden por encaje),
  * que no dependen de esto. Ponlo en true y vuelve entero: la pantalla, su ruta y
- * sus dos entradas (menú lateral y tarjeta de la Vista general) siguen escritas.
+ * sus dos entradas (menú lateral y tarjeta de Vista general) siguen escritas.
  */
 export const MERIDIAN_CHAT_ENABLED: boolean = false
 
