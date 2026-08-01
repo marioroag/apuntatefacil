@@ -26,6 +26,7 @@ import { AppLayout, FirstCampaignRedirect } from './screens/AppLayout'
 // el panel, ni el panel arrastra el formulario público o el constructor (dnd-kit).
 import { Landing } from './screens/Landing'
 import { Login } from './screens/Login'
+import { MERIDIAN_CHAT_ENABLED } from './lib/meridian'
 
 const ResetPassword = lazy(() => import('./screens/ResetPassword').then((m) => ({ default: m.ResetPassword })))
 const Privacidad = lazy(() => import('./screens/Legal').then((m) => ({ default: m.Privacidad })))
@@ -48,6 +49,13 @@ const AdminOverview = lazy(() => import('./screens/AdminOverview').then((m) => (
 const Playground = import.meta.env.DEV
   ? lazy(() => import('./screens/Playground').then((m) => ({ default: m.Playground })))
   : null
+
+// El hilo de Meridian está apagado (MERIDIAN_CHAT_ENABLED). La ruta no se borra:
+// redirige a la Vista general, así quien la tuviera guardada aterriza en su panel
+// y no en la landing por el comodín del final.
+const meridianRoute = MERIDIAN_CHAT_ENABLED
+  ? <Route path="meridian" element={<MeridianBriefing />} />
+  : <Route path="meridian" element={<Navigate to="../resumen" replace />} />
 
 const RouteFallback = () => (
   <div className="grid min-h-screen place-items-center" role="status" aria-label="Cargando">
@@ -89,7 +97,7 @@ createRoot(document.getElementById('root')!).render(
                 >
                   <Route index element={<FirstCampaignRedirect />} />
                   <Route path="resumen" element={<Resumen />} />
-                  <Route path="meridian" element={<MeridianBriefing />} />
+                  {meridianRoute}
                   <Route path="bandeja" element={<Bandeja />} />
                   <Route path="sedes" element={<Sedes />} />
                   <Route path="marcas" element={<Marcas />} />
@@ -112,7 +120,7 @@ createRoot(document.getElementById('root')!).render(
                 >
                   <Route index element={<FirstCampaignRedirect />} />
                   <Route path="resumen" element={<Resumen />} />
-                  <Route path="meridian" element={<MeridianBriefing />} />
+                  {meridianRoute}
                   <Route path="bandeja" element={<Bandeja />} />
                   <Route path="sedes" element={<Sedes />} />
                   <Route path="marcas" element={<Marcas />} />

@@ -5,7 +5,7 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { miles } from '../lib/format'
-import { MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
+import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
 import type { Candidate } from '../lib/types'
 
 const STALE_DAYS = 7
@@ -16,7 +16,8 @@ export function Resumen() {
   const { campaigns, candidates, newCountFor } = useStore()
   const { company } = useAuth()
   const base = useAppBase()
-  const showMeridian = hasMeridian(company?.plan)
+  // La tarjeta lleva al hilo de Meridian: fuera mientras el hilo esté apagado.
+  const showMeridian = MERIDIAN_CHAT_ENABLED && hasMeridian(company?.plan)
   const meridianDestacados = candidates.filter((c) => c.status === 'nuevo' && (candidateFit(c.ai) ?? -1) >= 70).length
 
   const staleCut = Date.now() - STALE_DAYS * 86400000

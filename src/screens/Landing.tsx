@@ -560,8 +560,8 @@ const TEAM_PROPOSALS: { name: string; role: string; status: CandidateStatus }[] 
 ]
 
 function TeamBoardMock() {
-  const sergio = memberAvatarTone('sergio@tuempresa.es')
-  const laura = memberAvatarTone('laura@tuempresa.es')
+  const sergio = memberAvatarTone('sergio@apuntatefacil.com')
+  const laura = memberAvatarTone('laura@apuntatefacil.com')
   const you = memberAvatarTone('demo@apuntatefacil.com')
 
   return (
@@ -636,7 +636,7 @@ function TeamBoardMock() {
             <ol className="flex flex-col">
               <li className="flex gap-3">
                 <span className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-bold ${laura.bg} ${laura.text}`}>
-                  {initials('laura@tuempresa.es')}
+                  {initials('laura@apuntatefacil.com')}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-x-1.5 text-[13px]">
@@ -681,7 +681,7 @@ function TeamBoardMock() {
               </li>
               <li className="mt-3 flex gap-3 border-t border-slate-100 pt-3">
                 <span className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-bold ${sergio.bg} ${sergio.text}`}>
-                  {initials('sergio@tuempresa.es')}
+                  {initials('sergio@apuntatefacil.com')}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-x-1.5 text-[13px]">

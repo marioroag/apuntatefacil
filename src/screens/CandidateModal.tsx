@@ -399,6 +399,23 @@ function Favorito({ value, onChange }: { value: boolean; onChange: (v: boolean) 
   )
 }
 
+/**
+ * Un correo largo que no cabe debe partirse por la arroba, no a mitad del
+ * dominio. El `<wbr>` marca ese punto preferente y no añade ningún carácter al
+ * copiar; `break-words` queda de red por si ni la parte local cabe.
+ */
+function conCorte(valor: string) {
+  const at = valor.indexOf('@')
+  if (at < 0) return valor
+  return (
+    <>
+      {valor.slice(0, at + 1)}
+      <wbr />
+      {valor.slice(at + 1)}
+    </>
+  )
+}
+
 /** Valor que se copia de un toque (teléfono, correo). */
 function ValorCopiable({ valor, etiqueta, num, truncar = false }: { valor: string; etiqueta: string; num?: boolean; truncar?: boolean }) {
   const [copiado, setCopiado] = useState(false)
@@ -418,9 +435,13 @@ function ValorCopiable({ valor, etiqueta, num, truncar = false }: { valor: strin
       }}
       className="group -ml-1 flex max-w-full items-start gap-2 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-slate-100"
     >
-      {/* min-w-0 + break-all: dentro de un flex, `break-words` no baja del ancho
-          de la palabra más larga, y un correo largo se salía de la tarjeta. */}
-      <span className={`min-w-0 group-hover:underline ${truncar ? 'truncate' : 'break-all'} ${num ? 'num' : ''}`}>{valor}</span>
+      {/* min-w-0 hace que el flex pueda encoger por debajo del ancho del texto
+          (sin él, un correo largo se salía de la tarjeta). Con el <wbr> de
+          `conCorte`, `break-words` ya tiene por dónde partir y respeta la
+          arroba; `break-all` cortaba el dominio por cualquier letra. */}
+      <span className={`min-w-0 group-hover:underline ${truncar ? 'truncate' : 'break-words'} ${num ? 'num' : ''}`}>
+        {truncar ? valor : conCorte(valor)}
+      </span>
       {copiado ? (
         <Check className="mt-0.5 size-3.5 shrink-0 text-slate-600" aria-hidden />
       ) : (

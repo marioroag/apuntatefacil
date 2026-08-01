@@ -21,7 +21,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
 import { ArrowRight } from 'lucide-react'
 import { planHas, PLAN_LABEL } from '../lib/pricing'
-import { MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
+import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 
 // Item del menú lateral. Solo se muestra si el plan incluye la feature (la
@@ -314,8 +314,9 @@ export function AppLayout() {
   const groupBySite = planHas(company.plan, 'sites') && sites.length > 0
   const totalNuevos = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
   // Meridian (Pro/Multi): entrada al Parte diario. Badge = candidaturas nuevas que
-  // Meridian destaca (encajan bien) y aún no has revisado.
-  const showMeridian = hasMeridian(company.plan)
+  // Meridian destaca (encajan bien) y aún no has revisado. Apagado mientras el hilo
+  // esté fuera (MERIDIAN_CHAT_ENABLED): el triaje sigue vivo en cada candidatura.
+  const showMeridian = MERIDIAN_CHAT_ENABLED && hasMeridian(company.plan)
   const meridianDestacados = showMeridian
     ? candidates.filter((c) => c.status === 'nuevo' && (candidateFit(c.ai) ?? -1) >= 70).length
     : 0

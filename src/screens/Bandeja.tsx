@@ -7,12 +7,12 @@ import { useToast } from '../components/ui/Toast'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { CandidateModal } from './CandidateModal'
 import { relativeDate, formatPhone, candidateName } from '../lib/format'
-import { MeridianAvatar, FitLabel } from '../components/Meridian'
+import { MeridianAvatar } from '../components/Meridian'
 import { candidateFit } from '../lib/meridian'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { useAppBase } from '../lib/useAppBase'
 import { TAGS_ENABLED } from '../lib/pricing'
-import { TagCell, ManageTagsModal } from '../components/Tags'
+import { ManageTagsModal } from '../components/Tags'
 import { STATUS_META } from '../lib/types'
 import type { Candidate } from '../lib/types'
 
@@ -26,8 +26,12 @@ function answer(c: Candidate, id: string): string {
 
 // Bandeja única: todos los candidatos en estado "nuevo" de TODOS los puestos
 // en una sola cola para triar de una vez, sin entrar puesto por puesto.
+//
+// La fila es DELIBERADAMENTE escueta (Mario, jul 2026): nombre, puesto, estado y
+// cuándo llegó. Sin etiquetas y sin la lectura de encaje, que aquí solo eran ruido
+// para triar: ambas se ven enteras al abrir la ficha del candidato.
 export function Bandeja() {
-  const { candidates, getCampaign, setStatus, restoreCandidate, tags } = useStore()
+  const { candidates, getCampaign, setStatus, restoreCandidate } = useStore()
   const { role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -75,8 +79,7 @@ export function Bandeja() {
                 return (
                   // Botón del candidato (abrir) y pastilla de estado (cambiar y triar
                   // sin abrir el detalle) como hermanos, no anidados.
-                  <li key={c.id} className="px-4 py-3">
-                   <div className="flex items-center gap-3">
+                  <li key={c.id} className="flex items-center gap-3 px-4 py-3">
                     <button
                       type="button"
                       onClick={() => setOpenId(c.id)}
@@ -84,10 +87,7 @@ export function Bandeja() {
                     >
                       <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={40} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate text-[15px] font-medium text-slate-900">{name}</p>
-                          {candidateFit(c.ai) != null && <FitLabel fit={candidateFit(c.ai)!} className="shrink-0 text-[12px]" />}
-                        </div>
+                        <p className="truncate text-[15px] font-medium text-slate-900">{name}</p>
                         {camp && (
                           <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-1.5 pr-2 text-[12px] font-medium text-slate-600">
                             <Briefcase className="size-3 shrink-0 text-slate-500" aria-hidden />
@@ -96,27 +96,19 @@ export function Bandeja() {
                         )}
                       </div>
                     </button>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setStatusFor(c)}
-                        aria-label={`Estado: ${m.label}. Tocar para cambiar`}
-                        className={`inline-flex items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[12px] font-semibold ring-1 ring-inset transition-[filter] ${m.chip} active:brightness-95`}
-                      >
-                        <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
-                        {m.label}
-                        <ChevronDown className="size-3 opacity-60" aria-hidden />
-                      </button>
-                      <time dateTime={c.submittedAt} className="text-[11px] text-slate-500 tabular-nums">
-                        {relativeDate(c.submittedAt)}
-                      </time>
-                    </div>
-                   </div>
-                   {c.tagIds.length > 0 && (
-                     <div className="pl-[3.25rem]">
-                       <TagCell tagIds={c.tagIds} tags={tags} />
-                     </div>
-                   )}
+                    {/* Sin "hace 3 h" en móvil: todos son nuevos y la cola ya va
+                        del más reciente al más antiguo, así que la hora ocupaba
+                        sitio sin decidir nada. Sigue en la tabla de escritorio. */}
+                    <button
+                      type="button"
+                      onClick={() => setStatusFor(c)}
+                      aria-label={`Estado: ${m.label}. Tocar para cambiar`}
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[12px] font-semibold ring-1 ring-inset transition-[filter] ${m.chip} active:brightness-95`}
+                    >
+                      <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
+                      {m.label}
+                      <ChevronDown className="size-3 opacity-60" aria-hidden />
+                    </button>
                   </li>
                 )
               })}
@@ -146,15 +138,9 @@ export function Bandeja() {
                         className="group cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50"
                       >
                         <td className="px-3 py-2.5">
-                          <div className="flex items-start gap-2.5">
+                          <div className="flex items-center gap-2.5">
                             <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={34} />
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="truncate font-medium text-slate-900" title={name}>{name}</span>
-                                {candidateFit(c.ai) != null && <FitLabel fit={candidateFit(c.ai)!} className="shrink-0 text-[12px]" />}
-                              </div>
-                              <TagCell tagIds={c.tagIds} tags={tags} />
-                            </div>
+                            <span className="truncate font-medium text-slate-900" title={name}>{name}</span>
                           </div>
                         </td>
                         <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
