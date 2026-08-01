@@ -65,13 +65,18 @@ export const PLAN_LABEL: Record<string, string> = {
 // Capacidades por plan. Es el ÚNICO interruptor de las features avanzadas: una
 // feature Pro/Multi solo aparece si el plan la incluye aquí. Esencial nunca
 // pierde un básico; estas son capacidades NETO-NUEVAS que se desbloquean al subir.
-export type PlanFeature = 'savedViews' | 'sites' | 'brands' | 'managers' | 'teamBoard' | 'meridian'
+//
+// Sedes y marcas NO están aquí a propósito (ago 2026): son primitivas, no escala.
+// Poner el nombre del local a un puesto y el logo propio en el formulario no
+// cuesta nada y son de todos los planes. Lo que se cobra es lo que sí escala:
+// delegar por sede (`managers`) y tener más de una marca (`multiBrand`).
+export type PlanFeature = 'savedViews' | 'multiBrand' | 'managers' | 'teamBoard' | 'meridian'
 
 export const PLAN_FEATURES: Record<string, PlanFeature[]> = {
   trial: [],
   esencial: [],
-  pro: ['savedViews', 'brands', 'teamBoard', 'meridian'],
-  multi: ['savedViews', 'sites', 'brands', 'managers', 'teamBoard', 'meridian'],
+  pro: ['savedViews', 'teamBoard', 'meridian'],
+  multi: ['savedViews', 'multiBrand', 'managers', 'teamBoard', 'meridian'],
 }
 
 export function planHas(plan: string | undefined | null, feature: PlanFeature): boolean {
@@ -95,14 +100,9 @@ export const FEATURE_COPY: Record<PlanFeature, { label: string; blurb: string; m
     blurb: 'Guarda tus combinaciones de filtros y vuelve a aplicarlas en un clic.',
     minPlan: 'pro',
   },
-  brands: {
-    label: 'las Marcas',
-    blurb: 'Da a cada formulario su logo, color y textos propios.',
-    minPlan: 'pro',
-  },
-  sites: {
-    label: 'las Sedes',
-    blurb: 'Agrupa tus puestos por local y míralo todo de un vistazo.',
+  multiBrand: {
+    label: 'más de una marca',
+    blurb: 'Da a cada marca su propio nombre, logo y banner en el formulario.',
     minPlan: 'multi',
   },
   managers: {
@@ -123,10 +123,12 @@ export const FEATURE_COPY: Record<PlanFeature, { label: string; blurb: string; m
 }
 
 // Tope de marcas por plan (espejo del trigger enforce_brand_limit en servidor).
-// Pro: 1 marca. Multi: ilimitadas. Mantener sincronizado con la migración.
+// Todos los planes tienen SU marca (nombre, logo y banner del formulario): es
+// una primitiva, no un extra. Lo que desbloquea Multi es tener VARIAS.
+// Mantener sincronizado con la migración plan_brand_limit.
 export const PLAN_BRAND_LIMIT: Record<string, number> = {
-  trial: 0,
-  esencial: 0,
+  trial: 1,
+  esencial: 1,
   pro: 1,
   multi: Infinity,
 }
@@ -143,7 +145,7 @@ export const TIERS: Tier[] = [
     features: [
       'Candidatos ilimitados',
       'Formulario de candidatura a tu medida',
-      'Vista general y Bandeja de candidatos nuevos',
+      'Tu nombre, tu logo y tus colores en el formulario',
       'Filtros, favoritos y etiquetas',
       'Exporta a Excel cuando quieras',
       'Soporte humano, te responde una persona',
@@ -165,7 +167,6 @@ export const TIERS: Tier[] = [
       'Hasta 10 procesos a la vez',
       'Equipo: chat en cada candidato y tablón de peticiones',
       'Guarda tus vistas de filtros y reaplícalas',
-      'Una marca con logo, banner y colores en el formulario',
     ],
     cta: 'Empezar con Pro',
   },
@@ -180,10 +181,8 @@ export const TIERS: Tier[] = [
     features: [
       'Todo lo de Pro',
       'Procesos ilimitados',
-      'Agrupa tus puestos por sede',
-      'Cada encargado ve y exporta solo su sede',
-      'Marcas ilimitadas con logo, banner y colores',
-      'Resumen de todas tus sedes de un vistazo',
+      'Encargados por sede: cada uno ve y exporta solo la suya',
+      'Varias marcas, cada una con su nombre, logo y banner',
     ],
     cta: 'Empezar con Multi',
   },

@@ -35,8 +35,6 @@ const PublicForm = lazy(() => import('./screens/PublicForm').then((m) => ({ defa
 const InterestResponse = lazy(() => import('./screens/InterestResponse').then((m) => ({ default: m.InterestResponse })))
 const Dashboard = lazy(() => import('./screens/Dashboard').then((m) => ({ default: m.Dashboard })))
 const Bandeja = lazy(() => import('./screens/Bandeja').then((m) => ({ default: m.Bandeja })))
-const Sedes = lazy(() => import('./screens/Sedes').then((m) => ({ default: m.Sedes })))
-const Marcas = lazy(() => import('./screens/Marcas').then((m) => ({ default: m.Marcas })))
 const Resumen = lazy(() => import('./screens/Resumen').then((m) => ({ default: m.Resumen })))
 const MeridianBriefing = lazy(() => import('./screens/MeridianBriefing').then((m) => ({ default: m.MeridianBriefing })))
 const Equipo = lazy(() => import('./screens/Equipo').then((m) => ({ default: m.Equipo })))
@@ -56,6 +54,17 @@ const Playground = import.meta.env.DEV
 const meridianRoute = MERIDIAN_CHAT_ENABLED
   ? <Route path="meridian" element={<MeridianBriefing />} />
   : <Route path="meridian" element={<Navigate to="../resumen" replace />} />
+
+// Sedes y Marcas dejaron de ser pantallas (ago 2026): la sede se gestiona en Vista
+// general y los ajustes del puesto, y la marca en el constructor del formulario.
+// Las rutas viejas no se borran, redirigen: quien las tuviera guardadas aterriza en
+// su panel y no en la landing por el comodín del final.
+const rutasRetiradas = (
+  <>
+    <Route path="sedes" element={<Navigate to="../resumen" replace />} />
+    <Route path="marcas" element={<Navigate to="../resumen" replace />} />
+  </>
+)
 
 const RouteFallback = () => (
   <div className="grid min-h-screen place-items-center" role="status" aria-label="Cargando">
@@ -99,9 +108,8 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="resumen" element={<Resumen />} />
                   {meridianRoute}
                   <Route path="bandeja" element={<Bandeja />} />
-                  <Route path="sedes" element={<Sedes />} />
-                  <Route path="marcas" element={<Marcas />} />
                   <Route path="equipo" element={<Equipo />} />
+                  {rutasRetiradas}
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
                   <Route path="plan" element={<Plan />} />
@@ -122,9 +130,8 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="resumen" element={<Resumen />} />
                   {meridianRoute}
                   <Route path="bandeja" element={<Bandeja />} />
-                  <Route path="sedes" element={<Sedes />} />
-                  <Route path="marcas" element={<Marcas />} />
                   <Route path="equipo" element={<Equipo />} />
+                  {rutasRetiradas}
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
                 </Route>

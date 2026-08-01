@@ -1083,7 +1083,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           fields: input.fields,
           branding: input.branding,
           siteId: null,
-          brandId: null,
+          // El puesto nuevo hereda la marca de la empresa cuando solo hay una: su
+          // nombre, logo y banner ya son los de la casa, sin un paso extra.
+          brandId: brands.length === 1 ? brands[0].id : null,
           notifyNew: true,
         }
         setCampaigns((cs) => [...cs, campaign])
@@ -1106,6 +1108,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             milanuncios_url: input.milanunciosUrl ?? null,
             fields: input.fields,
             branding: input.branding,
+            // Con una sola marca, el puesto nuevo la hereda: nombre, logo y banner
+            // de la casa desde el primer momento.
+            brand_id: brands.length === 1 ? brands[0].id : null,
           })
           .select('*')
           .single()

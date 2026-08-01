@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Briefcase, Building2, Check, ChevronDown, Compass, ExternalLink, Gauge, Inbox, LayoutGrid, LifeBuoy, Loader2, LogOut, Menu, MessagesSquare, Plus, Sparkles, Tag, Users, X } from 'lucide-react'
+import { Briefcase, Check, ChevronDown, Compass, ExternalLink, Gauge, Inbox, LayoutGrid, LifeBuoy, Loader2, LogOut, Menu, MessagesSquare, Plus, Sparkles, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
@@ -24,10 +24,37 @@ import { planHas, PLAN_LABEL } from '../lib/pricing'
 import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 
+// Cabecera de un grupo de sede en el menú: SOLO un separador plegable, cero
+// botones de administración. El menú navega; renombrar y eliminar una sede viven
+// en el bloque "Por sede" de Vista general, que ya las lista.
+function SiteGroupHeader({
+  name,
+  count,
+  collapsed,
+  onToggle,
+}: {
+  name: string
+  count: number
+  collapsed: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      aria-expanded={!collapsed}
+      className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600"
+    >
+      <ChevronDown className={`size-3.5 shrink-0 transition-transform ${collapsed ? '-rotate-90' : ''}`} aria-hidden />
+      <span className="min-w-0 flex-1 truncate text-left">{name}</span>
+      <span className="num">{count}</span>
+    </button>
+  )
+}
+
 // Item del menú lateral. Solo se muestra si el plan incluye la feature (la
 // visibilidad la decide quien lo renderiza); el límite se descubre al intentar
-// usar las cosas en su contexto (pill de sede/marca, crear puesto, vistas), no
-// con tabs bloqueadas en el menú.
+// usar las cosas en su contexto (crear puesto, vistas guardadas), no con tabs
+// bloqueadas en el menú.
 function SideNavItem({
   to,
   Icon,
@@ -302,16 +329,23 @@ export function AppLayout() {
   const isEncargado = role === 'encargado'
   const isOwner = role === 'owner'
   // Las features avanzadas NO se muestran en el menú si el plan no las incluye:
-  // el cliente descubre el límite al intentar usar las cosas en su contexto (pill
-  // de sede/marca, crear puesto, vistas guardadas), no con tabs bloqueadas. El
-  // encargado ve sus datos (acotados por RLS) pero no gestiona estructura.
-  const showSedes = planHas(company.plan, 'sites') // Sedes: todos los roles ven sus sedes (acotadas por RLS); crear/editar/borrar va gateado dentro por rol
-  const showBrands = planHas(company.plan, 'brands') && !isEncargado // gestionar marcas
+  // el cliente descubre el límite al intentar usar las cosas en su contexto (crear
+  // puesto, vistas guardadas), no con tabs bloqueadas. El encargado ve sus datos
+  // (acotados por RLS) pero no gestiona estructura.
+  // Sedes y marcas NO tienen entrada aquí (ago 2026): no son destinos, son
+  // atributos del puesto. La sede se crea y se asigna en los ajustes del puesto y
+  // se renombra/borra en la cabecera de su grupo, aquí abajo; la marca vive en el
+  // panel Apariencia del constructor del formulario.
   // Equipo (tablón + miembros) es Pro+: lo ven todos los roles del plan; dentro,
   // la pestaña Miembros solo se pinta al owner (y los RPCs son owner-only).
   const showEquipo = planHas(company.plan, 'teamBoard')
   const canCreate = !isEncargado // crear puestos
-  const groupBySite = planHas(company.plan, 'sites') && sites.length > 0
+  // Agrupamos solo si la agrupación SEPARA algo: con una única sede (o con todos
+  // los puestos en la misma) la cabecera no informa de nada y solo mete ruido.
+  const gruposConPuestos =
+    sites.filter((s) => campaigns.some((c) => c.siteId === s.id)).length +
+    (campaigns.some((c) => !c.siteId || !sites.some((s) => s.id === c.siteId)) ? 1 : 0)
+  const groupBySite = gruposConPuestos > 1
   const totalNuevos = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
   // Meridian (Pro/Multi): entrada al Parte diario. Badge = candidaturas nuevas que
   // Meridian destaca (encajan bien) y aún no has revisado. Apagado mientras el hilo
@@ -419,28 +453,6 @@ export function AppLayout() {
         />
       </div>
 
-      {showSedes && (
-        <div className="px-3 pt-2">
-          <SideNavItem
-            to={`${base}/sedes`}
-            Icon={Building2}
-            label="Sedes"
-            onNavigate={() => setOpen(false)}
-          />
-        </div>
-      )}
-
-      {showBrands && (
-        <div className="px-3 pt-2">
-          <SideNavItem
-            to={`${base}/marcas`}
-            Icon={Tag}
-            label="Marcas"
-            onNavigate={() => setOpen(false)}
-          />
-        </div>
-      )}
-
       {showEquipo && (
         <div className="px-3 pt-2">
           <SideNavItem
@@ -483,15 +495,12 @@ export function AppLayout() {
             const isCollapsed = collapsed.has(s.id)
             return (
               <div key={s.id} className="mb-1">
-                <button
-                  onClick={() => toggleGroup(s.id)}
-                  aria-expanded={!isCollapsed}
-                  className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600"
-                >
-                  <ChevronDown className={`size-3.5 shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-left">{s.name}</span>
-                  <span className="num">{items.length}</span>
-                </button>
+                <SiteGroupHeader
+                  name={s.name}
+                  count={items.length}
+                  collapsed={isCollapsed}
+                  onToggle={() => toggleGroup(s.id)}
+                />
                 {!isCollapsed && <ul className="space-y-0.5">{items.map(renderPuesto)}</ul>}
               </div>
             )
@@ -502,15 +511,12 @@ export function AppLayout() {
             const isCollapsed = collapsed.has('__none__')
             return (
               <div className="mb-1">
-                <button
-                  onClick={() => toggleGroup('__none__')}
-                  aria-expanded={!isCollapsed}
-                  className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600"
-                >
-                  <ChevronDown className={`size-3.5 shrink-0 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-left">Sin sede</span>
-                  <span className="num">{sinSede.length}</span>
-                </button>
+                <SiteGroupHeader
+                  name="Sin sede"
+                  count={sinSede.length}
+                  collapsed={isCollapsed}
+                  onToggle={() => toggleGroup('__none__')}
+                />
                 {!isCollapsed && <ul className="space-y-0.5">{sinSede.map(renderPuesto)}</ul>}
               </div>
             )
