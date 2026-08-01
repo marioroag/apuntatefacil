@@ -1,21 +1,33 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, Building2, ChevronRight, Clock, PauseCircle, Sparkles } from 'lucide-react'
+import { Briefcase, Building2, ChevronRight, Clock, PauseCircle, Sparkles, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { miles } from '../lib/format'
 import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
-import type { Candidate } from '../lib/types'
+import { useToast } from '../components/ui/Toast'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
+import type { Candidate, Site } from '../lib/types'
 
 const STALE_DAYS = 7
 
-// Vista general: panel "home" con el pulso global de todos los puestos.
-// Solo lectura. El detalle por sede y su gestión viven en la pestaña Sedes.
+// Vista general: panel "home" con el pulso global de todos los puestos. La sede
+// no tiene pantalla propia (ago 2026): se asigna y se crea en los ajustes del
+// puesto, y el ÚNICO sitio donde se renombra o se elimina es el bloque "Por sede"
+// de aquí abajo, que ya las lista. El menú lateral solo la usa de separador.
 export function Resumen() {
-  const { campaigns, candidates, newCountFor } = useStore()
-  const { company } = useAuth()
+  const { campaigns, candidates, newCountFor, sites, renameSite, deleteSite } = useStore()
+  const { company, role } = useAuth()
   const base = useAppBase()
+  const toast = useToast()
+  // La sede se administra AQUÍ, que es el único sitio donde ya está toda la lista.
+  // El menú lateral solo la usa de separador. El encargado la ve en solo lectura.
+  const canManage = role !== 'encargado'
+  const [editando, setEditando] = useState<string | null>(null)
+  const [aBorrar, setABorrar] = useState<Site | null>(null)
+  const [borrando, setBorrando] = useState(false)
   // La tarjeta lleva al hilo de Meridian: fuera mientras el hilo esté apagado.
   const showMeridian = MERIDIAN_CHAT_ENABLED && hasMeridian(company?.plan)
   const meridianDestacados = candidates.filter((c) => c.status === 'nuevo' && (candidateFit(c.ai) ?? -1) >= 70).length
@@ -51,6 +63,29 @@ export function Resumen() {
     .filter((x) => x.n > 0)
     .sort((a, b) => b.n - a.n)
     .slice(0, 6)
+
+  // Desglose por sede: las mismas cifras de arriba, partidas por local. Se pinta
+  // solo si hay sedes; los puestos sin sede cierran la lista para que las cuentas
+  // cuadren con los totales.
+  const grupoSede = (id: string | null, name: string, city: string) => {
+    const camps = campaigns.filter((c) =>
+      id === null ? !c.siteId || !sites.some((s) => s.id === c.siteId) : c.siteId === id,
+    )
+    const campIds = new Set(camps.map((c) => c.id))
+    const cands = candidates.filter((c) => campIds.has(c.campaignId))
+    return {
+      id,
+      name,
+      city,
+      camps,
+      nuevos: camps.reduce((s, c) => s + newCountFor(c.id), 0),
+      stale: cands.filter((c) => c.status === 'nuevo' && new Date(c.submittedAt).getTime() < staleCut).length,
+      contratados: cands.filter((c) => c.status === 'contratado').length,
+    }
+  }
+  const gruposSede = sites.length > 0
+    ? [...sites.map((s) => grupoSede(s.id, s.name, s.city)), grupoSede(null, 'Sin sede', '')].filter((g) => g.camps.length > 0)
+    : []
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
@@ -124,9 +159,146 @@ export function Resumen() {
               )}
             </Panel>
           </div>
+
+          {gruposSede.length > 0 && (
+            <div className="mt-4">
+              <Panel title="Por sede">
+                <ul className="divide-y divide-slate-100">
+                  {gruposSede.map((g) => (
+                    <li key={g.id ?? '__none__'} className="group/sede py-3 first:pt-1.5">
+                      {editando === g.id && g.id ? (
+                        <SedeEditor
+                          site={sites.find((s) => s.id === g.id)!}
+                          onSave={async (patch) => {
+                            const ok = await renameSite(g.id!, patch)
+                            if (ok) {
+                              setEditando(null)
+                              toast.success('Sede guardada')
+                            }
+                          }}
+                          onDelete={() => setABorrar(sites.find((s) => s.id === g.id) ?? null)}
+                          onCancel={() => setEditando(null)}
+                        />
+                      ) : (
+                      <div className="flex flex-wrap items-baseline gap-x-2">
+                        <h3 className="text-sm font-semibold text-slate-800">{g.name}</h3>
+                        {/* La ciudad solo acompaña si aporta algo: muchas sedes se
+                            llaman como su ciudad y repetirlo es ruido. */}
+                        {g.city && g.city.toLowerCase() !== g.name.toLowerCase() && (
+                          <p className="text-[12px] text-slate-500">{g.city}</p>
+                        )}
+                        {/* Único sitio donde se administra una sede. Discreto: aparece
+                            al acercarse o al tabular, y nunca en el grupo "Sin sede". */}
+                        {canManage && g.id && (
+                          <button
+                            onClick={() => setEditando(g.id)}
+                            className="ml-auto text-[12px] font-medium text-slate-500 opacity-0 transition-opacity hover:text-indigo-700 focus-visible:opacity-100 group-hover/sede:opacity-100"
+                          >
+                            Editar
+                          </button>
+                        )}
+                      </div>
+                      )}
+                      <div className="mt-1 flex flex-wrap gap-x-5 gap-y-0.5">
+                        <SedeStat label="nuevos sin revisar" n={g.nuevos} />
+                        <SedeStat label={`sin contactar +${STALE_DAYS} días`} n={g.stale} />
+                        <SedeStat label="contratados" n={g.contratados} />
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {g.camps.map((c) => (
+                          <Link
+                            key={c.id}
+                            to={`${base}/puestos/${c.id}`}
+                            className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-1 text-[12px] text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                          >
+                            <Briefcase className="size-3 shrink-0 text-slate-400" aria-hidden />
+                            <span className="truncate">{c.title}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            </div>
+          )}
+
+          {/* Eliminar una sede nunca borra puestos: quedan sin sede (en la base lo
+              hace el "on delete set null"). Se dice tal cual para que nadie tema
+              perder datos. */}
+          <ConfirmDialog
+            open={aBorrar !== null}
+            onClose={() => setABorrar(null)}
+            onConfirm={async () => {
+              if (!aBorrar || borrando) return
+              setBorrando(true)
+              const ok = await deleteSite(aBorrar.id)
+              setBorrando(false)
+              if (ok) {
+                setABorrar(null)
+                setEditando(null)
+                toast.success('Sede eliminada')
+              }
+            }}
+            title={aBorrar ? `¿Eliminar ${aBorrar.name}?` : ''}
+            confirmLabel={borrando ? 'Eliminando…' : 'Eliminar'}
+            confirmVariant="danger"
+          >
+            Los puestos de esta sede no se borran: se quedan sin sede y puedes asignarles otra cuando quieras.
+          </ConfirmDialog>
         </>
       )}
     </div>
+  )
+}
+
+// Renombrar o eliminar una sede, en línea y en su propia fila. Guarda con Enter
+// y cancela con Escape.
+function SedeEditor({
+  site,
+  onSave,
+  onDelete,
+  onCancel,
+}: {
+  site: Site
+  onSave: (patch: { name: string; city: string }) => void
+  onDelete: () => void
+  onCancel: () => void
+}) {
+  const [name, setName] = useState(site.name)
+  const [city, setCity] = useState(site.city)
+  const input =
+    'h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1'
+  const save = () => name.trim() && onSave({ name: name.trim(), city: city.trim() })
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') save()
+    if (e.key === 'Escape') onCancel()
+  }
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={onKey} autoFocus aria-label="Nombre de la sede" placeholder="Nombre" className={input} />
+      <input value={city} onChange={(e) => setCity(e.target.value)} onKeyDown={onKey} aria-label="Ciudad de la sede (opcional)" placeholder="Ciudad (opcional)" className={input} />
+      <div className="flex shrink-0 items-center gap-2">
+        <button onClick={save} disabled={!name.trim()} className={`${BTN_PRIMARY} disabled:opacity-50`}>Guardar</button>
+        <button onClick={onCancel} className={BTN_SECONDARY}>Cancelar</button>
+        <button
+          onClick={onDelete}
+          aria-label={`Eliminar la sede ${site.name}`}
+          className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-400 transition-colors pointer-coarse:size-11 hover:bg-red-50 hover:text-red-600"
+        >
+          <Trash2 className="size-4" aria-hidden />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Cifra de una sede: el número manda (peso y tinta), la etiqueta acompaña.
+function SedeStat({ label, n }: { label: string; n: number }) {
+  return (
+    <p className="text-[12px] text-slate-500">
+      <span className="num font-semibold text-slate-800">{miles(n)}</span> {label}
+    </p>
   )
 }
 

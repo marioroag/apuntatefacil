@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -43,13 +43,16 @@ import { Checkbox } from '../components/ui/Checkbox'
 import { ApplicationForm } from '../components/ApplicationForm'
 import type { FieldValue } from '../components/FieldRenderer'
 import { FIELD_TYPE_META } from '../lib/types'
-import type { Campaign, FieldType, FormField } from '../lib/types'
+import type { Brand, Campaign, FieldType, FormField } from '../lib/types'
 import { SWATCHES, accentPassesWhite } from '../lib/colors'
 import { FORM_WELCOME_DEFAULT, FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { BrandAssets } from '../components/BrandAssets'
+import { UpgradeDialog } from '../components/UpgradeDialog'
+import { PLAN_BRAND_LIMIT } from '../lib/pricing'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
 
@@ -273,6 +276,9 @@ export function Builder() {
             >
               <Smartphone className="size-4 text-slate-500" aria-hidden /> Ver la vista previa del formulario
             </button>
+
+            {/* Identidad (de la marca: se comparte entre sus puestos) */}
+            <Identidad key={`marca-${campaign.id}`} campaign={campaign} />
 
             {/* Apariencia (datos del puesto: título, mensajes y aspecto) */}
             <Branding key={campaign.id} campaign={campaign} />
@@ -634,6 +640,177 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o:
         <Plus className="size-3.5" aria-hidden /> Añadir opción
       </button>
     </div>
+  )
+}
+
+// --- Identidad --------------------------------------------------------------
+// Lo que ve el candidato en la cabecera del formulario: nombre, foto y banner.
+// Vive en la MARCA, no en el puesto: se pone una vez y sale en todos sus
+// formularios (el formulario público ya lo lee en vivo). Con una sola marca (el
+// caso normal) nunca aparece la palabra "marca": editas tu identidad y ya. Tener
+// VARIAS es lo que desbloquea Multi.
+function Identidad({ campaign }: { campaign: Campaign }) {
+  const { brands, createBrand, updateBrand, deleteBrand, updateCampaign, campaigns } = useStore()
+  const { company } = useAuth()
+  const demo = useAppBase() === '/demo'
+  const toast = useToast()
+
+  // Marca activa: la del puesto; si no tiene ninguna y la empresa solo tiene una,
+  // esa (se le asigna en cuanto se toca algo).
+  const active = (campaign.brandId ? brands.find((b) => b.id === campaign.brandId) : null) ?? (brands.length <= 1 ? brands[0] ?? null : null)
+  // El nombre se escribe en local y se guarda al salir del campo. El borrador se
+  // ata a la marca que se estaba editando: si llega otra (los datos acaban de
+  // cargar, o se cambia de marca), manda la de la marca y no un texto huérfano.
+  const [draft, setDraft] = useState<{ brandId: string | null; value: string } | null>(null)
+  const name = draft && draft.brandId === (active?.id ?? null) ? draft.value : active?.name ?? ''
+  const setName = (v: string) => setDraft({ brandId: active?.id ?? null, value: v })
+  const [upgrade, setUpgrade] = useState(false)
+  const [toDelete, setToDelete] = useState(false)
+  // Una sola creación aunque lleguen dos ediciones seguidas (subir el logo y salir
+  // del campo del nombre): la promesa se comparte.
+  const ensuring = useRef<Promise<Brand | null> | null>(null)
+
+  const limit = demo ? Infinity : PLAN_BRAND_LIMIT[company?.plan ?? 'trial'] ?? 1
+  const compartida = active ? campaigns.filter((c) => c.brandId === active.id).length : 0
+
+  // Con una sola marca no hay elección que hacer: es la identidad de la casa y le
+  // toca a todos los puestos. Si este aún no la tiene (se creó antes, o se quedó
+  // huérfano al borrar otra), se le asigna solo, para que la vista previa y el
+  // formulario público enseñen lo mismo que este panel.
+  const asignada = useRef<string | null>(null)
+  useEffect(() => {
+    const unica = brands.length === 1 ? brands[0] : null
+    if (!unica || campaign.brandId || asignada.current === campaign.id) return
+    asignada.current = campaign.id
+    void updateCampaign(campaign.id, { brandId: unica.id })
+    // updateCampaign viene del store y se recrea en cada render: fuera de las deps
+    // a propósito (con el ref, esto corre una vez por puesto).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brands, campaign.id, campaign.brandId])
+
+  const ensureBrand = (): Promise<Brand | null> => {
+    if (active) return Promise.resolve(active)
+    if (!ensuring.current)
+      ensuring.current = createBrand({
+        name: company?.name ?? '',
+        accent: campaign.branding.accent,
+        welcome: '',
+        thanks: '',
+        showLogo: true,
+        logoPath: null,
+        bannerPath: null,
+      }).then((b) => {
+        if (b) void updateCampaign(campaign.id, { brandId: b.id })
+        return b
+      })
+    return ensuring.current
+  }
+
+  const patch = async (p: Partial<Omit<Brand, 'id'>>) => {
+    const brand = await ensureBrand()
+    if (!brand) return
+    if (campaign.brandId !== brand.id) void updateCampaign(campaign.id, { brandId: brand.id })
+    void updateBrand(brand.id, p)
+  }
+
+  const crearMarca = async () => {
+    if (brands.length >= limit) {
+      setUpgrade(true)
+      return
+    }
+    const b = await createBrand({ name: '', accent: campaign.branding.accent, welcome: '', thanks: '', showLogo: true, logoPath: null, bannerPath: null })
+    if (!b) return
+    void updateCampaign(campaign.id, { brandId: b.id })
+    toast.success('Marca creada')
+  }
+
+  return (
+    <section>
+      <SectionTitle>Identidad</SectionTitle>
+      <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5">
+        {/* Con varias marcas hay que elegir de cuál es este puesto antes de editarla. */}
+        {brands.length > 1 && (
+          <label className="block">
+            <span className="mb-1 block text-[12px] font-medium text-slate-500">Marca de este puesto</span>
+            <select
+              value={campaign.brandId ?? ''}
+              onChange={(e) => void updateCampaign(campaign.id, { brandId: e.target.value || null })}
+              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+            >
+              <option value="">Sin marca, usa el nombre de la empresa</option>
+              {brands.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name || 'Marca sin nombre'}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {brands.length > 1 && !active ? (
+          <p className="text-[12px] leading-relaxed text-slate-500">
+            Este formulario sale con el nombre de tu empresa, {company?.name}, y sin imágenes. Elige una marca arriba para darle otra cara.
+          </p>
+        ) : (
+          <>
+            <LabeledInput
+              label="Nombre que ve el candidato"
+              value={name}
+              onChange={setName}
+              onBlur={() => {
+                const v = name.trim()
+                if (v !== (active?.name ?? '')) void patch({ name: v })
+              }}
+              placeholder={company?.name ?? 'El nombre de tu empresa'}
+            />
+            <BrandAssets
+              logoPath={active?.logoPath ?? null}
+              bannerPath={active?.bannerPath ?? null}
+              onChange={(p) => void patch(p)}
+            />
+            {compartida > 1 && (
+              <p className="text-[12px] leading-relaxed text-slate-500">
+                Esta marca la comparten {compartida} puestos: al cambiarla, cambian todos sus formularios.
+              </p>
+            )}
+          </>
+        )}
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1">
+          <button
+            type="button"
+            onClick={crearMarca}
+            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700"
+          >
+            <Plus className="size-3.5" aria-hidden /> Añadir otra marca
+          </button>
+          {brands.length > 1 && active && (
+            <button
+              type="button"
+              onClick={() => setToDelete(true)}
+              className="text-[13px] font-medium text-slate-500 hover:text-red-600"
+            >
+              Eliminar esta marca
+            </button>
+          )}
+        </div>
+      </div>
+
+      {upgrade && <UpgradeDialog open feature="multiBrand" onClose={() => setUpgrade(false)} />}
+      <ConfirmDialog
+        open={toDelete}
+        onClose={() => setToDelete(false)}
+        onConfirm={() => {
+          if (active) void deleteBrand(active.id)
+          setToDelete(false)
+        }}
+        title={active ? `¿Eliminar ${active.name || 'esta marca'}?` : ''}
+        confirmLabel="Eliminar"
+        confirmVariant="danger"
+      >
+        Sus puestos no se borran: pasan a salir con el nombre de tu empresa y sin estas imágenes.
+      </ConfirmDialog>
+    </section>
   )
 }
 

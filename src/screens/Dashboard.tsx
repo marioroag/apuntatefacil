@@ -99,7 +99,7 @@ function numberFilterLabel(nf: NumberFilter): string {
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, updateBranding, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, lockedInfo, loadCommentsForMany } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, createSite, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, lockedInfo, loadCommentsForMany } = useStore()
   const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -114,11 +114,6 @@ export function Dashboard() {
   // vocabulario (igual que en la RLS). owner/member sí.
   const canManageTags = !isEncargado
   const canViews = planHas(company?.plan, 'savedViews')
-  // Las pills de sede y marca SE MUESTRAN siempre que el rol gestione el puesto;
-  // si el plan no incluye la feature, la pill abre el aviso de upgrade al pulsarla
-  // (el límite se descubre al usarla, no se anuncia con un tab bloqueado).
-  const hasSites = planHas(company?.plan, 'sites')
-  const hasBrands = planHas(company?.plan, 'brands')
 
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -502,18 +497,11 @@ export function Dashboard() {
     if (ok) toast.success('Vista guardada')
   }
 
-  // Asignar una marca aplica su apariencia al puesto (mantiene el título). Quitarla
-  // solo desvincula: la apariencia ya copiada se conserva (sin sorpresas visuales).
+  // La marca aporta el nombre, el logo y el banner del formulario, en vivo: cambiar
+  // de marca NO pisa el color ni los textos de este puesto (eso es suyo y se edita
+  // en el constructor). Sin sorpresas visuales al cambiar la etiqueta.
   const applyBrand = (brandId: string | null) => {
-    if (brandId === null) {
-      updateCampaign(campaign.id, { brandId: null })
-      return
-    }
-    const brand = brands.find((b) => b.id === brandId)
-    if (!brand) return
     updateCampaign(campaign.id, { brandId })
-    updateBranding(campaign.id, { accent: brand.accent, welcome: brand.welcome, thanks: brand.thanks, showLogo: brand.showLogo })
-    toast.success(`Apariencia de ${brand.name} aplicada`)
   }
 
   const toggleSort = (key: SortKey) =>
@@ -935,17 +923,14 @@ export function Dashboard() {
         campaign={campaign}
         sites={sites}
         brands={brands}
-        hasSites={hasSites}
-        hasBrands={hasBrands}
-        base={base}
         canManage={canManage}
         exportCount={filtered.length}
         exportTotal={all.length}
         onExport={doExport}
         onSetSite={(siteId) => updateCampaign(campaign.id, { siteId })}
+        onCreateSite={createSite}
         onSetBrand={applyBrand}
         onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
-        onUpgrade={setUpgrade}
         onDuplicate={handleDuplicate}
         duplicating={duplicating}
         onPauseResume={togglePause}
@@ -2573,19 +2558,6 @@ function SettingSelect({
   )
 }
 
-function LockedSetting({ onClick, text }: { onClick: () => void; text: string }) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-left text-[13px] text-slate-600 hover:bg-slate-100"
-    >
-      <Lock className="size-3.5 shrink-0 text-slate-400" aria-hidden />
-      <span className="flex-1">{text}</span>
-      <span className="shrink-0 font-semibold text-indigo-700">Ver planes</span>
-    </button>
-  )
-}
-
 function PuestoSettingsDialog({
   open,
   onClose,
@@ -2661,23 +2633,117 @@ function PuestoSettingsDialog({
   )
 }
 
+// Sede del puesto. La sede no tiene pantalla propia: nace donde se usa, así que
+// aquí se elige una existente o se crea una nueva y queda asignada de una vez.
+// Renombrarla y borrarla va en la cabecera de su grupo del menú lateral.
+function SedeSetting({
+  campaign,
+  sites,
+  onSetSite,
+  onCreateSite,
+}: {
+  campaign: Campaign
+  sites: Site[]
+  onSetSite: (siteId: string | null) => void
+  onCreateSite: (input: { name: string; city: string }) => Promise<Site | null>
+}) {
+  const toast = useToast()
+  const [creating, setCreating] = useState(false)
+  const [name, setName] = useState('')
+  const [city, setCity] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const cancel = () => {
+    setCreating(false)
+    setName('')
+    setCity('')
+  }
+  const add = async () => {
+    if (!name.trim() || busy) return
+    setBusy(true)
+    const site = await onCreateSite({ name: name.trim(), city: city.trim() })
+    setBusy(false)
+    if (!site) return
+    onSetSite(site.id)
+    cancel()
+    toast.success('Sede creada y asignada a este puesto')
+  }
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') void add()
+    if (e.key === 'Escape') cancel()
+  }
+  const input =
+    'h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15'
+
+  const creador = (
+    <div className="mt-2 space-y-2">
+      <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={onKey} autoFocus aria-label="Nombre de la sede" placeholder="Nombre, ej: Valencia centro" className={input} />
+      <input value={city} onChange={(e) => setCity(e.target.value)} onKeyDown={onKey} aria-label="Ciudad de la sede (opcional)" placeholder="Ciudad (opcional)" className={input} />
+      <div className="flex items-center gap-2">
+        <button onClick={add} disabled={busy || !name.trim()} className={`${BTN_PRIMARY} disabled:opacity-50`}>
+          {busy ? 'Creando…' : 'Crear y asignar'}
+        </button>
+        <button onClick={cancel} className={BTN_SECONDARY}>Cancelar</button>
+      </div>
+    </div>
+  )
+
+  // Sin ninguna sede creada, un selector con una sola opción ("Sin sede") no es
+  // una elección: es ruido vendiendo un concepto que quizá no necesitas. Se queda
+  // en una línea discreta, y solo al usarla aparece el campo de verdad.
+  if (sites.length === 0)
+    return creating ? (
+      <div>{creador}</div>
+    ) : (
+      <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-600 hover:text-indigo-700">
+        <Building2 className="size-3.5 text-slate-400" aria-hidden /> Agrupar por sede
+      </button>
+    )
+
+  return (
+    <div>
+      <SettingSelect
+        label="Sede"
+        value={campaign.siteId}
+        onChange={onSetSite}
+        options={[
+          {
+            value: null,
+            label: 'Sin sede',
+            leading: <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />,
+          },
+          ...sites.map((s) => ({
+            value: s.id,
+            label: s.name,
+            leading: <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />,
+          })),
+        ]}
+      />
+      {creating ? (
+        creador
+      ) : (
+        <button onClick={() => setCreating(true)} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700 hover:text-indigo-800">
+          <Plus className="size-3.5" aria-hidden /> Crear sede
+        </button>
+      )}
+    </div>
+  )
+}
+
 function PuestoSettingsSheet({
   open,
   onClose,
   campaign,
   sites,
   brands,
-  hasSites,
-  hasBrands,
-  base,
   canManage,
   exportCount,
   exportTotal,
   onExport,
   onSetSite,
+  onCreateSite,
   onSetBrand,
   onToggleNotify,
-  onUpgrade,
   onDuplicate,
   duplicating,
   onPauseResume,
@@ -2690,17 +2756,14 @@ function PuestoSettingsSheet({
   campaign: Campaign
   sites: Site[]
   brands: Brand[]
-  hasSites: boolean
-  hasBrands: boolean
-  base: string
   canManage: boolean
   exportCount: number
   exportTotal: number
   onExport: () => void | Promise<void>
   onSetSite: (siteId: string | null) => void
+  onCreateSite: (input: { name: string; city: string }) => Promise<Site | null>
   onSetBrand: (brandId: string | null) => void
   onToggleNotify: () => void
-  onUpgrade: (f: PlanFeature) => void
   onDuplicate: () => void
   duplicating: boolean
   onPauseResume: () => void
@@ -2715,57 +2778,28 @@ function PuestoSettingsSheet({
               {canManage && (
               <section className="space-y-4">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Organización</p>
-                {hasSites ? (
-                  <div>
-                    <SettingSelect
-                      label="Sede"
-                      value={campaign.siteId}
-                      onChange={onSetSite}
-                      options={[
-                        {
-                          value: null,
-                          label: 'Sin sede',
-                          leading: <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />,
-                        },
-                        ...sites.map((s) => ({
-                          value: s.id,
-                          label: s.name,
-                          leading: <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />,
-                        })),
-                      ]}
-                    />
-                    <Link to={`${base}/sedes`} onClick={onClose} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700">
-                      <Plus className="size-3.5" aria-hidden /> Gestionar sedes
-                    </Link>
-                  </div>
-                ) : (
-                  <LockedSetting onClick={() => { onUpgrade('sites'); onClose() }} text="Organiza tus puestos por sede con el plan Multi." />
-                )}
-                {hasBrands ? (
-                  <div>
-                    <SettingSelect
-                      label="Marca"
-                      value={campaign.brandId}
-                      onChange={onSetBrand}
-                      options={[
-                        {
-                          value: null,
-                          label: 'Sin marca',
-                          leading: <Tag className="size-4 shrink-0 text-slate-400" aria-hidden />,
-                        },
-                        ...brands.map((b) => ({
-                          value: b.id,
-                          label: b.name,
-                          leading: <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: b.accent }} aria-hidden />,
-                        })),
-                      ]}
-                    />
-                    <Link to={`${base}/marcas`} onClick={onClose} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700">
-                      <Plus className="size-3.5" aria-hidden /> Gestionar marcas
-                    </Link>
-                  </div>
-                ) : (
-                  <LockedSetting onClick={() => { onUpgrade('brands'); onClose() }} text="Aplica la identidad de tus marcas con el plan Multi." />
+                <SedeSetting campaign={campaign} sites={sites} onSetSite={onSetSite} onCreateSite={onCreateSite} />
+                {/* La marca solo se elige cuando hay más de una: con una sola no hay
+                    decisión que tomar. Su nombre, logo y banner se editan en el
+                    constructor del formulario, que es donde se ven. */}
+                {brands.length > 1 && (
+                  <SettingSelect
+                    label="Marca"
+                    value={campaign.brandId}
+                    onChange={onSetBrand}
+                    options={[
+                      {
+                        value: null,
+                        label: 'Sin marca',
+                        leading: <Tag className="size-4 shrink-0 text-slate-400" aria-hidden />,
+                      },
+                      ...brands.map((b) => ({
+                        value: b.id,
+                        label: b.name,
+                        leading: <Tag className="size-4 shrink-0 text-slate-400" aria-hidden />,
+                      })),
+                    ]}
+                  />
                 )}
               </section>
               )}
