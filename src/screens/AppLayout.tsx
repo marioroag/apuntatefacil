@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Briefcase, Check, ChevronDown, Compass, ExternalLink, Gauge, Inbox, LayoutGrid, LifeBuoy, Loader2, LogOut, Menu, MessagesSquare, Plus, Sparkles, Users, X } from 'lucide-react'
+import { Briefcase, CalendarDays, Check, ChevronDown, Compass, ExternalLink, Gauge, Inbox, LayoutGrid, LifeBuoy, Loader2, LogOut, Menu, MessagesSquare, Plus, SlidersHorizontal, Sparkles, Users, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
@@ -244,7 +244,7 @@ function CompanySwitcher({
 }
 
 export function AppLayout() {
-  const { campaigns, candidates, newCountFor, newSinceFor, resetDemo, sites, loading, boardNewCount } = useStore()
+  const { campaigns, candidates, newCountFor, newSinceFor, resetDemo, sites, loading, boardNewCount, interviewUpcomingCount } = useStore()
   const { company, companies, setActiveCompany, signOut, role, user, setOnboardingDone } = useAuth()
   const onboarding = useOnboarding()
   const { campaignId } = useParams()
@@ -339,6 +339,9 @@ export function AppLayout() {
   // Equipo (tablón + miembros) es Pro+: lo ven todos los roles del plan; dentro,
   // la pestaña Miembros solo se pinta al owner (y los RPCs son owner-only).
   const showEquipo = planHas(company.plan, 'teamBoard')
+  // Entrevistas (Pro/Multi). El badge cuenta las CONFIRMADAS por venir, no
+  // "novedades sin ver": aquí el número útil es cuántas citas tienes por delante.
+  const showEntrevistas = planHas(company.plan, 'entrevistas')
   const canCreate = !isEncargado // crear puestos
   // Agrupamos solo si la agrupación SEPARA algo: con una única sede (o con todos
   // los puestos en la misma) la cabecera no informa de nada y solo mete ruido.
@@ -460,6 +463,29 @@ export function AppLayout() {
             Icon={Users}
             label="Equipo"
             count={boardNewCount}
+            onNavigate={() => setOpen(false)}
+          />
+        </div>
+      )}
+
+      {showEntrevistas && (
+        <div className="px-3 pt-2">
+          <SideNavItem
+            to={`${base}/entrevistas`}
+            Icon={CalendarDays}
+            label="Entrevistas"
+            count={interviewUpcomingCount}
+            onNavigate={() => setOpen(false)}
+          />
+        </div>
+      )}
+
+      {showEntrevistas && (
+        <div className="px-3 pt-2">
+          <SideNavItem
+            to={`${base}/ajustes`}
+            Icon={SlidersHorizontal}
+            label="Ajustes"
             onNavigate={() => setOpen(false)}
           />
         </div>

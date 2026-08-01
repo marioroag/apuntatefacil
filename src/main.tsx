@@ -38,6 +38,8 @@ const Bandeja = lazy(() => import('./screens/Bandeja').then((m) => ({ default: m
 const Resumen = lazy(() => import('./screens/Resumen').then((m) => ({ default: m.Resumen })))
 const MeridianBriefing = lazy(() => import('./screens/MeridianBriefing').then((m) => ({ default: m.MeridianBriefing })))
 const Equipo = lazy(() => import('./screens/Equipo').then((m) => ({ default: m.Equipo })))
+const Entrevistas = lazy(() => import('./screens/Entrevistas').then((m) => ({ default: m.Entrevistas })))
+const Ajustes = lazy(() => import('./screens/Ajustes').then((m) => ({ default: m.Ajustes })))
 const Invitacion = lazy(() => import('./screens/Invitacion').then((m) => ({ default: m.Invitacion })))
 const Builder = lazy(() => import('./screens/Builder').then((m) => ({ default: m.Builder })))
 const Plan = lazy(() => import('./screens/Plan').then((m) => ({ default: m.Plan })))
@@ -110,6 +112,8 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="bandeja" element={<Bandeja />} />
                   <Route path="equipo" element={<Equipo />} />
                   {rutasRetiradas}
+                  <Route path="entrevistas" element={<Entrevistas />} />
+                  <Route path="ajustes" element={<Ajustes />} />
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
                   <Route path="plan" element={<Plan />} />
@@ -132,6 +136,8 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="bandeja" element={<Bandeja />} />
                   <Route path="equipo" element={<Equipo />} />
                   {rutasRetiradas}
+                  <Route path="entrevistas" element={<Entrevistas />} />
+                  <Route path="ajustes" element={<Ajustes />} />
                   <Route path="puestos/:campaignId" element={<Dashboard />} />
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
                 </Route>

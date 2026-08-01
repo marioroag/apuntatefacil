@@ -27,7 +27,7 @@ import { StatusSelect } from '../components/ui/StatusPill'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import type { Campaign, Candidate, CandidateEvent } from '../lib/types'
 import { SOURCE_META, STATUS_META } from '../lib/types'
-import { answerText, candidateName, formatPhone, fullDateTime, personLabel, relativeDate } from '../lib/format'
+import { answerText, candidateName, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
@@ -39,6 +39,8 @@ import { MaskedPhone } from '../components/MaskedPhone'
 import { TagPicker, TagSection } from '../components/Tags'
 import { TAGS_ENABLED, planHas } from '../lib/pricing'
 import { InterestSignal } from '../components/InterestSignal'
+import { AgendarManualDialog, InterviewHeaderButton } from '../components/InterviewAction'
+import { InterviewConversation } from '../components/InterviewConversation'
 import { MeridianAvatar, MeridianPanelBlock } from '../components/Meridian'
 import { MERIDIAN_NAME, candidateFit } from '../lib/meridian'
 
@@ -53,11 +55,18 @@ import { MERIDIAN_NAME, candidateFit } from '../lib/meridian'
  * siguiente sin cerrar, y un hilo donde el equipo habla del caso.
  *
  * Reparto: a la izquierda lo que dice el candidato (Resumen, Respuestas, CV); a
- * la derecha lo que dice tu equipo (Equipo, Historial). Por debajo de 1024px no
- * hay sitio para la columna, y la conversación entra como una pestaña más.
+ * la derecha el seguimiento (Equipo, Conversación, Historial). Por debajo de
+ * 1024px no hay sitio para la columna y las tres se agrupan bajo una sola
+ * pestaña, Seguimiento, con sus tres dentro.
+ *
+ * Conversación es la superficie principal de la entrevista: se invita desde
+ * ahí, se ve lo hablado y se toma el control. No hay bandeja global de
+ * WhatsApp a propósito: obligaría a saltar entre dos sitios para entender a
+ * una sola persona.
  */
 
-type Izquierda = 'resumen' | 'respuestas' | 'cv' | 'equipo'
+type Izquierda = 'resumen' | 'respuestas' | 'cv' | 'seguimiento'
+type Seguimiento = 'equipo' | 'conversacion' | 'historial'
 
 // 1024px: por debajo, la columna de conversación de 368px dejaría el contenido
 // principal por debajo de un ancho legible.
@@ -102,12 +111,22 @@ export function CandidateModal({
   const base = useAppBase()
   const toast = useToast()
   const [izq, setIzq] = useState<Izquierda>('resumen')
-  const [der, setDer] = useState<'equipo' | 'historial'>('equipo')
+  // UNA sola pieza de estado para cuál de las tres se ve, la use el panel
+  // derecho (escritorio) o las sub-pestañas de Seguimiento (móvil). Con dos
+  // estados separados, abrir la conversación desde la cabecera acertaba en un
+  // tamaño y fallaba en el otro.
+  const [seg, setSeg] = useState<Seguimiento>('equipo')
+  const [agendarManual, setAgendarManual] = useState(false)
   const [confirmarBorrado, setConfirmarBorrado] = useState(false)
   const dosColumnas = useDosColumnas()
 
   const canManageTags = role !== 'encargado'
   const chatEnabled = planHas(company?.plan, 'teamBoard') || company?.id === 'demo'
+  // La demo va en Multi, así que ve la pestaña como cualquier cliente de pago:
+  // esconderla ahí sería enseñar un bloqueo de plan a quien no lo tiene. Lo que
+  // cambia en demo es que la invitación no sale (avisa y no escribe a nadie),
+  // igual que llamar o escribir por WhatsApp.
+  const puedeEntrevistar = planHas(company?.plan, 'entrevistas')
 
   // Al cambiar de candidato se vuelve a Resumen: la pestaña de CV puede no
   // existir en el siguiente. Se ajusta DURANTE el render (patrón de React para
@@ -117,12 +136,20 @@ export function CandidateModal({
   if (candidate && visto !== candidate.id) {
     setVisto(candidate.id)
     setIzq('resumen')
+    setSeg('equipo')
   }
 
   // Al ensanchar a dos columnas la conversación se va a la derecha y la pestaña
   // de Equipo deja de existir: se deriva, no se corrige después (una pestaña
   // oculta por CSS seguía siendo alcanzable con las flechas del teclado).
-  const izqVisible: Izquierda = dosColumnas && izq === 'equipo' ? 'resumen' : izq
+  const izqVisible: Izquierda = dosColumnas && izq === 'seguimiento' ? 'resumen' : izq
+
+  // El botón de la cabecera lleva DIRECTO a la conversación, sin obligar a
+  // navegar los dos niveles a mano en móvil.
+  const abrirConversacion = () => {
+    setSeg('conversacion')
+    if (!dosColumnas) setIzq('seguimiento')
+  }
 
   const open = !!candidate
   const name = candidate ? candidateName(candidate) || 'Sin nombre' : ''
@@ -162,7 +189,10 @@ export function CandidateModal({
     { value: 'resumen', label: 'Resumen' },
     { value: 'respuestas', label: 'Respuestas' },
     ...(candidate.cvPath ? [{ value: 'cv' as const, label: 'CV' }] : []),
-    ...(dosColumnas ? [] : [{ value: 'equipo' as const, label: 'Equipo', count: nMensajes || undefined }]),
+    // En móvil las tres de la derecha se agrupan bajo una sola pestaña: seis
+    // destinos en una barra que se arrastra es donde la gente deja de
+    // encontrar las cosas.
+    ...(dosColumnas ? [] : [{ value: 'seguimiento' as const, label: 'Seguimiento', count: nMensajes || undefined }]),
   ]
 
   const panelEquipo = chatEnabled ? (
@@ -178,6 +208,28 @@ export function CandidateModal({
   ) : (
     <EquipoBloqueado base={base} />
   )
+
+  const panelConversacion = puedeEntrevistar ? (
+    <InterviewConversation
+      key={candidate.id}
+      candidate={candidate}
+      campaign={campaign}
+      onScheduleManually={() => setAgendarManual(true)}
+    />
+  ) : (
+    <ConversacionBloqueada base={base} />
+  )
+
+  const tabsSeguimiento: TabItem<Seguimiento>[] = [
+    { value: 'equipo', label: 'Equipo', count: nMensajes || undefined },
+    { value: 'conversacion', label: 'Conversación' },
+    { value: 'historial', label: 'Historial' },
+  ]
+
+  const panelSeguimiento =
+    seg === 'equipo' ? panelEquipo
+      : seg === 'conversacion' ? panelConversacion
+      : <Historial key={candidate.id} candidateId={candidate.id} load={loadCandidateEvents} yoEmail={user?.email} />
 
   return (
     <>
@@ -251,7 +303,18 @@ export function CandidateModal({
                 />
               </div>
             )}
-            <div className="ml-auto hidden items-center gap-2 sm:flex">
+            {/* La fila de acciones SÍ se ve en móvil, pero solo con la entrevista
+                dentro: llamar y escribir ya están en la barra de abajo, al
+                alcance del pulgar, y repetirlos aquí sería ruido. La entrevista
+                no está en ningún otro sitio, así que vive aquí a todos los
+                tamaños. */}
+            <div className="ml-auto flex items-center gap-2">
+              {/* Va antes que llamar o escribir: es LA acción que hace avanzar
+                  el proceso, no un atajo de contacto. */}
+              {puedeEntrevistar && (
+                <InterviewHeaderButton candidate={candidate} onOpen={abrirConversacion} />
+              )}
+              <span className="hidden items-center gap-2 sm:flex">
               {phone && !maskPhone && (
                 <>
                   <a href={`tel:${phone.replace(/\s/g, '')}`} className={BTN_PRIMARY_SM}>
@@ -275,6 +338,7 @@ export function CandidateModal({
                 </>
               )}
               <MenuAcciones candidate={candidate} cvName={cvName} onEliminar={() => setConfirmarBorrado(true)} />
+              </span>
             </div>
           </div>
         </header>
@@ -293,7 +357,7 @@ export function CandidateModal({
               idPrefix="cand"
               value={izqVisible}
               className={`min-h-0 flex-1 ${
-                izqVisible === 'equipo'
+                izqVisible === 'seguimiento'
                   ? 'flex flex-col overflow-hidden bg-slate-50/60'
                   : 'overflow-y-auto overscroll-contain px-4 py-5 sm:px-5'
               }`}
@@ -303,31 +367,42 @@ export function CandidateModal({
               )}
               {izqVisible === 'respuestas' && <Respuestas campaign={campaign} candidate={candidate} maskPhone={maskPhone} />}
               {izqVisible === 'cv' && <Cv key={candidate.id} candidate={candidate} cvName={cvName} />}
-              {izqVisible === 'equipo' && panelEquipo}
+              {izqVisible === 'seguimiento' && (
+                <>
+                  <Tabs
+                    items={tabsSeguimiento}
+                    value={seg}
+                    onChange={setSeg}
+                    idPrefix="seg"
+                    label="Seguimiento del candidato"
+                    className="shrink-0 bg-white px-4"
+                  />
+                  <TabPanel idPrefix="seg" value={seg} className="flex min-h-0 flex-1 flex-col">
+                    {panelSeguimiento}
+                  </TabPanel>
+                </>
+              )}
             </TabPanel>
           </section>
 
           <aside className="hidden w-[368px] shrink-0 flex-col border-l border-slate-200 bg-slate-50/60 lg:flex">
             <Tabs
-              items={[
-                { value: 'equipo', label: 'Equipo', count: nMensajes || undefined },
-                { value: 'historial', label: 'Historial' },
-              ]}
-              value={der}
-              onChange={setDer}
+              items={tabsSeguimiento}
+              value={seg}
+              onChange={setSeg}
               idPrefix="lado"
-              label="Conversación e historial"
+              label="Seguimiento del candidato"
               className="shrink-0 bg-white px-4"
             />
-            <TabPanel idPrefix="lado" value={der} className="flex min-h-0 flex-1 flex-col">
-              {der === 'equipo' ? panelEquipo : <Historial key={candidate.id} candidateId={candidate.id} load={loadCandidateEvents} yoEmail={user?.email} />}
+            <TabPanel idPrefix="lado" value={seg} className="flex min-h-0 flex-1 flex-col">
+              {panelSeguimiento}
             </TabPanel>
           </aside>
         </div>
 
         {/* Barra de acción de móvil: el pulgar llega y no roba sitio arriba. En
             Equipo manda el campo de escribir. */}
-        {izqVisible !== 'equipo' && (
+        {izqVisible !== 'seguimiento' && (
           <div className="flex items-center gap-2 border-t border-slate-200 bg-white px-4 py-2.5 sm:hidden">
             {phone ? (
               <>
@@ -356,6 +431,12 @@ export function CandidateModal({
           </div>
         )}
       </Modal>
+
+      <AgendarManualDialog
+        open={agendarManual}
+        candidate={candidate}
+        onClose={() => setAgendarManual(false)}
+      />
 
       <ConfirmDialog
         open={confirmarBorrado}
@@ -728,8 +809,28 @@ function EquipoBloqueado({ base }: { base: string }) {
   )
 }
 
+function ConversacionBloqueada({ base }: { base: string }) {
+  return (
+    <div className="m-auto max-w-[40ch] px-6 py-8 text-center">
+      <MessageCircle className="mx-auto size-6 text-slate-400" aria-hidden />
+      <p className="mt-2 text-sm font-medium text-slate-800">Deja que cuadremos la cita</p>
+      <p className="mt-1 text-[13px] leading-5 text-slate-500">
+        Apúntate Fácil escribe al candidato por WhatsApp, comprueba su disponibilidad y cierra un
+        horario compatible con tu agenda.
+      </p>
+      <Link to={`${base}/plan`} className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-600 hover:text-indigo-700">
+        <Lock className="size-3.5" aria-hidden /> Disponible con Pro
+      </Link>
+    </div>
+  )
+}
+
 /** Punto de color del historial. Solo el cambio de estado tiene color propio. */
 function eventoDot(e: CandidateEvent): string {
+  // Los hitos de entrevista llevan el color de su significado, igual que los de
+  // estado: ámbar cuando hay cita en pie, verde cuando ya se hizo.
+  if (e.kind === 'entrevista_confirmada' || e.kind === 'entrevista_reprogramada') return 'bg-amber-500'
+  if (e.kind === 'entrevista_realizada') return 'bg-green-500'
   if (e.kind !== 'estado') return 'bg-slate-300'
   const a = String(e.details.a ?? '')
   return a in STATUS_META ? STATUS_META[a as keyof typeof STATUS_META].dot : 'bg-slate-300'
@@ -769,6 +870,32 @@ function eventoTexto(e: CandidateEvent, yoEmail: string | null | undefined): str
       return 'Se envió comprobación de interés'
     case 'interes_respuesta':
       return e.details.response === 'interested' ? 'Confirmó que sigue interesado' : 'Dijo que ya no le interesa'
+    case 'entrevista_invitada':
+      if (yo) return 'Le invitaste a una entrevista'
+      return quien ? `${quien} le invitó a una entrevista` : 'Invitación a entrevista enviada'
+    case 'entrevista_confirmada': {
+      // La hora se pinta en la zona de la entrevista, no en la del navegador.
+      const cuando = typeof e.details.starts_at === 'string'
+        ? fullDateTimeInZone(e.details.starts_at, String(e.details.timezone ?? 'Europe/Madrid'))
+        : null
+      return cuando ? `Entrevista confirmada para el ${cuando}` : 'Entrevista confirmada'
+    }
+    case 'entrevista_reprogramada': {
+      const cuando = typeof e.details.starts_at === 'string'
+        ? fullDateTimeInZone(e.details.starts_at, String(e.details.timezone ?? 'Europe/Madrid'))
+        : null
+      return cuando ? `Entrevista movida al ${cuando}` : 'Entrevista reprogramada'
+    }
+    case 'entrevista_cancelada':
+      if (e.details.motivo === 'puesto_pausada' || e.details.motivo === 'puesto_cerrada') {
+        return 'Entrevista en el aire: el puesto dejó de estar activo'
+      }
+      if (yo) return 'Cancelaste la entrevista'
+      return quien ? `${quien} canceló la entrevista` : 'Entrevista cancelada'
+    case 'entrevista_realizada':
+      return 'Entrevista realizada'
+    case 'entrevista_sin_respuesta':
+      return 'No hubo respuesta a la invitación'
     default:
       return 'Actividad'
   }

@@ -42,6 +42,70 @@ export function clockTime(iso: string): string {
   return `${hh}:${mi}`
 }
 
+// ---------------------------------------------------------------------------
+// Fechas EN LA ZONA DE LA ENTREVISTA, no en la del navegador.
+//
+// Todo lo de arriba pinta en la zona local de quien mira, que es lo correcto
+// para "hace 2 h" o para cuándo entró una candidatura. Para una entrevista NO:
+// una cita a las 10:00 en Las Palmas es a las 10:00 allí, la mire quien la mire.
+// Sin librería de fechas (el proyecto no tiene ninguna): Intl basta.
+// ---------------------------------------------------------------------------
+
+/** Partes civiles (año, mes, día, hora, minuto) de un instante en una zona. */
+function partesEnZona(iso: string, tz: string): Record<string, string> {
+  const partes: Record<string, string> = {}
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  })
+  for (const p of fmt.formatToParts(new Date(iso))) partes[p.type] = p.value
+  // hourCycle h23 devuelve '24' para medianoche en algunos motores.
+  if (partes.hour === '24') partes.hour = '00'
+  return partes
+}
+
+/** Clave de día civil (aaaa-mm-dd) en una zona. Para agrupar la agenda. */
+export function dayKeyInZone(iso: string, tz: string): string {
+  const p = partesEnZona(iso, tz)
+  return `${p.year}-${p.month}-${p.day}`
+}
+
+/** Hora HH:mm en la zona de la entrevista. */
+export function clockTimeInZone(iso: string, tz: string): string {
+  const p = partesEnZona(iso, tz)
+  return `${p.hour}:${p.minute}`
+}
+
+/** Fecha y hora completas en la zona de la entrevista. */
+export function fullDateTimeInZone(iso: string, tz: string): string {
+  const p = partesEnZona(iso, tz)
+  return `${p.day}/${p.month}/${p.year} a las ${p.hour}:${p.minute}`
+}
+
+/** Etiqueta corta para una cabecera de día: "Hoy", "Mañana" o "mar 12 sep". */
+export function dayLabelInZone(iso: string, tz: string, now = Date.now()): string {
+  const clave = dayKeyInZone(iso, tz)
+  const hoy = dayKeyInZone(new Date(now).toISOString(), tz)
+  if (clave === hoy) return 'Hoy'
+  const manana = dayKeyInZone(new Date(now + 86400000).toISOString(), tz)
+  if (clave === manana) return 'Mañana'
+  const dia = new Intl.DateTimeFormat('es-ES', { timeZone: tz, weekday: 'short', day: 'numeric', month: 'short' })
+    .format(new Date(iso))
+  // Intl mete puntos y comas según motor ("mar., 12 sept"): se normaliza.
+  return dia.replace(/\./g, '').replace(/,/g, '')
+}
+
+/** Etiqueta corta para el botón de la ficha: "mar 12, 10:00". */
+export function shortWhenInZone(iso: string, tz: string): string {
+  const dia = new Intl.DateTimeFormat('es-ES', { timeZone: tz, weekday: 'short', day: 'numeric' })
+    .format(new Date(iso))
+    .replace(/\./g, '')
+    .replace(/,/g, '')
+  return `${dia}, ${clockTimeInZone(iso, tz)}`
+}
+
 export function miles(n: number): string {
   return new Intl.NumberFormat('es-ES').format(n)
 }

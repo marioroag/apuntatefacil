@@ -449,3 +449,19 @@ verify_jwt = false
 # Actúa en nombre de una persona y lee sus candidatos con su sesión: exige JWT.
 [functions.meridian-chat]
 verify_jwt = true
+
+# Convierte el enlace de Google Maps que pega el cliente en un punto. Exige JWT:
+# pide una URL de fuera desde nuestro servidor, así que no puede quedar abierta.
+[functions.resolver-lugar]
+verify_jwt = true
+
+# El latido de la cola de entrevistas. Sin JWT porque lo llama pg_cron, pero NO
+# abierta: exige el secreto compartido INTERVIEW_TICK_SECRET y es fail-closed
+# (sin secreto configurado no atiende a nadie).
+[functions.interview-tick]
+verify_jwt = false
+
+# Webhook de WhatsApp. Sin JWT porque lo llama Meta, pero cada petición viene
+# firmada con HMAC sobre el cuerpo crudo y se comprueba fail-closed.
+[functions.whatsapp-webhook]
+verify_jwt = false

@@ -170,6 +170,12 @@ export type CandidateEventKind =
   | 'favorito'
   | 'interes_enviada'
   | 'interes_respuesta'
+  | 'entrevista_invitada'
+  | 'entrevista_confirmada'
+  | 'entrevista_reprogramada'
+  | 'entrevista_cancelada'
+  | 'entrevista_realizada'
+  | 'entrevista_sin_respuesta'
 
 export interface CandidateEvent {
   id: string
@@ -179,6 +185,152 @@ export interface CandidateEvent {
   kind: CandidateEventKind
   details: Record<string, unknown>
   createdAt: string // ISO
+}
+
+/**
+ * Una entrevista. UNA entidad, venga de donde venga: creada a mano, conseguida
+ * por el agente de WhatsApp o, más adelante, por la publicación multicanal.
+ * `origin` es procedencia, no tipo: no cambia ninguna regla ni ningún permiso.
+ *
+ * La hora se guarda en UTC (ISO) y `timezone` dice en qué zona hay que pintarla:
+ * una entrevista en Las Palmas se lee igual desde Madrid que desde allí.
+ */
+export type InterviewStatus =
+  | 'invitada'       // invitación mandada, sin respuesta todavía
+  | 'proponiendo'    // aceptó, horarios ofrecidos, esperando que elija
+  | 'confirmada'     // hueco reservado
+  | 'reprogramando'  // se pidió mover; conserva el hueco viejo hasta cerrar el nuevo
+  | 'realizada'
+  | 'cancelada'
+  | 'rechazada'      // el candidato dijo que no
+  | 'sin_respuesta'
+  | 'fallida'        // no se pudo entregar (sin WhatsApp, número no válido)
+
+/**
+ * 'telefonica' es al revés que las otras dos: presencial y videollamada son
+ * sitios a los que el candidato va, y en la llamada se le llama a él. La hace
+ * la empresa, con su agenda y su teléfono, igual que las otras dos; el día que
+ * la conduzcamos nosotros lo dirá `interviews.interviewer`, no la modalidad.
+ */
+export type InterviewMode = 'presencial' | 'videollamada' | 'telefonica'
+
+export interface Interview {
+  id: string
+  campaignId: string
+  candidateId: string
+  hostUserId: string
+  status: InterviewStatus
+  origin: 'manual' | 'whatsapp'
+  /** ISO en UTC. Null mientras no haya hueco elegido. */
+  startsAt: string | null
+  endsAt: string | null
+  timezone: string
+  mode: InterviewMode
+  locationText: string
+  meetingUrl: string | null
+  /** Cuándo dijo el candidato que sigue en pie, desde el aviso de la víspera.
+   *  Null = todavía no ha contestado, que no es lo mismo que "no viene". */
+  reconfirmedAt: string | null
+  createdAt: string
+}
+
+/** Estados vivos: los que ocupan al candidato y bloquean agenda. */
+export const INTERVIEW_LIVE: InterviewStatus[] = ['invitada', 'proponiendo', 'confirmada', 'reprogramando']
+
+/**
+ * Paleta propia y fija, como la de los candidatos. El acento de marca NO
+ * aparece aquí: queda reservado a acción, nav, foco y selección.
+ * `confirmada` va en ámbar porque es exactamente lo que el estado 'entrevista'
+ * del candidato ya significa, y las dos cosas se ven juntas en la misma ficha.
+ * Nada va en rojo: cancelar una entrevista es rutina, no un error.
+ */
+export const INTERVIEW_STATUS_META: Record<InterviewStatus, { label: string; dot: string; chip: string }> = {
+  invitada:      { label: 'Invitada',      dot: 'bg-blue-500',  chip: 'bg-blue-50 text-blue-700 ring-blue-200' },
+  proponiendo:   { label: 'Eligiendo',     dot: 'bg-blue-500',  chip: 'bg-blue-50 text-blue-700 ring-blue-200' },
+  confirmada:    { label: 'Confirmada',    dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700 ring-amber-200' },
+  reprogramando: { label: 'Reprogramando', dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700 ring-amber-200' },
+  realizada:     { label: 'Realizada',     dot: 'bg-green-500', chip: 'bg-green-50 text-green-700 ring-green-200' },
+  cancelada:     { label: 'Cancelada',     dot: 'bg-slate-300', chip: 'bg-slate-50 text-slate-500 ring-slate-200' },
+  rechazada:     { label: 'No le interesa', dot: 'bg-slate-300', chip: 'bg-slate-50 text-slate-500 ring-slate-200' },
+  sin_respuesta: { label: 'Sin respuesta', dot: 'bg-slate-300', chip: 'bg-slate-50 text-slate-500 ring-slate-200' },
+  fallida:       { label: 'No se pudo',    dot: 'bg-slate-300', chip: 'bg-slate-50 text-slate-500 ring-slate-200' },
+}
+
+/**
+ * Las tres modalidades, con la frase que resuelve la duda de verdad: quién se
+ * mueve. Presencial y teléfono van primero porque son las dos que se usan en
+ * obra, en almacén y en cocina; la videollamada existe y vale lo mismo, pero
+ * ahí casi nadie la pide.
+ */
+export const INTERVIEW_MODE_META: Record<InterviewMode, { label: string; pista: string }> = {
+  presencial: { label: 'Presencial', pista: 'Viene a tu dirección' },
+  telefonica: { label: 'Por teléfono', pista: 'Le llamas tú a la hora acordada' },
+  videollamada: { label: 'Videollamada', pista: 'Le pasas un enlace' },
+}
+
+/** El orden en que se ofrecen. Mandarlo desde aquí evita que dos pantallas lo pinten distinto. */
+export const INTERVIEW_MODES: InterviewMode[] = ['presencial', 'telefonica', 'videollamada']
+
+/**
+ * La conversación de la entrevista. Pertenece al CANDIDATO y vive en su ficha,
+ * al lado del chat de equipo y del historial. No hay bandeja global: obligaría
+ * a saltar entre dos sitios para entender a una sola persona.
+ */
+export type ConversationAgentState =
+  | 'preparando'
+  | 'contactando'
+  | 'esperando_respuesta'
+  | 'proponiendo_horarios'
+  | 'entrevista_confirmada'
+  | 'necesita_intervencion'
+  | 'cerrada'
+
+export interface CandidateConversation {
+  id: string
+  candidateId: string
+  interviewId: string | null
+  agentState: ConversationAgentState
+  /** 'agente' = automática. 'persona' = alguien del equipo la ha tomado. */
+  handover: 'agente' | 'persona'
+  attentionReason: string | null
+  /** Fuera de la ventana de 24 h de WhatsApp solo se pueden mandar plantillas. */
+  windowExpiresAt: string | null
+  optedOut: boolean
+  createdAt: string
+}
+
+export type MessageAuthor = 'agente' | 'persona' | 'candidato' | 'sistema'
+
+export interface ConversationMessage {
+  id: string
+  conversationId: string
+  direction: 'entrante' | 'saliente'
+  author: MessageAuthor
+  authorUserId: string | null
+  body: string
+  payload: Record<string, unknown>
+  deliveryStatus: 'pendiente' | 'enviado' | 'entregado' | 'leido' | 'fallido' | 'recibido'
+  errorText: string | null
+  createdAt: string
+}
+
+/**
+ * Qué se le dice al empresario en cada estado. El texto es de resultado, no de
+ * mecánica: le importa si tiene que hacer algo, no en qué paso interno estamos.
+ * Ámbar solo cuando de verdad hace falta una persona; el resto es slate o azul,
+ * porque "el agente está trabajando" no es una alerta.
+ */
+export const CONVERSATION_STATE_META: Record<
+  ConversationAgentState,
+  { label: string; hint: string; dot: string }
+> = {
+  preparando:            { label: 'Preparando',        hint: 'Estamos a punto de escribirle.', dot: 'bg-slate-400' },
+  contactando:           { label: 'Contactando',       hint: 'Mensaje en camino.', dot: 'bg-blue-500' },
+  esperando_respuesta:   { label: 'Esperando respuesta', hint: 'Le hemos escrito y aún no ha contestado.', dot: 'bg-blue-500' },
+  proponiendo_horarios:  { label: 'Eligiendo horario', hint: 'Le hemos pasado horarios y está eligiendo.', dot: 'bg-blue-500' },
+  entrevista_confirmada: { label: 'Entrevista confirmada', hint: 'Cita cerrada y recordatorios programados.', dot: 'bg-green-500' },
+  necesita_intervencion: { label: 'Necesita que entres', hint: 'Hay algo que no podemos resolver solos.', dot: 'bg-amber-500' },
+  cerrada:               { label: 'Cerrada',            hint: 'Esta conversación ya no está activa.', dot: 'bg-slate-300' },
 }
 
 /** Miembro del equipo, tal y como lo devuelve el RPC `list_company_members`. */

@@ -70,13 +70,14 @@ export const PLAN_LABEL: Record<string, string> = {
 // Poner el nombre del local a un puesto y el logo propio en el formulario no
 // cuesta nada y son de todos los planes. Lo que se cobra es lo que sí escala:
 // delegar por sede (`managers`) y tener más de una marca (`multiBrand`).
-export type PlanFeature = 'savedViews' | 'multiBrand' | 'managers' | 'teamBoard' | 'meridian'
+export type PlanFeature =
+  | 'savedViews' | 'multiBrand' | 'managers' | 'teamBoard' | 'meridian' | 'entrevistas'
 
 export const PLAN_FEATURES: Record<string, PlanFeature[]> = {
   trial: [],
   esencial: [],
-  pro: ['savedViews', 'teamBoard', 'meridian'],
-  multi: ['savedViews', 'multiBrand', 'managers', 'teamBoard', 'meridian'],
+  pro: ['savedViews', 'teamBoard', 'meridian', 'entrevistas'],
+  multi: ['savedViews', 'multiBrand', 'managers', 'teamBoard', 'meridian', 'entrevistas'],
 }
 
 export function planHas(plan: string | undefined | null, feature: PlanFeature): boolean {
@@ -98,6 +99,11 @@ export const FEATURE_COPY: Record<PlanFeature, { label: string; blurb: string; m
   savedViews: {
     label: 'las vistas guardadas',
     blurb: 'Guarda tus combinaciones de filtros y vuelve a aplicarlas en un clic.',
+    minPlan: 'pro',
+  },
+  entrevistas: {
+    label: 'las Entrevistas',
+    blurb: 'Invita a un candidato y deja que Apúntate Fácil cuadre la cita por ti.',
     minPlan: 'pro',
   },
   multiBrand: {

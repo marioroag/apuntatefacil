@@ -29,3 +29,8 @@ dist-ssr
 
 # Documento de trabajo local (no se versiona)
 CONTEXTO-PRODUCTO.md
+
+# Secrets de las edge functions en local. `*.local` de arriba NO cubre este
+# nombre, y aquí es donde viven el token de WhatsApp y la clave de la app.
+supabase/functions/.env
+supabase/.env
