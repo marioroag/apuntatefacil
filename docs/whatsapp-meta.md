@@ -122,6 +122,28 @@ cuando toque.
 Hola {{1}}. Tu entrevista de {{2}} del {{3}} se ha cancelado. Sentimos el cambio.
 ```
 
+### `interes_sigue_activo` (el código aún no la usa)
+
+La comprobación de interés por WhatsApp: la misma pregunta que hoy se manda por
+correo, en el canal que sí abre el candidato de obra o de almacén. Créala ahora
+por lo mismo que la anterior, porque lo que tarda es la aprobación.
+
+```
+Hola {{1}}. Te escribimos de {{2}} por tu candidatura a {{3}}. Estamos revisando los perfiles y queremos saber si sigues interesado/a en el puesto antes de seguir adelante.
+```
+
+**Botones** (tipo *Respuesta rápida*, **en este orden exacto**):
+
+1. `Sí, sigo interesado/a`
+2. `No, ya no me interesa`
+
+**Ejemplos** para la revisión: `{{1}}` Rubén, `{{2}}` Construcciones Ledesma,
+`{{3}}` Peón de albañil.
+
+> Los botones dicen palabra por palabra lo mismo que las dos opciones del correo
+> (`src/lib/interestEmail.ts`). Es la misma pregunta por otro canal: si cada uno
+> la formula a su manera, las respuestas dejan de poder juntarse.
+
 > Si Meta rechaza alguna, casi siempre es por sonar a promoción o por empezar
 > con una variable. El texto de arriba empieza por saludo y no promete nada, que
 > es justo lo que buscan.

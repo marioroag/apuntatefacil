@@ -465,3 +465,8 @@ verify_jwt = false
 # firmada con HMAC sobre el cuerpo crudo y se comprueba fail-closed.
 [functions.whatsapp-webhook]
 verify_jwt = false
+
+# Un mensaje escrito a mano por alguien del equipo al WhatsApp del candidato.
+# Exige JWT: quién puede escribir en qué conversación lo decide RLS con su sesión.
+[functions.whatsapp-send]
+verify_jwt = true

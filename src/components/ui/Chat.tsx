@@ -1,7 +1,7 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { FileText, Loader2, Send } from 'lucide-react'
-import { fullDateTime, initials, memberAvatarTone, personLabel, relativeDate } from '../../lib/format'
+import { ArrowDown, FileText, Loader2, Send } from 'lucide-react'
+import { fullDateTime, initials, memberAvatarTone, personLabel, plural, relativeDate } from '../../lib/format'
 import { BTN_PRIMARY_SM } from '../../lib/buttons'
 import type { CompanyMember } from '../../lib/types'
 import { ES_MENCION, mentionHandle, resolveMentions } from '../../lib/mentions'
@@ -82,9 +82,109 @@ export function ChatEmpty({ icon, title, children }: { icon: ReactNode; title: s
   )
 }
 
+/** Cuánto puede haber subido y seguir contando como "está mirando el final". */
+const MARGEN_FONDO = 64
+
+/**
+ * Que el hilo siga al mensaje nuevo, SIN arrastrarte si estabas leyendo arriba.
+ *
+ * Las dos mitades importan lo mismo. Sin la primera, los mensajes llegan en
+ * tiempo real y no los ves: aparecen fuera de la pantalla y la conversación
+ * parece muerta. Con la primera sola pero sin la segunda, te tira al fondo
+ * mientras relees lo que dijo el candidato hace diez mensajes, que es peor,
+ * porque te quita el control de algo que estabas haciendo tú.
+ *
+ * Así que se sigue el final solo si ya estabas en el final, y si no, se te
+ * avisa de que hay algo nuevo y decides tú. Es lo que hace cualquier chat, y
+ * la razón por la que lo hacen todos es esta.
+ *
+ * El salto automático es instantáneo a propósito: ya estás abajo, así que lo
+ * único que se mueve es lo que ocupa la burbuja nueva y animarlo sería
+ * marearlo. El de la chapa sí es suave, porque ahí sí recorres el hilo y
+ * conviene ver por dónde vas (y se apaga con `prefers-reduced-motion`).
+ */
+export function useSeguirAlFondo(cuantos: number) {
+  const contenedor = useRef<HTMLDivElement>(null)
+  const [nuevos, setNuevos] = useState(0)
+  const pegado = useRef(true)
+  const sinEstrenar = useRef(true)
+  const anteriores = useRef(cuantos)
+
+  const irAlFondo = useCallback((suave = false) => {
+    const el = contenedor.current
+    if (!el) return
+    const quieto = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    el.scrollTo({ top: el.scrollHeight, behavior: suave && !quieto ? 'smooth' : 'auto' })
+    pegado.current = true
+    setNuevos(0)
+  }, [])
+
+  // Dónde está mirando. Se apunta al hacer scroll y no al llegar el mensaje:
+  // para entonces el contenido ya ha crecido y la cuenta saldría mal.
+  useEffect(() => {
+    const el = contenedor.current
+    if (!el) return
+    const mirar = () => {
+      pegado.current = el.scrollHeight - el.scrollTop - el.clientHeight <= MARGEN_FONDO
+      if (pegado.current) setNuevos(0)
+    }
+    el.addEventListener('scroll', mirar, { passive: true })
+    return () => el.removeEventListener('scroll', mirar)
+  }, [])
+
+  useLayoutEffect(() => {
+    const antes = anteriores.current
+    anteriores.current = cuantos
+
+    // Hilo vacío: o está cargando, o se ha cambiado de conversación. En los dos
+    // casos el siguiente pintado es una apertura, no un mensaje nuevo.
+    if (cuantos === 0) {
+      sinEstrenar.current = true
+      setNuevos(0)
+      return
+    }
+    // Al abrir se aterriza abajo de golpe, sin ver pasar el hilo entero.
+    if (sinEstrenar.current) {
+      sinEstrenar.current = false
+      irAlFondo()
+      return
+    }
+    if (cuantos <= antes) return
+    if (pegado.current) irAlFondo()
+    else setNuevos((n) => n + (cuantos - antes))
+  }, [cuantos, irAlFondo])
+
+  return { contenedor, nuevos, irAlFondo }
+}
+
+/**
+ * "2 mensajes nuevos", encima del hilo, cuando han llegado mientras leías
+ * arriba. Va en el acento porque es una acción (te lleva al final), no un
+ * estado.
+ */
+export function ChatNuevos({ nuevos, onClick }: { nuevos: number; onClick: () => void }) {
+  if (nuevos <= 0) return null
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+      <button
+        type="button"
+        onClick={onClick}
+        className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-indigo-600 py-1.5 pl-3 pr-3.5 text-[13px] font-semibold text-white shadow-pop transition-colors hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+      >
+        <ArrowDown className="size-3.5" aria-hidden />
+        {plural(nuevos, 'mensaje nuevo', 'mensajes nuevos')}
+      </button>
+    </div>
+  )
+}
+
 /**
  * La conversación. `mt-auto`: con pocos mensajes el hilo se apoya en el campo de
  * escribir en vez de dejar un hueco muerto debajo.
+ *
+ * NO lleva el scroll: eso es de quien tenga el contenedor que scrollea, con
+ * `useSeguirAlFondo`. Antes lo hacía aquí dentro con un `scrollIntoView` a cada
+ * mensaje, y por eso te arrastraba al fondo estuvieras donde estuvieras.
  */
 export function ChatThread({
   messages,
@@ -95,12 +195,6 @@ export function ChatThread({
   currentUserId: string | null | undefined
   className?: string
 }) {
-  const finRef = useRef<HTMLDivElement>(null)
-  // El hilo arranca abajo (lo último dicho) y sigue al mensaje nuevo.
-  useLayoutEffect(() => {
-    finRef.current?.scrollIntoView({ block: 'end' })
-  }, [messages.length])
-
   return (
     <ol className={`mt-auto space-y-4 ${className}`}>
       {messages.map((m) => {
@@ -134,7 +228,6 @@ export function ChatThread({
           </li>
         )
       })}
-      <div ref={finRef} aria-hidden />
     </ol>
   )
 }
@@ -147,7 +240,7 @@ export function ChatThread({
  * escriben cosas de dos frases. Enter suelto enviaba medio mensaje.
  */
 export function ChatComposer({
-  members,
+  members = [],
   onSend,
   placeholder = 'Escribe a tu equipo. Con @ avisas a alguien.',
   label = 'Escribe un mensaje para tu equipo',
@@ -155,7 +248,12 @@ export function ChatComposer({
   disabled = false,
   children,
 }: {
-  members: CompanyMember[]
+  /**
+   * Sin miembros no hay menciones y la caja es un composer normal. Es lo que
+   * necesita la conversación con el candidato: un '@' ahí no avisa a nadie, se
+   * le enviaría tal cual por WhatsApp.
+   */
+  members?: CompanyMember[]
   onSend: (body: string, mentions: string[]) => Promise<void>
   placeholder?: string
   label?: string
@@ -219,14 +317,19 @@ export function ChatComposer({
     const limpio = texto.trim()
     if (!limpio || enviando || disabled) return
     setEnviando(true)
-    await onSend(limpio, resolveMentions(limpio, members))
-    setTexto('')
-    setSugerencias([])
+    try {
+      // Solo se vacía la caja si el mensaje salió. Un envío que falla y además
+      // se lleva por delante lo que habías escrito obliga a teclearlo otra vez,
+      // y es justo cuando menos ganas hay.
+      await onSend(limpio, resolveMentions(limpio, members))
+      setTexto('')
+      setSugerencias([])
+      window.requestAnimationFrame(() => {
+        if (areaRef.current) areaRef.current.style.height = 'auto'
+        areaRef.current?.focus()
+      })
+    } catch { /* el motivo lo enseña quien envía; aquí solo se conserva el texto */ }
     setEnviando(false)
-    window.requestAnimationFrame(() => {
-      if (areaRef.current) areaRef.current.style.height = 'auto'
-      areaRef.current?.focus()
-    })
   }
 
   const listaId = `${id}-menciones`

@@ -21,7 +21,10 @@ import {
 } from 'lucide-react'
 import { Modal } from '../components/ui/Modal'
 import { Tabs, TabPanel, type TabItem } from '../components/ui/Tabs'
-import { ChatComposer, ChatEmpty, ChatSkeleton, ChatThread, type ChatMessage } from '../components/ui/Chat'
+import {
+  ChatComposer, ChatEmpty, ChatNuevos, ChatSkeleton, ChatThread, useSeguirAlFondo,
+  type ChatMessage,
+} from '../components/ui/Chat'
 import { useChatThread } from '../lib/useChatThread'
 import { StatusSelect } from '../components/ui/StatusPill'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -756,6 +759,7 @@ function Equipo({
   // chatVersion en las dependencias: cuando un compañero escribe, el ping de
   // realtime lo sube y el hilo abierto se recarga solo, sin sondear.
   const { items, setItems, loading } = useChatThread(() => load(candidateId), [candidateId, chatVersion])
+  const { contenedor, nuevos, irAlFondo } = useSeguirAlFondo(items.length)
 
   const mensajes: ChatMessage[] = items.map((c) => ({
     id: c.id,
@@ -768,16 +772,22 @@ function Equipo({
 
   return (
     <>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-4">
-        {loading ? (
-          <ChatSkeleton />
-        ) : mensajes.length === 0 ? (
-          <ChatEmpty icon={<MessagesSquare className="size-6" />} title="Nadie ha comentado todavía">
-            Apunta aquí lo que hables por teléfono: si le encaja el turno, cuándo puede empezar, lo que sea. Queda con tu nombre y lo ve tu equipo.
-          </ChatEmpty>
-        ) : (
-          <ChatThread messages={mensajes} currentUserId={currentUserId} />
-        )}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={contenedor}
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-4"
+        >
+          {loading ? (
+            <ChatSkeleton />
+          ) : mensajes.length === 0 ? (
+            <ChatEmpty icon={<MessagesSquare className="size-6" />} title="Nadie ha comentado todavía">
+              Apunta aquí lo que hables por teléfono: si le encaja el turno, cuándo puede empezar, lo que sea. Queda con tu nombre y lo ve tu equipo.
+            </ChatEmpty>
+          ) : (
+            <ChatThread messages={mensajes} currentUserId={currentUserId} />
+          )}
+        </div>
+        <ChatNuevos nuevos={nuevos} onClick={() => irAlFondo(true)} />
       </div>
       <div className="border-t border-slate-200 bg-white p-3">
         <ChatComposer
@@ -786,6 +796,9 @@ function Equipo({
           onSend={async (body, mentions) => {
             const nuevo = await onSend(candidateId, body, mentions)
             if (nuevo) setItems((cs) => (cs.some((c) => c.id === nuevo.id) ? cs : [...cs, nuevo]))
+            // Lo tuyo se va a ver siempre, estuvieras donde estuvieras leyendo:
+            // acabas de escribirlo, así que quieres verlo salir.
+            irAlFondo(true)
           }}
         />
       </div>

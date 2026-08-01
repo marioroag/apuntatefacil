@@ -42,8 +42,8 @@ if (!TOKEN || !WABA) {
   process.exit(1)
 }
 
-// Las cuatro. El texto es el que está en docs/whatsapp-meta.md y el que espera
-// _shared/whatsapp/render.ts: si cambias uno, cambia los tres.
+// Todas las que usa el código. El texto es el que está en docs/whatsapp-meta.md
+// y el que espera _shared/whatsapp/render.ts: si cambias uno, cambia los tres.
 const PLANTILLAS = [
   {
     name: 'invitacion_entrevista',
@@ -81,6 +81,34 @@ const PLANTILLAS = [
     ],
   },
   {
+    // El aviso de la víspera. La usa `avisarVispera` desde el 1 de agosto y
+    // faltaba aquí: sin ella ese envío falla con un 132000 y el candidato no
+    // recibe nada la noche antes de su entrevista.
+    name: 'recordatorio_vispera',
+    language: 'es',
+    category: 'UTILITY',
+    components: [
+      {
+        type: 'BODY',
+        text: 'Hola {{1}}. Mañana es tu entrevista para el puesto de {{2}}. ' +
+          'Queda el {{3}}. Dónde: {{4}}. Dinos si sigue en pie o si prefieres ' +
+          'que busquemos otro hueco.',
+        example: {
+          body_text: [['Rubén', 'Peón de albañil', 'lunes, 3 de agosto a las 11:00',
+            'Calle Marina 32, nave 4, 35008 Las Palmas']],
+        },
+      },
+      {
+        // ORDEN CRÍTICO: `botonesVispera` manda [:ok, :mover] por posición.
+        type: 'BUTTONS',
+        buttons: [
+          { type: 'QUICK_REPLY', text: 'Ahí estaré' },
+          { type: 'QUICK_REPLY', text: 'Cambiar cita' },
+        ],
+      },
+    ],
+  },
+  {
     name: 'recordatorio_entrevista',
     language: 'es',
     category: 'UTILITY',
@@ -109,6 +137,33 @@ const PLANTILLAS = [
         type: 'BODY',
         text: 'Hola {{1}}. Tu entrevista de {{2}} del {{3}} se ha cancelado. Sentimos el cambio.',
         example: { body_text: [['Rubén', 'Peón de albañil', 'martes 4 de agosto']] },
+      },
+    ],
+  },
+  {
+    // La comprobación de interés por WhatsApp. El código todavía no la usa: se
+    // pide ANTES porque lo que tarda es la aprobación, no el envío.
+    // Los dos botones dicen exactamente lo mismo que las dos opciones del correo
+    // (`src/lib/interestEmail.ts`): es la misma pregunta por otro canal, y si
+    // cada uno la formula a su manera deja de poder compararse la respuesta.
+    name: 'interes_sigue_activo',
+    language: 'es',
+    category: 'UTILITY',
+    components: [
+      {
+        type: 'BODY',
+        text: 'Hola {{1}}. Te escribimos de {{2}} por tu candidatura a {{3}}. ' +
+          'Estamos revisando los perfiles y queremos saber si sigues ' +
+          'interesado/a en el puesto antes de seguir adelante.',
+        example: { body_text: [['Rubén', 'Construcciones Ledesma', 'Peón de albañil']] },
+      },
+      {
+        // ORDEN CRÍTICO: el sí es el índice 0 y el no el 1.
+        type: 'BUTTONS',
+        buttons: [
+          { type: 'QUICK_REPLY', text: 'Sí, sigo interesado/a' },
+          { type: 'QUICK_REPLY', text: 'No, ya no me interesa' },
+        ],
       },
     ],
   },

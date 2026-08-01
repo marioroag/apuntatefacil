@@ -44,6 +44,9 @@ export interface Hechos {
   anfitrion: string | null
   /** El `agent_state` de la conversación. */
   estado: string
+  /** Qué día es hoy, escrito: "sábado, 2 de agosto". Sin esto no puede
+   *  entender "este lunes", "mañana" ni "la semana que viene". */
+  hoy: string
   /** La cita ya cerrada: "martes 4 de agosto a las 10:00". */
   citaTexto: string | null
   /** "En Calle Mayor 3" / "Te llamamos por teléfono" / "Videollamada: ...". */
@@ -136,6 +139,7 @@ export const ESQUEMA = {
 
 function fichaDe(h: Hechos): string {
   const l: string[] = []
+  l.push(`Hoy es ${h.hoy}`)
   l.push(`Empresa: ${h.empresa}`)
   l.push(`Puesto: ${h.puesto}${h.ubicacion ? ` (${h.ubicacion})` : ''}`)
   l.push(h.candidato
@@ -234,6 +238,13 @@ export function construirSistema(h: Hechos): string {
     '',
     '## Tu agenda',
     '- Los números de la agenda son los únicos horarios que existen.',
+    '- Cada día lleva delante cómo lo diría él ("mañana", "este lunes", "el lunes',
+    '  que viene"). NO calcules fechas tú: si te dice "este lunes", es el día que',
+    '  pone "este lunes", y si dice "el lunes que viene" es el otro. Hay dos lunes',
+    '  en tu agenda y confundirlos es mandar a alguien una semana tarde.',
+    '- Si escribes una hora concreta en el texto, es un COMPROMISO: el sistema le',
+    '  ofrecerá ESA y nada más. Así que dila solo si de verdad se la quieres dar.',
+    '  Nunca prometas una hora y a la vez le pidas que elija.',
     '- ELEGIR ES EN DOS PASOS: primero el día, después la hora. En "mostrar" pones',
     '  los números que le vengan bien, y el sistema decide cómo enseñárselos:',
     '    * números de UN SOLO día -> le enseña esas horas.',
@@ -253,7 +264,13 @@ export function construirSistema(h: Hechos): string {
     '',
     '## Lo que quieres conseguir',
     h.citaTexto
-      ? 'La entrevista ya está cerrada. Resuelve lo que te pregunte y confirma que sigue en pie.'
+      ? [
+        'La entrevista ya está cerrada. Resuelve lo que te pregunte.',
+        'OJO, el error más fácil aquí: si lo que quiere es MOVERLA ("ponmela",',
+        '"mejor otro día", "cámbiamela", "no puedo ese día", "¿y el lunes?"), eso',
+        'es reprogramar, NO confirmarle que sigue en pie. Confirmar es lo que se',
+        'hace cuando pregunta si sigue, no cuando pide otro día.',
+      ].join('\n')
       : 'Que elija uno de los horarios. Contéstale primero a lo que te diga, y luego vuelve a ello con naturalidad, sin agobiar y sin decirlo dos veces igual.',
     '',
     '## Qué haces (elige UNA acción)',
@@ -409,10 +426,105 @@ function horaPlana(s: string): string {
 function fichaPlana(h: Hechos): string {
   return plano([
     h.empresa, h.puesto, h.ubicacion, h.candidato ?? '', h.anfitrion ?? '',
-    h.citaTexto ?? '', h.donde ?? '', String(h.duracion),
+    h.citaTexto ?? '', h.donde ?? '', String(h.duracion), h.hoy,
     ...h.agenda.map((d) => `${d.dia} ${d.horas.map((x) => x.hora).join(' ')}`),
     ...h.huecos.map((x) => x.cuando), ...h.enlaces,
   ].join(' | '))
+}
+
+// Extractores. Se crean nuevas en cada llamada: una expresión regular global
+// lleva estado (`lastIndex`) y compartirla entre comprobaciones se salta
+// coincidencias.
+const horasDe = (s: string) => [...s.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g)].map((m) => m[0])
+const fechasDe = (s: string) =>
+  [...s.matchAll(new RegExp(`\\b\\d{1,2}\\s+de\\s+(${MESES.join('|')})\\b`, 'g'))].map((m) => m[0])
+const diasDe = (s: string) => DIAS.filter((d) => new RegExp(`\\b${d}\\b`).test(s))
+
+/**
+ * Los días de los que sabemos algo: la agenda libre MÁS el de la cita ya
+ * cerrada, que no sale en la agenda precisamente porque su hueco lo ocupa ella.
+ *
+ * Van juntos y no como una excepción suelta porque la excepción era el fallo:
+ * antes la hora de la cita se admitía hablando de CUALQUIER día, y con la cita
+ * cerrada el lunes 10 a las 17:00 el agente escribió "te la cambio al lunes 3 a
+ * las 17:00" y coló, porque esas 17:00 estaban en la ficha... pero del otro
+ * lunes. Aquí cada hora va pegada a su día y no hay nada que eximir.
+ *
+ * La hora de la cita entra con índice -1: se puede DECIR, pero no es un hueco
+ * que se le pueda dar a nadie, porque ya es suyo.
+ */
+function diasConocidos(h: Hechos): DiaFicha[] {
+  const cita = plano(h.citaTexto ?? '')
+  const fecha = fechasDe(cita)[0]
+  if (!cita || !fecha) return h.agenda
+  const suyas = horasDe(cita).map((hora) => ({ indice: -1, hora }))
+  const i = h.agenda.findIndex((d) => plano(d.dia).includes(fecha))
+  return i < 0
+    ? [...h.agenda, { dia: h.citaTexto as string, horas: suyas }]
+    : h.agenda.map((d, j) => (j === i ? { ...d, horas: [...d.horas, ...suyas] } : d))
+}
+
+/**
+ * A qué día apunta un mensaje. LA FECHA MANDA SOBRE EL NOMBRE, y ese orden es
+ * todo el arreglo.
+ *
+ * Con un horizonte de diez días, cada día de la semana sale DOS VECES en la
+ * agenda ("lunes 3" y "lunes 10"). Buscando por nombre, un mensaje que dijera
+ * "lunes" señalaba los dos, y con dos días señalados el emparejamiento hora-día
+ * se desactivaba solo, justo en las conversaciones de mover una cita, que son
+ * las que más lo necesitan. Si el mensaje dice "3 de agosto", ese día manda y
+ * el otro lunes no pinta nada.
+ */
+function diasSenalados(p: string, dias: DiaFicha[]): DiaFicha[] {
+  const porFecha = dias.filter((d) => {
+    const dp = plano(d.dia)
+    const fecha = fechasDe(dp)[0]
+    if (!fecha) return false
+    if (p.includes(fecha)) return true
+    // Nadie escribe el mes al hablar. Lo que salió en producción fue "al lunes
+    // 3 a las 17:00", sin "de agosto", y buscando la fecha entera eso no
+    // señalaba nada: se caía al nombre, había dos lunes, y la comprobación se
+    // desactivaba sola justo en el mensaje que había que parar.
+    const numero = parseInt(fecha, 10)
+    const nombre = diasDe(dp)[0]
+    if (nombre && new RegExp(`\\b${nombre}\\s+(dia\\s+)?${numero}\\b`).test(p)) return true
+    return new RegExp(`\\bdia\\s+${numero}\\b`).test(p)
+  })
+  if (porFecha.length) return porFecha
+  return dias.filter((d) => {
+    const nombre = diasDe(plano(d.dia))[0]
+    return !!nombre && diasDe(p).includes(nombre)
+  })
+}
+
+/**
+ * El día y la hora que el mensaje PROMETE, si promete uno solo y lo tenemos
+ * libre. Devuelve su número de agenda, o null.
+ *
+ * Existe por una incoherencia que se vio en producción: el agente escribió "te
+ * la cambio al lunes 3 a las 17:00" y el sistema le pegó debajo tres botones de
+ * DÍA para que eligiera. O sea, le dio una hora y acto seguido se la pidió. El
+ * candidato eligió el día y entonces le preguntó la hora, y las 17:00
+ * prometidas no llegaron nunca.
+ *
+ * De las dos salidas posibles (que no prometa, o que cumpla) se coge cumplir:
+ * si ha dicho una hora concreta y la tenemos, esa es LA que se le ofrece, sola.
+ * Así el texto y lo que hay debajo dicen lo mismo, y aceptar le da exactamente
+ * la hora que leyó. No se reserva por su cuenta: prometer no es que él haya
+ * dicho que sí, y "¿te viene bien el lunes a las 17:00?" es una pregunta.
+ */
+export function citaPrometida(mensaje: string, h: Hechos): number | null {
+  const p = plano(mensaje)
+  const horas = [...new Set(horasDe(mensaje).map(horaPlana))]
+  if (horas.length !== 1) return null          // ninguna hora, o varias: no es una promesa
+
+  const dias = diasSenalados(p, diasConocidos(h))
+  if (dias.length !== 1) return null           // sin saber de qué día habla, no se toca nada
+
+  const fila = dias[0].horas.find((x) => horaPlana(x.hora) === horas[0])
+  // Índice -1 es la hora de la cita que ya tiene. Repetírsela ("sí, sigue el
+  // lunes a las 17:00") no es prometerle nada nuevo, y no hay hueco que ofrecer.
+  return fila && fila.indice >= 0 ? fila.indice : null
 }
 
 export type Revision = { ok: true } | { ok: false; motivo: string }
@@ -452,12 +564,9 @@ export function revisar(mensaje: string, h: Hechos, op: OpcionesRevision = {}): 
 
   const ficha = fichaPlana(h)
   const p = plano(texto)
-  // Se crean nuevas en cada uso: una expresión regular global lleva estado
-  // (`lastIndex`) y compartirla entre comprobaciones se salta coincidencias.
-  const horas = (s: string) => [...s.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g)].map((m) => m[0])
-  const fechas = (s: string) =>
-    [...s.matchAll(new RegExp(`\\b\\d{1,2}\\s+de\\s+(${MESES.join('|')})\\b`, 'g'))].map((m) => m[0])
-  const dias = (s: string) => DIAS.filter((d) => new RegExp(`\\b${d}\\b`).test(s))
+  const horas = horasDe
+  const fechas = fechasDe
+  const dias = diasDe
 
   // 1. Horas. La peor mentira posible: citar a alguien a una hora que no es.
   //    Nunca se relajan, ni siquiera con lo que él haya dicho.
@@ -487,25 +596,13 @@ export function revisar(mensaje: string, h: Hechos, op: OpcionesRevision = {}): 
   //     o con varios se vuelve a la comprobación de unión de arriba: preferimos
   //     dejar pasar una respuesta correcta a tumbarla por no saber a cuál se
   //     refería.
-  const señalados = h.agenda.filter((d) => {
-    const dp = plano(d.dia)
-    const f = fechas(dp)[0]
-    if (f && p.includes(f)) return true
-    const nombre = dias(dp)[0]
-    return !!nombre && dias(p).includes(nombre)
-  })
+  //
+  //     Las horas de la tanda ofrecida no se eximen, aunque tentaba: salen de la
+  //     agenda, así que ya están cubiertas por su día, y eximirlas dejaba pasar
+  //     "el martes te doy las 16:30" cuando esas 16:30 eran del miércoles.
+  const señalados = diasSenalados(p, diasConocidos(h))
   if (señalados.length === 1) {
-    // La de la cita cerrada se admite siempre, y solo esa: una entrevista ya
-    // reservada ocupa su hueco, así que NO está en la agenda, y "tu entrevista
-    // del martes a las 9:00" tiene que poder decirse.
-    //
-    // Las horas de la tanda ofrecida no se eximen, aunque tentaba: salen de la
-    // agenda, así que ya están cubiertas por su día, y eximirlas dejaba pasar
-    // "el martes te doy las 16:30" cuando esas 16:30 eran del miércoles.
-    const suyasDelDia = new Set([
-      ...señalados[0].horas.map((x) => horaPlana(x.hora)),
-      ...horas(plano(h.citaTexto ?? '')).map(horaPlana),
-    ])
+    const suyasDelDia = new Set(señalados[0].horas.map((x) => horaPlana(x.hora)))
     for (const hh of horas(texto)) {
       if (!suyasDelDia.has(horaPlana(hh))) {
         return { ok: false, motivo: `${hh} no es de ${señalados[0].dia}` }

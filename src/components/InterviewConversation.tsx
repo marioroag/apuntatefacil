@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle, CalendarPlus, Check, CheckCheck, ChevronDown, Clock,
-  Loader2, MessageCircle, Send,
+  Loader2, MessageCircle,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useToast } from './ui/Toast'
 import { useChatThread } from '../lib/useChatThread'
-import { ChatSkeleton } from './ui/Chat'
+import { ChatComposer, ChatNuevos, ChatSkeleton, useSeguirAlFondo } from './ui/Chat'
 import { BTN_PRIMARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import { clockTime, formatPhone, fullDateTimeInZone } from '../lib/format'
 import { currentInterview } from '../lib/interviews'
@@ -57,6 +57,7 @@ export function InterviewConversation({
   return (
     <Activa
       conversacion={conversacion}
+      telefono={typeof candidate.answers['telefono'] === 'string' ? candidate.answers['telefono'] : ''}
       entrevistaFecha={entrevista?.startsAt ?? null}
       entrevistaZona={entrevista?.timezone ?? 'Europe/Madrid'}
     />
@@ -354,29 +355,60 @@ function Linea({ etiqueta, valor, apagado = false, num = false }: {
 // Conversación en marcha
 // ---------------------------------------------------------------------------
 
+/**
+ * WhatsApp solo deja mandar texto libre durante las 24 h siguientes al último
+ * mensaje del candidato. Fuera de esa ventana lo único que entra es una
+ * plantilla aprobada por Meta, así que la caja se apaga en vez de dejar escribir
+ * algo que va a rebotar.
+ */
+function ventanaAbierta(expira: string | null): boolean {
+  if (!expira) return false
+  const t = Date.parse(expira)
+  return Number.isFinite(t) && t > Date.now()
+}
+
 function Activa({
   conversacion,
+  telefono,
   entrevistaFecha,
   entrevistaZona,
 }: {
   conversacion: NonNullable<ReturnType<ReturnType<typeof useStore>['conversationFor']>>
+  telefono: string
   entrevistaFecha: string | null
   entrevistaZona: string
 }) {
-  const { loadConversationMessages, conversationVersion, setConversationHandover } = useStore()
+  const {
+    loadConversationMessages, conversationVersion, setConversationHandover, sendConversationMessage,
+  } = useStore()
   const { items, loading } = useChatThread(
     () => loadConversationMessages(conversacion.id),
     [conversacion.id, conversationVersion],
   )
   const [cambiando, setCambiando] = useState(false)
+  // El hilo llega en tiempo real, así que sin esto los mensajes nuevos salían
+  // fuera de la pantalla y la conversación parecía parada.
+  const { contenedor, nuevos, irAlFondo } = useSeguirAlFondo(items.length)
 
   const meta = CONVERSATION_STATE_META[conversacion.agentState]
   const enManos = conversacion.handover === 'persona'
+  const puedeEscribir = ventanaAbierta(conversacion.windowExpiresAt) && !conversacion.optedOut
 
   const cambiarControl = async () => {
     setCambiando(true)
     await setConversationHandover(conversacion.id, enManos ? 'agente' : 'persona')
     setCambiando(false)
+  }
+
+  // Enviar es tomar el control: la función pasa el volante antes de mandar nada.
+  // Pedir que pulses un botón para poder teclear es un paso de más justo en el
+  // momento en que alguien está esperando una respuesta.
+  const enviar = async (texto: string) => {
+    const ok = await sendConversationMessage(conversacion.id, texto)
+    // Lanzar es lo que le dice a la caja que NO borre lo escrito. El motivo del
+    // fallo ya lo ha enseñado el store en un aviso.
+    if (!ok) throw new Error('no enviado')
+    irAlFondo(true)
   }
 
   return (
@@ -410,45 +442,99 @@ function Activa({
         )}
       </div>
 
-      {/* Hilo */}
-      <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-4">
-        {loading ? (
-          <ChatSkeleton />
-        ) : items.length === 0 ? (
-          <p className="mt-6 text-center text-[13px] text-slate-500">
-            Todavía no se ha enviado nada.
-          </p>
-        ) : (
-          <ol className="space-y-2">
-            {items.map((m) => (
-              <Burbuja key={m.id} mensaje={m} />
-            ))}
-          </ol>
-        )}
+      {/* Hilo. El envoltorio existe para la chapa de "mensajes nuevos": tiene que
+          quedarse quieta sobre el hilo, y dentro del que scrollea se iría con él. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div ref={contenedor} className="min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-4">
+          {loading ? (
+            <ChatSkeleton />
+          ) : items.length === 0 ? (
+            <p className="mt-6 text-center text-[13px] text-slate-500">
+              Todavía no se ha enviado nada.
+            </p>
+          ) : (
+            <ol className="space-y-2">
+              {items.map((m) => (
+                <Burbuja key={m.id} mensaje={m} />
+              ))}
+            </ol>
+          )}
+        </div>
+        <ChatNuevos nuevos={nuevos} onClick={() => irAlFondo(true)} />
       </div>
 
-      {/* Acciones. Tomar el control es la que importa: siempre visible, nunca
-          escondida en un menú. */}
+      {/* Escribir a mano. Es lo primero del pie porque es lo que se viene a
+          hacer: el botón de devolver el control se usa una vez, la caja todas. */}
       <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3">
-        <button
-          type="button"
-          onClick={() => void cambiarControl()}
-          disabled={cambiando}
-          className={`${BTN_SECONDARY_SM} w-full justify-center`}
-        >
-          {cambiando ? (
-            <Loader2 className="size-3.5 animate-spin" aria-hidden />
-          ) : (
-            <Send className="size-3.5 text-slate-400" aria-hidden />
-          )}
-          {enManos ? 'Devolver a Apúntate Fácil' : 'Tomar el control'}
-        </button>
-        <p className="mt-1.5 text-center text-[12px] text-slate-500">
-          {enManos
-            ? 'Mientras la lleves tú, no escribiremos nada por nuestra cuenta.'
-            : 'Escribe tú y el agente se aparta.'}
-        </p>
+        {puedeEscribir ? (
+          <ChatComposer
+            id={`wa-${conversacion.id}`}
+            onSend={enviar}
+            placeholder="Escribe a este candidato por WhatsApp."
+            label="Escribe un mensaje de WhatsApp para el candidato"
+          />
+        ) : (
+          <Cerrado conversacion={conversacion} telefono={telefono} />
+        )}
+
+        <div className="mt-2 flex items-center justify-between gap-3">
+          {/* "Si escribes, el agente se aparta" solo se sostiene si se puede
+              escribir: con la ventana cerrada sería otra promesa falsa. */}
+          <p className="text-[12px] text-slate-500">
+            {enManos
+              ? 'La llevas tú. No escribiremos nada por nuestra cuenta.'
+              : puedeEscribir
+                ? 'Si escribes, el agente se aparta.'
+                : ''}
+          </p>
+          <button
+            type="button"
+            onClick={() => void cambiarControl()}
+            disabled={cambiando}
+            className={`${BTN_SECONDARY_SM} shrink-0`}
+          >
+            {cambiando && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
+            {enManos ? 'Devolver a Apúntate Fácil' : 'Tomar el control'}
+          </button>
+        </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Lo que se enseña en el sitio de la caja de texto cuando no se puede escribir.
+ * Dice el motivo y, sobre todo, qué se puede hacer en su lugar: un campo
+ * apagado sin explicación deja al empresario mirando la pantalla.
+ */
+function Cerrado({
+  conversacion,
+  telefono,
+}: {
+  conversacion: NonNullable<ReturnType<ReturnType<typeof useStore>['conversationFor']>>
+  telefono: string
+}) {
+  const baja = conversacion.optedOut
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+      <p className="text-[13px] font-medium text-slate-800">
+        {baja ? 'Pidió no recibir más mensajes' : 'No puedes escribirle ahora mismo'}
+      </p>
+      <p className="mt-0.5 text-[13px] leading-5 text-slate-600">
+        {baja
+          ? 'Se dio de baja de esta conversación, así que no le vamos a escribir más.'
+          : 'WhatsApp solo permite escribir durante las 24 horas siguientes al último mensaje del candidato. Se abrirá otra vez en cuanto él escriba.'}
+      </p>
+      {telefono && (
+        <p className="mt-1.5 text-[13px] text-slate-600">
+          {baja ? 'Si hace falta, llámale al ' : 'Mientras tanto puedes llamarle al '}
+          <a href={`tel:${telefono}`} className="num font-medium text-indigo-600 hover:text-indigo-700">
+            {formatPhone(telefono)}
+          </a>
+          .
+        </p>
+      )}
     </div>
   )
 }

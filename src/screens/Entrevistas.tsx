@@ -19,12 +19,29 @@ type Vista = 'proximas' | 'enMarcha' | 'pasadas'
 
 export function Entrevistas() {
   const { company } = useAuth()
-  const { interviews, candidates, campaigns, loading } = useStore()
+  const { interviews, candidates, campaigns, loading, conversationFor } = useStore()
   const [params, setParams] = useSearchParams()
 
   // Todos los hooks ANTES del corte por plan: un return temprano por encima de
   // un useMemo cambia el número de hooks entre renders y React lo rompe.
   const buckets = useMemo(() => splitInterviews(interviews), [interviews])
+
+  // El agente se aparta cuando hay algo que solo puede decidir una persona (una
+  // pregunta sobre el puesto, un audio, un número que no recibe WhatsApp). Si
+  // eso no se ve aquí, la conversación se queda parada sin que nadie se entere:
+  // no mandamos un correo por cada duda a propósito, así que la pantalla es el
+  // único aviso. Y van las primeras: son las únicas que piden algo de ti.
+  const atencionDe = (candidateId: string): string | null => {
+    const c = conversationFor(candidateId)
+    return c && c.agentState === 'necesita_intervencion'
+      ? c.attentionReason ?? 'Hay algo que no podemos resolver solos.'
+      : null
+  }
+  const enMarcha = useMemo(() => {
+    const conAtencion = (i: Interview) => (atencionDe(i.candidateId) ? 0 : 1)
+    return [...buckets.enMarcha].sort((a, b) => conAtencion(a) - conAtencion(b))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buckets.enMarcha, conversationFor])
 
   const raw = params.get('t')
   const vista: Vista = raw === 'enMarcha' || raw === 'pasadas' ? raw : 'proximas'
@@ -40,7 +57,7 @@ export function Entrevistas() {
     return <FeatureLocked feature="entrevistas" />
   }
 
-  const lista = buckets[vista]
+  const lista = vista === 'enMarcha' ? enMarcha : buckets[vista]
 
   return (
     <div className="mx-auto max-w-[820px] px-4 py-6 sm:px-6 lg:px-8">
@@ -79,6 +96,7 @@ export function Entrevistas() {
                   entrevista={i}
                   nombre={nombreDe(i, candidates)}
                   puesto={campaigns.find((c) => c.id === i.campaignId)?.title ?? 'Puesto'}
+                  atencion={atencionDe(i.candidateId)}
                 />
               </li>
             ))}
@@ -128,10 +146,13 @@ function Fila({
   entrevista,
   nombre,
   puesto,
+  atencion = null,
 }: {
   entrevista: Interview
   nombre: string
   puesto: string
+  /** Motivo por el que el agente se apartó, si la conversación te está esperando. */
+  atencion?: string | null
 }) {
   const base = useAppBase()
   const meta = INTERVIEW_STATUS_META[entrevista.status]
@@ -196,12 +217,26 @@ function Fila({
         </span>
       )}
 
-      <span
-        className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ring-1 ring-inset sm:inline-flex ${meta.chip}`}
-      >
-        <span className={`size-2 rounded-full ${meta.dot}`} aria-hidden />
-        {meta.label}
-      </span>
+      {/* Si la conversación te está esperando, eso sustituye a la chapa de
+          estado en vez de sumarse: la fila no da para dos, y entre "Invitada" y
+          "necesita que entres" lo que hay que hacer lo dice la segunda. El
+          motivo entero va en el title. */}
+      {atencion ? (
+        <span
+          className="hidden shrink-0 items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[13px] font-semibold text-amber-800 ring-1 ring-inset ring-amber-200 sm:inline-flex"
+          title={atencion}
+        >
+          <span className="size-2 rounded-full bg-amber-500" aria-hidden />
+          Necesita que entres
+        </span>
+      ) : (
+        <span
+          className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ring-1 ring-inset sm:inline-flex ${meta.chip}`}
+        >
+          <span className={`size-2 rounded-full ${meta.dot}`} aria-hidden />
+          {meta.label}
+        </span>
+      )}
       <ChevronRight className="size-4 shrink-0 text-slate-400" aria-hidden />
     </Link>
   )

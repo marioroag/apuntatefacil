@@ -28,7 +28,10 @@ import {
 } from '../schedule/slots.ts'
 import * as R from './render.ts'
 import { conversar } from '../interviews/conversar.ts'
-import { conAntecedentes, revisar, type DiaFicha, type Hechos, type Turno } from '../interviews/guion.ts'
+import {
+  citaPrometida, conAntecedentes, revisar,
+  type DiaFicha, type Hechos, type Turno,
+} from '../interviews/guion.ts'
 
 export interface Contexto {
   conversation_id: string
@@ -271,7 +274,10 @@ async function calcularAgenda(ctx: Contexto): Promise<Agenda> {
   const dias = recortarAgenda(generarAgenda(config))
   const todos: Hueco[] = []
   const ficha: DiaFicha[] = dias.map((d) => ({
-    dia: R.diaLargo(d.huecos[0].starts_at, cfg.timezone),
+    // Con las palabras de la calle delante ("mañana", "el lunes que viene"),
+    // que es lo único que le permite entender "este lunes". Esto solo lo lee el
+    // modelo: al candidato le siguen llegando las fechas de siempre.
+    dia: R.diaConContexto(d.huecos[0].starts_at, cfg.timezone, ahora),
     horas: d.huecos.map((h) => {
       todos.push(h)
       return { indice: todos.length - 1, hora: R.hora(h.starts_at, cfg.timezone) }
@@ -763,6 +769,7 @@ function hechosDe(ctx: Contexto, agenda: Agenda): Hechos {
     candidato: ctx.candidato_nombre,
     anfitrion: ctx.anfitrion,
     estado: ctx.agent_state,
+    hoy: R.diaLargo(new Date().toISOString(), ctx.timezone),
     citaTexto: ctx.starts_at ? R.fechaLarga(ctx.starts_at, ctx.timezone) : null,
     // El sitio va en la ficha SIEMPRE, no solo con la cita ya cerrada. "¿Dónde
     // es?" es de las primeras cosas que se preguntan, muchas veces antes de
@@ -881,7 +888,7 @@ async function hablar(ctx: Contexto): Promise<Desenlace> {
   // código sí sabe en qué estado está la entrevista, así que lo corrige en vez
   // de intentar una oferta que la base va a rechazar. Es la misma regla de
   // siempre: el modelo propone, el código decide qué se puede hacer.
-  const accion = r.accion.tipo === 'ofrecer_horarios' && ctx.interview_status === 'confirmada'
+  const accionBase = r.accion.tipo === 'ofrecer_horarios' && ctx.interview_status === 'confirmada'
     ? ({ tipo: 'reprogramar', mostrar: r.accion.mostrar } as const)
     : r.accion
 
@@ -900,6 +907,22 @@ async function hablar(ctx: Contexto): Promise<Desenlace> {
   // Las cabeceras de lista no se juzgan aquí: se juzgan dentro de
   // `ofrecerHorarios`, contra los horarios que de verdad van a salir.
   const cabecera = (): Cabecera => ({ texto: r.mensaje, hechos, dichoPorEl })
+
+  // COHERENCIA entre lo que dice y lo que pone debajo. Si en el texto ha
+  // prometido un día y una hora que tenemos libres, se le ofrece ESA, sola, en
+  // vez de la lista que hubiera tocado. Pasó en producción: escribió "te la
+  // cambio al lunes 3 a las 17:00" y el sistema le pegó debajo tres botones de
+  // día, o sea que le dio una hora y acto seguido se la pidió; eligió el día y
+  // entonces le preguntó la hora, y las 17:00 no llegaron nunca.
+  //
+  // Se cambia lo que se ENSEÑA, no se reserva por su cuenta: que el agente
+  // prometa algo no es que el candidato haya dicho que sí.
+  const accion = (() => {
+    if (!filtro.ok) return accionBase
+    if (accionBase.tipo !== 'ofrecer_horarios' && accionBase.tipo !== 'reprogramar') return accionBase
+    const prometido = citaPrometida(r.mensaje, hechos)
+    return prometido === null ? accionBase : { ...accionBase, mostrar: [prometido] }
+  })()
 
   switch (accion.tipo) {
     case 'contestar': {

@@ -9,7 +9,8 @@ import { describe, it, expect } from 'vitest'
 //   * `normalizarRespuesta` y `conAntecedentes`, que impiden que lo que
 //     proponga acabe moviendo algo que no debía.
 import {
-  conAntecedentes, construirConversacion, construirSistema, normalizarRespuesta, revisar, totalAgenda,
+  citaPrometida, conAntecedentes, construirConversacion, construirSistema,
+  normalizarRespuesta, revisar, totalAgenda,
   type Hechos, type Respuesta,
 } from '../../supabase/functions/_shared/interviews/guion'
 
@@ -20,6 +21,7 @@ const HECHOS: Hechos = {
   candidato: 'Ana',
   anfitrion: 'Luis Gómez',
   estado: 'proponiendo_horarios',
+  hoy: 'lunes, 3 de agosto',
   citaTexto: null,
   donde: null,
   duracion: 30,
@@ -449,5 +451,95 @@ describe('revisar: la dirección', () => {
       'Aquí lo tienes: https://www.google.com/maps/search/?api=1&query=Calle%20Marina%2032',
       conEnlace,
     ).ok).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Mover una cita: los dos fallos de la conversación del 2 de agosto
+// ---------------------------------------------------------------------------
+//
+// Reproducidos con los datos reales. Con la cita cerrada el LUNES 10 a las
+// 17:00, el candidato pidió "este lunes" (que era el 3) y el agente escribió
+// "te la cambio al lunes 3 a las 17:00" mientras el sistema le pegaba debajo
+// tres botones de DÍA. O sea: le dio una hora y acto seguido se la pidió.
+
+// Con horizonte de diez días hay DOS lunes en la agenda, que es lo que
+// desactivaba el emparejamiento hora-día.
+const DOS_LUNES: Hechos = {
+  ...HECHOS,
+  hoy: 'domingo, 2 de agosto',
+  estado: 'entrevista_confirmada',
+  citaTexto: 'lunes, 10 de agosto a las 17:00',
+  huecos: [],
+  agenda: [
+    {
+      dia: 'mañana, este lunes 3 de agosto',
+      horas: [
+        { indice: 0, hora: '09:00' }, { indice: 1, hora: '12:00' },
+        { indice: 2, hora: '14:30' }, { indice: 3, hora: '17:30' },
+      ],
+    },
+    { dia: 'el lunes que viene, 10 de agosto', horas: [{ indice: 4, hora: '09:00' }] },
+  ],
+}
+
+describe('revisar: la hora de la cita no vale para OTRO día', () => {
+  it('tumba la frase exacta que salió en producción', () => {
+    // Las 17:00 existen, pero son las del lunes 10. El lunes 3 no las tiene, y
+    // antes colaba porque la hora de la cita cerrada se admitía hablando de
+    // cualquier día. El candidato recibió una hora que nadie le había guardado.
+    expect(revisar('Te la cambio al lunes 3 a las 17:00.', DOS_LUNES).ok).toBe(false)
+  })
+
+  it('la fecha manda sobre el nombre del día', () => {
+    // Sin esto, "lunes" señalaba los dos lunes de la agenda, y con dos días
+    // señalados el emparejamiento se desactivaba solo.
+    expect(revisar('El lunes 3 te puedo dar las 09:00.', DOS_LUNES).ok).toBe(true)
+    expect(revisar('El lunes 3 te puedo dar las 20:00.', DOS_LUNES).ok).toBe(false)
+  })
+
+  it('pero sí puede repetir la cita que ya tiene', () => {
+    expect(revisar('Sí, sigue en pie el lunes 10 de agosto a las 17:00.', DOS_LUNES).ok).toBe(true)
+  })
+})
+
+describe('citaPrometida', () => {
+  it('reconoce la hora prometida y devuelve su hueco', () => {
+    // Con esto, debajo sale ESA hora y nada más: aceptar le da lo que leyó.
+    expect(citaPrometida('Te la cambio al lunes 3 a las 14:30.', DOS_LUNES)).toBe(2)
+  })
+
+  it('repetirle la cita que ya tiene no es prometer nada', () => {
+    // Su hueco ya es suyo: no hay nada que ofrecerle.
+    expect(citaPrometida('Sigue el lunes 10 a las 17:00.', DOS_LUNES)).toBe(null)
+  })
+
+  it('sin hora no hay promesa', () => {
+    expect(citaPrometida('Te la cambio al lunes 3, dime qué hora te viene.', DOS_LUNES)).toBe(null)
+  })
+
+  it('con varias horas tampoco: eso es enseñar opciones, no prometer', () => {
+    expect(citaPrometida('El lunes 3 tengo 09:00 y 12:00.', DOS_LUNES)).toBe(null)
+  })
+
+  it('sin decir de qué día habla, no se toca nada', () => {
+    expect(citaPrometida('Te la dejo a las 12:00.', DOS_LUNES)).toBe(null)
+  })
+
+  it('una hora que no tiene ese día no se promete', () => {
+    expect(citaPrometida('Te la cambio al lunes 3 a las 17:00.', DOS_LUNES)).toBe(null)
+  })
+})
+
+describe('la ficha dice qué día es hoy', () => {
+  it('lo pone delante, que es lo que faltaba para entender "este lunes"', () => {
+    const s = construirSistema(DOS_LUNES)
+    expect(s).toContain('Hoy es domingo, 2 de agosto')
+    expect(s).toContain('mañana, este lunes 3 de agosto')
+    expect(s).toContain('el lunes que viene, 10 de agosto')
+  })
+
+  it('con la cita cerrada, mover no es confirmar', () => {
+    expect(construirSistema(DOS_LUNES)).toContain('es reprogramar, NO confirmarle que sigue en pie')
   })
 })

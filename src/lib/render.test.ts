@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest'
 // un botón, 24 en el título de una fila, 72 en su descripción) y que el
 // candidato pueda leer la lista sin adivinar de qué día es cada hora.
 import {
-  botonesVispera, diaCorto, diaISO, diaLargo, donde, dondeODecirlo, enlaceMapa,
+  botonesVispera, diaConContexto, diaCorto, diaISO, diaLargo, donde, dondeODecirlo, enlaceMapa,
   fechaCorta, filasDias, filasHorarios, hora, textoAsistenciaConfirmada,
   textoConfirmacion, textoVispera,
 } from '../../supabase/functions/_shared/whatsapp/render'
@@ -211,5 +211,52 @@ describe('filasHorarios', () => {
       expect(f.titulo.length).toBeLessThanOrEqual(20) // el tope del botón, más estricto
       expect((f.descripcion ?? '').length).toBeLessThanOrEqual(72)
     }
+  })
+})
+
+// El agente no sabía qué día es hoy. A "este lunes" contestó "sí, este lunes 10
+// de agosto" cuando ese lunes era el de la semana siguiente y el bueno estaba en
+// su propia agenda. Estas etiquetas solo las lee el modelo: al candidato le
+// siguen llegando las fechas de siempre.
+describe('diaConContexto', () => {
+  // Domingo 2 de agosto de 2026, a media tarde en Madrid.
+  const domingo = new Date('2026-08-02T16:00:00.000Z')
+
+  it('nombra hoy, mañana y pasado', () => {
+    expect(diaConContexto('2026-08-02T09:00:00.000Z', MADRID, domingo)).toBe('hoy, domingo 2 de agosto')
+    expect(diaConContexto('2026-08-03T09:00:00.000Z', MADRID, domingo))
+      .toBe('mañana, este lunes 3 de agosto')
+    expect(diaConContexto('2026-08-04T09:00:00.000Z', MADRID, domingo))
+      .toBe('pasado mañana, este martes 4 de agosto')
+  })
+
+  it('distingue los dos lunes, que es todo el asunto', () => {
+    expect(diaConContexto('2026-08-03T09:00:00.000Z', MADRID, domingo)).toContain('este lunes')
+    expect(diaConContexto('2026-08-10T09:00:00.000Z', MADRID, domingo))
+      .toBe('el lunes que viene, 10 de agosto')
+  })
+
+  it('el resto de esta semana va como "este"', () => {
+    expect(diaConContexto('2026-08-06T09:00:00.000Z', MADRID, domingo)).toBe('este jueves 6 de agosto')
+  })
+
+  it('más allá de dos semanas no se etiqueta, que ya no lo diría nadie así', () => {
+    expect(diaConContexto('2026-08-20T09:00:00.000Z', MADRID, domingo)).toBe('jueves, 20 de agosto')
+  })
+
+  // Se comparan fechas civiles, no milisegundos: a última hora de la tarde la
+  // resta de instantes daría menos de un día y "mañana" saldría como "hoy".
+  it('cuenta días de calendario y no horas', () => {
+    const casiMedianoche = new Date('2026-08-02T21:30:00.000Z') // 23:30 en Madrid
+    expect(diaConContexto('2026-08-03T07:00:00.000Z', MADRID, casiMedianoche))
+      .toBe('mañana, este lunes 3 de agosto')
+  })
+
+  it('cuenta en la zona de la entrevista, no en la del servidor', () => {
+    // En agosto Madrid va a UTC+2 y Canarias a UTC+1, así que a las 22:30 UTC
+    // en Madrid ya es lunes (00:30) y en Canarias todavía es domingo (23:30).
+    const t = new Date('2026-08-02T22:30:00.000Z')
+    expect(diaConContexto('2026-08-03T10:00:00.000Z', CANARIAS, t)).toContain('mañana')
+    expect(diaConContexto('2026-08-03T10:00:00.000Z', MADRID, t)).toContain('hoy')
   })
 })

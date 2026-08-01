@@ -267,6 +267,31 @@ const toInterview = (r: InterviewRow): Interview => ({
   createdAt: r.created_at,
 })
 
+/**
+ * El motivo, en español, de una edge function que ha respondido con un no-2xx.
+ * En ese caso `invoke()` no parsea el cuerpo y `error.message` es el texto en
+ * inglés del SDK ("Edge Function returned a non-2xx status code"), que no se
+ * puede enseñar en la interfaz: el motivo de verdad viene en el JSON.
+ * Devuelve null si la llamada fue bien.
+ */
+async function functionErrorMessage(
+  error: unknown,
+  data: { error?: unknown; ok?: unknown } | null,
+  porDefecto = 'No se ha podido completar. Inténtalo otra vez.',
+): Promise<string | null> {
+  if (!error && data?.ok) return null
+  if (!error && !data?.error) return null
+  if (typeof data?.error === 'string') return data.error
+  const response = (error as { context?: unknown } | null)?.context
+  if (response instanceof Response) {
+    try {
+      const body = await response.clone().json()
+      if (typeof body?.error === 'string') return body.error
+    } catch { /* sin cuerpo JSON: nos quedamos con el mensaje genérico */ }
+  }
+  return porDefecto
+}
+
 type ConversationRow = {
   id: string
   candidate_id: string
@@ -456,6 +481,12 @@ interface Store {
     meetingUrl?: string | null
   }) => Promise<{ status: string; conversationId?: string; interviewId?: string }>
   setConversationHandover: (id: string, handover: 'agente' | 'persona') => Promise<boolean>
+  /**
+   * Escribe a mano al WhatsApp del candidato. Enviar es TOMAR EL CONTROL: la
+   * función pasa el volante a la persona antes de mandar nada, así que no hace
+   * falta pulsar el botón primero.
+   */
+  sendConversationMessage: (id: string, body: string) => Promise<boolean>
   // Chat de equipo dentro del candidato (sustituye a las notas internas). Como el
   // hilo del tablón, no se cachea: se carga al abrir el detalle y se refresca con
   // el ping realtime. Un candidato tiene pocos mensajes; el coste es una consulta.
@@ -1053,26 +1084,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.functions.invoke('send-interest-check', {
       body: { campaign_id: campaignId, candidate_ids: candidateIds, idempotency_key: idempotencyKey },
     })
-    if (error || !data?.ok) {
-      // En un no-2xx, invoke() no parsea el cuerpo y `error.message` es el texto
-      // en inglés del SDK ("Edge Function returned a non-2xx status code"), que no
-      // se puede enseñar en la interfaz. El motivo de verdad, en español, viene en
-      // el JSON de la función, así que lo sacamos de la Response.
-      let message = (data?.error as string | undefined) ?? null
-      const response = (error as { context?: unknown } | null)?.context
-      if (!message && response instanceof Response) {
-        try {
-          const body = await response.clone().json()
-          if (typeof body?.error === 'string') message = body.error
-        } catch { /* sin cuerpo JSON: nos quedamos con el mensaje genérico */ }
-      }
-      return {
-        ok: false,
-        sent: 0,
-        failed: 0,
-        omitted: {},
-        error: message ?? 'No se pudo enviar la comprobación. Inténtalo otra vez.',
-      }
+    const motivo = await functionErrorMessage(
+      error, data, 'No se pudo enviar la comprobación. Inténtalo otra vez.',
+    )
+    if (motivo) {
+      return { ok: false, sent: 0, failed: 0, omitted: {}, error: motivo }
     }
     await reloadCandidatesFor(campaignId)
     return {
@@ -1821,6 +1837,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       })
       if (error) {
         toast.error('No se pudo cambiar quién lleva la conversación.')
+        return false
+      }
+      await refreshConversations()
+      setConversationVersion((v) => v + 1)
+      return true
+    },
+    sendConversationMessage: async (id, body) => {
+      if (companyId === 'demo') return false
+      const { data, error } = await supabase.functions.invoke('whatsapp-send', {
+        body: { conversation_id: id, body },
+      })
+      // El motivo de un envío rechazado (la ventana de 24 h, la baja) es lo
+      // único que le dice al empresario qué hacer, así que se lee del cuerpo en
+      // vez de enseñar un error genérico.
+      const motivo = await functionErrorMessage(error, data)
+      if (motivo) {
+        toast.error(motivo)
+        // Aunque falle, el intento queda escrito en el hilo y el volante ya ha
+        // cambiado de manos: hay que recargar para que la pantalla lo enseñe.
+        await refreshConversations()
+        setConversationVersion((v) => v + 1)
         return false
       }
       await refreshConversations()

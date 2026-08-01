@@ -35,6 +35,52 @@ export function diaLargo(iso: string, tz: string): string {
 }
 
 /**
+ * El día con las palabras que usa la gente: "mañana, este lunes 3 de agosto",
+ * "el lunes que viene, 10 de agosto".
+ *
+ * Solo lo lee el modelo, nunca sale por WhatsApp. Existe porque el agente no
+ * tenía ni idea de qué día es hoy: a "este lunes" contestó "sí, este lunes 10
+ * de agosto" cuando ese lunes era el de la semana siguiente y el de verdad
+ * estaba en su propia agenda. No es un fallo de listeza, es que le faltaba el
+ * dato. Y se calcula aquí, en código, para que no tenga que restar fechas:
+ * cuando un modelo hace aritmética de calendario, se equivoca.
+ *
+ * El corte entre "este" y "que viene" está en los 7 días, no en el domingo:
+ * "este lunes" dicho un sábado es el de dentro de dos días, no el de dentro de
+ * nueve, y eso vale igual sea cual sea el día de la semana en que se hable.
+ */
+export function diaConContexto(iso: string, tz: string, ahora: Date): string {
+  const largo = diaLargo(iso, tz)                 // "lunes, 3 de agosto"
+  const corte = largo.indexOf(', ')
+  if (corte < 0) return largo
+  const nombre = largo.slice(0, corte)            // "lunes"
+  const fecha = largo.slice(corte + 2)            // "3 de agosto"
+  const dias = diasCivilesEntre(ahora.toISOString(), iso, tz)
+
+  if (dias === 0) return `hoy, ${nombre} ${fecha}`
+  // Hasta seis días vista se nombran las dos maneras. "Mañana" y "este lunes"
+  // son el mismo día y le puede decir cualquiera de las dos.
+  if (dias === 1) return `mañana, este ${nombre} ${fecha}`
+  if (dias === 2) return `pasado mañana, este ${nombre} ${fecha}`
+  if (dias <= 6) return `este ${nombre} ${fecha}`
+  if (dias <= 13) return `el ${nombre} que viene, ${fecha}`
+  return largo
+}
+
+/**
+ * Días de calendario entre dos instantes, contados en la zona dada.
+ *
+ * Se comparan las FECHAS civiles, no las horas: de las 23:00 del lunes a la
+ * 01:00 del martes hay dos horas y un día. Restar milisegundos daría cero, que
+ * es lo que convierte "mañana" en "hoy" a última hora de la tarde.
+ */
+function diasCivilesEntre(desde: string, hasta: string, tz: string): number {
+  const a = Date.parse(`${diaISO(desde, tz)}T00:00:00Z`)
+  const b = Date.parse(`${diaISO(hasta, tz)}T00:00:00Z`)
+  return Math.round((b - a) / 86_400_000)
+}
+
+/**
  * "2026-08-04": el día CIVIL del anfitrión, para meterlo en el id de un botón.
  *
  * `en-CA` da directamente el formato ISO, que es la manera de sacar la fecha
@@ -118,6 +164,10 @@ export const PLANTILLAS = {
   recordatorio: 'recordatorio_entrevista',
   vispera: 'recordatorio_vispera',
   cancelada: 'entrevista_cancelada',
+  // Todavía sin usar: la comprobación de interés por WhatsApp. El nombre vive
+  // aquí desde que se pide a Meta para que el día que se enchufe no dependa de
+  // que alguien lo teclee igual en otro sitio.
+  interes: 'interes_sigue_activo',
 } as const
 
 export const IDIOMA = 'es'
