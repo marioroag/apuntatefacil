@@ -629,13 +629,17 @@ export function Dashboard() {
         <div className="flex min-w-0 w-full flex-1 items-center gap-2 sm:min-w-[200px]">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            {/* El alto acompaña al de los botones de la fila en los dos punteros: 36px en
+                escritorio y 44px en táctil, igual que BTN_SECONDARY. El filo no necesita
+                nada especial porque los anillos de los botones son `ring-inset` (ver
+                lib/buttons.ts): pintan dentro de su caja, como este `border`. */}
             <input
               type="search"
               aria-label="Buscar candidatos"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre, teléfono..."
-              className="h-9 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+              className="h-9 pointer-coarse:h-11 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
             />
           </div>
           <button
