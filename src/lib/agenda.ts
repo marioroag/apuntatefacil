@@ -142,34 +142,6 @@ export function franja(bloques: Bloque[], minima = FRANJA_MINIMA): { desde: numb
 }
 
 /**
- * El primer día CON entrevista a partir de una clave (incluida). Es lo que
- * evita la semana vacía y el "siguiente" pulsado seis veces para encontrar la
- * única cita del mes.
- */
-export function proximoDiaCon(lista: Interview[], desde: string): string | null {
-  let mejor: string | null = null
-  for (const i of lista) {
-    if (!i.startsAt) continue
-    const clave = dayKeyInZone(i.startsAt, i.timezone)
-    if (clave < desde) continue
-    if (!mejor || clave < mejor) mejor = clave
-  }
-  return mejor
-}
-
-/** El último día CON entrevista antes de una clave, para el salto hacia atrás. */
-export function anteriorDiaCon(lista: Interview[], antes: string): string | null {
-  let mejor: string | null = null
-  for (const i of lista) {
-    if (!i.startsAt) continue
-    const clave = dayKeyInZone(i.startsAt, i.timezone)
-    if (clave >= antes) continue
-    if (!mejor || clave > mejor) mejor = clave
-  }
-  return mejor
-}
-
-/**
  * El rótulo del tramo que se está mirando. Sin guion largo y sin repetir lo que
  * ya se sabe: el mes y el año solo se dicen dos veces cuando el tramo los cruza.
  */
