@@ -9,6 +9,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { esc, renderEmail } from '../_shared/email.ts'
+import { conPreferencia } from '../_shared/prefs.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -100,7 +101,9 @@ Deno.serve(async (req) => {
       // las direcciones de los compañeros entre sí).
       const { data: rows } = await admin.rpc('team_board_emails', { p_company: request.company_id })
       const team = (rows as { user_id: string; email: string }[] | null) ?? []
-      const recipients = team.filter((r) => r.user_id !== request.author_user_id)
+      const otros = team.filter((r) => r.user_id !== request.author_user_id)
+      // Quien haya apagado los avisos del tablón en sus ajustes no lo recibe.
+      const recipients = await conPreferencia(admin, otros, 'tablon')
       if (recipients.length === 0) return json({ ok: true, sent: false, skipped: 'sin destinatarios' })
 
       const subject = `Nueva petición de tu equipo: ${request.title}`
@@ -163,6 +166,13 @@ Deno.serve(async (req) => {
       : `Nueva respuesta a tu petición: ${request.title}`
 
     const html = renderEmail({ preview, heading, bodyHtml, button })
+    // El autor de la petición también puede haber apagado este aviso.
+    const quiere = await conPreferencia(
+      admin,
+      [{ user_id: request.author_user_id, email: request.author_email }],
+      'tablon',
+    )
+    if (quiere.length === 0) return json({ ok: true, sent: false, skipped: 'aviso desactivado' })
     const sent = await sendEmail(request.author_email, subject, html)
     return json({ ok: true, sent })
   } catch (e) {

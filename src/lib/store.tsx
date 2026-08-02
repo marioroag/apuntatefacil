@@ -494,6 +494,11 @@ interface Store {
   // Hilos de varios candidatos a la vez, agrupados por id. Lo usa el export a
   // Excel: lo que escribió el equipo tiene que salir en el fichero.
   loadCommentsForMany: (candidateIds: string[]) => Promise<Record<string, CandidateComment[]>>
+  // Menciones @ dirigidas a TI, de más reciente a más antigua. Alimentan el
+  // timbre de avisos de la barra. Devuelve el mensaje pelado: el nombre del
+  // candidato se resuelve contra `candidates`, que ya está acotado por RLS (un
+  // encargado no ve la ficha de otra sede aunque le mencionen en ella).
+  loadMentions: () => Promise<CandidateComment[]>
   addCandidateComment: (candidateId: string, body: string, mentions: string[]) => Promise<CandidateComment | null>
   // Nº de mensajes por candidato, para el indicador de la lista. Se llena en la
   // carga general: saber DÓNDE hay conversación no debe costar abrir el detalle.
@@ -513,7 +518,7 @@ const Ctx = createContext<Store | null>(null)
 // La demo es 100% local; guardamos su estado para que aguante recargas.
 // v7: los candidatos pasaron de `rating` (0-5) a `favorito` (sí/no) y el hilo de
 // equipo entró en la demo. Un estado v6 guardado traería candidatos sin favorito.
-const DEMO_KEY = 'apuntatefacil.demo.v7'
+const DEMO_KEY = 'apuntatefacil.demo.v8'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
@@ -2097,6 +2102,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         out.push(...(data as CandidateCommentRow[]).map(toCandidateComment))
       }
       return group(out)
+    },
+
+    loadMentions: async () => {
+      if (!userId) return []
+      if (companyId === 'demo')
+        return demoCandidateComments
+          .filter((c) => c.mentions.includes(userId))
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+          .slice(0, 20)
+      // `contains` sobre el uuid[]: el índice GIN de mentions lo resuelve sin
+      // recorrer la tabla. La RLS ya acota a los candidatos que puedes ver.
+      const { data, error } = await supabase
+        .from('candidate_comments')
+        .select(CANDIDATE_COMMENT_SELECT)
+        .contains('mentions', [userId])
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (error || !data) return []
+      return (data as CandidateCommentRow[]).map(toCandidateComment)
     },
 
     addCandidateComment: async (candidateId, body, mentions) => {
