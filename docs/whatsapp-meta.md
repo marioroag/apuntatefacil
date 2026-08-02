@@ -47,8 +47,26 @@ persona ya inició al apuntarse) e idioma **Español**.
 **Cuerpo:**
 
 ```
-Hola {{1}}. Te escribimos de {{2}} por tu candidatura a {{3}}. Nos gustaría hacerte una entrevista y buscar un horario que te venga bien.
+Hola {{1}}. Soy el asistente de IA de {{2}} y te escribo por tu candidatura a {{3}}. Me encargo de cuadrar la cita: vamos a buscar un horario que te venga bien.
 ```
+
+> Se presenta como IA en la primera línea porque lo exige el **artículo 50 del
+> Reglamento europeo de IA**, en vigor desde el 2 de agosto de 2026: quien habla
+> con una máquina tiene derecho a saberlo sin preguntar. (Las obligaciones de
+> alto riesgo del Anexo III sí se aplazaron a diciembre de 2027; la
+> transparencia no.) La segunda frase no es relleno legal: sin ella, enterarte
+> de que te escribe una máquina se lee como que no han querido dedicarte ni un
+> minuto. Diciendo que lo automático es la CITA, se lee como lo que es.
+>
+> Lo que NO dice es quién hace la entrevista. Lo decía ("la harás con una
+> persona del equipo") y se quitó a propósito: es una promesa que caduca sola
+> el día que se automaticen las primeras entrevistas, y nadie se acordaría de
+> volver aquí a corregirla. Ese día, avisar de que al otro lado hay una IA le
+> toca a la propia llamada, no a un mensaje escrito dos semanas antes.
+>
+> **Si ya la tenías aprobada con el texto viejo**, hay que editarla en WhatsApp
+> Manager (vuelve a revisión) o darla de alta con otro nombre. El script solo
+> crea las que faltan, no reescribe las que existen.
 
 **Botones** (tipo *Respuesta rápida*, **en este orden exacto**, que el código los
 identifica por posición):

@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Brand, Branding, Campaign, Candidate, CandidateAI, CandidateComment, CandidateConversation, CandidateEvent, CandidateInterestSummary, CandidateStatus, CompanyMember, ConversationMessage, FormField, Interview, InterviewMode, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
+import type { Brand, Branding, Campaign, Candidate, CandidateAI, CandidateComment, CandidateConversation, CandidateEvent, CandidateInterestSummary, CandidateStatus, CompanyMember, ConversationMessage, FormField, InterestChannel, Interview, InterviewMode, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
 import { supabase, supabaseConfigured } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
 import { SEED, SEED_BRANDS, SEED_CANDIDATE_COMMENTS, SEED_CANDIDATE_EVENTS, SEED_MEMBERS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, freshenDemoData } from './seed'
-import { extractCandidateEmail, interestEligibility, type InterestSendResult } from './interest'
+import { interestEligibility, interestRecipient, type InterestSendResult } from './interest'
 
 // Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
 // quita espacios de los extremos y colapsa los interiores. La comparación de
@@ -41,6 +41,7 @@ type CandidateRow = {
   notes: string
   cv_path: string | null
   created_at: string
+  consent_at: string | null
   ai: CandidateAI | null
 }
 
@@ -86,6 +87,7 @@ const toCandidate = (r: CandidateRow, tagIds: string[] = []): Candidate => ({
   cvPath: r.cv_path ?? undefined,
   submittedAt: r.created_at,
   tagIds,
+  consentAt: r.consent_at ?? null,
   ai: r.ai ?? undefined,
 })
 
@@ -98,6 +100,7 @@ type InterestOverviewRow = {
   responded_at: string | null
   reminder_sent_at: string | null
   expires_at: string
+  channel: InterestChannel | null
 }
 const interestByCandidate = (rows: InterestOverviewRow[] | null | undefined) =>
   new Map<string, CandidateInterestSummary>((rows ?? []).map((r) => [r.candidate_id, {
@@ -108,6 +111,8 @@ const interestByCandidate = (rows: InterestOverviewRow[] | null | undefined) =>
     respondedAt: r.responded_at,
     reminderSentAt: r.reminder_sent_at,
     expiresAt: r.expires_at,
+    // Las comprobaciones anteriores a que existiera WhatsApp son de correo.
+    channel: r.channel ?? 'email',
   }]))
 
 type TagRow = { id: string; name: string }
@@ -379,7 +384,7 @@ interface Store {
   // entrar en el panel; esto trae los que llegaron después, sin recargar la página).
   // Devuelve cuántos candidatos NUEVOS trajo (>= 0), o -1 si la recarga falló.
   reloadCandidatesFor: (campaignId: string) => Promise<number>
-  sendInterestCheck: (campaignId: string, candidateIds: string[], idempotencyKey: string) => Promise<InterestSendResult>
+  sendInterestCheck: (campaignId: string, candidateIds: string[], idempotencyKey: string, channel?: InterestChannel) => Promise<InterestSendResult>
   // mutaciones
   setStatus: (candidateId: string, status: CandidateStatus) => Promise<void>
   setFavorito: (candidateId: string, favorito: boolean) => Promise<void>
@@ -518,7 +523,7 @@ const Ctx = createContext<Store | null>(null)
 // La demo es 100% local; guardamos su estado para que aguante recargas.
 // v7: los candidatos pasaron de `rating` (0-5) a `favorito` (sí/no) y el hilo de
 // equipo entró en la demo. Un estado v6 guardado traería candidatos sin favorito.
-const DEMO_KEY = 'apuntatefacil.demo.v8'
+const DEMO_KEY = 'apuntatefacil.demo.v9'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
@@ -1030,6 +1035,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     campaignId: string,
     candidateIds: string[],
     idempotencyKey: string,
+    channel: InterestChannel = 'email',
   ): Promise<InterestSendResult> => {
     if (!companyId) return { ok: false, sent: 0, failed: 0, omitted: {}, error: 'No hay una empresa activa.' }
     if (companyId === 'demo') {
@@ -1043,14 +1049,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const grouped = new Map<string, { candidate: Candidate; mode: 'initial' | 'reminder' | 'recheck' }[]>()
       for (const candidate of candidates) {
         if (!ids.has(candidate.id) || candidate.campaignId !== campaignId) continue
-        const email = extractCandidateEmail(campaign.fields, candidate.answers)
-        const decision = interestEligibility(email, candidate.interest, now)
-        if (!decision.eligible || !email) {
-          const reason = decision.eligible ? 'missing_email' : decision.reason
-          omitted[reason] = (omitted[reason] ?? 0) + 1
+        const { to, reason: falta } = interestRecipient(channel, campaign.fields, candidate)
+        if (!to) {
+          const motivo = falta ?? 'missing_email'
+          omitted[motivo] = (omitted[motivo] ?? 0) + 1
           continue
         }
-        grouped.set(email, [...(grouped.get(email) ?? []), { candidate, mode: decision.mode }])
+        const decision = interestEligibility(to, candidate.interest, now)
+        if (!decision.eligible) {
+          omitted[decision.reason] = (omitted[decision.reason] ?? 0) + 1
+          continue
+        }
+        grouped.set(to, [...(grouped.get(to) ?? []), { candidate, mode: decision.mode }])
       }
       const summaries = new Map<string, CandidateInterestSummary>()
       const priority = { initial: 1, recheck: 2, reminder: 3 }
@@ -1072,6 +1082,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               respondedAt: null,
               reminderSentAt: null,
               expiresAt,
+              channel,
             }
         for (const item of items) summaries.set(item.candidate.id, summary)
       }
@@ -1087,7 +1098,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     const { data, error } = await supabase.functions.invoke('send-interest-check', {
-      body: { campaign_id: campaignId, candidate_ids: candidateIds, idempotency_key: idempotencyKey },
+      body: {
+        campaign_id: campaignId,
+        candidate_ids: candidateIds,
+        idempotency_key: idempotencyKey,
+        channel,
+      },
     })
     const motivo = await functionErrorMessage(
       error, data, 'No se pudo enviar la comprobación. Inténtalo otra vez.',

@@ -1,20 +1,83 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CircleAlert, Info, Loader2, MailCheck, X } from 'lucide-react'
+import { CircleAlert, Info, Loader2, MailCheck, MessageCircle, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useStore } from '../lib/store'
+import { useAuth } from '../lib/auth'
+import { planHas } from '../lib/pricing'
+import { WHATSAPP_ASSISTANT_ENABLED } from '../lib/settings'
+import { interestEmailPreview } from '../lib/interestEmail'
+import { textoInteres } from '../../supabase/functions/_shared/whatsapp/render'
 import { INTEREST_BATCH_LIMIT, previewInterestCandidates, type InterestOmissionReason, type InterestSendResult } from '../lib/interest'
-import type { Campaign, Candidate } from '../lib/types'
+import type { Campaign, Candidate, InterestChannel } from '../lib/types'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 
 const REASON_LABEL: Record<InterestOmissionReason | 'duplicate' | 'not_visible', string> = {
   missing_email: 'Sin correo válido',
+  missing_phone: 'Sin un teléfono que podamos usar',
+  no_consent: 'No aceptaron que les escribamos por WhatsApp',
   wait_reminder: 'Contactados hace menos de 7 días',
   wait_recheck: 'Confirmaron interés hace menos de 30 días',
   not_interested: 'Indicaron que ya no les interesa',
   reminder_used: 'Ya recibieron el recordatorio permitido',
-  duplicate: 'Correo repetido en la selección',
+  duplicate: 'Repetidos en la selección',
   not_visible: 'No disponibles',
+}
+
+/**
+ * Lo que cambia entre canales, en un solo sitio.
+ *
+ * La PREGUNTA no está aquí: es la misma para los dos y sale de su función de
+ * verdad (`interestEmailPreview` y `textoInteres`), no de una copia escrita a
+ * mano en la interfaz. Aquí solo vive cómo se llama lo que se manda, que es lo
+ * único que un empresario nota distinto.
+ */
+const CANAL = {
+  email: {
+    nombre: 'Correo',
+    icono: MailCheck,
+    uno: 'correo',
+    varios: 'correos',
+    repetido: 'Cada correo repetido recibe un solo mensaje.',
+  },
+  whatsapp: {
+    nombre: 'WhatsApp',
+    icono: MessageCircle,
+    uno: 'mensaje',
+    varios: 'mensajes',
+    repetido: 'Cada teléfono repetido recibe un solo mensaje.',
+  },
+} as const satisfies Record<InterestChannel, unknown>
+
+/**
+ * El hueco del nombre en la vista previa.
+ *
+ * No se pone un nombre de ejemplo ("Hola Rubén") porque quien lo lee no puede
+ * saber si eso es una muestra o si a los 40 les va a llegar el mismo nombre. Y
+ * tampoco se quita el saludo, porque entonces la vista previa enseña un mensaje
+ * más frío del que sale de verdad. Se enseña el HUECO, que es lo que hay ahí.
+ *
+ * Es un carácter de uso privado: se mete en el texto que devuelven las funciones
+ * de verdad (`textoInteres`, `interestEmailPreview`) y se parte por él al pintar.
+ * Así la vista previa sigue saliendo de una sola fuente, sin copiar el texto.
+ */
+const HUECO = ''
+
+function ConHueco({ texto }: { texto: string }) {
+  const trozos = texto.split(HUECO)
+  return (
+    <>
+      {trozos.map((trozo, i) => (
+        <span key={i}>
+          {/* Sin fondo ni relleno a propósito: una pastilla deja al punto de la
+              frase separado de la palabra ("candidato ."), y en una vista previa
+              que existe para enseñar el texto exacto, eso es un texto distinto. */}
+          {i > 0 && <span className="font-medium text-slate-500">[nombre del candidato]</span>}
+          {trozo}
+        </span>
+      ))}
+    </>
+  )
 }
 
 export function InterestCheckDialog({
@@ -34,13 +97,29 @@ export function InterestCheckDialog({
   onClose: () => void
   onSent: () => void
 }) {
-  const { sendInterestCheck } = useStore()
+  const { sendInterestCheck, brands } = useStore()
+  const { company } = useAuth()
   const panelRef = useRef<HTMLDivElement>(null)
   const busyRef = useRef(false)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<InterestSendResult | null>(null)
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
+  const [canal, setCanal] = useState<InterestChannel>('email')
   const hasEmailField = campaign.fields.some((field) => field.type === 'email')
+  const hasPhoneField = campaign.fields.some((field) => field.type === 'phone')
+
+  // WhatsApp solo se ofrece si se puede usar de verdad: está en el plan y el
+  // formulario pide teléfono. Quien no lo tenga no ve el concepto, en vez de
+  // ver una pestaña bloqueada que solo sirve para recordarle lo que no tiene.
+  const puedeWhatsapp = WHATSAPP_ASSISTANT_ENABLED
+    && (demo || planHas(company?.plan, 'entrevistas'))
+    && hasPhoneField
+  const canalActivo: InterestChannel = puedeWhatsapp ? canal : 'email'
+  const meta = CANAL[canalActivo]
+  const Icono = meta.icono
+  // Quién firma: la marca del puesto si la tiene, si no la empresa. Lo mismo
+  // que decide el envío del correo, para que la vista previa no mienta.
+  const firma = brands.find((b) => b.id === campaign.brandId)?.name ?? company?.name ?? 'La empresa'
 
   const close = useCallback(() => {
     if (busyRef.current) return
@@ -50,23 +129,23 @@ export function InterestCheckDialog({
   }, [onClose])
 
   const preview = useMemo(() => {
-    const rows = previewInterestCandidates(candidates, campaign.fields)
+    const rows = previewInterestCandidates(candidates, campaign.fields, canalActivo)
     const seen = new Set<string>()
     const omitted: Partial<Record<InterestOmissionReason | 'duplicate', number>> = {}
     let recipients = 0
     for (const row of rows) {
-      if (!row.eligibility.eligible || !row.email) {
-        const reason = row.eligibility.eligible ? 'missing_email' : row.eligibility.reason
+      if (!row.eligibility.eligible || !row.to) {
+        const reason = row.eligibility.eligible ? (row.missing ?? 'missing_email') : row.eligibility.reason
         omitted[reason] = (omitted[reason] ?? 0) + 1
-      } else if (seen.has(row.email)) {
+      } else if (seen.has(row.to)) {
         omitted.duplicate = (omitted.duplicate ?? 0) + 1
       } else {
-        seen.add(row.email)
+        seen.add(row.to)
         recipients += 1
       }
     }
     return { recipients, omitted }
-  }, [campaign.fields, candidates])
+  }, [campaign.fields, candidates, canalActivo])
 
   useEffect(() => {
     if (!open) return
@@ -100,7 +179,7 @@ export function InterestCheckDialog({
     if (busy || preview.recipients === 0 || preview.recipients > INTEREST_BATCH_LIMIT) return
     setBusy(true)
     busyRef.current = true
-    const next = await sendInterestCheck(campaign.id, candidates.map((candidate) => candidate.id), idempotencyKey)
+    const next = await sendInterestCheck(campaign.id, candidates.map((candidate) => candidate.id), idempotencyKey, canalActivo)
     setBusy(false)
     busyRef.current = false
     setResult(next)
@@ -114,6 +193,14 @@ export function InterestCheckDialog({
 
   const displayedOmissions = result?.omitted ?? preview.omitted
   const overLimit = preview.recipients > INTEREST_BATCH_LIMIT
+  // La pregunta, tal y como sale. Las dos opciones son las mismas en los dos
+  // canales: son los botones de la plantilla de WhatsApp y los enlaces del
+  // correo, y por eso se pintan de aquí en ambos casos.
+  const correo = interestEmailPreview({
+    campaignTitle: campaign.title,
+    senderName: firma,
+    candidateName: HUECO,
+  })
 
   return (
     <AnimatePresence>
@@ -130,14 +217,50 @@ export function InterestCheckDialog({
               <X className="size-5" aria-hidden />
             </button>
             <div className="flex items-start gap-3 pr-9">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600"><MailCheck className="size-5" aria-hidden /></span>
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600"><Icono className="size-5" aria-hidden /></span>
               <div>
                 <h2 id="interest-dialog-title" className="text-lg font-semibold text-slate-950">Comprobar interés</h2>
                 <p className="mt-0.5 text-sm text-slate-500">Pregunta si siguen interesados/as antes de contactar personalmente.</p>
               </div>
             </div>
 
-            {!hasEmailField ? (
+            {puedeWhatsapp && !result && (
+              <div className="mt-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500" id="interest-canal-label">Por dónde</p>
+                {/* Radios NATIVOS, no botones con role="radio": así las flechas
+                    del teclado mueven la elección sin escribir nada, que es lo
+                    que un lector de pantalla anuncia que va a pasar. */}
+                <div className="mt-2 flex gap-1 rounded-xl bg-slate-100 p-1" role="radiogroup" aria-labelledby="interest-canal-label">
+                  {(['email', 'whatsapp'] as const).map((id) => {
+                    const activo = canalActivo === id
+                    const C = CANAL[id].icono
+                    return (
+                      <label
+                        key={id}
+                        className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-indigo-600 ${
+                          activo
+                            ? 'bg-white text-slate-900 ring-1 ring-slate-200'
+                            : 'text-slate-500 hover:text-slate-800'
+                        } ${busy ? 'pointer-events-none opacity-60' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name="interest-canal"
+                          className="sr-only"
+                          checked={activo}
+                          disabled={busy}
+                          onChange={() => setCanal(id)}
+                        />
+                        <C className="size-4" aria-hidden />
+                        {CANAL[id].nombre}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {canalActivo === 'email' && !hasEmailField ? (
               <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5">
                 <div className="flex gap-2.5">
                   <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
@@ -155,12 +278,12 @@ export function InterestCheckDialog({
                     {result.duplicate
                       ? 'Este envío ya se había procesado'
                       : result.sent > 0
-                        ? `${result.sent} ${result.sent === 1 ? 'correo enviado' : 'correos enviados'}`
-                        : 'No se envió ningún correo'}
+                        ? `${result.sent} ${result.sent === 1 ? `${meta.uno} enviado` : `${meta.varios} enviados`}`
+                        : `No se envió ningún ${meta.uno}`}
                   </p>
                   {result.failed > 0 && <p className="mt-1 text-[13px] text-amber-900">{result.failed} {result.failed === 1 ? 'envío falló' : 'envíos fallaron'} y se pueden reintentar.</p>}
                   {result.error && <p className="mt-1 text-[13px] text-amber-900">{result.error}</p>}
-                  {demo && result.ok && <p className="mt-1 text-[13px] text-emerald-900">Simulación completada. La demo no envía correos reales.</p>}
+                  {demo && result.ok && <p className="mt-1 text-[13px] text-emerald-900">Simulación completada. La demo no envía nada real.</p>}
                 </div>
               </div>
             ) : (
@@ -177,16 +300,27 @@ export function InterestCheckDialog({
                 </div>
                 <div className="mt-4 rounded-xl border border-slate-200 px-4 py-3.5">
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Vista previa</p>
-                  <p className="mt-2 text-sm font-semibold text-slate-900">¿Sigues interesado/a en {campaign.title}?</p>
-                  <p className="mt-1.5 text-[13px] leading-5 text-slate-600">La empresa quiere saber si sigues interesado/a en el puesto para poder valorar los siguientes pasos.</p>
-                  <div className="mt-3 flex gap-2">
-                    <span className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white">Sí, sigo interesado/a</span>
-                    <span className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700">No, ya no me interesa</span>
+                  {canalActivo === 'email' ? (
+                    <>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">{correo.subject}</p>
+                      <p className="mt-1.5 whitespace-pre-line text-[13px] leading-5 text-slate-600">
+                        <ConHueco texto={correo.body} />
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-2 text-[13px] leading-5 text-slate-700">
+                      <ConHueco texto={textoInteres(HUECO, firma, campaign.title)} />
+                    </p>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {correo.options.map((opcion) => (
+                      <span key={opcion} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700">{opcion}</span>
+                    ))}
                   </div>
                 </div>
                 <div className="mt-3 flex gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-[12px] leading-5 text-slate-600">
                   <Info className="mt-0.5 size-3.5 shrink-0 text-slate-400" aria-hidden />
-                  Cada correo repetido recibe un solo mensaje. Las respuestas se mostrarán en todas sus candidaturas elegibles.
+                  {meta.repetido} Las respuestas se mostrarán en todas sus candidaturas elegibles.
                 </div>
               </>
             )}
@@ -202,13 +336,13 @@ export function InterestCheckDialog({
               </div>
             )}
 
-            {overLimit && <p className="mt-4 text-sm text-amber-700">Puedes enviar como máximo {INTEREST_BATCH_LIMIT} correos únicos cada vez. Reduce la selección.</p>}
+            {overLimit && <p className="mt-4 text-sm text-amber-700">Puedes enviar como máximo {INTEREST_BATCH_LIMIT} {meta.varios} cada vez. Reduce la selección.</p>}
             <div className="mt-6 flex justify-end gap-2">
               <button type="button" onClick={close} disabled={busy} className={BTN_SECONDARY}>{result ? 'Cerrar' : 'Cancelar'}</button>
-              {!result && hasEmailField && preview.recipients > 0 && !overLimit && (
+              {!result && (canalActivo === 'whatsapp' || hasEmailField) && preview.recipients > 0 && !overLimit && (
                 <button type="button" onClick={() => void send()} disabled={busy} className={`${BTN_PRIMARY} disabled:cursor-wait disabled:opacity-70`}>
                   {busy && <Loader2 className="size-4 animate-spin" aria-hidden />}
-                  {demo ? 'Simular envío' : `Enviar ${preview.recipients === 1 ? 'correo' : `${preview.recipients} correos`}`}
+                  {demo ? 'Simular envío' : `Enviar ${preview.recipients === 1 ? meta.uno : `${preview.recipients} ${meta.varios}`}`}
                 </button>
               )}
               {result && (result.failed > 0 || !result.ok) && <button type="button" onClick={retry} className={BTN_PRIMARY}>Reintentar</button>}

@@ -4,6 +4,8 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { esc, renderEmail } from '../_shared/email.ts'
+import { whatsappMeta } from '../_shared/channels/whatsappMeta.ts'
+import * as R from '../_shared/whatsapp/render.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -17,13 +19,23 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MODE_PRIORITY = { initial: 1, recheck: 2, reminder: 3 } as const
 
 type Mode = keyof typeof MODE_PRIORITY
-type Omission = 'missing_email' | 'wait_reminder' | 'wait_recheck' | 'not_interested' | 'reminder_used' | 'duplicate' | 'not_visible'
+type Channel = 'email' | 'whatsapp'
+type Omission =
+  | 'missing_email' | 'missing_phone' | 'no_consent'
+  | 'wait_reminder' | 'wait_recheck' | 'not_interested' | 'reminder_used'
+  | 'duplicate' | 'not_visible'
 type Field = { id: string; type: string }
-type CandidateRow = { id: string; answers: Record<string, unknown>; campaign_id: string }
+type CandidateRow = {
+  id: string
+  answers: Record<string, unknown>
+  campaign_id: string
+  consent_at: string | null
+}
 type CheckRow = {
   id: string
   batch_id: string
-  token_hash: string
+  /** Null en las de WhatsApp: la respuesta vuelve por el botón, no por un enlace. */
+  token_hash: string | null
   expires_at: string
   response: 'interested' | 'not_interested' | null
   sent_at: string
@@ -31,7 +43,10 @@ type CheckRow = {
   reminder_sent_at: string | null
   created_at: string
 }
-type Eligible = { candidate: CandidateRow; email: string; mode: Mode; previous?: CheckRow }
+// `to` es un correo o un wa_id según el canal. Lo que sigue (agrupar por
+// destinatario, elegir el modo, el tope de 200) no distingue: los plazos y el
+// "ya dijo que no" son de la PREGUNTA, no del canal.
+type Eligible = { candidate: CandidateRow; to: string; mode: Mode; previous?: CheckRow }
 
 function firstName(answers: Record<string, unknown>): string | null {
   const raw = typeof answers.nombre === 'string' ? answers.nombre.trim() : ''
@@ -47,6 +62,65 @@ function candidateEmail(fields: Field[], answers: Record<string, unknown>): stri
     if (EMAIL_RE.test(normalized)) return normalized
   }
   return null
+}
+
+/**
+ * El teléfono, normalizado igual que `wa_id_de` en SQL. Aquí solo se usa para
+ * DECIDIR y contar: quien manda es la base de datos, que lo vuelve a calcular
+ * dentro de `start_interest_conversation`. Por eso basta con la forma, no con
+ * la lista de casos raros.
+ */
+function candidatePhone(answers: Record<string, unknown>): string | null {
+  const raw = typeof answers.telefono === 'string' ? answers.telefono : ''
+  if (!raw.trim()) return null
+  // Dos números distintos en la casilla es ambiguo, y adivinar es lo que no se
+  // puede hacer: escribirle a quien no toca es peor que no escribir.
+  const trozos = raw.match(/\+?\d[\d \-().]{6,}\d/g) ?? [raw]
+  const validos = new Set<string>()
+  for (const trozo of trozos) {
+    let intl = /^\s*\+/.test(trozo)
+    let d = trozo.replace(/\D/g, '')
+    if (d.startsWith('00')) { d = d.slice(2); intl = true }
+    if (d.length === 9 && /^[6789]/.test(d)) validos.add(`34${d}`)
+    else if (d.length === 11 && d.startsWith('34') && /^[6789]/.test(d.slice(2))) validos.add(d)
+    else if (d.startsWith('34')) continue
+    else if (intl && d.length >= 8 && d.length <= 15) validos.add(d)
+  }
+  return validos.size === 1 ? [...validos][0] : null
+}
+
+/**
+ * A quién se puede escribir por este canal. Es lo ÚNICO que cambia entre los
+ * dos. WhatsApp pide dos cosas donde el correo pide una: el teléfono, y el
+ * CONSENTIMIENTO que dio al enviar la candidatura.
+ *
+ * El permiso se comprueba ANTES que el teléfono: a quien no nos dejó
+ * escribirle, lo que le falta no es un dato, es el permiso.
+ */
+function recipientFor(
+  channel: Channel, fields: Field[], candidate: CandidateRow,
+): { to?: string; reason?: Omission } {
+  if (channel === 'email') {
+    const email = candidateEmail(fields, candidate.answers ?? {})
+    return email ? { to: email } : { reason: 'missing_email' }
+  }
+  if (!candidate.consent_at) return { reason: 'no_consent' }
+  const phone = candidatePhone(candidate.answers ?? {})
+  return phone ? { to: phone } : { reason: 'missing_phone' }
+}
+
+/**
+ * Por qué no se ha podido abrir el hilo, en cristiano. Son los estados que
+ * devuelve `start_interest_conversation`, que es quien decide de verdad: aquí
+ * solo se traducen. Cualquiera que no esté en esta lista sale por su código, no
+ * inventado.
+ */
+const MOTIVO_CONVERSACION: Record<string, string> = {
+  sin_consentimiento: 'No aceptó que le escribamos por WhatsApp',
+  sin_telefono: 'No tiene un teléfono que podamos usar',
+  baja: 'Pidió no recibir más mensajes',
+  sin_remitente: 'No hay un número de WhatsApp configurado',
+  sin_candidato: 'La candidatura ya no existe',
 }
 
 function daysSince(iso: string | null, now: number): number {
@@ -104,20 +178,26 @@ Deno.serve(async (req) => {
     const uid = auth?.user?.id
     if (!uid) return json({ error: 'No autorizado' }, 401)
 
-    if (!RESEND_API_KEY || !APP_URL) return json({ error: 'El envío de emails no está configurado' }, 503)
-
     const body = await req.json()
     const campaignId = typeof body.campaign_id === 'string' ? body.campaign_id : ''
     const candidateIds = Array.isArray(body.candidate_ids)
       ? [...new Set(body.candidate_ids.filter((id: unknown): id is string => typeof id === 'string'))]
       : []
     const idempotencyKey = typeof body.idempotency_key === 'string' ? body.idempotency_key : ''
+    const channel: Channel = body.channel === 'whatsapp' ? 'whatsapp' : 'email'
     if (!campaignId || !idempotencyKey || candidateIds.length === 0 || candidateIds.length > 1000) {
       return json({ error: 'Solicitud no válida' }, 400)
     }
 
     // RLS decide si el usuario puede ver el puesto y cada candidato, incluidas
     // sedes de encargado y candidaturas bloqueadas.
+    if (channel === 'email' && (!RESEND_API_KEY || !APP_URL)) {
+      return json({ error: 'El envío de emails no está configurado' }, 503)
+    }
+    if (channel === 'whatsapp' && !Deno.env.get('WHATSAPP_TOKEN')) {
+      return json({ error: 'WhatsApp no está configurado' }, 503)
+    }
+
     const { data: visibleCampaign } = await userClient
       .from('campaigns')
       .select('id')
@@ -127,7 +207,7 @@ Deno.serve(async (req) => {
 
     const { data: visibleRows, error: candidateError } = await userClient
       .from('candidates')
-      .select('id,answers,campaign_id')
+      .select('id,answers,campaign_id,consent_at')
       .eq('campaign_id', campaignId)
       .in('id', candidateIds)
     if (candidateError) return json({ error: 'No se pudieron validar los candidatos' }, 400)
@@ -151,6 +231,8 @@ Deno.serve(async (req) => {
     const visibleIds = new Set(candidates.map((c) => c.id))
     const omitted: Record<Omission, number> = {
       missing_email: 0,
+      missing_phone: 0,
+      no_consent: 0,
       wait_reminder: 0,
       wait_recheck: 0,
       not_interested: 0,
@@ -186,9 +268,9 @@ Deno.serve(async (req) => {
     const eligible: Eligible[] = []
     const now = Date.now()
     for (const candidate of candidates) {
-      const email = candidateEmail(fields, candidate.answers ?? {})
-      if (!email) {
-        omitted.missing_email++
+      const { to, reason } = recipientFor(channel, fields, candidate)
+      if (!to) {
+        omitted[reason!]++
         continue
       }
       const previous = latestByCandidate.get(candidate.id)
@@ -197,15 +279,18 @@ Deno.serve(async (req) => {
         omitted[decision.reason!]++
         continue
       }
-      eligible.push({ candidate, email, mode: decision.mode, previous })
+      eligible.push({ candidate, to, mode: decision.mode, previous })
     }
 
-    const byEmail = new Map<string, Eligible[]>()
-    for (const item of eligible) byEmail.set(item.email, [...(byEmail.get(item.email) ?? []), item])
-    if (byEmail.size > 200) return json({ error: 'Puedes enviar un máximo de 200 emails cada vez' }, 400)
+    // Se agrupa por DESTINATARIO, no por candidato: dos candidaturas de la
+    // misma persona a puestos distintos comparten correo y teléfono, y recibir
+    // la misma pregunta dos veces es lo que hace que se den de baja.
+    const byRecipient = new Map<string, Eligible[]>()
+    for (const item of eligible) byRecipient.set(item.to, [...(byRecipient.get(item.to) ?? []), item])
+    if (byRecipient.size > 200) return json({ error: 'Puedes enviar un máximo de 200 mensajes cada vez' }, 400)
 
     const groups: { items: Eligible[]; mode: Mode }[] = []
-    for (const items of byEmail.values()) {
+    for (const items of byRecipient.values()) {
       const chosenMode = items.reduce<Mode>((best, item) =>
         MODE_PRIORITY[item.mode] > MODE_PRIORITY[best] ? item.mode : best, items[0].mode)
       omitted.duplicate += items.length - 1
@@ -238,13 +323,37 @@ Deno.serve(async (req) => {
 
     const results = await mapLimit(groups, 5, async ({ items, mode }) => {
       const primary = items[0]
-      const token = tokenHex()
-      const hash = await tokenHash(token)
+      const reminder = mode === 'reminder'
       const expiresAt = new Date(Date.now() + 60 * DAY_MS).toISOString()
       let checkId: string
       let oldReminder: { token_hash: string; expires_at: string } | null = null
 
-      if (mode === 'reminder') {
+      // WhatsApp: el hilo por el que va a salir. Se resuelve ANTES de crear
+      // nada, porque aquí es donde se cae el que no dio permiso, no tiene un
+      // teléfono utilizable o pidió la baja, y entonces no hay comprobación que
+      // guardar. Reutiliza la conversación viva si la hay: en el móvil del
+      // candidato solo existe un hilo con este número.
+      let conversationId: string | null = null
+      let phoneNumberId: string | null = null
+      if (channel === 'whatsapp') {
+        const { data: conv, error: convError } = await admin
+          .rpc('start_interest_conversation', { p_candidate: primary.candidate.id })
+        const estado = (conv as { status?: string } | null)?.status
+        if (convError || estado !== 'ok') {
+          return { ok: false, error: MOTIVO_CONVERSACION[estado ?? ''] ?? safeError(convError ?? estado) }
+        }
+        const ok = conv as { conversation_id: string; phone_number_id: string | null }
+        conversationId = ok.conversation_id
+        phoneNumberId = ok.phone_number_id
+      }
+
+      // El token existe para que un ENLACE público identifique la comprobación
+      // sin sesión. Un botón de WhatsApp vuelve por el webhook con nuestra
+      // propia carga dentro, así que ahí no hay token que guardar.
+      const token = channel === 'email' ? tokenHex() : null
+      const hash = token ? await tokenHash(token) : null
+
+      if (reminder) {
         // La comprobación más nueva representa a la dirección compartida.
         const previous = items
           .map((item) => item.previous)
@@ -252,10 +361,19 @@ Deno.serve(async (req) => {
           .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
         if (!previous) return { ok: false, error: 'No se encontró la comprobación anterior' }
         checkId = previous.id
-        oldReminder = { token_hash: previous.token_hash, expires_at: previous.expires_at }
+        oldReminder = channel === 'email'
+          ? { token_hash: previous.token_hash!, expires_at: previous.expires_at }
+          : null
         const { data: claimed, error } = await admin
           .from('candidate_interest_checks')
-          .update({ token_hash: hash, expires_at: expiresAt, reminder_batch_id: batch.id, reminder_delivery_error: null })
+          .update({
+            expires_at: expiresAt,
+            reminder_batch_id: batch.id,
+            reminder_delivery_error: null,
+            // El enlace del correo se renueva; el hilo de WhatsApp puede haber
+            // cambiado (si el anterior se cerró, arriba se ha abierto otro).
+            ...(channel === 'email' ? { token_hash: hash } : { conversation_id: conversationId }),
+          })
           .eq('id', checkId)
           .is('reminder_sent_at', null)
           .select('id')
@@ -275,9 +393,11 @@ Deno.serve(async (req) => {
             batch_id: batch.id,
             company_id: campaign.company_id,
             campaign_id: campaignId,
-            recipient_email: primary.email,
-            token_hash: hash,
+            channel,
             expires_at: expiresAt,
+            ...(channel === 'email'
+              ? { recipient_email: primary.to, token_hash: hash }
+              : { recipient_phone: primary.to, conversation_id: conversationId }),
           })
           .select('id')
           .single()
@@ -292,11 +412,78 @@ Deno.serve(async (req) => {
         }
       }
 
+      const name = firstName(primary.candidate.answers ?? {})
+
+      // ---- WhatsApp -------------------------------------------------------
+      // La MISMA pregunta que el correo, por plantilla aprobada: fuera de la
+      // ventana de 24 h es lo único que Meta deja mandar, y aquí la ventana
+      // está cerrada casi siempre (al candidato no se le ha escrito hoy).
+      if (channel === 'whatsapp') {
+        const sender = {
+          phoneNumberId: phoneNumberId || (Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') ?? ''),
+          token: Deno.env.get('WHATSAPP_TOKEN') ?? '',
+        }
+        // Una variable vacía tumba la plantilla entera en Meta (132000), así
+        // que el saludo nunca puede quedarse sin nada. `nombre` es obligatorio
+        // en el formulario, o sea que esto es un cinturón, no un caso real.
+        const saludo = name ?? 'buenas'
+        const cuerpo = R.textoInteres(saludo, displayName, campaign.title)
+        const res = await whatsappMeta.enviar(sender, primary.to, {
+          plantilla: {
+            nombre: R.PLANTILLAS.interes,
+            idioma: R.IDIOMA,
+            variables: [saludo, displayName, campaign.title],
+            botonesPayload: R.botonesInteres(conversationId!),
+          },
+        })
+        // Queda escrito en el hilo pase lo que pase, como hace el agente: el
+        // empresario tiene que poder ver lo que se intentó, no solo lo que llegó.
+        await admin.rpc('record_outbound_message', {
+          p_conversation: conversationId,
+          p_author: 'agente',
+          p_body: cuerpo,
+          p_provider_id: res.ok ? (res.providerMessageId ?? null) : null,
+          p_template: R.PLANTILLAS.interes,
+          p_payload: { comprobacion_interes: true },
+          p_delivery: res.ok ? 'enviado' : 'fallido',
+          p_error_code: res.ok ? null : (res.fallo?.codigo ?? null),
+          p_error_text: res.ok ? null : (res.fallo?.detalle ?? null),
+        })
+        if (!res.ok) {
+          const message = safeError(`${res.fallo?.clase}: ${res.fallo?.detalle ?? 'envío rechazado'}`)
+          await admin.from('candidate_interest_checks')
+            .update(reminder
+              ? { reminder_batch_id: null, reminder_delivery_error: message }
+              : { delivery_status: 'failed', delivery_error: message })
+            .eq('id', checkId)
+          return { ok: false, error: message }
+        }
+        const sentAt = new Date().toISOString()
+        if (reminder) {
+          await admin.from('candidate_interest_checks').update({
+            reminder_sent_at: sentAt,
+            reminder_provider_message_id: res.providerMessageId ?? null,
+            reminder_delivery_error: null,
+          }).eq('id', checkId)
+        } else {
+          await admin.from('candidate_interest_checks').update({
+            delivery_status: 'sent',
+            sent_at: sentAt,
+            provider_message_id: res.providerMessageId ?? null,
+            delivery_error: null,
+          }).eq('id', checkId)
+          const previousIds = [...new Set(items.map((item) => item.previous?.id).filter(Boolean))] as string[]
+          if (previousIds.length) {
+            await admin.from('candidate_interest_checks').update({ superseded_at: sentAt }).in('id', previousIds)
+          }
+        }
+        return { ok: true }
+      }
+
+      // ---- Correo ---------------------------------------------------------
       const yes = `${APP_URL}/respuesta/${token}?respuesta=interested`
       const no = `${APP_URL}/respuesta/${token}?respuesta=not_interested`
-      const name = firstName(primary.candidate.answers ?? {})
       const greeting = name ? `Hola, ${esc(name)}.` : 'Hola.'
-      const reminder = mode === 'reminder'
       const subject = reminder
         ? `Recordatorio: ¿sigues interesado/a en el puesto de ${campaign.title}?`
         : `¿Sigues interesado/a en el puesto de ${campaign.title}?`
@@ -318,7 +505,7 @@ Deno.serve(async (req) => {
         const response = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ from: FROM, to: primary.email, subject, html }),
+          body: JSON.stringify({ from: FROM, to: primary.to, subject, html }),
         })
         const payload = await response.json().catch(() => ({})) as { id?: string; message?: string }
         if (!response.ok) throw new Error(payload.message ?? `Resend ${response.status}`)

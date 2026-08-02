@@ -172,6 +172,43 @@ export const PLANTILLAS = {
 
 export const IDIOMA = 'es'
 
+/**
+ * La comprobación de interés. Es la MISMA pregunta que hace el correo
+ * (`src/lib/interestEmail.ts`), a propósito: si cada canal la formulara a su
+ * manera, las respuestas dejarían de poder compararse entre sí, y la señal de
+ * "sigue interesado" valdría distinto según por dónde se preguntó.
+ *
+ * Esta función la usa el envío Y la pinta el diálogo de la app, que es lo que
+ * ve el empresario antes de mandar: la vista previa no es una versión bonita
+ * aparte, es el texto que sale.
+ */
+export function textoInteres(nombre: string, empresa: string, puesto: string): string {
+  return `Hola ${nombre}. Te escribimos de ${empresa} por tu candidatura a ` +
+    `${puesto}. Estamos revisando los perfiles y queremos saber si sigues ` +
+    'interesado/a en el puesto antes de seguir adelante.'
+}
+
+/** Los dos botones de la comprobación de interés, en el orden aprobado. */
+export function botonesInteres(conversationId: string): string[] {
+  return [`c:${conversationId}:i:si`, `c:${conversationId}:i:no`]
+}
+
+/**
+ * Lo que se le contesta al que pulsa. Preguntar y quedarse callado es lo que
+ * enseña a la gente a no contestar la próxima vez.
+ *
+ * No promete nada que no dependa de nosotros. "Te escriben si siguen adelante"
+ * es condicional a propósito: quien decide seguir con un candidato es el
+ * empresario, y este mensaje sale antes de que lo haya decidido. Y al que dice
+ * que no, no se le dice que queda descartado, porque no lo queda: su estado lo
+ * cambia una persona, no un botón.
+ */
+export function textoAcuseInteres(sigueInteresado: boolean): string {
+  return sigueInteresado
+    ? 'Gracias, queda anotado. Si el equipo sigue adelante contigo, te escriben por aquí.'
+    : 'Gracias por decírnoslo, queda anotado. Mucha suerte con la búsqueda.'
+}
+
 /** Los tres botones de la invitación, en el orden en que están aprobados. */
 export function botonesInvitacion(conversationId: string): string[] {
   return [
@@ -375,6 +412,32 @@ export function textoEspera(): string {
 }
 
 /**
+ * El primer mensaje, el que abre la conversación. Sale por plantilla aprobada,
+ * así que esto es lo que se ve en el hilo del empresario: tiene que decir
+ * EXACTAMENTE lo mismo que el cuerpo dado de alta en Meta.
+ *
+ * Se presenta como asistente de IA en la primera línea, y no solo cuando se lo
+ * preguntan. Lo pide el artículo 50 del Reglamento europeo de IA, en vigor
+ * desde el 2 de agosto de 2026: quien habla con una máquina tiene derecho a
+ * saberlo sin tener que averiguarlo.
+ *
+ * Y dice qué es lo automático: la CITA. Sin ese límite, enterarte de que te
+ * escribe una máquina se lee como que no han querido dedicarte ni un minuto.
+ * Con él se lee como lo que es, un trámite resuelto rápido.
+ *
+ * Lo que NO dice es quién hace la entrevista. Lo decía ("la harás con una
+ * persona del equipo") y se quitó a propósito: es una promesa que caduca sola
+ * el día que se automaticen las primeras entrevistas, y nadie se acordaría de
+ * volver aquí a corregirla. Cuando ese día llegue, avisar de que al otro lado
+ * hay una IA le toca a la propia llamada, no a un mensaje de hace dos semanas.
+ */
+export function textoInvitacion(nombre: string, empresa: string, puesto: string): string {
+  return `Hola ${nombre}. Soy el asistente de IA de ${empresa} y te escribo por tu ` +
+    `candidatura a ${puesto}. Me encargo de cuadrar la cita: vamos a buscar un ` +
+    'horario que te venga bien.'
+}
+
+/**
  * El aviso de la víspera, con sus dos botones. Lo que se ve en el hilo: el
  * mensaje sale por plantilla, porque a un día vista la ventana de 24 h está
  * cerrada casi siempre.
@@ -388,8 +451,13 @@ export function textoEspera(): string {
 export function textoVispera(
   nombre: string, puesto: string, startsAt: string, tz: string, donde: string,
 ): string {
-  return `Hola ${nombre}. Mañana es tu entrevista para el puesto de ${puesto}. ` +
-    `Queda el ${fechaLarga(startsAt, tz)}. Dónde: ${donde}. ` +
+  // El sitio va en su propia línea y SIN preposición delante. `dondeODecilo`
+  // no siempre devuelve una calle: también "Te llamamos por teléfono" o "Por
+  // videollamada", y un "En" delante las deja rotas. Espejo exacto del cuerpo
+  // dado de alta en Meta (scripts/whatsapp-templates.mjs), que lo comprueba
+  // una prueba: si divergen, el candidato y el hilo dejan de decir lo mismo.
+  return `Hola ${nombre}. Mañana es tu entrevista para el puesto de ${puesto}.\n\n` +
+    `Queda el ${fechaLarga(startsAt, tz)}.\n${donde}.\n\n` +
     'Dinos si sigue en pie o si prefieres que busquemos otro hueco.'
 }
 

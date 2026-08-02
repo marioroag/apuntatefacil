@@ -565,7 +565,10 @@ function Burbuja({ mensaje }: { mensaje: ConversationMessage }) {
     <li className={`flex ${nuestro ? 'justify-end' : 'justify-start'}`}>
       <div className="max-w-[85%]">
         <div
-          className={`rounded-xl px-3 py-2 text-[13px] leading-relaxed ring-1 ring-inset ${
+          // `whitespace-pre-line` respeta los saltos de línea: las plantillas
+          // separan en párrafos y el que escribe a mano también, y sin esto el
+          // hilo lo enseña todo seguido mientras al candidato le llega partido.
+          className={`whitespace-pre-line rounded-xl px-3 py-2 text-[13px] leading-relaxed ring-1 ring-inset ${
             nuestro
               ? 'bg-white text-slate-800 ring-slate-200'
               : 'bg-slate-800 text-white ring-slate-800'

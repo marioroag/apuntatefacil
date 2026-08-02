@@ -1,8 +1,10 @@
+import { extractCandidatePhone } from './phone'
 import type {
   Candidate,
   CandidateInterestState,
   CandidateInterestSummary,
   FormField,
+  InterestChannel,
 } from './types'
 
 export const INTEREST_REMINDER_DAYS = 7
@@ -16,7 +18,9 @@ export const INTEREST_STATE_LABEL: Record<CandidateInterestState, string> = {
   no_response: 'Sin respuesta',
   interested: 'Sigue interesado/a',
   not_interested: 'Ya no le interesa',
-  unavailable: 'Sin correo',
+  // Ya no es "sin correo": desde que existe WhatsApp, no poder preguntarle es
+  // no tener NINGUNA vía, ni correo ni un teléfono con su permiso.
+  unavailable: 'Sin forma de preguntarle',
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -50,30 +54,85 @@ function elapsedDays(iso: string | null | undefined, now: number): number {
   return (now - Date.parse(iso)) / DAY_MS
 }
 
+/**
+ * En qué punto está la comprobación de este candidato.
+ *
+ * Lo que ya dijo va PRIMERO, antes de mirar si hoy se le puede escribir. Es al
+ * revés de como estaba, y era un fallo de verdad: se calculaba desde el correo,
+ * así que quien no dejó correo, se le preguntó por WhatsApp y contestó "sigo
+ * interesado", aparecía en el panel como "sin correo". La respuesta estaba
+ * guardada y la pantalla la tapaba, justo con los candidatos que hacen que
+ * WhatsApp valga la pena: en construcción y logística mucha gente pone el
+ * teléfono y deja el correo en blanco.
+ *
+ * `alcanzable` solo decide entre "aún no se le ha preguntado" y "no hay por
+ * dónde preguntarle", que es lo único para lo que hace falta.
+ */
 export function deriveInterestState(
-  email: string | null,
+  alcanzable: boolean,
   interest: CandidateInterestSummary | undefined,
   now = Date.now(),
 ): CandidateInterestState {
-  if (!email) return 'unavailable'
-  if (!interest) return 'never'
-  if (interest.response === 'interested') return 'interested'
-  if (interest.response === 'not_interested') return 'not_interested'
-  const lastSend = interest.reminderSentAt ?? interest.sentAt
-  return elapsedDays(lastSend, now) >= INTEREST_REMINDER_DAYS ? 'no_response' : 'sent'
+  if (interest) {
+    if (interest.response === 'interested') return 'interested'
+    if (interest.response === 'not_interested') return 'not_interested'
+    const lastSend = interest.reminderSentAt ?? interest.sentAt
+    return elapsedDays(lastSend, now) >= INTEREST_REMINDER_DAYS ? 'no_response' : 'sent'
+  }
+  return alcanzable ? 'never' : 'unavailable'
+}
+
+/**
+ * Por dónde se le podría preguntar hoy. No mira el plan a propósito: esto lo
+ * usa también el filtro de la lista, y un filtro que cambia de resultado según
+ * la suscripción es más confuso que útil. Quien no tenga WhatsApp en su plan lo
+ * verá al abrir el diálogo, que es donde se decide el envío.
+ */
+export function candidateReachable(fields: FormField[], candidate: Candidate): boolean {
+  if (extractCandidateEmail(fields, candidate.answers)) return true
+  return Boolean(candidate.consentAt) && Boolean(extractCandidatePhone(candidate.answers))
 }
 
 export function candidateInterestState(campaign: { fields: FormField[] }, candidate: Candidate): CandidateInterestState {
-  return deriveInterestState(extractCandidateEmail(campaign.fields, candidate.answers), candidate.interest)
+  return deriveInterestState(candidateReachable(campaign.fields, candidate), candidate.interest)
 }
 
 export type InterestSendMode = 'initial' | 'reminder' | 'recheck'
 export type InterestOmissionReason =
   | 'missing_email'
+  | 'missing_phone'
+  | 'no_consent'
   | 'wait_reminder'
   | 'wait_recheck'
   | 'not_interested'
   | 'reminder_used'
+
+/**
+ * A quién se puede escribir por este canal, y con qué.
+ *
+ * Es lo ÚNICO que cambia entre correo y WhatsApp. Los plazos, el recordatorio y
+ * el "ya dijo que no" son de la pregunta, no del canal: si alguien contestó que
+ * no por correo, tampoco se le vuelve a preguntar por WhatsApp. Por eso esto
+ * devuelve el destinatario y el resto del cálculo sigue siendo uno solo.
+ *
+ * WhatsApp pide dos cosas donde el correo pide una: el teléfono, y el
+ * CONSENTIMIENTO que dio al enviar la candidatura. Sin él no se le escribe,
+ * aunque tengamos el número: es la misma puerta que gatea toda la entrevista
+ * (`start_interview_invitation` se niega igual) y aquí no se puede rodear.
+ */
+export function interestRecipient(
+  channel: InterestChannel,
+  fields: FormField[],
+  candidate: Pick<Candidate, 'answers' | 'consentAt'>,
+): { to: string | null; reason?: InterestOmissionReason } {
+  if (channel === 'email') {
+    const email = extractCandidateEmail(fields, candidate.answers)
+    return email ? { to: email } : { to: null, reason: 'missing_email' }
+  }
+  if (!candidate.consentAt) return { to: null, reason: 'no_consent' }
+  const phone = extractCandidatePhone(candidate.answers)
+  return phone ? { to: phone } : { to: null, reason: 'missing_phone' }
+}
 
 export type InterestEligibility =
   | { eligible: true; mode: InterestSendMode }
@@ -102,7 +161,10 @@ export function interestEligibility(
 
 export interface InterestCandidatePreview {
   candidateId: string
-  email: string | null
+  /** Destinatario por el canal elegido: un correo, o un wa_id. */
+  to: string | null
+  /** Por qué no hay destinatario. Solo cuando `to` es null. */
+  missing?: InterestOmissionReason
   eligibility: InterestEligibility
 }
 
@@ -118,14 +180,22 @@ export interface InterestSendResult {
 export function previewInterestCandidates(
   candidates: Candidate[],
   fields: FormField[],
+  channel: InterestChannel = 'email',
   now = Date.now(),
 ): InterestCandidatePreview[] {
   return candidates.map((candidate) => {
-    const email = extractCandidateEmail(fields, candidate.answers)
+    const { to, reason } = interestRecipient(channel, fields, candidate)
     return {
       candidateId: candidate.id,
-      email,
-      eligibility: interestEligibility(email, candidate.interest, now),
+      to,
+      missing: reason,
+      // Los plazos se calculan igual con o sin destinatario: `interestEligibility`
+      // ya devuelve `missing_email` cuando no lo hay, y aquí se sustituye por el
+      // motivo REAL de este canal (sin teléfono, sin permiso). Sin esto, elegir
+      // WhatsApp diría "sin correo" de alguien que sí lo tiene.
+      eligibility: to
+        ? interestEligibility(to, candidate.interest, now)
+        : { eligible: false, reason: reason ?? 'missing_email' },
     }
   })
 }

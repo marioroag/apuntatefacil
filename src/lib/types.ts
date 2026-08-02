@@ -88,6 +88,15 @@ export type CandidateSource = 'milanuncios' | 'enlace' | 'qr' | 'prueba'
 
 export type CandidateInterestResponse = 'interested' | 'not_interested'
 
+/**
+ * Por dónde se le preguntó. La PREGUNTA es la misma en los dos canales, y por
+ * eso la respuesta vive en la misma tabla y `deriveInterestState` no necesita
+ * saber esto: si cada canal formulara la suya, las respuestas dejarían de poder
+ * compararse. Esto solo dice por dónde salió, para poder enseñarlo y para saber
+ * qué hace falta comprobar antes de enviar (un correo, o teléfono y permiso).
+ */
+export type InterestChannel = 'email' | 'whatsapp'
+
 export type CandidateInterestState =
   | 'never'
   | 'sent'
@@ -133,6 +142,8 @@ export interface CandidateInterestSummary {
   respondedAt: string | null
   reminderSentAt: string | null
   expiresAt: string
+  /** Por dónde salió. Las comprobaciones anteriores a WhatsApp son de correo. */
+  channel: InterestChannel
 }
 
 /**
@@ -363,6 +374,13 @@ export interface Candidate {
   notes: string
   cvPath?: string // ruta del CV en Supabase Storage (bucket cvs), si lo adjuntó
   tagIds: string[] // ids de las etiquetas que el empresario le ha puesto (ver Tag)
+  /**
+   * Cuándo aceptó que le escribamos, al enviar la candidatura. Null = no consta,
+   * y entonces NO se le puede escribir por WhatsApp. Las candidaturas anteriores
+   * a que existiera la casilla se quedan en null a propósito: nunca se les dijo
+   * nada, y rellenarlo sería fabricar la prueba de algo que no ocurrió.
+   */
+  consentAt?: string | null
   /** Señal independiente del estado de selección. Ausente = nunca comprobado. */
   interest?: CandidateInterestSummary
   /** Triaje de IA (Meridian). Ausente = nunca analizado. */
