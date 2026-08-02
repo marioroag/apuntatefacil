@@ -545,8 +545,7 @@ export async function ejecutarTrabajoDeCanal(job: Job): Promise<Desenlace> {
       }
       const r = await enviarYRegistrar(
         ctx, msg,
-        `Hola ${ctx.candidato}. Te escribimos de ${ctx.empresa} por tu candidatura a ${ctx.puesto}. ` +
-        'Nos gustaría hacerte una entrevista.',
+        R.textoInvitacion(ctx.candidato, ctx.empresa, ctx.puesto),
         R.PLANTILLAS.invitacion,
       )
       if (r.tipo === 'hecho') {

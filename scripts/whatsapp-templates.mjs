@@ -52,7 +52,11 @@ const PLANTILLAS = [
     components: [
       {
         type: 'BODY',
-        text: 'Hola {{1}}. Te escribimos de {{2}} por tu candidatura a {{3}}. Nos gustaría hacerte una entrevista y buscar un horario que te venga bien.',
+        // Se presenta como IA en la primera línea: lo exige el artículo 50 del
+        // Reglamento europeo de IA (en vigor desde el 2 de agosto de 2026), y
+        // decir QUÉ es lo automático evita que enterarse se lea como desprecio.
+        // Espejo exacto de R.textoInvitacion() en _shared/whatsapp/render.ts.
+        text: 'Hola {{1}}. Soy el asistente de IA de {{2}} y te escribo por tu candidatura a {{3}}. Me encargo de cuadrar la cita, y la entrevista la harás con una persona del equipo. Vamos a buscar un horario que te venga bien.',
         example: { body_text: [['Rubén', 'Construcciones Ledesma', 'Peón de albañil']] },
       },
       {

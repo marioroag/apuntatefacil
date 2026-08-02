@@ -375,6 +375,27 @@ export function textoEspera(): string {
 }
 
 /**
+ * El primer mensaje, el que abre la conversación. Sale por plantilla aprobada,
+ * así que esto es lo que se ve en el hilo del empresario: tiene que decir
+ * EXACTAMENTE lo mismo que el cuerpo dado de alta en Meta.
+ *
+ * Se presenta como asistente de IA en la primera línea, y no solo cuando se lo
+ * preguntan. Lo pide el artículo 50 del Reglamento europeo de IA, en vigor
+ * desde el 2 de agosto de 2026: quien habla con una máquina tiene derecho a
+ * saberlo sin tener que averiguarlo.
+ *
+ * Y dice qué es lo automático: la CITA. Sin esa frase, enterarte de que te
+ * escribe una máquina se lee como que no han querido dedicarte ni un minuto.
+ * Con ella se lee como lo que es, un trámite resuelto rápido, y queda claro
+ * que al otro lado, en la entrevista, hay una persona.
+ */
+export function textoInvitacion(nombre: string, empresa: string, puesto: string): string {
+  return `Hola ${nombre}. Soy el asistente de IA de ${empresa} y te escribo por tu ` +
+    `candidatura a ${puesto}. Me encargo de cuadrar la cita, y la entrevista la harás ` +
+    'con una persona del equipo. Vamos a buscar un horario que te venga bien.'
+}
+
+/**
  * El aviso de la víspera, con sus dos botones. Lo que se ve en el hilo: el
  * mensaje sale por plantilla, porque a un día vista la ventana de 24 h está
  * cerrada casi siempre.

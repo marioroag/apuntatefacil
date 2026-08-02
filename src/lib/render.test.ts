@@ -1,4 +1,8 @@
 import { describe, it, expect } from 'vitest'
+// El script se lee como TEXTO (`?raw` de Vite), no se importa: al cargarlo de
+// verdad busca el .env y llama a process.exit si no está. Y con `?raw` esto
+// sigue compilando sin tipos de Node, que este tsconfig no tiene.
+import scriptPlantillas from '../../scripts/whatsapp-templates.mjs?raw'
 // `render.ts` solo importa un tipo de `channels/types.ts`, así que lo carga
 // vitest igual que schedule/ y guion/. Ver la cabecera de schedule.test.ts.
 //
@@ -8,7 +12,7 @@ import { describe, it, expect } from 'vitest'
 import {
   botonesVispera, diaConContexto, diaCorto, diaISO, diaLargo, donde, dondeODecirlo, enlaceMapa,
   fechaCorta, filasDias, filasHorarios, hora, textoAsistenciaConfirmada,
-  textoConfirmacion, textoVispera,
+  textoConfirmacion, textoInvitacion, textoVispera,
 } from '../../supabase/functions/_shared/whatsapp/render'
 
 const MADRID = 'Europe/Madrid'
@@ -129,6 +133,51 @@ describe('textoConfirmacion', () => {
 // El aviso del día antes. Existe porque el de 2 horas avisa cuando ya no da
 // tiempo a nada: si al candidato le ha surgido algo, a esas horas lo único que
 // puede hacer es no presentarse.
+// El primer mensaje es el único sitio donde el candidato se entera de que le
+// escribe una máquina. Si estas dos frases se caen en un retoque de copy, se
+// cae con ellas el artículo 50, y en silencio.
+describe('el primer mensaje', () => {
+  const t = textoInvitacion('Rubén', 'Construcciones Ledesma', 'Peón de albañil')
+
+  it('se presenta como IA sin que haya que preguntar', () => {
+    expect(t).toMatch(/asistente de IA/)
+  })
+
+  it('dice que la entrevista la hace una persona', () => {
+    // Sin esto, enterarse de que te escribe una máquina se lee como desprecio.
+    expect(t).toMatch(/persona del equipo/)
+  })
+
+  it('lleva el nombre, la empresa y el puesto, en ese orden', () => {
+    expect(t.indexOf('Rubén')).toBeLessThan(t.indexOf('Construcciones Ledesma'))
+    expect(t.indexOf('Construcciones Ledesma')).toBeLessThan(t.indexOf('Peón de albañil'))
+  })
+
+  it('no empieza por una variable, que Meta lo rechaza', () => {
+    expect(t.startsWith('Hola ')).toBe(true)
+  })
+
+  it('cabe de sobra en el cuerpo de una plantilla (1024)', () => {
+    expect(t.length).toBeLessThanOrEqual(1024)
+  })
+
+  // El texto vive en DOS sitios que no se pueden fusionar: aquí, y el cuerpo que
+  // se da de alta en Meta (scripts/whatsapp-templates.mjs). Meta guarda su
+  // propia copia y no hay forma de que la lea de nuestro código. Lo que sí se
+  // puede es no dejar que se separen sin enterarse: si divergen, lo que ve el
+  // candidato y lo que ve el empresario en el hilo dejan de ser lo mismo.
+  it('dice lo mismo que la plantilla que se da de alta en Meta', () => {
+    const bloque = scriptPlantillas.slice(scriptPlantillas.indexOf("name: 'invitacion_entrevista'"))
+    const cuerpo = /text: '([^']+)'/.exec(bloque)?.[1]
+    expect(cuerpo, 'no encuentro el cuerpo de invitacion_entrevista en el script').toBeTruthy()
+    const conValores = cuerpo!
+      .replace('{{1}}', 'Rubén')
+      .replace('{{2}}', 'Construcciones Ledesma')
+      .replace('{{3}}', 'Peón de albañil')
+    expect(conValores).toBe(t)
+  })
+})
+
 describe('el aviso de la víspera', () => {
   it('pregunta, en vez de solo recordar', () => {
     const t = textoVispera('Ana', 'Peón de albañil', '2026-08-04T08:00:00Z', MADRID, 'Nave 4')
