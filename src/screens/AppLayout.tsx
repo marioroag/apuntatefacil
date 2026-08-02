@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Briefcase, CalendarDays, ChevronDown, Gauge, Inbox, LayoutGrid, Loader2, MessagesSquare, Plus, SlidersHorizontal, Sparkles, Users, X } from 'lucide-react'
+import { ChevronDown, Inbox, Loader2, Plus, Sparkles, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
@@ -19,13 +19,35 @@ import { useOnboarding } from '../lib/onboarding'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
 import { AccionesProvider, RegistrarAccion } from '../lib/acciones'
-import { planHas, PLAN_LABEL } from '../lib/pricing'
-import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
+import { PLAN_LABEL } from '../lib/pricing'
+import { MERIDIAN_CHAT_ENABLED, hasMeridian, candidateFit } from '../lib/meridian'
+import { navGroups, PUESTO_ICON } from '../lib/nav'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 
-// Cabecera de un grupo de sede en el menú: SOLO un separador plegable, cero
-// botones de administración. El menú navega; renombrar y eliminar una sede viven
-// en el bloque "Por sede" de Vista general, que ya las lista.
+// Cabecera de una sección del menú. Misma pieza para los grupos declarados
+// ("Candidatos", "Empresa") y para las sedes; la única diferencia es que la sede
+// pliega y por eso es un <button>. En slate-500 y no slate-400: es texto con
+// significado, y slate-400 (#9c9fa9) se queda en 2,6:1 sobre blanco.
+const GROUP_LABEL = 'text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500'
+
+function GroupHeader({ children, count }: { children: React.ReactNode; count?: number }) {
+  return (
+    <div className={`flex h-7 items-center gap-1.5 px-2.5 ${GROUP_LABEL}`}>
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      {count !== undefined && <span className="num tabular-nums text-slate-400" aria-hidden>{count}</span>}
+    </div>
+  )
+}
+
+// Cabecera de un grupo de sede: SOLO un separador plegable, cero botones de
+// administración. El menú navega; renombrar y eliminar una sede viven en el
+// bloque "Por sede" de Vista general, que ya las lista.
+//
+// NO comparte tipografía con GroupHeader a propósito: la sede cuelga de
+// "Puestos", y con las dos en versalita tracked se leían como hermanas. Aquí va
+// en caja normal a 12px, que es el nivel de abajo, y el chevron remata que esto
+// se pliega. Se pega arriba al hacer scroll para no perder de vista qué sede
+// estás mirando.
 function SiteGroupHeader({
   name,
   count,
@@ -41,30 +63,45 @@ function SiteGroupHeader({
     <button
       onClick={onToggle}
       aria-expanded={!collapsed}
-      className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 hover:text-slate-600"
+      className="sticky top-0 z-10 flex h-7 w-full items-center gap-1.5 rounded-lg bg-white px-2.5 text-[12px] font-medium text-slate-500 outline-none transition-colors hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-indigo-600"
     >
-      <ChevronDown className={`size-3.5 shrink-0 transition-transform ${collapsed ? '-rotate-90' : ''}`} aria-hidden />
+      <ChevronDown className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-150 ease-[var(--ease-out)] motion-reduce:transition-none ${collapsed ? '-rotate-90' : ''}`} aria-hidden />
       <span className="min-w-0 flex-1 truncate text-left">{name}</span>
-      <span className="num">{count}</span>
+      <span className="num tabular-nums text-slate-400" aria-hidden>{count}</span>
+      <span className="sr-only">{count === 1 ? '1 puesto' : `${count} puestos`}</span>
     </button>
   )
 }
 
-// Item del menú lateral. Solo se muestra si el plan incluye la feature (la
-// visibilidad la decide quien lo renderiza); el límite se descubre al intentar
-// usar las cosas en su contexto (crear puesto, vistas guardadas), no con tabs
+// Chapa de contador. El número solo no dice nada: `label` es lo que oye quien no
+// lo ve ("272 candidaturas nuevas"), y viaja dentro del nombre accesible del
+// enlace en vez de en un `title=`, que los lectores de pantalla no anuncian.
+function CountBadge({ count, label }: { count: number; label?: string }) {
+  return (
+    <span className="num shrink-0 rounded-full bg-slate-200 px-1.5 py-px text-[11px] font-bold tabular-nums text-slate-700">
+      {count}
+      {label && <span className="sr-only"> {label}</span>}
+    </span>
+  )
+}
+
+// Item del menú lateral. Solo se muestra si el plan incluye la feature (lo
+// decide el registro de `lib/nav.ts`); el límite se descubre al intentar usar
+// las cosas en su contexto (crear puesto, vistas guardadas), no con tabs
 // bloqueadas en el menú.
 function SideNavItem({
   to,
   Icon,
   label,
   count = 0,
+  countLabel,
   onNavigate,
 }: {
   to: string
   Icon: LucideIcon
   label: string
   count?: number
+  countLabel?: string
   onNavigate: () => void
 }) {
   return (
@@ -72,7 +109,7 @@ function SideNavItem({
       to={to}
       onClick={onNavigate}
       className={({ isActive }) =>
-        `flex h-9 w-full items-center gap-2 rounded-xl px-2.5 text-sm transition-colors ${
+        `flex min-h-11 w-full items-center gap-2.5 rounded-xl px-2.5 text-sm outline-none transition-[background-color,color] duration-150 ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 lg:min-h-10 ${
           isActive ? 'bg-indigo-50 font-semibold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900'
         }`
       }
@@ -80,12 +117,8 @@ function SideNavItem({
       {({ isActive }) => (
         <>
           <Icon className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
-          <span className="flex-1">{label}</span>
-          {count > 0 && (
-            <span className="num shrink-0 rounded-full bg-slate-200 px-1.5 text-[11px] font-bold text-slate-700" title={`${count} nuevos`}>
-              {count}
-            </span>
-          )}
+          <span className="min-w-0 flex-1 truncate">{label}</span>
+          {count > 0 && <CountBadge count={count} label={countLabel} />}
         </>
       )}
     </NavLink>
@@ -291,10 +324,9 @@ export function AppLayout() {
   // panel Apariencia del constructor del formulario.
   // Equipo (tablón + miembros) es Pro+: lo ven todos los roles del plan; dentro,
   // la pestaña Miembros solo se pinta al owner (y los RPCs son owner-only).
-  const showEquipo = planHas(company.plan, 'teamBoard')
-  // Entrevistas (Pro/Multi). El badge cuenta las CONFIRMADAS por venir, no
-  // "novedades sin ver": aquí el número útil es cuántas citas tienes por delante.
-  const showEntrevistas = planHas(company.plan, 'entrevistas')
+  // Ajustes NO tiene entrada aquí: vive en el engranaje de la barra, a todos los
+  // anchos y pegado al timbre. Estuvo duplicado, y además colgando del
+  // `showEntrevistas` de su vecino, así que en Esencial desaparecía del todo.
   const canCreate = !isEncargado // crear puestos
   // Agrupamos solo si la agrupación SEPARA algo: con una única sede (o con todos
   // los puestos en la misma) la cabecera no informa de nada y solo mete ruido.
@@ -306,10 +338,28 @@ export function AppLayout() {
   // Meridian (Pro/Multi): entrada al Parte diario. Badge = candidaturas nuevas que
   // Meridian destaca (encajan bien) y aún no has revisado. Apagado mientras el hilo
   // esté fuera (MERIDIAN_CHAT_ENABLED): el triaje sigue vivo en cada candidatura.
-  const showMeridian = MERIDIAN_CHAT_ENABLED && hasMeridian(company.plan)
-  const meridianDestacados = showMeridian
-    ? candidates.filter((c) => c.status === 'nuevo' && (candidateFit(c.ai) ?? -1) >= 70).length
-    : 0
+  const meridianDestacados =
+    MERIDIAN_CHAT_ENABLED && hasMeridian(company.plan)
+      ? candidates.filter((c) => c.status === 'nuevo' && (candidateFit(c.ai) ?? -1) >= 70).length
+      : 0
+
+  // Los destinos del menú los declara el registro (`lib/nav.ts`), no esta
+  // pantalla: aquí solo se le pasan el plan, el rol y los contadores. Añadir una
+  // tab es una entrada en ese array; este fichero no se toca.
+  const grupos = navGroups({
+    plan: company.plan,
+    isStaff,
+    demo,
+    counts: {
+      bandeja: totalNuevos,
+      // Las entrevistas cuentan las CONFIRMADAS por venir, no "novedades sin
+      // ver": aquí el número útil es cuántas citas tienes por delante.
+      entrevistas: interviewUpcomingCount,
+      equipo: boardNewCount,
+      meridian: meridianDestacados,
+    },
+  })
+
   const toggleGroup = (id: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev)
@@ -326,7 +376,7 @@ export function AppLayout() {
           to={`${base}/puestos/${c.id}`}
           onClick={() => setOpen(false)}
           className={({ isActive }) =>
-            `group flex min-h-11 items-center gap-2.5 rounded-xl border px-2.5 py-2 text-sm outline-none transition-[background-color,border-color,box-shadow,color] duration-150 ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 lg:min-h-9 ${
+            `group flex min-h-11 items-center gap-2.5 rounded-xl border px-2.5 py-2 text-sm outline-none transition-[background-color,border-color,box-shadow,color] duration-150 ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 lg:min-h-10 ${
               isActive
                 ? 'border-indigo-200/80 bg-indigo-50 font-semibold text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]'
                 : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -335,14 +385,13 @@ export function AppLayout() {
         >
           {({ isActive }) => (
             <>
-              <Briefcase className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
-              <span className="min-w-0 flex-1 truncate">{c.title}</span>
+              <PUESTO_ICON className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
+              {/* El nombre completo en `title` para quien usa ratón: un puesto
+                  pausado y con chapa deja poco sitio y se sigue cortando. El
+                  lector de pantalla ya lo lee entero (truncate es solo CSS). */}
+              <span className="min-w-0 flex-1 truncate" title={c.title}>{c.title}</span>
               {c.status !== 'activa' && <span className="shrink-0 text-[11px] font-medium text-slate-500">{c.status === 'pausada' ? 'Pausado' : 'Cerrado'}</span>}
-              {count > 0 && (
-                <span className="num shrink-0 rounded-full bg-slate-200 px-1.5 text-[11px] font-bold text-slate-700" title={`${count} nuevos`}>
-                  {count}
-                </span>
-              )}
+              {count > 0 && <CountBadge count={count} label={count === 1 ? 'candidatura nueva' : 'candidaturas nuevas'} />}
             </>
           )}
         </NavLink>
@@ -354,7 +403,12 @@ export function AppLayout() {
   // esquina superior izquierda es ahora la persona (barra superior). Lo primero
   // que ves aquí es la acción, no la valla.
   const nav = (
-    <nav className="flex h-full flex-col" aria-label="Puestos">
+    // `overflow-y-auto` en el propio menú es la red de seguridad del registro: si
+    // algún día se declaran tantos grupos que ni con el suelo de la zona de
+    // puestos cabe todo, el menú entero se desplaza en vez de dejar destinos
+    // inalcanzables. En la ventana normal no se activa: el único scroll es el de
+    // los puestos.
+    <nav className="flex h-full flex-col overflow-y-auto overscroll-contain" aria-label="Menú principal">
       {/* Solo en el cajón móvil: en escritorio el lateral es fijo y no se cierra. */}
       <div className="flex justify-end px-2 pt-2 lg:hidden">
         <button
@@ -377,135 +431,98 @@ export function AppLayout() {
         </div>
       )}
 
-      <div className={`space-y-1 px-3 ${canCreate ? 'pt-2' : 'pt-3 lg:pt-4'}`}>
-        {/* Vista general es una pantalla más del Panel, la primera: se sacó
-            arriba como pestaña y Mario lo descartó (ago 2026). Va con Bandeja y
-            Equipo porque las tres son destinos de toda la empresa, por encima de
-            la lista de puestos. */}
-        <SideNavItem
-          to={`${base}/resumen`}
-          Icon={LayoutGrid}
-          label="Vista general"
-          onNavigate={() => setOpen(false)}
-        />
-        {showMeridian && (
-          <SideNavItem
-            to={`${base}/meridian`}
-            Icon={Sparkles}
-            label={MERIDIAN_NAME}
-            count={meridianDestacados}
-            onNavigate={() => setOpen(false)}
-          />
-        )}
-        <SideNavItem
-          to={`${base}/bandeja`}
-          Icon={Inbox}
-          label="Bandeja"
-          count={totalNuevos}
-          onNavigate={() => setOpen(false)}
-        />
-        {showEquipo && (
-          <SideNavItem
-            to={`${base}/equipo`}
-            Icon={Users}
-            label="Equipo"
-            count={boardNewCount}
-            onNavigate={() => setOpen(false)}
-          />
-        )}
+      {/* Destinos declarados (`lib/nav.ts`). El menú NO conoce ninguno: pinta lo
+          que diga el registro, y añadir uno nuevo es una entrada en ese array.
+          `shrink-0` porque lo único que crece sin techo son los puestos, y es a
+          ellos a quien se le da el hueco elástico de abajo. */}
+      <div className={`shrink-0 space-y-5 px-3 ${canCreate ? 'pt-4' : 'pt-3 lg:pt-4'}`}>
+        {grupos.map((g) => (
+          <div key={g.id}>
+            {g.label && <GroupHeader>{g.label}</GroupHeader>}
+            <ul className="space-y-0.5" aria-label={g.label}>
+              {g.items.map((it) => (
+                <li key={it.id}>
+                  <SideNavItem
+                    to={`${base}${it.to}`}
+                    Icon={it.Icon}
+                    label={it.label}
+                    count={it.count}
+                    countLabel={it.count && it.contarLabel ? it.contarLabel(it.count) : undefined}
+                    onNavigate={() => setOpen(false)}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
 
-      {showEntrevistas && (
-        <div className="px-3 pt-2">
-          <SideNavItem
-            to={`${base}/entrevistas`}
-            Icon={CalendarDays}
-            label="Entrevistas"
-            count={interviewUpcomingCount}
-            onNavigate={() => setOpen(false)}
-          />
+      {/* Los puestos son datos, no destinos declarados: son la única lista que
+          crece sin límite, así que se quedan con todo el alto que sobre y con su
+          propio scroll. Las cabeceras de sede se pegan arriba al bajar, para no
+          perder de vista en qué sede estás mirando. */}
+      <div className="mt-6 flex min-h-36 flex-1 flex-col px-3">
+        <div className="shrink-0">
+          <GroupHeader count={loading ? undefined : campaigns.length}>Puestos</GroupHeader>
         </div>
-      )}
 
-      {showEntrevistas && (
-        <div className="px-3 pt-2">
-          <SideNavItem
-            to={`${base}/ajustes`}
-            Icon={SlidersHorizontal}
-            label="Ajustes"
-            onNavigate={() => setOpen(false)}
-          />
-        </div>
-      )}
-
-      {/* Zona de ADMIN: SOLO para el equipo de Apúntate Fácil (allowlist en el backend),
-          nunca en la demo. El resto de usuarios no ve nada de esto. */}
-      {isStaff && !demo && (
-        <>
-          <p className="px-4 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Admin</p>
-          <div className="space-y-1 px-3">
-            <SideNavItem to={`${base}/admin`} Icon={Gauge} label="Panel" onNavigate={() => setOpen(false)} />
-            <SideNavItem to={`${base}/soporte`} Icon={MessagesSquare} label="Soporte" onNavigate={() => setOpen(false)} />
+        {loading ? (
+          // Transición (carga inicial o cambio de equipo): skeleton en lugar de los puestos del
+          // equipo anterior, para que header, lista y contenido se revelen a la vez al terminar.
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pb-3" role="status" aria-label="Cargando puestos">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-10 rounded-xl skeleton" />
+            ))}
           </div>
-        </>
-      )}
-
-      {loading ? (
-        // Transición (carga inicial o cambio de equipo): skeleton en lugar de los puestos del
-        // equipo anterior, para que header, lista y contenido se revelen a la vez al terminar.
-        <div className="flex-1 space-y-0.5 overflow-y-auto px-2 pt-4" role="status" aria-label="Cargando puestos">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-9 rounded-lg skeleton" />
-          ))}
-        </div>
-      ) : groupBySite ? (
-        <div className="flex-1 overflow-y-auto px-2 pt-4">
-          {sites.map((s) => {
-            const items = campaigns.filter((c) => c.siteId === s.id)
-            if (items.length === 0) return null
-            const isCollapsed = collapsed.has(s.id)
-            return (
-              <div key={s.id} className="mb-1">
-                <SiteGroupHeader
-                  name={s.name}
-                  count={items.length}
-                  collapsed={isCollapsed}
-                  onToggle={() => toggleGroup(s.id)}
-                />
-                {!isCollapsed && <ul className="space-y-0.5">{items.map(renderPuesto)}</ul>}
-              </div>
-            )
-          })}
-          {(() => {
-            const sinSede = campaigns.filter((c) => !c.siteId || !sites.some((s) => s.id === c.siteId))
-            if (sinSede.length === 0) return null
-            const isCollapsed = collapsed.has('__none__')
-            return (
-              <div className="mb-1">
-                <SiteGroupHeader
-                  name="Sin sede"
-                  count={sinSede.length}
-                  collapsed={isCollapsed}
-                  onToggle={() => toggleGroup('__none__')}
-                />
-                {!isCollapsed && <ul className="space-y-0.5">{sinSede.map(renderPuesto)}</ul>}
-              </div>
-            )
-          })()}
-        </div>
-      ) : (
-        <>
-          <p className="px-4 pb-1.5 pt-5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Puestos
+        ) : campaigns.length === 0 ? (
+          <p className="px-2.5 py-2 text-[13px] leading-snug text-slate-500">
+            Aún no tienes ningún puesto. Crea el primero y sus candidaturas entran aquí solas.
           </p>
-          <ul className="flex-1 space-y-0.5 overflow-y-auto px-2">{campaigns.map(renderPuesto)}</ul>
-        </>
-      )}
+        ) : groupBySite ? (
+          <div className="min-h-0 flex-1 overflow-y-auto pb-3">
+            {sites.map((s) => {
+              const items = campaigns.filter((c) => c.siteId === s.id)
+              if (items.length === 0) return null
+              const isCollapsed = collapsed.has(s.id)
+              return (
+                <div key={s.id} className="mb-2">
+                  <SiteGroupHeader
+                    name={s.name}
+                    count={items.length}
+                    collapsed={isCollapsed}
+                    onToggle={() => toggleGroup(s.id)}
+                  />
+                  {!isCollapsed && <ul className="mt-0.5 space-y-0.5">{items.map(renderPuesto)}</ul>}
+                </div>
+              )
+            })}
+            {(() => {
+              const sinSede = campaigns.filter((c) => !c.siteId || !sites.some((s) => s.id === c.siteId))
+              if (sinSede.length === 0) return null
+              const isCollapsed = collapsed.has('__none__')
+              return (
+                <div className="mb-2">
+                  <SiteGroupHeader
+                    name="Sin sede"
+                    count={sinSede.length}
+                    collapsed={isCollapsed}
+                    onToggle={() => toggleGroup('__none__')}
+                  />
+                  {!isCollapsed && <ul className="mt-0.5 space-y-0.5">{sinSede.map(renderPuesto)}</ul>}
+                </div>
+              )
+            })()}
+          </div>
+        ) : (
+          <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-3" aria-label="Puestos">
+            {campaigns.map(renderPuesto)}
+          </ul>
+        )}
+      </div>
 
       {/* El pie del lateral se vació: la empresa, el plan, la ayuda y salir viven
           ahora en el menú de perfil de la barra superior. El lateral navega y
           nada más. */}
-      <div className="h-3 shrink-0" aria-hidden />
     </nav>
   )
 
@@ -536,7 +553,11 @@ export function AppLayout() {
       />
 
       <div className="flex min-h-0 flex-1">
-        <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white lg:block">{nav}</aside>
+        {/* 256px (w-64), no 240: con 240 los títulos largos de puesto
+            ("Preparador/a de pedidos") se cortaban a media palabra. La celda de
+            empresa de la barra usa el mismo ancho para que el filo siga siendo
+            continuo; si se cambia aquí, se cambia allí. */}
+        <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white lg:block">{nav}</aside>
 
         <AnimatePresence>
           {open && (

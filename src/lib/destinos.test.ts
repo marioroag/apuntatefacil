@@ -3,6 +3,7 @@ import { DESTINOS, ajustesComoDestinos, destinosVisibles, type DestinosCtx } fro
 import { SECCIONES, gruposVisibles, seccionesVisibles } from './settings'
 import { FEATURE_COPY, type PlanFeature } from './pricing'
 import { FUERTE, normalizeSearch, scoreEntrada } from './search'
+import { navGroups } from './nav'
 import type { Company } from './auth'
 
 /**
@@ -26,7 +27,7 @@ import type { Company } from './auth'
 
 // Los ficheros se leen con los globs de Vite y no con `node:fs`, igual que en el
 // guardián de los ajustes: `?raw` los trae como texto y no entran en el bundle.
-const FUENTES = import.meta.glob('../{main.tsx,screens/AppLayout.tsx}', {
+const FUENTES = import.meta.glob('../main.tsx', {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -43,11 +44,6 @@ const RUTAS_SIN_DESTINO: Record<string, string> = {
   'ajustes/:seccion': 'Es la misma pantalla que "ajustes", y cada interruptor entra por su fila con enlace directo.',
   sedes: 'Ruta retirada (ago 2026): redirige. "Sedes" sí se encuentra, y lleva a Vista general, que es donde se administran.',
   marcas: 'Ruta retirada (ago 2026): redirige. La identidad se encuentra y lleva al constructor, que es donde se edita.',
-}
-
-/** Entradas del menú lateral cuya etiqueta no es un literal y no se puede leer del código. */
-const ETIQUETAS_DINAMICAS: Record<string, string> = {
-  '{MERIDIAN_NAME}': 'El nombre del asistente vive en lib/meridian.ts. Su destino está declarado con el mismo nombre.',
 }
 
 /** Features de pago que no son un sitio al que ir. */
@@ -102,16 +98,19 @@ function alcanzada(ruta: string, destinos: string[]): boolean {
   return destinos.some((to) => patron.test(to))
 }
 
-function entradasDelMenu(): { literales: string[]; dinamicas: string[] } {
-  const bloques = fuente('AppLayout.tsx').match(/<SideNavItem[\s\S]*?\/>/g) ?? []
-  const literales: string[] = []
-  const dinamicas: string[] = []
-  for (const b of bloques) {
-    const literal = b.match(/label="([^"]+)"/)
-    if (literal) literales.push(literal[1])
-    else dinamicas.push(b.match(/label=(\{[^}]+\})/)?.[1] ?? '?')
-  }
-  return { literales: [...new Set(literales)], dinamicas: [...new Set(dinamicas)] }
+// El menú lateral es un REGISTRO desde ago 2026 (`nav.ts`), así que sus entradas
+// se leen llamándolo y no rascando el JSX de AppLayout: las etiquetas son valores
+// de verdad y ya no hay ninguna que el detector no pueda leer (por eso desapareció
+// la lista de etiquetas dinámicas). Se pide el contexto más generoso (plan Multi y
+// staff) para ver TODAS las entradas, también las que un plan pequeño no pinta.
+function entradasDelMenu(): string[] {
+  const grupos = navGroups({
+    plan: 'multi',
+    isStaff: true,
+    demo: false,
+    counts: { bandeja: 0, entrevistas: 0, equipo: 0, meridian: 0 },
+  })
+  return [...new Set(grupos.flatMap((g) => g.items.map((i) => i.label)))]
 }
 
 /** Lo que de verdad hace el buscador: ¿escribiendo esto sale algo? */
@@ -145,21 +144,14 @@ describe('lo que se puede visitar, se puede encontrar', () => {
   })
 
   it('toda entrada del menú lateral se encuentra escribiendo su nombre', () => {
-    const { literales, dinamicas } = entradasDelMenu()
-    expect(literales.length, 'No se ha leído ninguna entrada del menú: ¿ha cambiado SideNavItem?').toBeGreaterThan(3)
+    const entradas = entradasDelMenu()
+    expect(entradas.length, 'No se ha leído ninguna entrada del menú: ¿ha cambiado navGroups?').toBeGreaterThan(3)
 
-    const invisibles = literales.filter((label) => !seEncuentra(label))
+    const invisibles = entradas.filter((label) => !seEncuentra(label))
     expect(
       invisibles,
       `Están en el menú lateral y escribir su nombre en el buscador no las saca: ${invisibles.join(', ')}. ` +
         `Añade su destino en src/lib/destinos.ts (o una clave, si el destino se llama de otra forma).`,
-    ).toEqual([])
-
-    const sinExplicar = dinamicas.filter((d) => !(d in ETIQUETAS_DINAMICAS))
-    expect(
-      sinExplicar,
-      `Estas entradas del menú tienen una etiqueta que no se puede leer del código: ${sinExplicar.join(', ')}. ` +
-        `El detector no las puede comprobar, así que apúntalas en ETIQUETAS_DINAMICAS diciendo dónde está su destino.`,
     ).toEqual([])
   })
 

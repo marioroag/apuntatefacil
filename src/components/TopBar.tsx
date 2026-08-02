@@ -88,11 +88,11 @@ export function TopBar({
     <>
       <header className="relative z-30 flex h-14 shrink-0 items-center border-b border-slate-200 bg-white">
         {/* La celda de la empresa ocupa la misma columna que el menú lateral
-            (w-60) y su filo continúa el borde del lateral: la esquina superior
+            (w-64) y su filo continúa el borde del lateral: la esquina superior
             izquierda es una celda, no un elemento suelto flotando sobre el
-            contenido. Por debajo de lg no hay lateral que encajar y la celda se
-            ajusta al nombre. */}
-        <div className="flex h-full shrink-0 items-center px-2 lg:w-60 lg:border-r lg:border-slate-200">
+            contenido. Si cambia el ancho del lateral, cambia este. Por debajo de
+            lg no hay lateral que encajar y la celda se ajusta al nombre. */}
+        <div className="flex h-full shrink-0 items-center px-2 lg:w-64 lg:border-r lg:border-slate-200">
           <CompanyMenu
             onOpenSupport={onOpenSupport}
             onOpenProfile={onOpenProfile}
