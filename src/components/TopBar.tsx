@@ -136,6 +136,8 @@ export function TopBar({
               <HelpCircle className="size-[18px]" aria-hidden />
             </button>
 
+            <Avisos />
+
             {/* Ajustes va pegado al timbre porque son vecinos de tema: lo que te
                 llega y qué avisos quieres recibir se tocan desde los dos sitios. */}
             <NavLink
@@ -147,8 +149,6 @@ export function TopBar({
             >
               <Settings className="size-[18px]" aria-hidden />
             </NavLink>
-
-            <Avisos />
 
             {onboardingPaso !== null && (
               <button
