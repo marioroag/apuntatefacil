@@ -340,7 +340,7 @@ export function CandidateModal({
                   </button>
                 </>
               )}
-              <MenuAcciones candidate={candidate} cvName={cvName} onEliminar={() => setConfirmarBorrado(true)} />
+              <MenuAcciones candidate={candidate} cvName={cvName} onEliminar={() => setConfirmarBorrado(true)} size="sm" />
               </span>
             </div>
           </div>
@@ -957,8 +957,11 @@ function Historial({ candidateId, load, yoEmail }: { candidateId: string; load: 
   )
 }
 
-/** Menú de acciones poco frecuentes. En portal fijo: nunca lo recorta el modal. */
-function MenuAcciones({ candidate, cvName, onEliminar }: { candidate: Candidate; cvName: string; onEliminar: () => void }) {
+/** Menú de acciones poco frecuentes. En portal fijo: nunca lo recorta el modal.
+ *  `size` tiene que igualar al de los botones de SU fila, que no es la misma en las dos:
+ *  la cabecera de escritorio usa las variantes _SM (32px) y la barra inferior, las normales
+ *  (36px). Con un tamaño fijo aquí, una de las dos filas queda descuadrada. */
+function MenuAcciones({ candidate, cvName, onEliminar, size = 'md' }: { candidate: Candidate; cvName: string; onEliminar: () => void; size?: 'sm' | 'md' }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -1022,9 +1025,10 @@ function MenuAcciones({ candidate, cvName, onEliminar }: { candidate: Candidate;
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="grid size-9 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg text-slate-500 ring-1 ring-slate-300/80 transition-colors hover:bg-slate-50 hover:text-slate-700"
+        className={`grid ${size === 'sm' ? 'size-8' : 'size-9'} pointer-coarse:size-11 shrink-0 place-items-center rounded-lg text-slate-500 ring-1 ring-inset ring-slate-300/80 transition-colors hover:bg-slate-50 hover:text-slate-700`}
       >
-        <MoreHorizontal className="size-4" aria-hidden />
+        {/* El icono también acompaña: los vecinos _SM llevan size-3.5. */}
+        <MoreHorizontal className={size === 'sm' ? 'size-3.5' : 'size-4'} aria-hidden />
       </button>
       {open &&
         pos &&

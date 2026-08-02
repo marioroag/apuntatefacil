@@ -18,10 +18,10 @@ const variants: Record<Variant, string> = {
   primary:
     'bg-indigo-600 text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] hover:bg-indigo-700 active:shadow-[inset_0_1px_2px_rgba(15,20,60,0.35)]',
   secondary:
-    'bg-white text-slate-800 ring-1 ring-slate-300/80 shadow-[0_1px_2px_rgba(18,22,34,0.06)] hover:bg-slate-50 hover:ring-slate-300 active:shadow-none',
+    'bg-white text-slate-800 ring-1 ring-inset ring-slate-300/80 shadow-[0_1px_2px_rgba(18,22,34,0.06)] hover:bg-slate-50 hover:ring-slate-300 active:shadow-none',
   ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
   danger:
-    'bg-white text-red-600 ring-1 ring-red-200 shadow-[0_1px_2px_rgba(18,22,34,0.06)] hover:bg-red-50 active:shadow-none',
+    'bg-white text-red-600 ring-1 ring-inset ring-red-200 shadow-[0_1px_2px_rgba(18,22,34,0.06)] hover:bg-red-50 active:shadow-none',
 }
 
 // Alturas alineadas con BTN_PRIMARY/SECONDARY de lib/buttons.ts (una sola escala):
