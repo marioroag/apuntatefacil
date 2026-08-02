@@ -15,6 +15,25 @@ import {
   textoConfirmacion, textoInvitacion, textoVispera,
 } from '../../supabase/functions/_shared/whatsapp/render'
 
+/**
+ * El cuerpo con el que una plantilla se da de alta en Meta.
+ *
+ * El texto vive en DOS sitios que no se pueden fusionar: nuestro código, y la
+ * copia que Meta guarda al aprobarla (scripts/whatsapp-templates.mjs es lo que
+ * se le manda). No hay forma de que Meta lea la nuestra. Lo que sí se puede es
+ * no dejar que se separen sin enterarse: si divergen, lo que ve el candidato y
+ * lo que ve el empresario en el hilo dejan de ser lo mismo.
+ *
+ * Lee el script como texto, así que el cuerpo tiene que ser UNA cadena de una
+ * sola línea en comillas simples. Los `\n` llegan escritos, no partidos.
+ */
+function cuerpoEnMeta(nombre: string): string {
+  const bloque = scriptPlantillas.slice(scriptPlantillas.indexOf(`name: '${nombre}'`))
+  const cuerpo = /text: '([^']+)'/.exec(bloque)?.[1]
+  expect(cuerpo, `no encuentro el cuerpo de ${nombre} en el script`).toBeTruthy()
+  return cuerpo!.replace(/\\n/g, '\n')
+}
+
 const MADRID = 'Europe/Madrid'
 const CANARIAS = 'Atlantic/Canary'
 const CONV = '11111111-2222-3333-4444-555555555555'
@@ -143,9 +162,17 @@ describe('el primer mensaje', () => {
     expect(t).toMatch(/asistente de IA/)
   })
 
-  it('dice que la entrevista la hace una persona', () => {
-    // Sin esto, enterarse de que te escribe una máquina se lee como desprecio.
-    expect(t).toMatch(/persona del equipo/)
+  it('acota qué es lo automático', () => {
+    // Sin ese límite, enterarse de que te escribe una máquina se lee como desprecio.
+    expect(t).toMatch(/Me encargo de cuadrar la cita/)
+  })
+
+  it('no promete quién hará la entrevista', () => {
+    // Era "la harás con una persona del equipo", y es una promesa que caduca
+    // sola en cuanto se automaticen las primeras entrevistas. Aquí para que no
+    // vuelva a colarse: avisar de que al otro lado hay una IA le toca a la
+    // llamada, no a un mensaje escrito dos semanas antes.
+    expect(t).not.toMatch(/persona|humano|alguien del equipo/i)
   })
 
   it('lleva el nombre, la empresa y el puesto, en ese orden', () => {
@@ -167,14 +194,10 @@ describe('el primer mensaje', () => {
   // puede es no dejar que se separen sin enterarse: si divergen, lo que ve el
   // candidato y lo que ve el empresario en el hilo dejan de ser lo mismo.
   it('dice lo mismo que la plantilla que se da de alta en Meta', () => {
-    const bloque = scriptPlantillas.slice(scriptPlantillas.indexOf("name: 'invitacion_entrevista'"))
-    const cuerpo = /text: '([^']+)'/.exec(bloque)?.[1]
-    expect(cuerpo, 'no encuentro el cuerpo de invitacion_entrevista en el script').toBeTruthy()
-    const conValores = cuerpo!
+    expect(cuerpoEnMeta('invitacion_entrevista')
       .replace('{{1}}', 'Rubén')
       .replace('{{2}}', 'Construcciones Ledesma')
-      .replace('{{3}}', 'Peón de albañil')
-    expect(conValores).toBe(t)
+      .replace('{{3}}', 'Peón de albañil')).toBe(t)
   })
 })
 
@@ -182,8 +205,26 @@ describe('el aviso de la víspera', () => {
   it('pregunta, en vez de solo recordar', () => {
     const t = textoVispera('Ana', 'Peón de albañil', '2026-08-04T08:00:00Z', MADRID, 'Nave 4')
     expect(t).toContain('Mañana es tu entrevista')
-    expect(t).toContain('Dónde: Nave 4')
     expect(t).toContain('sigue en pie')
+  })
+
+  // El sitio va solo en su línea y sin preposición: `dondeODecirlo` devuelve
+  // frases enteras ("Te llamamos por teléfono", "Por videollamada"), no solo
+  // calles, y cualquier "En" o "Dónde:" delante deja rotas cuatro de las cinco.
+  it('deja el sitio en su propia línea, sin nada delante', () => {
+    for (const sitio of ['Nave 4', 'Te llamamos por teléfono', 'Por videollamada']) {
+      const t = textoVispera('Ana', 'Peón de albañil', '2026-08-04T08:00:00Z', MADRID, sitio)
+      expect(t).toContain(`\n${sitio}.\n`)
+    }
+  })
+
+  it('dice lo mismo que la plantilla que se da de alta en Meta', () => {
+    const t = textoVispera('Ana', 'Peón de albañil', '2026-08-04T08:00:00Z', MADRID, 'Nave 4')
+    expect(cuerpoEnMeta('recordatorio_vispera')
+      .replace('{{1}}', 'Ana')
+      .replace('{{2}}', 'Peón de albañil')
+      .replace('{{3}}', 'martes, 4 de agosto a las 10:00')
+      .replace('{{4}}', 'Nave 4')).toBe(t)
   })
 
   // Los `like` que enrutan los botones son prefijos, así que dos cargas que se

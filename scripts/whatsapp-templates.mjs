@@ -56,7 +56,7 @@ const PLANTILLAS = [
         // Reglamento europeo de IA (en vigor desde el 2 de agosto de 2026), y
         // decir QUÉ es lo automático evita que enterarse se lea como desprecio.
         // Espejo exacto de R.textoInvitacion() en _shared/whatsapp/render.ts.
-        text: 'Hola {{1}}. Soy el asistente de IA de {{2}} y te escribo por tu candidatura a {{3}}. Me encargo de cuadrar la cita, y la entrevista la harás con una persona del equipo. Vamos a buscar un horario que te venga bien.',
+        text: 'Hola {{1}}. Soy el asistente de IA de {{2}} y te escribo por tu candidatura a {{3}}. Me encargo de cuadrar la cita: vamos a buscar un horario que te venga bien.',
         example: { body_text: [['Rubén', 'Construcciones Ledesma', 'Peón de albañil']] },
       },
       {
@@ -93,10 +93,11 @@ const PLANTILLAS = [
     category: 'UTILITY',
     components: [
       {
+        // Una sola línea a propósito, aunque sea larga: la prueba de deriva la
+        // lee con una expresión regular y una cadena partida en trozos se le
+        // escaparía a medias. Espejo de R.textoVispera().
         type: 'BODY',
-        text: 'Hola {{1}}. Mañana es tu entrevista para el puesto de {{2}}. ' +
-          'Queda el {{3}}. Dónde: {{4}}. Dinos si sigue en pie o si prefieres ' +
-          'que busquemos otro hueco.',
+        text: 'Hola {{1}}. Mañana es tu entrevista para el puesto de {{2}}.\n\nQueda el {{3}}.\n{{4}}.\n\nDinos si sigue en pie o si prefieres que busquemos otro hueco.',
         example: {
           body_text: [['Rubén', 'Peón de albañil', 'lunes, 3 de agosto a las 11:00',
             'Calle Marina 32, nave 4, 35008 Las Palmas']],

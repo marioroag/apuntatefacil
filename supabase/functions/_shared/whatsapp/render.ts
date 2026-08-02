@@ -384,15 +384,20 @@ export function textoEspera(): string {
  * desde el 2 de agosto de 2026: quien habla con una máquina tiene derecho a
  * saberlo sin tener que averiguarlo.
  *
- * Y dice qué es lo automático: la CITA. Sin esa frase, enterarte de que te
+ * Y dice qué es lo automático: la CITA. Sin ese límite, enterarte de que te
  * escribe una máquina se lee como que no han querido dedicarte ni un minuto.
- * Con ella se lee como lo que es, un trámite resuelto rápido, y queda claro
- * que al otro lado, en la entrevista, hay una persona.
+ * Con él se lee como lo que es, un trámite resuelto rápido.
+ *
+ * Lo que NO dice es quién hace la entrevista. Lo decía ("la harás con una
+ * persona del equipo") y se quitó a propósito: es una promesa que caduca sola
+ * el día que se automaticen las primeras entrevistas, y nadie se acordaría de
+ * volver aquí a corregirla. Cuando ese día llegue, avisar de que al otro lado
+ * hay una IA le toca a la propia llamada, no a un mensaje de hace dos semanas.
  */
 export function textoInvitacion(nombre: string, empresa: string, puesto: string): string {
   return `Hola ${nombre}. Soy el asistente de IA de ${empresa} y te escribo por tu ` +
-    `candidatura a ${puesto}. Me encargo de cuadrar la cita, y la entrevista la harás ` +
-    'con una persona del equipo. Vamos a buscar un horario que te venga bien.'
+    `candidatura a ${puesto}. Me encargo de cuadrar la cita: vamos a buscar un ` +
+    'horario que te venga bien.'
 }
 
 /**
@@ -409,8 +414,13 @@ export function textoInvitacion(nombre: string, empresa: string, puesto: string)
 export function textoVispera(
   nombre: string, puesto: string, startsAt: string, tz: string, donde: string,
 ): string {
-  return `Hola ${nombre}. Mañana es tu entrevista para el puesto de ${puesto}. ` +
-    `Queda el ${fechaLarga(startsAt, tz)}. Dónde: ${donde}. ` +
+  // El sitio va en su propia línea y SIN preposición delante. `dondeODecilo`
+  // no siempre devuelve una calle: también "Te llamamos por teléfono" o "Por
+  // videollamada", y un "En" delante las deja rotas. Espejo exacto del cuerpo
+  // dado de alta en Meta (scripts/whatsapp-templates.mjs), que lo comprueba
+  // una prueba: si divergen, el candidato y el hilo dejan de decir lo mismo.
+  return `Hola ${nombre}. Mañana es tu entrevista para el puesto de ${puesto}.\n\n` +
+    `Queda el ${fechaLarga(startsAt, tz)}.\n${donde}.\n\n` +
     'Dinos si sigue en pie o si prefieres que busquemos otro hueco.'
 }
 
