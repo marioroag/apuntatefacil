@@ -9,11 +9,15 @@ import type {
   CandidateStatus,
   AppData,
   FormField,
+  Interview,
+  InterviewMode,
+  InterviewStatus,
   Site,
   Tag,
   TeamRequest,
   TeamRequestComment,
 } from './types'
+import { partesClave, sumarDias } from './agenda'
 
 // PRNG determinista (mulberry32) para que los datos de ejemplo sean estables.
 function rng(seed: number) {
@@ -655,7 +659,11 @@ const preparadores = seedOf('cmp_preparador')
 function markProposed(c: Candidate | undefined, status: CandidateStatus, tags: string[]) {
   if (!c) return
   c.status = status
-  c.tagIds = [...new Set([...c.tagIds, ...tags])].slice(0, 3)
+  // Las etiquetas viejas se conservan, MENOS la que contradiga al estado nuevo:
+  // salían candidatos con entrevista el lunes y un "No encaja ahora" al lado,
+  // que es lo que se les había puesto cuando estaban descartados.
+  const previas = status === 'descartado' ? c.tagIds : c.tagIds.filter((t) => t !== 'tag_no_encaja')
+  c.tagIds = [...new Set([...previas, ...tags])].slice(0, 3)
   if (!c.notes) {
     c.notes =
       status === 'entrevista'
@@ -681,6 +689,182 @@ markProposed(mozos[1], 'contratado', ['tag_buen_perfil', 'tag_cerca_obra'])
 markProposed(oficiales[0], 'contratado', ['tag_buen_perfil', 'tag_doc_ok', 'tag_vehiculo'])
 markProposed(preparadores[0], 'entrevista', ['tag_buen_perfil', 'tag_turno_noche'])
 markProposed(preparadores[1], 'contactado', ['tag_recontactar'])
+
+// ---------------------------------------------------------------------------
+// Agenda de entrevistas (demo)
+// ---------------------------------------------------------------------------
+// La demo no tenía ni una cita y el calendario se enseñaba vacío: la pantalla
+// que más trabajo pide era la única que no se veía funcionar. Los dos motivos
+// para no ponerlas ya no se sostienen:
+//
+//   1. "Las fechas envejecen": estas NO se guardan. Se generan al entrar
+//      (`demoInterviews`), en días HÁBILES alrededor de hoy y a horas de
+//      oficina. Un delta como el de freshenDemoData no vale aquí: un
+//      calendario se lee por la posición, y desplazar por milisegundos dejaría
+//      citas a las 03:40 de un domingo.
+//   2. "Da a entender que se manda un WhatsApp real": todas son `origin:
+//      'manual'`, es decir, cuadradas a mano; ninguna trae conversación. Y los
+//      candidatos son de dominios reservados por la RFC 2606, como el resto.
+//
+// El plan fija QUIÉN y CÓMO (estable entre visitas); las fechas las pone el
+// reloj de quien mira.
+interface PlanCita {
+  candidato: Candidate | undefined
+  /** Días hábiles desde hoy. Negativo = ya pasó. Null = todavía sin hora. */
+  dia: number | null
+  hora: [number, number]
+  minutos: number
+  status: InterviewStatus
+  mode: InterviewMode
+  host: 'demo-user' | 'demo-laura'
+  /** El candidato contestó al aviso de la víspera: "ahí estaré". */
+  viene?: boolean
+}
+
+// A quién se cita NO se decide a dedo: se coge de los que YA están en ese
+// estado. Marcar a uno cualquiera cambiaría su chapa pero no su nota ni su
+// hilo de equipo, y salía un candidato con entrevista el lunes y un "contrato
+// firmado, alta cursada" en su chat.
+const enEstado = (lista: Candidate[], estado: CandidateStatus) => lista.filter((c) => c.status === estado)
+const citables = {
+  peon: enEstado(peones, 'entrevista'),
+  oficial: enEstado(oficiales, 'entrevista'),
+  electricista: enEstado(electricistas, 'entrevista'),
+  mozo: enEstado(mozos, 'entrevista'),
+  carretillero: enEstado(carretilleros, 'entrevista'),
+  preparador: enEstado(preparadores, 'entrevista'),
+  // Las de atrás: a quien ya se entrevistó le pasó algo después. Una de obra y
+  // otra de almacén, para que el historial no parezca de una sola sede.
+  contratadoObra: enEstado(oficiales, 'contratado'),
+  contratadoAlmacen: enEstado(mozos, 'contratado'),
+  descartados: enEstado(mozos, 'descartado'),
+}
+
+const PLAN_CITAS: PlanCita[] = [
+  // Lo de atrás: la pestaña Pasadas nace con historial, no vacía.
+  { candidato: citables.contratadoObra[0], dia: -2, hora: [10, 0], minutos: 45, status: 'realizada', mode: 'presencial', host: 'demo-user' },
+  { candidato: citables.contratadoAlmacen[0], dia: -1, hora: [12, 0], minutos: 30, status: 'realizada', mode: 'telefonica', host: 'demo-laura' },
+  { candidato: citables.descartados[0], dia: -1, hora: [16, 30], minutos: 30, status: 'cancelada', mode: 'presencial', host: 'demo-user' },
+  // Hoy. La primera suele quedar por detrás de la línea de la hora actual, que
+  // es justo lo que hay que ver: lo hecho se atenúa solo.
+  { candidato: citables.peon[0], dia: 0, hora: [9, 30], minutos: 30, status: 'confirmada', mode: 'presencial', host: 'demo-user', viene: true },
+  { candidato: citables.electricista[0], dia: 0, hora: [17, 0], minutos: 30, status: 'confirmada', mode: 'videollamada', host: 'demo-laura' },
+  // Mañana, con dos a la misma hora: dos encargados entrevistando a la vez es
+  // lo que parte el bloque en dos columnas.
+  { candidato: citables.carretillero[0], dia: 1, hora: [10, 0], minutos: 30, status: 'confirmada', mode: 'presencial', host: 'demo-user', viene: true },
+  { candidato: citables.preparador[0], dia: 1, hora: [10, 0], minutos: 45, status: 'confirmada', mode: 'telefonica', host: 'demo-laura' },
+  { candidato: citables.peon[1], dia: 1, hora: [12, 30], minutos: 30, status: 'confirmada', mode: 'presencial', host: 'demo-user' },
+  { candidato: citables.mozo[0], dia: 2, hora: [8, 30], minutos: 30, status: 'confirmada', mode: 'presencial', host: 'demo-user' },
+  { candidato: citables.oficial[0], dia: 2, hora: [16, 0], minutos: 60, status: 'reprogramando', mode: 'presencial', host: 'demo-laura' },
+  { candidato: citables.electricista[1], dia: 3, hora: [11, 0], minutos: 30, status: 'confirmada', mode: 'videollamada', host: 'demo-user' },
+  // La semana que viene: al pasar de semana no aparece el desierto.
+  { candidato: citables.carretillero[1], dia: 6, hora: [10, 0], minutos: 30, status: 'confirmada', mode: 'presencial', host: 'demo-user' },
+  // Sin hora todavía: esto es la pestaña En marcha.
+  { candidato: citables.preparador[1], dia: null, hora: [0, 0], minutos: 30, status: 'invitada', mode: 'presencial', host: 'demo-user' },
+  { candidato: citables.peon[2], dia: null, hora: [0, 0], minutos: 30, status: 'proponiendo', mode: 'presencial', host: 'demo-laura' },
+]
+
+const MADRID = 'Europe/Madrid'
+const dosCifras = (n: number) => String(n).padStart(2, '0')
+
+/** Desfase de una zona (ms) en un instante dado. Sin librería de fechas. */
+function desfaseZona(tz: string, ms: number): number {
+  const partes: Record<string, string> = {}
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz, hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  })
+  for (const p of fmt.formatToParts(new Date(ms))) partes[p.type] = p.value
+  const hora = partes.hour === '24' ? '00' : partes.hour
+  const comoUtc = Date.parse(`${partes.year}-${partes.month}-${partes.day}T${hora}:${partes.minute}:${partes.second}Z`)
+  return comoUtc - ms
+}
+
+/**
+ * El instante en que en Madrid son las hh:mm de ese día. Se escribe la hora de
+ * PARED y sale el UTC, así la demo enseña las 10:00 se mire desde donde se
+ * mire. Dos pasadas porque el desfase depende del propio instante (marzo y
+ * octubre cambian de hora).
+ */
+function instanteEnMadrid(dia: string, h: number, m: number): string {
+  const comoSiFueraUtc = Date.parse(`${dia}T${dosCifras(h)}:${dosCifras(m)}:00Z`)
+  let ms = comoSiFueraUtc - desfaseZona(MADRID, comoSiFueraUtc)
+  ms = comoSiFueraUtc - desfaseZona(MADRID, ms)
+  return new Date(ms).toISOString()
+}
+
+const finDeSemana = (clave: string) => {
+  const dow = partesClave(clave).dow
+  return dow === 0 || dow === 6
+}
+
+/**
+ * Se mueve n días HÁBILES. Una demo con entrevistas el domingo no se lee como
+ * el trabajo de nadie.
+ *
+ * Visitando en fin de semana, el día 0 se corre al lunes SIEMPRE, también para
+ * contar hacia atrás: si cada sentido se anclara por su lado, el "hoy" y el
+ * "ayer" del plan saldrían de días distintos y quedaría un hueco de dos días
+ * en medio de la semana.
+ */
+function diaHabil(hoy: string, pasos: number): string {
+  let clave = hoy
+  while (finDeSemana(clave)) clave = sumarDias(clave, 1)
+  const dir = pasos < 0 ? -1 : 1
+  for (let i = 0; i < Math.abs(pasos); i++) {
+    do {
+      clave = sumarDias(clave, dir)
+    } while (finDeSemana(clave))
+  }
+  return clave
+}
+
+/** El sitio de la cita sale de la sede del puesto, no de la zona del anuncio. */
+const SITIO_POR_SEDE: Record<string, string> = {
+  site_valencia: 'Oficina de Valencia',
+  site_madrid: 'Nave de Madrid',
+}
+
+/**
+ * La agenda de la demo, con las fechas del reloj de quien mira. Se llama en
+ * cada carga: no se guarda nada, así nunca envejece.
+ */
+export function demoInterviews(candidatos: Candidate[], now = Date.now()): Interview[] {
+  const hoy = new Intl.DateTimeFormat('en-CA', {
+    timeZone: MADRID, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(now))
+  const porId = new Map(candidatos.map((c) => [c.id, c]))
+
+  return PLAN_CITAS.flatMap((plan, n): Interview[] => {
+    // Si un día se toca el seed y un índice deja de existir, esa cita
+    // desaparece; la demo no se cae por una fila de menos.
+    const semilla = plan.candidato
+    const candidato = semilla ? porId.get(semilla.id) : undefined
+    if (!candidato) return []
+    const campaign = campaigns.find((c) => c.id === candidato.campaignId)
+    const dia = plan.dia !== null ? diaHabil(hoy, plan.dia) : null
+    const startsAt = dia ? instanteEnMadrid(dia, plan.hora[0], plan.hora[1]) : null
+    const endsAt = startsAt ? new Date(Date.parse(startsAt) + plan.minutos * 60000).toISOString() : null
+
+    return [{
+      id: `demo_iv_${n}`,
+      campaignId: candidato.campaignId,
+      candidateId: candidato.id,
+      hostUserId: plan.host,
+      status: plan.status,
+      origin: 'manual',
+      startsAt,
+      endsAt,
+      timezone: MADRID,
+      mode: plan.mode,
+      locationText: plan.mode === 'presencial' ? (SITIO_POR_SEDE[campaign?.siteId ?? ''] ?? '') : '',
+      meetingUrl: plan.mode === 'videollamada' ? 'https://meet.example.com/entrevista' : null,
+      reconfirmedAt: plan.viene ? new Date(now - 18 * 3600000).toISOString() : null,
+      createdAt: new Date(now - (3 + n) * 86400000).toISOString(),
+    }]
+  })
+}
 
 // ---------------------------------------------------------------------------
 // Chat de equipo dentro del candidato (demo). Sale de las mismas notas que

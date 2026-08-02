@@ -2,7 +2,7 @@
 
 import type { Candidate } from './types'
 
-const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+export const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 export function relativeDate(iso: string, now = Date.now()): string {
   const d = new Date(iso)
@@ -76,6 +76,12 @@ export function dayKeyInZone(iso: string, tz: string): string {
 export function clockTimeInZone(iso: string, tz: string): string {
   const p = partesEnZona(iso, tz)
   return `${p.hour}:${p.minute}`
+}
+
+/** Minutos desde medianoche en la zona de la entrevista. Sitúa el bloque en la rejilla. */
+export function minutesInZone(iso: string, tz: string): number {
+  const p = partesEnZona(iso, tz)
+  return Number(p.hour) * 60 + Number(p.minute)
 }
 
 /** Fecha y hora completas en la zona de la entrevista. */

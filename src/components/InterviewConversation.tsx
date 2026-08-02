@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  AlertTriangle, CalendarPlus, Check, CheckCheck, ChevronDown, Clock,
+  AlertTriangle, CalendarDays, CalendarPlus, Check, CheckCheck, ChevronDown, Clock,
   Loader2, MessageCircle,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
@@ -9,12 +9,12 @@ import { useChatThread } from '../lib/useChatThread'
 import { ChatComposer, ChatNuevos, ChatSkeleton, useSeguirAlFondo } from './ui/Chat'
 import { BTN_PRIMARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import { clockTime, formatPhone, fullDateTimeInZone } from '../lib/format'
-import { currentInterview } from '../lib/interviews'
+import { currentInterview, isLive } from '../lib/interviews'
 import { useAnfitrion } from '../lib/anfitrion'
 import { ModoEntrevista } from './ModoEntrevista'
 import {
   CONVERSATION_STATE_META, INTERVIEW_MODE_META,
-  type Campaign, type Candidate, type ConversationMessage, type InterviewMode,
+  type Campaign, type Candidate, type ConversationMessage, type Interview, type InterviewMode,
 } from '../lib/types'
 
 /**
@@ -45,6 +45,14 @@ export function InterviewConversation({
   const entrevista = currentInterview(interviewsFor(candidate.id), candidate.id)
 
   if (!conversacion) {
+    // Cita cuadrada a mano: hay entrevista viva pero nadie ha escrito a nadie.
+    // Ofrecer aquí "invita a este candidato" sería contradecir a la cabecera de
+    // la ficha, que en la misma pantalla dice "Ver entrevista, lun 3, 09:30".
+    // Solo las de origen manual: el texto dice "la pusiste tú" y tiene que ser
+    // verdad. Una de WhatsApp siempre trae su conversación.
+    if (entrevista && entrevista.origin === 'manual' && isLive(entrevista.status) && entrevista.startsAt) {
+      return <CitaAMano entrevista={entrevista} campaign={campaign} telefono={telefonoDe(candidate)} />
+    }
     return (
       <Inicio
         candidate={candidate}
@@ -61,6 +69,64 @@ export function InterviewConversation({
       entrevistaFecha={entrevista?.startsAt ?? null}
       entrevistaZona={entrevista?.timezone ?? 'Europe/Madrid'}
     />
+  )
+}
+
+const telefonoDe = (c: Candidate) =>
+  typeof c.answers['telefono'] === 'string' ? c.answers['telefono'] : ''
+
+/**
+ * La cita que pusiste tú. No hay conversación que enseñar y tampoco hay nada
+ * que invitar: lo único que falta por saber es qué se le ha dicho al candidato,
+ * y la respuesta es "nada". Se dice, en vez de dejar la pantalla de invitar,
+ * que haría dudar de si la cita existe.
+ */
+function CitaAMano({
+  entrevista,
+  campaign,
+  telefono,
+}: {
+  entrevista: Interview
+  campaign: Campaign
+  telefono: string
+}) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+      <div className="mx-auto max-w-[36ch]">
+        <div className="grid size-10 place-items-center rounded-xl bg-slate-100">
+          <CalendarDays className="size-5 text-slate-500" aria-hidden />
+        </div>
+        <h3 className="mt-3 text-[15px] font-semibold text-slate-900">La cita la pusiste tú</h3>
+        <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
+          No se le ha escrito nada por WhatsApp: al agendar a mano, avisar al candidato es cosa
+          tuya. Puedes cambiarla o cancelarla desde el botón de la entrevista, arriba.
+        </p>
+      </div>
+
+      <dl className="mx-auto mt-5 max-w-[36ch] divide-y divide-slate-200 rounded-xl bg-slate-50 px-3 text-[13px] ring-1 ring-inset ring-slate-200">
+        <Linea etiqueta="Puesto" valor={campaign.title} />
+        <Linea
+          etiqueta="Cuándo"
+          valor={fullDateTimeInZone(entrevista.startsAt!, entrevista.timezone)}
+          num
+        />
+        <Linea etiqueta="Modalidad" valor={INTERVIEW_MODE_META[entrevista.mode].label} />
+        {entrevista.mode === 'presencial' && (
+          <Linea etiqueta="Lugar" valor={entrevista.locationText || 'Sin dirección'} apagado={!entrevista.locationText} />
+        )}
+        {entrevista.mode === 'telefonica' && (
+          <Linea
+            etiqueta="Le llamas al"
+            valor={formatPhone(telefono) || 'No dejó teléfono'}
+            apagado={!telefono}
+            num={!!telefono}
+          />
+        )}
+        {entrevista.mode === 'videollamada' && (
+          <Linea etiqueta="Enlace" valor={entrevista.meetingUrl || 'Falta el enlace'} apagado={!entrevista.meetingUrl} />
+        )}
+      </dl>
+    </div>
   )
 }
 
