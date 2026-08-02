@@ -4,7 +4,7 @@ import type { Brand, Branding, Campaign, Candidate, CandidateAI, CandidateCommen
 import { supabase, supabaseConfigured } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
-import { SEED, SEED_BRANDS, SEED_CANDIDATE_COMMENTS, SEED_CANDIDATE_EVENTS, SEED_MEMBERS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, freshenDemoData } from './seed'
+import { SEED, SEED_BRANDS, SEED_CANDIDATE_COMMENTS, SEED_CANDIDATE_EVENTS, SEED_MEMBERS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, demoInterviews, freshenDemoData } from './seed'
 import { extractCandidateEmail, interestEligibility, type InterestSendResult } from './interest'
 
 // Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
@@ -663,9 +663,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setBrands(saved?.brands ?? SEED_BRANDS)
       setTags(saved?.tags ?? SEED_TAGS)
       setTeamRequests(fresh.teamRequests)
-      // La demo no agenda entrevistas: implicaría fabricar citas con fechas que
-      // envejecen y, sobre todo, dar a entender que se manda un WhatsApp real.
-      setInterviews([])
+      // La agenda se genera al entrar, nunca se guarda: así las citas caen
+      // siempre en días hábiles alrededor de hoy (ver demoInterviews). Las
+      // CONVERSACIONES siguen vacías a propósito: una cita puesta a mano no le
+      // manda nada a nadie, y fabricar un hilo de WhatsApp sí daría a entender
+      // que en la demo se escribe a alguien.
+      setInterviews(demoInterviews(fresh.candidates))
       setConversations([])
       setDemoTeamComments(fresh.teamComments)
       setDemoCandidateComments(fresh.candidateComments)
@@ -2197,7 +2200,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setBrands(SEED_BRANDS)
       setTags(SEED_TAGS)
       setTeamRequests(fresh.teamRequests)
-      setInterviews([])
+      setInterviews(demoInterviews(fresh.candidates))
       setConversations([])
       setDemoTeamComments(fresh.teamComments)
       setDemoCandidateComments(fresh.candidateComments)

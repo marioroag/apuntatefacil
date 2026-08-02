@@ -216,9 +216,10 @@ function BloqueCita({
   // una de una hora no puede quedarse en la hora suelta.
   const dosLineas = altura >= 40
   const conPuesto = altura >= 66 && !holgado
-  // Con tres a la vez cada bloque se queda en 50px: cada píxel de relleno se lo
-  // come al nombre, que es lo único que hay que poder leer.
-  const estrecho = columnas >= 3
+  // Compartiendo columna cada bloque se queda en la mitad o menos: cada píxel
+  // de relleno se lo come al nombre, que es lo único que hay que poder leer, y
+  // la hora de fin se calla antes de salir cortada por la mitad ("10:3").
+  const estrecho = columnas > 1
   const Icono = i.mode === 'videollamada' ? Video : i.mode === 'telefonica' ? Phone : MapPin
   const sitio = i.mode === 'presencial' && i.locationText ? i.locationText : ''
 
@@ -241,7 +242,7 @@ function BloqueCita({
 
       <span className="flex items-center gap-1 leading-none">
         <span className="num text-[11px] font-semibold">{inicio}</span>
-        {dosLineas && fin && <span className="num text-[11px] opacity-70">{fin}</span>}
+        {dosLineas && fin && !estrecho && <span className="num text-[11px] opacity-70">{fin}</span>}
         {i.reconfirmedAt && (
           <CheckCheck
             className="size-3 shrink-0 text-emerald-600"

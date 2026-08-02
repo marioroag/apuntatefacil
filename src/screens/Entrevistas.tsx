@@ -126,11 +126,19 @@ export function Entrevistas() {
   const salto = vista === 'dia' ? 1 : 7
   // El día civil es el de SU zona, igual que en la rejilla: si no, una cita de
   // Canarias a las 23:30 contaría en el día siguiente al mirarla desde Madrid.
-  const enTramo = visibles.filter((i) => {
+  const dentro = (i: Interview) => {
     if (!i.startsAt) return false
     const k = dayKeyInZone(i.startsAt, i.timezone)
     return k >= dias[0] && k <= dias[dias.length - 1]
-  })
+  }
+  const enTramo = visibles.filter(dentro)
+  // Un viernes por la tarde la semana no está vacía, pero ya no queda nada por
+  // delante, que es lo que se está preguntando. Sin decirlo hay que pulsar
+  // "siguiente" para descubrir que lo de esta semana ya pasó.
+  // En un tramo que ya pasó entero no se avisa de nada: que la semana pasada no
+  // tenga nada por delante no es una noticia.
+  const tramoPasado = dias[dias.length - 1] < hoy
+  const sinPendientes = !tramoPasado && buckets.proximas.filter(dentro).length === 0
   const siguiente = proximoDiaCon(visibles, sumarDias(dias[dias.length - 1], 1))
   const anterior = anteriorDiaCon(visibles, dias[0])
   const nombreDe = (i: Interview) => {
@@ -250,19 +258,23 @@ export function Entrevistas() {
               )
             ) : (
               <>
-                {enTramo.length === 0 && (
+                {(enTramo.length === 0 || sinPendientes) && (
                   <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-white px-3.5 py-2.5 text-[13px] text-slate-500 shadow-card ring-1 ring-slate-200/70">
                     <span>
                       {/* Sin NINGUNA cita todavía, decir "ninguna esta semana"
                           haría buscar en las de al lado algo que no existe: lo
                           que falta es la primera, y se dice dónde se cuadra. */}
-                      {visibles.length > 0
-                        ? vista === 'dia'
-                          ? 'Ninguna entrevista este día.'
-                          : 'Ninguna entrevista esta semana.'
-                        : soloDe
+                      {visibles.length === 0
+                        ? soloDe
                           ? `${nombreDelFiltro} todavía no tiene ninguna entrevista.`
-                          : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Invitar a entrevista".'}
+                          : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Invitar a entrevista".'
+                        : enTramo.length === 0
+                          ? vista === 'dia'
+                            ? 'Ninguna entrevista este día.'
+                            : 'Ninguna entrevista esta semana.'
+                          : vista === 'dia'
+                            ? 'No queda ninguna cita por delante este día.'
+                            : 'No queda ninguna cita por delante esta semana.'}
                     </span>
                     {/* Sin esto hay que pulsar "siguiente" seis veces para
                         encontrar la única cita del mes. */}
