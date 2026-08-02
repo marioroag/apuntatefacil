@@ -47,7 +47,9 @@ export function TagChip({
       } ${pad}`}
     >
       {glyph && <TagIcon className="size-3 shrink-0 text-slate-500" aria-hidden />}
-      <span className="truncate">{name}</span>
+      {/* title: en la columna estrecha de la tabla el chip se corta, y sin esto no
+          había forma de leer la etiqueta entera sin abrir la ficha. */}
+      <span className="truncate" title={name}>{name}</span>
       {onRemove && (
         <button
           type="button"
