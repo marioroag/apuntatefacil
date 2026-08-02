@@ -196,7 +196,7 @@ export function PublicForm() {
     // empresa no es Pro/Multi, es un no-op silencioso.
     if (candidateId) {
       supabase.functions.invoke('notify-new-candidate', { body: { candidate_id: candidateId } }).catch(() => {})
-      supabase.functions.invoke('analyze-candidate', { body: { candidate_id: candidateId } }).catch(() => {})
+      supabase.functions.invoke('analyze-candidate', { body: { candidate_id: candidateId, auto: true } }).catch(() => {})
     }
     setDone(true)
   }

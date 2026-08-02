@@ -6,6 +6,7 @@ import { TEAM_REQUEST_STATUS_META } from '../lib/types'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { candidateName, initials, memberAvatarTone, relativeDate } from '../lib/format'
+import { useProfiles } from '../lib/profiles'
 import { BTN_PRIMARY } from '../lib/buttons'
 import { useToast } from '../components/ui/Toast'
 import { TeamRequestPanel } from './TeamRequestPanel'
@@ -273,8 +274,10 @@ function RequestCard({
 }) {
   const meta = TEAM_REQUEST_STATUS_META[request.status]
   const done = request.status === 'completada'
-  const author =
-    mine ? 'Tú' : (request.authorEmail?.split('@')[0]?.trim() || request.authorEmail || 'Sin autor')
+  // El autor con su nombre de perfil (respaldo: el email). Antes se cortaba el
+  // email por la arroba a mano, que dejaba cosas como "laura.gil".
+  const profiles = useProfiles()
+  const author = mine ? 'Tú' : profiles.nameFor(request.authorUserId, request.authorEmail)
   const authorTone = memberAvatarTone(request.authorEmail)
   return (
     <button

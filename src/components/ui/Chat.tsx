@@ -1,10 +1,12 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { FileText, Loader2, Send } from 'lucide-react'
-import { fullDateTime, initials, memberAvatarTone, personLabel, relativeDate } from '../../lib/format'
+import { fullDateTime, memberAvatarTone, relativeDate } from '../../lib/format'
 import { BTN_PRIMARY_SM } from '../../lib/buttons'
 import type { CompanyMember } from '../../lib/types'
 import { ES_MENCION, mentionHandle, resolveMentions } from '../../lib/mentions'
+import { useProfiles } from '../../lib/profiles'
+import { Avatar } from './Avatar'
 
 /**
  * Chat del equipo. Una sola gramática de conversación en toda la app: el hilo de
@@ -16,8 +18,9 @@ import { ES_MENCION, mentionHandle, resolveMentions } from '../../lib/mentions'
  * base. Las divisorias que tenía el tablón hacían que tres frases seguidas
  * parecieran tres sucesos de auditoría.
  *
- * Quién es quién: no hay tabla de perfiles, así que la identidad se deriva del
- * email (ver `personLabel`). Tus propios mensajes dicen "Tú".
+ * Quién es quién: el nombre y la foto del perfil de la persona (`useProfiles`),
+ * con el email como respaldo mientras no se haya puesto nombre. Tus propios
+ * mensajes dicen "Tú".
  */
 export type ChatMessage = {
   id: string
@@ -96,6 +99,7 @@ export function ChatThread({
   className?: string
 }) {
   const finRef = useRef<HTMLDivElement>(null)
+  const profiles = useProfiles()
   // El hilo arranca abajo (lo último dicho) y sigue al mensaje nuevo.
   useLayoutEffect(() => {
     finRef.current?.scrollIntoView({ block: 'end' })
@@ -105,7 +109,10 @@ export function ChatThread({
     <ol className={`mt-auto space-y-4 ${className}`}>
       {messages.map((m) => {
         const yo = !!m.authorUserId && m.authorUserId === currentUserId
-        const nombre = m.isNote ? 'Nota anterior' : yo ? 'Tú' : personLabel(m.authorEmail)
+        // Cómo se llama quien escribe: su nombre de perfil si lo ha puesto y, si
+        // no, el derivado del email. Lo decide `nameFor`, aquí y en todas partes.
+        const real = profiles.nameFor(m.authorUserId, m.authorEmail)
+        const nombre = m.isNote ? 'Nota anterior' : yo ? 'Tú' : real
         const tone = memberAvatarTone(m.authorEmail)
         return (
           <li key={m.id} className="flex gap-2.5">
@@ -114,12 +121,7 @@ export function ChatThread({
                 <FileText className="size-3.5 text-slate-500" />
               </span>
             ) : (
-              <span
-                className={`grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-bold ${tone.bg} ${tone.text}`}
-                aria-hidden
-              >
-                {initials(nombre === 'Tú' ? personLabel(m.authorEmail) : nombre)}
-              </span>
+              <Avatar name={real} seed={m.authorEmail} src={profiles.avatarFor(m.authorUserId)} size={28} />
             )}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -169,6 +171,7 @@ export function ChatComposer({
   const [sugerencias, setSugerencias] = useState<CompanyMember[]>([])
   const [activo, setActivo] = useState(0)
   const areaRef = useRef<HTMLTextAreaElement>(null)
+  const profiles = useProfiles()
 
   const autoAlto = () => {
     const el = areaRef.current
@@ -256,8 +259,9 @@ export function ChatComposer({
                   i === activo ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
                 }`}
               >
-                <span className="font-medium">{personLabel(m.email)}</span>
-                <span className="num truncate text-[12px] text-slate-500">@{mentionHandle(m.email)}</span>
+                <Avatar name={profiles.nameFor(m.userId, m.email)} seed={m.email} src={profiles.avatarFor(m.userId)} size={20} />
+                <span className="min-w-0 truncate font-medium">{profiles.nameFor(m.userId, m.email)}</span>
+                <span className="num shrink-0 truncate text-[12px] text-slate-500">@{mentionHandle(m.email)}</span>
               </button>
             </li>
           ))}

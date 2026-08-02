@@ -5,6 +5,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { esc, renderEmail } from '../_shared/email.ts'
+import { conPreferencia } from '../_shared/prefs.ts'
 
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -28,6 +29,14 @@ Deno.serve(async (req) => {
       .from('campaigns').select('title,slug,notify_new').eq('id', cand.campaign_id).single()
     // El puesto puede tener los avisos por email desactivados: no enviamos nada.
     if (camp && camp.notify_new === false) return json({ ok: true, sent: false, skipped: 'avisos desactivados' })
+    // Dos filtros distintos y los dos mandan: el PUESTO puede tener los avisos
+    // apagados (arriba) y la PERSONA puede no querer este aviso en su bandeja.
+    const { data: ownerRow } = await admin.rpc('company_owner_id', { p_company: cand.company_id })
+    const ownerId = ownerRow as string | null
+    const quieren = ownerId
+      ? await conPreferencia(admin, [{ user_id: ownerId, email: '' }], 'candidato_nuevo')
+      : []
+    if (ownerId && quieren.length === 0) return json({ ok: true, sent: false, skipped: 'aviso desactivado' })
     const { data: emailRow } = await admin.rpc('get_company_owner_email', { p_company: cand.company_id })
     const ownerEmail = emailRow as string | null
 

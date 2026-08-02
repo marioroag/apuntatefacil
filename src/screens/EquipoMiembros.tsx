@@ -5,7 +5,9 @@ import { useToast } from '../components/ui/Toast'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { planHas } from '../lib/pricing'
-import { initials, memberAvatarTone, relativeDate } from '../lib/format'
+import { personLabel, relativeDate } from '../lib/format'
+import { useProfiles } from '../lib/profiles'
+import { Avatar } from '../components/ui/Avatar'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { SEED_INVITES, SEED_MEMBERS, freshenDemoIso } from '../lib/seed'
@@ -319,20 +321,21 @@ function MemberRow({
   onEdit: () => void
   onRemove: () => void
 }) {
-  const tone = memberAvatarTone(member.email)
+  const profiles = useProfiles()
+  const nombre = profiles.nameFor(member.user_id, member.email)
+  // Con perfil, manda el nombre y el email baja a segunda línea (sigue haciendo
+  // falta: es con lo que se invita y con lo que se menciona). Sin perfil, el
+  // email es lo único que hay y ocupa la primera línea, como siempre.
+  const tieneNombre = nombre.toLowerCase() !== personLabel(member.email).toLowerCase()
   return (
     <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-card">
-      <span
-        className={`grid size-9 shrink-0 place-items-center rounded-full text-[12px] font-bold ${tone.bg} ${tone.text}`}
-        aria-hidden
-      >
-        {initials(member.email)}
-      </span>
+      <Avatar name={nombre} seed={member.email} src={profiles.avatarFor(member.user_id)} size={36} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-slate-900">
-          {member.email}{' '}
+          {tieneNombre ? nombre : member.email}{' '}
           {member.is_self && <span className="text-[12px] font-normal text-slate-500">(tú)</span>}
         </p>
+        {tieneNombre && <p className="truncate text-[12px] text-slate-500">{member.email}</p>}
         {member.role === 'encargado' && member.site_ids.length > 0 && (
           <p className="truncate text-[12px] text-slate-500">{member.site_ids.map(siteName).join(', ')}</p>
         )}

@@ -16,6 +16,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { esc, renderEmail } from '../_shared/email.ts'
+import { conPreferencia } from '../_shared/prefs.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -99,7 +100,9 @@ Deno.serve(async (req) => {
       p_company: comment.company_id,
       p_users: mentions,
     })
-    const recipients = (rows as { user_id: string; email: string }[] | null) ?? []
+    const mencionados = (rows as { user_id: string; email: string }[] | null) ?? []
+    // Quien haya apagado este aviso en sus ajustes no lo recibe.
+    const recipients = await conPreferencia(admin, mencionados, 'mencion')
     if (recipients.length === 0) return json({ ok: true, sent: false, skipped: 'sin destinatarios' })
 
     // Contexto: de quién se está hablando y en qué puesto.
