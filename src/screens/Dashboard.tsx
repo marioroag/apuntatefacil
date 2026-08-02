@@ -42,6 +42,7 @@ import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { CandidateModal } from './CandidateModal'
 import { exportCandidatesToExcel } from '../lib/export'
+import { RegistrarAccion } from '../lib/acciones'
 import { relativeDate, miles, formatPhone, candidateName, isFreshNuevo } from '../lib/format'
 // El anillo de ajuste se queda en el avatar (Mario, jul 2026). Lo que se retiró
 // del puesto fue la COLUMNA "Ajuste", su orden y el buscador en lenguaje natural.
@@ -565,6 +566,22 @@ export function Dashboard() {
   return (
     <PullToRefresh onRefresh={refresh}>
     <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8">
+      {/* Acción del buscador mientras este puesto esté abierto: exporta lo que ves,
+          con los filtros puestos. Lleva el nombre del puesto porque el buscador se
+          usa desde cualquier sitio y "Exportar a Excel" a secas no diría de qué. */}
+      <RegistrarAccion
+        activa={filtered.length > 0}
+        id="exportar-excel"
+        label={`Exportar a Excel · ${campaign.title}`}
+        hint={
+          isFiltered
+            ? `Las ${filtered.length} candidaturas que tienes filtradas ahora.`
+            : `Las ${filtered.length} candidaturas de este puesto.`
+        }
+        icon={Download}
+        claves={['excel', 'xlsx', 'exportar', 'descargar', 'hoja de calculo']}
+        hacer={() => void doExport()}
+      />
       {/* Cabecera del puesto */}
       <header className="mb-5">
         {/* Título + acciones: solo Compartir y Editar visibles; el resto en Ajustes del puesto. */}

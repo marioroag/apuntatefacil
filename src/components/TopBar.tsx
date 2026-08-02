@@ -18,11 +18,12 @@ import {
 import { useAuth } from '../lib/auth'
 import { useProfiles } from '../lib/profiles'
 import { useAppBase } from '../lib/useAppBase'
-import { PLAN_LABEL } from '../lib/pricing'
+import { PLAN_LABEL, type PlanFeature } from '../lib/pricing'
 import { initials } from '../lib/format'
 import { Avatar } from './ui/Avatar'
 import { BetaBadge } from './BetaBadge'
 import { GlobalSearch } from './GlobalSearch'
+import { UpgradeDialog } from './UpgradeDialog'
 import { Avisos } from './Avisos'
 
 /**
@@ -78,6 +79,10 @@ export function TopBar({
   const base = useAppBase()
   const demo = base === '/demo'
   const [buscarMovil, setBuscarMovil] = useState(false)
+  // El buscador encuentra también apartados que este plan no incluye, y al elegir
+  // uno cuenta qué falta en vez de navegar. El diálogo vive AQUÍ y no dentro del
+  // buscador: en el móvil la capa se cierra al elegir y se lo llevaría por delante.
+  const [upgrade, setUpgrade] = useState<PlanFeature | null>(null)
 
   return (
     <>
@@ -100,7 +105,7 @@ export function TopBar({
               recordar su puesto es lo único que no se puede hacer en ninguna
               pantalla. Por debajo de md no cabe un campo: hay un botón. */}
           <div className="hidden h-full min-w-0 flex-1 items-center md:flex">
-            <GlobalSearch variant="inline" />
+            <GlobalSearch variant="inline" onUpgrade={setUpgrade} />
           </div>
 
           <div className="ml-auto flex h-full items-center gap-0.5 sm:gap-1">
@@ -165,7 +170,11 @@ export function TopBar({
 
       {/* Fuera del header a propósito: el header tiene z-30 y crearía un contexto
           de apilamiento que dejaría esta capa por debajo del cajón lateral. */}
-      {buscarMovil && <GlobalSearch variant="sheet" onClose={() => setBuscarMovil(false)} />}
+      {buscarMovil && (
+        <GlobalSearch variant="sheet" onClose={() => setBuscarMovil(false)} onUpgrade={setUpgrade} />
+      )}
+
+      <UpgradeDialog open={upgrade !== null} onClose={() => setUpgrade(null)} feature={upgrade ?? 'teamBoard'} />
     </>
   )
 }

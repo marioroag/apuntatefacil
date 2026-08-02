@@ -1,10 +1,11 @@
 import { AtSign, Inbox, Mail, MessageCircle, Sparkles, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { AjustesCalendario } from '../screens/AjustesCalendario'
 import { planHas } from './pricing'
 import { MERIDIAN_NAME, hasMeridian } from './meridian'
-import type { Company, CompanySettings } from './auth'
+import { useAuth, type Company, type CompanySettings } from './auth'
+import { useProfiles } from './profiles'
 
 /**
  * EL REGISTRO DE AJUSTES. Esta es la única fuente de verdad de /app/ajustes:
@@ -206,6 +207,25 @@ export const SECCIONES: SeccionAjustes[] = [
 /** Iconos de apoyo del registro, para que quien añada una sección tenga a mano
  *  los que ya se usan y no aparezca un quinto estilo de icono. */
 export const ICONOS_AJUSTES = { AtSign, Inbox, Mail, MessageCircle, Sparkles, Users }
+
+/** El contexto del registro, armado de una sola manera. Lo usan la pantalla de
+ *  Ajustes y el buscador de la barra (que deriva de aquí sus resultados de ajuste):
+ *  dos lecturas distintas del mismo registro no pueden discrepar en quién ve qué. */
+export function useAjustesCtx(): AjustesCtx {
+  const { company, role, updateCompanySettings } = useAuth()
+  const profiles = useProfiles()
+  return useMemo<AjustesCtx>(
+    () => ({
+      company,
+      role,
+      readOnly: profiles.readOnly,
+      wantsEmail: profiles.wantsEmail,
+      setEmailPref: profiles.setEmailPref,
+      updateCompanySettings,
+    }),
+    [company, role, profiles.readOnly, profiles.wantsEmail, profiles.setEmailPref, updateCompanySettings],
+  )
+}
 
 export function seccionesVisibles(c: AjustesCtx): SeccionAjustes[] {
   return SECCIONES.filter((s) => s.disponible(c))
