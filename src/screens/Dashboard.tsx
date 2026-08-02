@@ -1,6 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   Archive,
   ArrowUp,
@@ -2562,29 +2562,42 @@ function PuestoSettingsDialog({
   open,
   onClose,
   children,
+  inert = false,
 }: {
   open: boolean
   onClose: () => void
   children: ReactNode
+  /** Hay otro diálogo encima: ni foco, ni Escape, ni cierre por telón. */
+  inert?: boolean
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
+  // El foco vuelve a quien abrió los ajustes solo al cerrarlos. No depende de
+  // `inert`: mientras hay un diálogo encima los ajustes siguen abiertos, y
+  // devolver el foco aquí se lo robaría a ese diálogo.
   useEffect(() => {
     if (!open) return
     const opener = document.activeElement as HTMLElement | null
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    // El foco entra al panel una sola vez, al abrir. Si se reenfocara también al
+    // dejar de estar inerte, al cerrar el pop-up de encima le robaría el foco al
+    // botón que lo abrió.
     const t = window.setTimeout(() => panelRef.current?.focus(), 50)
     return () => {
-      document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
       window.clearTimeout(t)
       opener?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
+
+  useEffect(() => {
+    if (!open || inert) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, inert, onClose])
 
   return (
     <AnimatePresence>
@@ -2592,8 +2605,10 @@ function PuestoSettingsDialog({
         <div
           className="fixed inset-0 z-50 hidden sm:grid place-items-center p-6"
           role="dialog"
-          aria-modal="true"
+          aria-modal={!inert}
+          aria-hidden={inert || undefined}
           aria-labelledby="puesto-settings-title"
+          inert={inert || undefined}
         >
           <motion.div
             className="absolute inset-0 bg-slate-900/40"
@@ -2635,67 +2650,28 @@ function PuestoSettingsDialog({
 
 // Sede del puesto. La sede no tiene pantalla propia: nace donde se usa, así que
 // aquí se elige una existente o se crea una nueva y queda asignada de una vez.
-// Renombrarla y borrarla va en la cabecera de su grupo del menú lateral.
+// Renombrarla y borrarla va en el bloque "Por sede" de Vista general.
+// Crear no es elegir: los campos vivían aquí dentro, empujando el resto de los
+// ajustes hacia abajo y mezclando "lo que este puesto tiene" con "lo que estoy
+// creando". Ahora el botón abre un pop-up (`CrearSedeDialog`) y esta fila solo
+// elige.
 function SedeSetting({
   campaign,
   sites,
   onSetSite,
-  onCreateSite,
+  onCrear,
 }: {
   campaign: Campaign
   sites: Site[]
   onSetSite: (siteId: string | null) => void
-  onCreateSite: (input: { name: string; city: string }) => Promise<Site | null>
+  onCrear: () => void
 }) {
-  const toast = useToast()
-  const [creating, setCreating] = useState(false)
-  const [name, setName] = useState('')
-  const [city, setCity] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  const cancel = () => {
-    setCreating(false)
-    setName('')
-    setCity('')
-  }
-  const add = async () => {
-    if (!name.trim() || busy) return
-    setBusy(true)
-    const site = await onCreateSite({ name: name.trim(), city: city.trim() })
-    setBusy(false)
-    if (!site) return
-    onSetSite(site.id)
-    cancel()
-    toast.success('Sede creada y asignada a este puesto')
-  }
-  const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') void add()
-    if (e.key === 'Escape') cancel()
-  }
-  const input =
-    'h-10 w-full rounded-xl border border-slate-300 px-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15'
-
-  const creador = (
-    <div className="mt-2 space-y-2">
-      <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={onKey} autoFocus aria-label="Nombre de la sede" placeholder="Nombre, ej: Valencia centro" className={input} />
-      <input value={city} onChange={(e) => setCity(e.target.value)} onKeyDown={onKey} aria-label="Ciudad de la sede (opcional)" placeholder="Ciudad (opcional)" className={input} />
-      <div className="flex items-center gap-2">
-        <button onClick={add} disabled={busy || !name.trim()} className={`${BTN_PRIMARY} disabled:opacity-50`}>
-          {busy ? 'Creando…' : 'Crear y asignar'}
-        </button>
-        <button onClick={cancel} className={BTN_SECONDARY}>Cancelar</button>
-      </div>
-    </div>
-  )
-
   // Sin ninguna sede creada, un selector con una sola opción ("Sin sede") no es
   // una elección: es ruido vendiendo un concepto que quizá no necesitas. Se queda
   // en una línea discreta, y solo al usarla aparece el campo de verdad.
   if (sites.length === 0)
-    return creating ? (
-      <div>{creador}</div>
-    ) : (
-      <button onClick={() => setCreating(true)} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-600 hover:text-indigo-700">
+    return (
+      <button onClick={onCrear} className="inline-flex min-h-8 pointer-coarse:min-h-11 items-center gap-1.5 rounded-lg text-[13px] font-medium text-slate-600 hover:text-indigo-700">
         <Building2 className="size-3.5 text-slate-400" aria-hidden /> Agrupar por sede
       </button>
     )
@@ -2719,14 +2695,162 @@ function SedeSetting({
           })),
         ]}
       />
-      {creating ? (
-        creador
-      ) : (
-        <button onClick={() => setCreating(true)} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-700 hover:text-indigo-800">
-          <Plus className="size-3.5" aria-hidden /> Crear sede
-        </button>
-      )}
+      <button onClick={onCrear} className="mt-2 inline-flex min-h-8 pointer-coarse:min-h-11 items-center gap-1.5 rounded-lg text-[13px] font-medium text-indigo-700 hover:text-indigo-800">
+        <Plus className="size-3.5" aria-hidden /> Crear sede
+      </button>
     </div>
+  )
+}
+
+// Pop-up para crear la sede, encima de los ajustes del puesto (que quedan inertes
+// mientras está abierto: ni Escape, ni foco, ni cierre por telón). Es una tarea
+// corta y con nombre propio, así que se comporta como tal: título, dos campos,
+// dos botones, y Enter crea desde cualquiera de los campos.
+function CrearSedeDialog({
+  open,
+  onClose,
+  onCrear,
+}: {
+  open: boolean
+  onClose: () => void
+  /** Devuelve true si se creó: solo entonces se cierra el pop-up. */
+  onCrear: (input: { name: string; city: string }) => Promise<boolean>
+}) {
+  const [name, setName] = useState('')
+  const [city, setCity] = useState('')
+  const [busy, setBusy] = useState(false)
+  const panelRef = useRef<HTMLFormElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
+  const reducedMotion = useReducedMotion()
+
+  useEffect(() => {
+    if (!open) return
+    const opener = document.activeElement as HTMLElement | null
+    const t = window.setTimeout(() => nameRef.current?.focus(), 60)
+    return () => {
+      window.clearTimeout(t)
+      opener?.focus?.()
+    }
+  }, [open])
+
+  const cerrar = useCallback(() => {
+    if (!busy) onClose()
+  }, [busy, onClose])
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        cerrar()
+        return
+      }
+      if (e.key !== 'Tab') return
+      const els = Array.from(
+        panelRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])') ?? [],
+      )
+      if (!els.length) return
+      const first = els[0]
+      const last = els[els.length - 1]
+      const active = document.activeElement
+      if (!panelRef.current?.contains(active)) {
+        e.preventDefault()
+        ;(e.shiftKey ? last : first).focus()
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, cerrar])
+
+  const crear = async () => {
+    if (!name.trim() || busy) return
+    setBusy(true)
+    const ok = await onCrear({ name: name.trim(), city: city.trim() })
+    setBusy(false)
+    if (ok) onClose()
+  }
+
+  // Enter desde cualquiera de los dos campos crea la sede. Se hace explícito, con
+  // preventDefault, en vez de dejarlo al envío implícito del navegador: mismo
+  // camino en todos los navegadores y un solo envío.
+  const onKeyDownForm = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' || !(e.target instanceof HTMLInputElement)) return
+    e.preventDefault()
+    void crear()
+  }
+
+  // En táctil el campo sube a 44px y a 16px de fuente (el mismo criterio que los
+  // botones): por debajo de 16px, iOS hace zoom al enfocar.
+  const input =
+    'h-10 pointer-coarse:h-11 w-full rounded-xl border border-slate-300 px-3 text-sm pointer-coarse:text-base text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15'
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[60] grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="crear-sede-title">
+          <motion.div
+            className="absolute inset-0 bg-slate-900/40"
+            aria-hidden
+            initial={reducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: reducedMotion ? 0 : 0.16 }}
+            onClick={cerrar}
+          />
+          <motion.form
+            ref={panelRef}
+            onSubmit={(e) => {
+              e.preventDefault()
+              void crear()
+            }}
+            onKeyDown={onKeyDownForm}
+            className="relative w-full max-w-[420px] rounded-xl bg-white p-5 shadow-pop outline-none"
+            initial={reducedMotion ? false : { opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 6 }}
+            transition={{ duration: reducedMotion ? 0 : 0.18, ease: [0, 0, 0.2, 1] }}
+          >
+            <h2 id="crear-sede-title" className="text-lg font-semibold text-slate-900">
+              Nueva sede
+            </h2>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">
+              Agrupa los puestos de un mismo local. Al crearla se asigna a este puesto.
+            </p>
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-slate-800">Nombre</span>
+                <input
+                  ref={nameRef}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Valencia centro"
+                  className={input}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-slate-800">
+                  Ciudad <span className="font-normal text-slate-500">(opcional)</span>
+                </span>
+                <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Valencia" className={input} />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={cerrar} disabled={busy} className={`${BTN_SECONDARY} disabled:opacity-50`}>
+                Cancelar
+              </button>
+              <button type="submit" disabled={busy || !name.trim()} className={`${BTN_PRIMARY} disabled:opacity-50`}>
+                {busy ? 'Creando…' : 'Crear sede'}
+              </button>
+            </div>
+          </motion.form>
+        </div>
+      )}
+    </AnimatePresence>
   )
 }
 
@@ -2773,12 +2897,32 @@ function PuestoSettingsSheet({
 }) {
   const notify = campaign.notifyNew !== false
   const status = campaign.status
+  const toast = useToast()
+  // El pop-up de crear sede se monta UNA vez, fuera de la hoja y del diálogo (que
+  // pintan el mismo `body` a la vez, cada uno para su ancho): dentro se montaría
+  // dos veces y heredaría el `display:none` del que no toca.
+  // El contador es la `key` del pop-up: cada apertura monta uno nuevo, así los
+  // campos empiezan vacíos sin tener que vaciarlos a mano (y sin que se vean
+  // borrarse mientras se cierra).
+  const [crearSede, setCrearSede] = useState(false)
+  const [crearSedeKey, setCrearSedeKey] = useState(0)
+  const abrirCrearSede = () => {
+    setCrearSedeKey((k) => k + 1)
+    setCrearSede(true)
+  }
+  const crearSedeYAsignar = async (input: { name: string; city: string }) => {
+    const site = await onCreateSite(input)
+    if (!site) return false
+    onSetSite(site.id)
+    toast.success('Sede creada y asignada a este puesto')
+    return true
+  }
   const body = (
     <div className="space-y-5 px-4 py-4 sm:px-5 sm:py-5">
               {canManage && (
               <section className="space-y-4">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Organización</p>
-                <SedeSetting campaign={campaign} sites={sites} onSetSite={onSetSite} onCreateSite={onCreateSite} />
+                <SedeSetting campaign={campaign} sites={sites} onSetSite={onSetSite} onCrear={abrirCrearSede} />
                 {/* La marca solo se elige cuando hay más de una: con una sola no hay
                     decisión que tomar. Su nombre, logo y banner se editan en el
                     constructor del formulario, que es donde se ven. */}
@@ -2853,12 +2997,13 @@ function PuestoSettingsSheet({
   )
   return (
     <>
-      <BottomSheet open={open} onClose={onClose} title="Ajustes del puesto">
+      <BottomSheet open={open} onClose={onClose} title="Ajustes del puesto" inert={crearSede}>
         {body}
       </BottomSheet>
-      <PuestoSettingsDialog open={open} onClose={onClose}>
+      <PuestoSettingsDialog open={open} onClose={onClose} inert={crearSede}>
         {body}
       </PuestoSettingsDialog>
+      <CrearSedeDialog key={crearSedeKey} open={crearSede} onClose={() => setCrearSede(false)} onCrear={crearSedeYAsignar} />
     </>
   )
 }
