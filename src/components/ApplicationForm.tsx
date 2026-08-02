@@ -4,6 +4,7 @@ import type { Campaign } from '../lib/types'
 import { FieldRenderer } from './FieldRenderer'
 import type { FieldValue } from './FieldRenderer'
 import { readableOn } from '../lib/colors'
+import { ENLACE_PRIVACIDAD, consentimientoVigente } from '../lib/consent'
 
 /**
  * Render presentacional del formulario. Lo usan TANTO el formulario público
@@ -50,6 +51,14 @@ export function ApplicationForm({
   } as CSSProperties
   // "Leer más" del aviso de privacidad: despliega una explicación honesta inline.
   const [showPrivacy, setShowPrivacy] = useState(false)
+
+  // El texto del consentimiento, partido para colgarle el enlace en medio. Si
+  // la frase enlazable no estuviera, se pinta entero y sin enlace: mejor sin
+  // enlace que con un texto que no es el que se guarda.
+  const textoConsent = consentimientoVigente(companyName)
+  const corte = textoConsent.indexOf(ENLACE_PRIVACIDAD)
+  const antesDelEnlace = corte < 0 ? textoConsent : textoConsent.slice(0, corte)
+  const despuesDelEnlace = corte < 0 ? '' : textoConsent.slice(corte + ENLACE_PRIVACIDAD.length)
 
   const errorList = campaign.fields
     .filter((f) => errors[f.id])
@@ -160,8 +169,9 @@ export function ApplicationForm({
             <>
               Solo {companyName} verá tu candidatura para este puesto: no la vendemos, no la damos a otras
               empresas y no la usamos para publicidad. Para que esto funcione nos apoyamos en proveedores
-              (alojamiento, correo y, si la empresa lo usa, un asistente que resume las candidaturas), que
-              solo la tratan por cuenta de {companyName} y están listados en la política de privacidad.
+              (alojamiento, correo, WhatsApp si te escriben por ahí y, si la empresa lo usa, un asistente
+              que resume las candidaturas), que solo la tratan por cuenta de {companyName} y están
+              listados en la política de privacidad.
               Puedes pedir que actualicen o borren tus datos contactando con la empresa.{' '}
               <button type="button" onClick={() => setShowPrivacy(false)} className="underline hover:text-slate-600">
                 Leer menos
@@ -188,12 +198,17 @@ export function ApplicationForm({
           />
           <Check strokeWidth={3.5} aria-hidden className={`pointer-events-none absolute inset-0 m-auto size-3.5 text-on-accent transition-opacity motion-reduce:transition-none ${consent ? 'opacity-100' : 'opacity-0'}`} />
         </span>
+        {/* El texto NO se escribe aquí: se lee de src/lib/consent.ts, que es lo
+            que se guarda por versión con cada candidatura. Si se escribiera en
+            los dos sitios acabarían diciendo cosas distintas, y el id guardado
+            apuntaría a algo que este candidato nunca leyó. Lo único que hace
+            esta vista es colgar el enlace de la frase que ya está dentro. */}
         <span className="min-w-0 break-words">
-          He leído y acepto la{' '}
+          {antesDelEnlace}
           <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="font-medium text-slate-700 underline hover:text-slate-900">
-            política de privacidad
+            {ENLACE_PRIVACIDAD}
           </a>
-          {' '}y que {companyName} trate mis datos para este proceso de selección.
+          {despuesDelEnlace}
         </span>
       </label>
       {consentError && (

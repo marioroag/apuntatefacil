@@ -9,6 +9,7 @@ import type { FieldValue } from '../components/FieldRenderer'
 import { readableOn } from '../lib/colors'
 import { BRAND, publicFormPathPretty } from '../lib/brand'
 import { FORM_THANKS_DEFAULT } from '../lib/defaults'
+import { CONSENT_VERSION } from '../lib/consent'
 import { brandAssetUrl } from '../lib/brandAsset'
 import type { Campaign } from '../lib/types'
 
@@ -174,6 +175,9 @@ export function PublicForm() {
       p_answers: values,
       p_source: isTest ? 'prueba' : 'enlace',
       p_cv_path: cvPath,
+      // Qué texto aceptó. La FECHA la pone el servidor: es la prueba, y una
+      // prueba que manda el cliente no prueba nada.
+      p_consent_version: CONSENT_VERSION,
     })
     setSubmitPhase('idle')
     if (error) {

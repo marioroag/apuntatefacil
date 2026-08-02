@@ -143,6 +143,20 @@ function Inicio({
       setError('Este candidato no dejó teléfono, así que no podemos escribirle por WhatsApp.')
       return
     }
+    // Se apuntó antes de que el formulario avisara de WhatsApp. Se dice qué pasó
+    // y qué se puede hacer: el empresario no ha hecho nada mal y tiene salida.
+    if (res.status === 'sin_consentimiento') {
+      setError(
+        'Se apuntó antes de que el formulario avisara de que podemos escribir por WhatsApp, ' +
+        'así que no le hemos pedido permiso. Llámale o escríbele tú, o pídele que vuelva a ' +
+        'apuntarse con el enlace.',
+      )
+      return
+    }
+    if (res.status === 'baja') {
+      setError('Este candidato pidió no recibir más mensajes por WhatsApp.')
+      return
+    }
     if (res.status === 'puesto_inactivo') {
       setError('El puesto no está activo. Reactívalo para invitar a entrevistas.')
       return
