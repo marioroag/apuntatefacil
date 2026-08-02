@@ -1,13 +1,12 @@
-import { useId, useMemo } from 'react'
-import { NavLink, Navigate, useParams } from 'react-router-dom'
-import { useAuth } from '../lib/auth'
-import { useProfiles } from '../lib/profiles'
+import { useEffect, useId, useRef, useState } from 'react'
+import { NavLink, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { useAppBase } from '../lib/useAppBase'
 import { useToast } from '../components/ui/Toast'
 import { SwitchTrack } from '../components/ui/Switch'
 import {
   gruposVisibles,
   seccionesVisibles,
+  useAjustesCtx,
   type AjustesCtx,
   type Ajuste,
   type GrupoAjustes,
@@ -29,22 +28,16 @@ import {
  * su sitio y el error se dice en un toast, nunca en silencio.
  */
 export function Ajustes() {
-  const { company, role, updateCompanySettings } = useAuth()
-  const profiles = useProfiles()
   const base = useAppBase()
   const { seccion: slug } = useParams()
-
-  const ctx = useMemo<AjustesCtx>(
-    () => ({
-      company,
-      role,
-      readOnly: profiles.readOnly,
-      wantsEmail: profiles.wantsEmail,
-      setEmailPref: profiles.setEmailPref,
-      updateCompanySettings,
-    }),
-    [company, role, profiles.readOnly, profiles.wantsEmail, profiles.setEmailPref, updateCompanySettings],
-  )
+  const ctx = useAjustesCtx()
+  // Salto a un interruptor concreto (?ajuste=<id>), como el ?candidato=<id> del
+  // panel. Lo usa el buscador de la barra: encontrar un ajuste tiene que dejarte
+  // EN SU FILA, no en la sección y a buscarlo con los ojos. La clave de la
+  // navegación viaja con él para que buscar dos veces lo mismo vuelva a saltar.
+  const [searchParams] = useSearchParams()
+  const { key: navKey } = useLocation()
+  const objetivo = searchParams.get('ajuste')
 
   const secciones = seccionesVisibles(ctx)
   const actual = secciones.find((s) => s.id === slug)
@@ -65,7 +58,7 @@ export function Ajustes() {
 
       <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
         <Menu secciones={secciones} base={base} />
-        <Seccion seccion={actual} ctx={ctx} />
+        <Seccion seccion={actual} ctx={ctx} salto={objetivo ? { id: objetivo, key: navKey } : null} />
       </div>
     </div>
   )
@@ -106,7 +99,11 @@ function Menu({ secciones, base }: { secciones: SeccionAjustes[]; base: string }
   )
 }
 
-function Seccion({ seccion, ctx }: { seccion: SeccionAjustes; ctx: AjustesCtx }) {
+/** Un ajuste al que hay que saltar, y la navegación que lo pidió (para que pedir lo
+ *  mismo dos veces vuelva a saltar). */
+type Salto = { id: string; key: string } | null
+
+function Seccion({ seccion, ctx, salto }: { seccion: SeccionAjustes; ctx: AjustesCtx; salto: Salto }) {
   const grupos = gruposVisibles(seccion, ctx)
   return (
     <div className="min-w-0">
@@ -130,7 +127,7 @@ function Seccion({ seccion, ctx }: { seccion: SeccionAjustes; ctx: AjustesCtx })
       ) : (
         <div className="space-y-4">
           {grupos.map((g) => (
-            <Grupo key={g.id} grupo={g} ctx={ctx} />
+            <Grupo key={g.id} grupo={g} ctx={ctx} salto={salto} />
           ))}
         </div>
       )}
@@ -140,7 +137,7 @@ function Seccion({ seccion, ctx }: { seccion: SeccionAjustes; ctx: AjustesCtx })
   )
 }
 
-function Grupo({ grupo, ctx }: { grupo: GrupoAjustes; ctx: AjustesCtx }) {
+function Grupo({ grupo, ctx, salto }: { grupo: GrupoAjustes; ctx: AjustesCtx; salto: Salto }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
       <h3 className="text-sm font-semibold text-slate-900">{grupo.titulo}</h3>
@@ -148,7 +145,7 @@ function Grupo({ grupo, ctx }: { grupo: GrupoAjustes; ctx: AjustesCtx }) {
       <ul className="mt-2 divide-y divide-slate-100">
         {grupo.ajustes.map((a) => (
           <li key={a.id}>
-            <Fila ajuste={a} ctx={ctx} />
+            <Fila ajuste={a} ctx={ctx} salto={salto?.id === a.id ? salto.key : null} />
           </li>
         ))}
       </ul>
@@ -163,11 +160,30 @@ function Grupo({ grupo, ctx }: { grupo: GrupoAjustes; ctx: AjustesCtx }) {
  * pulsable. El nombre accesible sale de la etiqueta y la explicación se anuncia
  * como descripción, no como parte del nombre.
  */
-function Fila({ ajuste, ctx }: { ajuste: Ajuste; ctx: AjustesCtx }) {
+function Fila({ ajuste, ctx, salto }: { ajuste: Ajuste; ctx: AjustesCtx; salto: string | null }) {
   const toast = useToast()
   const id = useId()
+  const ref = useRef<HTMLButtonElement>(null)
+  const [resaltado, setResaltado] = useState(false)
   const motivo = ajuste.bloqueado?.(ctx) ?? null
   const valor = ajuste.get(ctx)
+
+  // Llegar por enlace directo: la fila se pone a la vista, coge el foco (así el
+  // lector de pantalla también anuncia dónde has aterrizado) y se marca un
+  // instante. El anillo es ultramarine porque esto es selección, no estado.
+  useEffect(() => {
+    const el = ref.current
+    if (!salto || !el) return
+    const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ block: 'center', behavior: quieto ? 'auto' : 'smooth' })
+    el.focus({ preventScroll: true })
+    setResaltado(true)
+    const t = setTimeout(() => setResaltado(false), 1600)
+    return () => {
+      clearTimeout(t)
+      setResaltado(false)
+    }
+  }, [salto])
   // Si está bloqueado, el motivo SUSTITUYE a la explicación: es lo que hace
   // falta saber, y dos textos grises seguidos no los lee nadie.
   const hint = motivo ?? ajuste.hint
@@ -175,6 +191,7 @@ function Fila({ ajuste, ctx }: { ajuste: Ajuste; ctx: AjustesCtx }) {
 
   return (
     <button
+      ref={ref}
       type="button"
       role="switch"
       aria-checked={valor}
@@ -185,7 +202,9 @@ function Fila({ ajuste, ctx }: { ajuste: Ajuste; ctx: AjustesCtx }) {
         const res = await ajuste.set(ctx, !valor)
         if (res.error) toast.error(res.error)
       }}
-      className="group -mx-2 flex w-full items-start justify-between gap-4 rounded-lg px-2 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 enabled:hover:bg-slate-50 disabled:cursor-not-allowed"
+      className={`group -mx-2 flex w-full items-start justify-between gap-4 rounded-lg px-2 py-3 text-left transition-[background-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 enabled:hover:bg-slate-50 disabled:cursor-not-allowed ${
+        resaltado ? 'ring-2 ring-inset ring-indigo-500/40' : ''
+      }`}
     >
       <span className="min-w-0">
         <span id={`${id}-l`} className={`block text-[13px] font-medium ${bloqueado ? 'text-slate-500' : 'text-slate-800'}`}>

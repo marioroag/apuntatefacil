@@ -18,6 +18,7 @@ import { OnboardingGuide, OnboardingCreatePuesto } from '../components/Onboardin
 import { useOnboarding } from '../lib/onboarding'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
+import { AccionesProvider, RegistrarAccion } from '../lib/acciones'
 import { planHas, PLAN_LABEL } from '../lib/pricing'
 import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
@@ -511,7 +512,20 @@ export function AppLayout() {
   void campaignId
 
   return (
+    <AccionesProvider>
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
+      {/* Lo que se puede HACER desde el buscador de la barra. Va en un componente
+          aparte porque quien registra tiene que estar dentro del provider, y el
+          provider lo monta esta misma pantalla. */}
+      <RegistrarAccion
+        activa={canCreate}
+        id="nuevo-puesto"
+        label="Nuevo puesto"
+        hint="Publica un puesto y su formulario."
+        icon={Plus}
+        claves={['crear puesto', 'anuncio', 'oferta', 'vacante', 'publicar']}
+        hacer={() => setWizardOpen(true)}
+      />
       <TopBar
         onOpenMenu={() => setOpen(true)}
         onOpenSupport={() => setSupportOpen(true)}
@@ -621,5 +635,6 @@ export function AppLayout() {
         Se recargan los datos de ejemplo y se pierden los cambios que hayas hecho durante esta demo.
       </ConfirmDialog>
     </div>
+    </AccionesProvider>
   )
 }
