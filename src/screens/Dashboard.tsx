@@ -43,9 +43,12 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { CandidateModal } from './CandidateModal'
 import { exportCandidatesToExcel } from '../lib/export'
 import { relativeDate, miles, formatPhone, candidateName, isFreshNuevo } from '../lib/format'
-// El anillo de ajuste se queda en el avatar (Mario, jul 2026). Lo que se retiró
-// del puesto fue la COLUMNA "Ajuste", su orden y el buscador en lenguaje natural.
-import { MeridianAvatar } from '../components/Meridian'
+// El anillo de ajuste se queda en el avatar (Mario, jul 2026) y desde ago 2026 lo
+// acompaña la columna "Encaje", que dice en palabras lo que el anillo dice en arco:
+// mismo par punto+texto que exige la doctrina para el estado. Con ella vuelve su
+// ORDEN; lo que sigue retirado es el buscador en lenguaje natural.
+import { MeridianAvatar, FitLabel } from '../components/Meridian'
+import { candidateFit, hasMeridian } from '../lib/meridian'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { Brand, Campaign, Candidate, CandidateInterestState, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
 import { planHas, PLAN_CANDIDATE_LIMIT, TAGS_ENABLED, type PlanFeature } from '../lib/pricing'
@@ -72,12 +75,6 @@ function answerStr(c: Candidate, fieldId: string): string {
   if (typeof v === 'boolean') return v ? 'Sí' : 'No'
   if (Array.isArray(v)) return v.join(', ')
   return String(v)
-}
-
-function highlightFields(campaign: Campaign): FormField[] {
-  return campaign.fields
-    .filter((f) => !f.system && ['select', 'boolean', 'number', 'multiselect'].includes(f.type))
-    .slice(0, 2)
 }
 
 function filterableFields(campaign: Campaign): FormField[] {
@@ -406,6 +403,14 @@ export function Dashboard() {
         let cmp = 0
         if (sort.key === 'nombre') cmp = candidateName(a).localeCompare(candidateName(b))
         else if (sort.key === 'estado') cmp = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
+        else if (sort.key === 'encaje') {
+          const fa = candidateFit(a.ai)
+          const fb = candidateFit(b.ai)
+          // Sin analizar va SIEMPRE al final, se ordene como se ordene: "no lo sé"
+          // no es "el peor encaje", y colarlo arriba al invertir sería mentir.
+          if (fa == null || fb == null) return fa == null ? (fb == null ? 0 : 1) : -1
+          cmp = fa - fb
+        }
         else cmp = a.submittedAt.localeCompare(b.submittedAt)
         return sort.dir === 'asc' ? cmp : -cmp
       })
@@ -463,7 +468,12 @@ export function Dashboard() {
   }
 
   const activeFilterCount = statusFilter.size + interestFilter.size + valueFilters.length + numberFilters.length + (favoritosOnly ? 1 : 0) + tagFilter.size
-  const cols = highlightFields(campaign)
+  // Aquí vivía `cols` (highlightFields): las dos respuestas del formulario que la
+  // tabla pintaba como columnas. Fuera desde ago 2026 (Mario): cambiaban de puesto en
+  // puesto, se comían el ancho de lo que sí es común a todos (encaje, etiquetas,
+  // teléfono) y llegaban con la cabecera cortada. Las respuestas siguen enteras donde
+  // valen: la ficha, los filtros y el Excel.
+  const showFit = hasMeridian(company?.plan)
   const openCandidate = openId ? all.find((c) => c.id === openId) ?? null : null
   const selectedCandidates = all.filter((candidate) => selected.has(candidate.id))
   // Primer tramo del enlace: marca del puesto si la tiene, si no el nombre de la empresa.
@@ -505,8 +515,11 @@ export function Dashboard() {
   }
 
   const toggleSort = (key: SortKey) =>
-    // Al elegir una columna nueva empieza ascendente.
-    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }))
+    // Al elegir una columna nueva empieza ascendente, salvo Encaje: ahí lo que se
+    // pide al pulsar es "enséñame primero a quien encaja", no al revés.
+    setSort((s) => (s.key === key
+      ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+      : { key, dir: key === 'encaje' ? 'desc' : 'asc' }))
 
   const clearFilters = () => {
     setStatusFilter(new Set())
@@ -823,7 +836,7 @@ export function Dashboard() {
       {/* Tabla / estados */}
       <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card md:overflow-visible">
         {loading ? (
-          <SkeletonRows cols={cols.length} />
+          <SkeletonRows showFit={showFit} />
         ) : filtered.length === 0 ? (
           all.length === 0 ? (
             // Durante la guía de primer uso, el paso 4 ("pruébalo tú mismo") vive
@@ -839,7 +852,7 @@ export function Dashboard() {
         ) : (
           <CandidateTable
             campaign={campaign}
-            cols={cols}
+            showFit={showFit}
             rows={filtered}
             justArrived={justArrived}
             lockedDates={showLockedRows ? lockedDates : []}
@@ -1146,9 +1159,32 @@ function SortHead({
   )
 }
 
+/**
+ * Celda "Encaje": lo que Meridian ve en esta candidatura, EN PALABRAS. La nota cruda
+ * (0-100) no se pinta nunca en la lista: poner un número al lado de una persona la
+ * convierte en un ranking. El matiz lo da el anillo del avatar, en la celda de al
+ * lado. Sin analizar no se rellena con nada: una raya, como el teléfono que falta.
+ */
+function FitCell({ candidate }: { candidate: Candidate }) {
+  const fit = candidateFit(candidate.ai)
+  if (fit == null) {
+    return (
+      <span className="text-slate-600">
+        <span aria-hidden>–</span>
+        <span className="sr-only">Sin analizar</span>
+      </span>
+    )
+  }
+  return (
+    <span className="block truncate" title={`Ajuste ${Math.round(fit)} sobre 100`}>
+      <FitLabel fit={fit} />
+    </span>
+  )
+}
+
 function CandidateTable({
   campaign,
-  cols,
+  showFit,
   rows,
   justArrived,
   tags,
@@ -1164,7 +1200,8 @@ function CandidateTable({
   onLockedClick,
 }: {
   campaign: Campaign
-  cols: FormField[]
+  /** Solo hay columna Encaje si el plan tiene Meridian: sin él nunca habría nada que poner. */
+  showFit: boolean
   rows: Candidate[]
   justArrived: Set<string>
   lockedDates: string[]
@@ -1180,6 +1217,11 @@ function CandidateTable({
   onEnterSelect: () => void
 }) {
   const { setStatus, commentCounts } = useStore()
+  // La columna Etiquetas solo existe cuando la empresa tiene vocabulario: sin una sola
+  // etiqueta creada sería una columna de rayas que no explica nada. Aparece sola al
+  // crear la primera, igual que su filtro.
+  const showTags = TAGS_ENABLED && tags.length > 0
+
   // Candidato cuyo estado se está cambiando desde la hoja (solo móvil).
   const [statusFor, setStatusFor] = useState<Candidate | null>(null)
   // Pulsación larga (móvil) para entrar en modo selección. longPressed evita que
@@ -1271,7 +1313,7 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
       ro.disconnect()
       window.removeEventListener('resize', measure)
     }
-  }, [cols.length])
+  }, [showFit, showTags])
 
   useEffect(() => {
     const wrap = tableWrapRef.current
@@ -1319,7 +1361,7 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
       ro.disconnect()
       window.removeEventListener('resize', measure)
     }
-  }, [lockedDates.length, cols.length])
+  }, [lockedDates.length, showFit, showTags])
 
   const allSel = rows.length > 0 && rows.every((r) => selected.has(r.id))
   const someSel = rows.some((r) => selected.has(r.id))
@@ -1467,7 +1509,7 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
 
       {/* --- Vista escritorio: tabla (md+) --- */}
       <div ref={tableWrapRef} className={`relative hidden md:block ${headerCanStick ? 'overflow-visible' : 'overflow-x-auto'}`}>
-      <table ref={tableRef} className="w-full min-w-[860px] table-fixed border-collapse">
+      <table ref={tableRef} className="w-full min-w-[824px] table-fixed border-collapse">
         <caption className="sr-only">Candidatos de {campaign.title}</caption>
         <thead
           ref={tableHeadRef}
@@ -1489,17 +1531,18 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                 aria-label="Seleccionar todos"
               />
             </th>
-            <SortHead k="nombre" sort={sort} onSort={onSort} className="w-[260px]">Candidato</SortHead>
-            <th scope="col" className="hidden w-[150px] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 md:table-cell">
+            <SortHead k="nombre" sort={sort} onSort={onSort} className="w-[248px]">Candidato</SortHead>
+            {showFit && <SortHead k="encaje" sort={sort} onSort={onSort} className="w-[136px]">Encaje</SortHead>}
+            {showTags && (
+              <th scope="col" className="hidden px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 xl:table-cell">
+                Etiquetas
+              </th>
+            )}
+            <th scope="col" className="w-[136px] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
               Teléfono
             </th>
-            {cols.map((f) => (
-              <th key={f.id} scope="col" className="hidden overflow-hidden truncate px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 xl:table-cell" title={f.label}>
-                {f.label}
-              </th>
-            ))}
-            <SortHead k="estado" sort={sort} onSort={onSort} className="w-[148px]">Estado</SortHead>
-            <SortHead k="fecha" sort={sort} onSort={onSort} className="w-[116px] text-right">Recibida</SortHead>
+            <SortHead k="estado" sort={sort} onSort={onSort} className="w-[168px]">Estado</SortHead>
+            <SortHead k="fecha" sort={sort} onSort={onSort} className="w-[96px] text-right">Recibida</SortHead>
           </tr>
         </thead>
         {/* Bloqueados (escritorio): ARRIBA, como las candidaturas nuevas (son las
@@ -1518,14 +1561,19 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                 <td className="px-3 py-3">
                   <span aria-hidden className="block truncate text-[14px] font-medium text-slate-700 blur-[4px] select-none">Candidatura bloqueada</span>
                 </td>
-                <td className="hidden px-3 py-3 md:table-cell">
+                {showFit && (
+                  <td className="px-3 py-3">
+                    <span aria-hidden className="block truncate text-[13px] text-slate-600 blur-[4px] select-none">Puede encajar</span>
+                  </td>
+                )}
+                {showTags && (
+                  <td className="hidden px-3 py-3 xl:table-cell">
+                    <span aria-hidden className="inline-block rounded-full bg-slate-200 px-2 py-0.5 text-[11px] text-slate-600 blur-[4px] select-none">Etiqueta</span>
+                  </td>
+                )}
+                <td className="px-3 py-3">
                   <span aria-hidden className="num block truncate text-[13px] text-slate-600 blur-[4px] select-none">612 345 678</span>
                 </td>
-                {cols.map((f) => (
-                  <td key={f.id} className="hidden px-3 py-3 xl:table-cell">
-                    <span aria-hidden className="block truncate text-[13px] text-slate-600 blur-[4px] select-none">•••</span>
-                  </td>
-                ))}
                 <td className="whitespace-nowrap px-3 py-3">
                   <span aria-hidden className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300 blur-[4px] select-none">
                     <span className="size-1.5 rounded-full bg-slate-400" /> Bloqueada
@@ -1563,46 +1611,43 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                     aria-label={`Seleccionar ${name}`}
                   />
                 </td>
-                <td className="px-3 py-[11px]">
+                <td className="px-3 py-3">
                   <div className="flex items-center gap-2.5">
                     <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={34} />
-                    <div className="flex h-[42px] min-w-0 flex-1 flex-col justify-center gap-0.5">
-                      {/* Sin etiquetas, esta única línea queda centrada verticalmente. */}
-                      <div className="flex h-5 min-w-0 items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
-                          className="block min-w-0 truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
-                          title={name}
-                        >
-                          {name}
-                        </button>
-                        {c.source === 'prueba' && <TestChip />}
-                        <InterestOutcomeIcon campaign={campaign} candidate={c} />
-                        <RowSignals favorito={c.favorito} comments={commentCounts[c.id] ?? 0} />
-                      </div>
-                      {hasTags && (
-                        <div className="h-5 min-w-0">
-                          <TagCell tagIds={c.tagIds} tags={tags} singleLine />
-                        </div>
-                      )}
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
+                        className="block min-w-0 truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
+                        title={name}
+                      >
+                        {name}
+                      </button>
+                      {c.source === 'prueba' && <TestChip />}
+                      <InterestOutcomeIcon campaign={campaign} candidate={c} />
+                      <RowSignals favorito={c.favorito} comments={commentCounts[c.id] ?? 0} />
                     </div>
                   </div>
                 </td>
-                <td className="hidden px-3 py-3 text-[13px] text-slate-600 md:table-cell">
+                {showFit && (
+                  <td className="px-3 py-3 text-[13px]">
+                    <FitCell candidate={c} />
+                  </td>
+                )}
+                {showTags && (
+                  <td className="hidden px-3 py-3 xl:table-cell" onClick={(e) => e.stopPropagation()}>
+                    {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} singleLine /> : <span className="text-[13px] text-slate-600">–</span>}
+                  </td>
+                )}
+                <td className="px-3 py-3 text-[13px] text-slate-600">
                   <span className="num block truncate">
                     {maskPhone && answerStr(c, 'telefono')
                       ? <MaskedPhone value={formatPhone(answerStr(c, 'telefono'))} />
                       : (formatPhone(answerStr(c, 'telefono')) || '–')}
                   </span>
                 </td>
-                {cols.map((f) => (
-                  <td key={f.id} className={`hidden px-3 py-3 text-[13px] text-slate-600 xl:table-cell ${f.type === 'number' ? 'num' : ''}`}>
-                    <span className="block truncate" title={answerStr(c, f.id) || undefined}>{answerStr(c, f.id) || '–'}</span>
-                  </td>
-                ))}
                 <td className="whitespace-nowrap px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                  <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
+                  <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} uniform />
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-[13px] text-slate-500">
                   <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
@@ -1998,9 +2043,9 @@ function SettingsExportButton({
 }
 
 // --- Estados ----------------------------------------------------------------
-function SkeletonRows({ cols }: { cols: number }) {
+function SkeletonRows({ showFit }: { showFit: boolean }) {
   // Replica la rejilla real de la fila (checkbox · nombre, y a la derecha
-  // teléfono/columnas/estado/fecha) para que el paso a datos no salte.
+  // encaje/etiquetas/teléfono/estado/fecha) para que el paso a datos no salte.
   return (
     <div role="status" aria-label="Cargando candidatos">
       {Array.from({ length: 8 }).map((_, i) => (
@@ -2008,12 +2053,11 @@ function SkeletonRows({ cols }: { cols: number }) {
           <div className="size-4 shrink-0 rounded skeleton" />
           <div className="h-3.5 w-40 rounded skeleton" />
           <div className="ml-auto hidden items-center gap-8 md:flex">
+            {showFit && <div className="h-3 w-20 rounded skeleton" />}
+            <div className="hidden h-3 w-24 rounded skeleton xl:block" />
             <div className="h-3 w-24 rounded skeleton" />
-            {Array.from({ length: cols }).map((_, j) => (
-              <div key={j} className="h-3 w-14 rounded skeleton" />
-            ))}
-            <div className="h-6 w-24 rounded-full skeleton" />
-            <div className="h-3 w-20 rounded skeleton" />
+            <div className="h-6 w-[124px] rounded-full skeleton" />
+            <div className="h-3 w-16 rounded skeleton" />
           </div>
         </div>
       ))}

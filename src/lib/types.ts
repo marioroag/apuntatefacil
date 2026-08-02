@@ -385,9 +385,10 @@ export interface Company {
 
 // --- Vistas guardadas (Pro/Multi) -----------------------------------------
 // Clave de orden de la tabla de candidatos (compartida por el panel y las vistas).
-// 'ajuste' se retiró al quitar Meridian del puesto (jul 2026). Una vista guardada
-// antigua puede traerlo todavía en su payload: no rompe, cae al orden por fecha.
-export type SortKey = 'nombre' | 'fecha' | 'estado'
+// El orden por ajuste se retiró en jul 2026 y volvió en ago 2026 con la columna
+// Encaje, ya con su nombre visible ('encaje'). Una vista guardada antigua puede
+// traer todavía el 'ajuste' de entonces: no rompe, cae al orden por fecha.
+export type SortKey = 'nombre' | 'fecha' | 'estado' | 'encaje'
 
 export interface ValueFilter {
   fieldId: string
