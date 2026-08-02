@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  sumarDias, lunesDe, semanaDe, bloquesDelDia, franja, proximoDiaCon, anteriorDiaCon,
+  sumarDias, lunesDe, semanaDe, bloquesDelDia, franja,
   rotuloRango, reloj, partesClave, DURACION_POR_DEFECTO,
 } from './agenda'
 import type { Interview } from './types'
@@ -130,23 +130,6 @@ describe('franja horaria', () => {
     const tarde = bloquesDelDia([iv({ startsAt: '2026-09-15T19:30:00.000Z', endsAt: '2026-09-15T20:15:00.000Z' })], '2026-09-15')
     expect(franja(temprano).desde).toBe(7 * 60) // 07:10 en Madrid -> la hora en punto
     expect(franja(tarde).hasta).toBe(23 * 60) // 22:15 -> sube a las 23:00
-  })
-})
-
-describe('saltos a lo que hay', () => {
-  const lista = [
-    iv({ id: 'a', startsAt: '2026-09-15T08:00:00.000Z' }),
-    iv({ id: 'b', startsAt: '2026-10-02T08:00:00.000Z' }),
-    iv({ id: 'c', startsAt: null, endsAt: null }),
-  ]
-  it('encuentra el próximo día con algo, incluido el de hoy', () => {
-    expect(proximoDiaCon(lista, '2026-09-15')).toBe('2026-09-15')
-    expect(proximoDiaCon(lista, '2026-09-16')).toBe('2026-10-02')
-    expect(proximoDiaCon(lista, '2026-10-03')).toBeNull()
-  })
-  it('encuentra el anterior sin contar el propio día', () => {
-    expect(anteriorDiaCon(lista, '2026-10-02')).toBe('2026-09-15')
-    expect(anteriorDiaCon(lista, '2026-09-15')).toBeNull()
   })
 })
 

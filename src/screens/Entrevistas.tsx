@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { CalendarDays, CheckCheck, ChevronLeft, ChevronRight, MapPin, Phone, Video } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { useProfiles } from '../lib/profiles'
-import { useAppBase } from '../lib/useAppBase'
 import { planHas } from '../lib/pricing'
 import { FeatureLocked } from '../components/FeatureLocked'
 import { Tabs, TabPanel } from '../components/ui/Tabs'
 import { Avatar } from '../components/ui/Avatar'
+import { useToast } from '../components/ui/Toast'
 import { AgendaGrid } from '../components/AgendaGrid'
+import { CandidateModal } from './CandidateModal'
 import { groupByDay, splitInterviews } from '../lib/interviews'
-import {
-  anteriorDiaCon, claveDeHoy, proximoDiaCon, rotuloRango, semanaDe, sumarDias,
-} from '../lib/agenda'
+import { claveDeHoy, rotuloRango, semanaDe, sumarDias } from '../lib/agenda'
 import { INTERVIEW_STATUS_META, type Interview } from '../lib/types'
 import {
   candidateName, clockTimeInZone, dayKeyInZone, fullDateTimeInZone, minutesInZone, personLabel, plural,
@@ -35,7 +34,8 @@ type Seccion = 'agenda' | 'enMarcha' | 'pasadas'
 
 export function Entrevistas() {
   const { company } = useAuth()
-  const { interviews, candidates, campaigns, members, loading, conversationFor } = useStore()
+  const { interviews, candidates, campaigns, members, loading, conversationFor, getCampaign, restoreCandidate } = useStore()
+  const toast = useToast()
   const profiles = useProfiles()
   const [params, setParams] = useSearchParams()
   const compacto = useCompacto()
@@ -53,6 +53,13 @@ export function Entrevistas() {
   const hoy = claveDeHoy(tz, ahora)
   const ahoraMin = useMemo(() => minutesInZone(new Date(ahora).toISOString(), tz), [ahora, tz])
   const [cursor, setCursor] = useState(hoy)
+
+  // La ficha del candidato se abre AQUÍ (ago 2026). Antes cada cita era un
+  // enlace al panel de su puesto: abría la misma ficha, pero de paso te cambiaba
+  // de pantalla y te dejaba en otra pestaña, con la semana que estabas mirando
+  // perdida. El pop-up ya se sabe pintar solo en cualquier pantalla (la Bandeja
+  // hace lo mismo), así que la agenda se queda donde está.
+  const [abierto, setAbierto] = useState<string | null>(null)
 
   // Filtro por anfitrión. Solo existe cuando hay más de una agenda: en una
   // empresa de una persona no hay nada que separar y sería un control vacío.
@@ -132,21 +139,26 @@ export function Entrevistas() {
     return k >= dias[0] && k <= dias[dias.length - 1]
   }
   const enTramo = visibles.filter(dentro)
-  // Un viernes por la tarde la semana no está vacía, pero ya no queda nada por
-  // delante, que es lo que se está preguntando. Sin decirlo hay que pulsar
-  // "siguiente" para descubrir que lo de esta semana ya pasó.
-  // En un tramo que ya pasó entero no se avisa de nada: que la semana pasada no
-  // tenga nada por delante no es una noticia.
-  const tramoPasado = dias[dias.length - 1] < hoy
-  const sinPendientes = !tramoPasado && buckets.proximas.filter(dentro).length === 0
-  const siguiente = proximoDiaCon(visibles, sumarDias(dias[dias.length - 1], 1))
-  const anterior = anteriorDiaCon(visibles, dias[0])
   const nombreDe = (i: Interview) => {
     const c = candidates.find((x) => x.id === i.candidateId)
     return c ? candidateName(c) : 'Candidato'
   }
   const puestoDe = (i: Interview) => campaigns.find((c) => c.id === i.campaignId)?.title ?? 'Puesto'
   const nombreDelFiltro = anfitriones.find((a) => a.id === soloDe)?.nombre ?? ''
+
+  // La ficha abierta y su puesto. El puesto sale del propio candidato, como en
+  // la Bandeja: la agenda mezcla puestos, y así la cabecera del pop-up acompaña
+  // al pasar de uno a otro con las flechas.
+  const candidatoAbierto = abierto ? candidates.find((c) => c.id === abierto) ?? null : null
+  const puestoAbierto = candidatoAbierto ? getCampaign(candidatoAbierto.campaignId) ?? null : null
+  // Las flechas recorren lo que estás viendo, en el mismo orden: las citas del
+  // tramo si miras el calendario, y las que tienes por delante si miras la lista.
+  const hermanos = useMemo(() => {
+    const orden = vista === 'lista' ? buckets.proximas : enTramo
+    return orden
+      .map((i) => candidates.find((c) => c.id === i.candidateId))
+      .filter((c): c is NonNullable<typeof c> => !!c)
+  }, [vista, buckets.proximas, enTramo, candidates])
 
   return (
     <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8">
@@ -254,48 +266,23 @@ export function Entrevistas() {
                   nombreDe={nombreDe}
                   puestoDe={puestoDe}
                   atencionDe={atencionDe}
+                  onAbrir={setAbierto}
                 />
               )
             ) : (
               <>
-                {(enTramo.length === 0 || sinPendientes) && (
-                  <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-white px-3.5 py-2.5 text-[13px] text-slate-500 shadow-card ring-1 ring-slate-200/70">
-                    <span>
-                      {/* Sin NINGUNA cita todavía, decir "ninguna esta semana"
-                          haría buscar en las de al lado algo que no existe: lo
-                          que falta es la primera, y se dice dónde se cuadra. */}
-                      {visibles.length === 0
-                        ? soloDe
-                          ? `${nombreDelFiltro} todavía no tiene ninguna entrevista.`
-                          : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Invitar a entrevista".'
-                        : enTramo.length === 0
-                          ? vista === 'dia'
-                            ? 'Ninguna entrevista este día.'
-                            : 'Ninguna entrevista esta semana.'
-                          : vista === 'dia'
-                            ? 'No queda ninguna cita por delante este día.'
-                            : 'No queda ninguna cita por delante esta semana.'}
-                    </span>
-                    {/* Sin esto hay que pulsar "siguiente" seis veces para
-                        encontrar la única cita del mes. */}
-                    {siguiente && (
-                      <button
-                        type="button"
-                        onClick={() => setCursor(siguiente)}
-                        className="font-medium text-indigo-700 hover:underline"
-                      >
-                        Ir a la siguiente
-                      </button>
-                    )}
-                    {anterior && (
-                      <button
-                        type="button"
-                        onClick={() => setCursor(anterior)}
-                        className="font-medium text-indigo-700 hover:underline"
-                      >
-                        Ir a la anterior
-                      </button>
-                    )}
+                {/* Solo el vacío de verdad: sin NINGUNA entrevista, esto es lo
+                    único que cuenta dónde se cuadra la primera. El aviso por
+                    tramo ("ninguna esta semana", con sus saltos a la siguiente)
+                    se quitó a propósito (Mario, ago 2026): aparecía y
+                    desaparecía al pasar de semana, empujando la rejilla hacia
+                    abajo cada vez, y eso costaba más que lo que ahorraba. La
+                    semana vacía ya se ve vacía. */}
+                {visibles.length === 0 && (
+                  <div className="mb-3 rounded-xl bg-white px-3.5 py-2.5 text-[13px] text-slate-500 shadow-card ring-1 ring-slate-200/70">
+                    {soloDe
+                      ? `${nombreDelFiltro} todavía no tiene ninguna entrevista.`
+                      : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Invitar a entrevista".'}
                   </div>
                 )}
                 <AgendaGrid
@@ -310,6 +297,7 @@ export function Entrevistas() {
                     setCursor(clave)
                     cambiar({ v: 'dia' })
                   }}
+                  onAbrir={setAbierto}
                 />
               </>
             )}
@@ -325,12 +313,27 @@ export function Entrevistas() {
                   nombre={nombreDe(i)}
                   puesto={puestoDe(i)}
                   atencion={atencionDe(i.candidateId)}
+                  onAbrir={setAbierto}
                 />
               </li>
             ))}
           </ul>
         )}
       </TabPanel>
+
+      {puestoAbierto && (
+        <CandidateModal
+          campaign={puestoAbierto}
+          candidate={candidatoAbierto}
+          maskPhone={demo}
+          onClose={() => setAbierto(null)}
+          onDeleted={(c) =>
+            toast.success('Candidato eliminado', { action: { label: 'Deshacer', onClick: () => restoreCandidate(c) } })
+          }
+          siblings={hermanos}
+          onNavigate={setAbierto}
+        />
+      )}
     </div>
   )
 }
@@ -428,11 +431,13 @@ function PorDias({
   nombreDe,
   puestoDe,
   atencionDe,
+  onAbrir,
 }: {
   lista: Interview[]
   nombreDe: (i: Interview) => string
   puestoDe: (i: Interview) => string
   atencionDe: (candidateId: string) => string | null
+  onAbrir: (candidateId: string) => void
 }) {
   const dias = useMemo(() => groupByDay(lista), [lista])
   return (
@@ -453,6 +458,7 @@ function PorDias({
                   nombre={nombreDe(i)}
                   puesto={puestoDe(i)}
                   atencion={atencionDe(i.candidateId)}
+                  onAbrir={onAbrir}
                 />
               </li>
             ))}
@@ -468,21 +474,23 @@ function Fila({
   nombre,
   puesto,
   atencion = null,
+  onAbrir,
 }: {
   entrevista: Interview
   nombre: string
   puesto: string
   /** Motivo por el que el agente se apartó, si la conversación te está esperando. */
   atencion?: string | null
+  onAbrir: (candidateId: string) => void
 }) {
-  const base = useAppBase()
   const meta = INTERVIEW_STATUS_META[entrevista.status]
-  const href = `${base}/puestos/${entrevista.campaignId}?candidato=${entrevista.candidateId}`
 
+  // Como en la rejilla: la ficha se abre encima, sin sacarte de la agenda.
   return (
-    <Link
-      to={href}
-      className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-card ring-1 ring-slate-200/70 transition-shadow hover:ring-slate-300"
+    <button
+      type="button"
+      onClick={() => onAbrir(entrevista.candidateId)}
+      className="flex w-full items-center gap-3 rounded-xl bg-white p-3 text-left shadow-card ring-1 ring-slate-200/70 transition-shadow hover:ring-slate-300"
     >
       {/* La hora es el dato que se busca al mirar la agenda: va primero y en cifras tabulares. */}
       <div className="w-14 shrink-0 text-center">
@@ -559,7 +567,7 @@ function Fila({
         </span>
       )}
       <ChevronRight className="size-4 shrink-0 text-slate-400" aria-hidden />
-    </Link>
+    </button>
   )
 }
 

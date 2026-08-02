@@ -1,10 +1,8 @@
 import { useLayoutEffect, useMemo, useRef } from 'react'
-import { Link } from 'react-router-dom'
 import { AlertCircle, CheckCheck, MapPin, Phone, Video } from 'lucide-react'
 import { bloquesDelDia, franja, reloj, partesClave, type Bloque } from '../lib/agenda'
 import { INTERVIEW_STATUS_META, type Interview } from '../lib/types'
 import { clockTimeInZone, fullDateTimeInZone } from '../lib/format'
-import { useAppBase } from '../lib/useAppBase'
 
 /**
  * La semana (o el día) con sus citas colocadas a la hora que son.
@@ -33,6 +31,7 @@ export function AgendaGrid({
   puestoDe,
   atencionDe,
   onDia,
+  onAbrir,
 }: {
   /** Claves aaaa-mm-dd a pintar: siete en la semana, una en el día. */
   dias: string[]
@@ -46,6 +45,8 @@ export function AgendaGrid({
   atencionDe: (candidateId: string) => string | null
   /** Abrir un día suelto al pulsar su cabecera. */
   onDia: (clave: string) => void
+  /** Abrir la ficha del candidato SIN salir de la agenda. */
+  onAbrir: (candidateId: string) => void
 }) {
   const scroll = useRef<HTMLDivElement>(null)
 
@@ -85,35 +86,47 @@ export function AgendaGrid({
     <div className="overflow-hidden rounded-xl bg-white shadow-card ring-1 ring-slate-200/70">
       <div ref={scroll} className="max-h-[62vh] overflow-y-auto overscroll-contain">
         {/* Cabecera de días. Pegada arriba: al bajar por la tarde hay que seguir
-            sabiendo de qué día es cada columna. En la vista de un día no se
-            pinta: el rótulo de la barra ya dice qué día es, y repetirlo debajo
-            es la misma frase dos veces. */}
-        <div className={`sticky top-0 z-30 flex border-b border-slate-200 bg-white ${dias.length === 1 ? 'hidden' : ''}`}>
+            sabiendo de qué día es cada columna. La vista de un día la pinta
+            igual (antes se escondía por no repetir el rótulo de la barra): al
+            bajar por la rejilla el rótulo se va y quedaba una columna de horas
+            sin fecha, sin nada que dijera qué se está mirando. Su día no es un
+            botón: ya estás en él y no hay ningún sitio al que llevarte. */}
+        <div className="sticky top-0 z-30 flex border-b border-slate-200 bg-white">
           <div className="w-14 shrink-0" />
           {dias.map((dia) => {
             const p = partesClave(dia)
             const esHoy = dia === hoy
+            const solo = dias.length === 1
+            const dentro = (
+              <>
+                <span
+                  className={`text-[11px] font-semibold uppercase tracking-wide ${esHoy ? 'text-slate-900' : 'text-slate-500'}`}
+                >
+                  {solo ? p.diaLargo : p.diaCorto}
+                </span>
+                <span
+                  className={`num grid size-7 place-items-center rounded-full text-[15px] font-semibold ${
+                    esHoy ? 'bg-slate-900 text-white' : 'text-slate-800'
+                  }`}
+                >
+                  {p.dia}
+                </span>
+              </>
+            )
             return (
               <div key={dia} className="min-w-0 flex-1 border-l border-slate-100 px-1 py-2 text-center">
-                <button
-                  type="button"
-                  onClick={() => onDia(dia)}
-                  className="mx-auto flex w-full flex-col items-center gap-0.5 rounded-lg py-1 transition-colors hover:bg-slate-50"
-                  title={`Ver el ${p.diaLargo} ${p.dia} suelto`}
-                >
-                  <span
-                    className={`text-[11px] font-semibold uppercase tracking-wide ${esHoy ? 'text-slate-900' : 'text-slate-500'}`}
+                {solo ? (
+                  <div className="mx-auto flex w-full flex-col items-center gap-0.5 py-1">{dentro}</div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onDia(dia)}
+                    className="mx-auto flex w-full flex-col items-center gap-0.5 rounded-lg py-1 transition-colors hover:bg-slate-50"
+                    title={`Ver el ${p.diaLargo} ${p.dia} suelto`}
                   >
-                    {p.diaCorto}
-                  </span>
-                  <span
-                    className={`num grid size-7 place-items-center rounded-full text-[15px] font-semibold ${
-                      esHoy ? 'bg-slate-900 text-white' : 'text-slate-800'
-                    }`}
-                  >
-                    {p.dia}
-                  </span>
-                </button>
+                    {dentro}
+                  </button>
+                )}
               </div>
             )
           })}
@@ -167,6 +180,7 @@ export function AgendaGrid({
                       atencion={atencionDe(b.entrevista.candidateId)}
                       pasada={dia < hoy || (dia === hoy && b.hasta <= ahoraMin)}
                       holgado={dias.length === 1 && b.columnas === 1}
+                      onAbrir={onAbrir}
                     />
                   ))}
                 </div>
@@ -196,6 +210,7 @@ function BloqueCita({
   atencion,
   pasada,
   holgado,
+  onAbrir,
 }: {
   bloque: Bloque
   top: number
@@ -205,8 +220,8 @@ function BloqueCita({
   pasada: boolean
   /** Un día entero para él solo: cabe el puesto en la misma línea del nombre. */
   holgado: boolean
+  onAbrir: (candidateId: string) => void
 }) {
-  const base = useAppBase()
   const { entrevista: i, columna, columnas } = bloque
   const meta = INTERVIEW_STATUS_META[i.status]
   const altura = Math.max((bloque.hasta - bloque.desde) * PX_MIN, 26)
@@ -224,8 +239,12 @@ function BloqueCita({
   const sitio = i.mode === 'presencial' && i.locationText ? i.locationText : ''
 
   return (
-    <Link
-      to={`${base}/puestos/${i.campaignId}?candidato=${i.candidateId}`}
+    // La ficha se abre AQUÍ, en su pop-up: mirar quién viene el jueves no es
+    // motivo para sacarte de la agenda y dejarte en el panel de otro puesto,
+    // con la semana perdida y el camino de vuelta a tu cargo.
+    <button
+      type="button"
+      onClick={() => onAbrir(i.candidateId)}
       title={`${inicio}${fin ? ` a ${fin}` : ''}, ${nombre}. ${puesto}. ${meta.label}${atencion ? `. ${atencion}` : ''}`}
       style={{
         top,
@@ -233,7 +252,7 @@ function BloqueCita({
         left: `calc(${(columna / columnas) * 100}% + 2px)`,
         width: `calc(${100 / columnas}% - 4px)`,
       }}
-      className={`absolute z-10 flex flex-col overflow-hidden rounded-lg py-1 ring-1 ring-inset transition-shadow hover:z-20 hover:shadow-card ${
+      className={`absolute z-10 flex flex-col overflow-hidden rounded-lg py-1 text-left ring-1 ring-inset transition-shadow hover:z-20 hover:shadow-card ${
         estrecho ? 'pl-1.5 pr-1' : 'pl-2.5 pr-1.5'
       } ${meta.chip} ${pasada ? 'opacity-60' : ''}`}
     >
@@ -270,6 +289,6 @@ function BloqueCita({
           <span className="truncate">{sitio || puesto}</span>
         </span>
       )}
-    </Link>
+    </button>
   )
 }
