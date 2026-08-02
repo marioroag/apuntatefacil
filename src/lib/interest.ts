@@ -18,7 +18,9 @@ export const INTEREST_STATE_LABEL: Record<CandidateInterestState, string> = {
   no_response: 'Sin respuesta',
   interested: 'Sigue interesado/a',
   not_interested: 'Ya no le interesa',
-  unavailable: 'Sin correo',
+  // Ya no es "sin correo": desde que existe WhatsApp, no poder preguntarle es
+  // no tener NINGUNA vía, ni correo ni un teléfono con su permiso.
+  unavailable: 'Sin forma de preguntarle',
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -52,21 +54,47 @@ function elapsedDays(iso: string | null | undefined, now: number): number {
   return (now - Date.parse(iso)) / DAY_MS
 }
 
+/**
+ * En qué punto está la comprobación de este candidato.
+ *
+ * Lo que ya dijo va PRIMERO, antes de mirar si hoy se le puede escribir. Es al
+ * revés de como estaba, y era un fallo de verdad: se calculaba desde el correo,
+ * así que quien no dejó correo, se le preguntó por WhatsApp y contestó "sigo
+ * interesado", aparecía en el panel como "sin correo". La respuesta estaba
+ * guardada y la pantalla la tapaba, justo con los candidatos que hacen que
+ * WhatsApp valga la pena: en construcción y logística mucha gente pone el
+ * teléfono y deja el correo en blanco.
+ *
+ * `alcanzable` solo decide entre "aún no se le ha preguntado" y "no hay por
+ * dónde preguntarle", que es lo único para lo que hace falta.
+ */
 export function deriveInterestState(
-  email: string | null,
+  alcanzable: boolean,
   interest: CandidateInterestSummary | undefined,
   now = Date.now(),
 ): CandidateInterestState {
-  if (!email) return 'unavailable'
-  if (!interest) return 'never'
-  if (interest.response === 'interested') return 'interested'
-  if (interest.response === 'not_interested') return 'not_interested'
-  const lastSend = interest.reminderSentAt ?? interest.sentAt
-  return elapsedDays(lastSend, now) >= INTEREST_REMINDER_DAYS ? 'no_response' : 'sent'
+  if (interest) {
+    if (interest.response === 'interested') return 'interested'
+    if (interest.response === 'not_interested') return 'not_interested'
+    const lastSend = interest.reminderSentAt ?? interest.sentAt
+    return elapsedDays(lastSend, now) >= INTEREST_REMINDER_DAYS ? 'no_response' : 'sent'
+  }
+  return alcanzable ? 'never' : 'unavailable'
+}
+
+/**
+ * Por dónde se le podría preguntar hoy. No mira el plan a propósito: esto lo
+ * usa también el filtro de la lista, y un filtro que cambia de resultado según
+ * la suscripción es más confuso que útil. Quien no tenga WhatsApp en su plan lo
+ * verá al abrir el diálogo, que es donde se decide el envío.
+ */
+export function candidateReachable(fields: FormField[], candidate: Candidate): boolean {
+  if (extractCandidateEmail(fields, candidate.answers)) return true
+  return Boolean(candidate.consentAt) && Boolean(extractCandidatePhone(candidate.answers))
 }
 
 export function candidateInterestState(campaign: { fields: FormField[] }, candidate: Candidate): CandidateInterestState {
-  return deriveInterestState(extractCandidateEmail(campaign.fields, candidate.answers), candidate.interest)
+  return deriveInterestState(candidateReachable(campaign.fields, candidate), candidate.interest)
 }
 
 export type InterestSendMode = 'initial' | 'reminder' | 'recheck'

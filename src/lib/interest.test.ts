@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  candidateInterestState,
+  candidateReachable,
   deriveInterestState,
   extractCandidateEmail,
   interestEligibility,
@@ -69,20 +71,58 @@ describe('candidate email', () => {
 })
 
 describe('interest state', () => {
-  it('separa ausencia de email de nunca comprobado', () => {
-    expect(deriveInterestState(null, undefined, now)).toBe('unavailable')
-    expect(deriveInterestState('a@b.com', undefined, now)).toBe('never')
+  it('separa no poder preguntarle de no haberle preguntado', () => {
+    expect(deriveInterestState(false, undefined, now)).toBe('unavailable')
+    expect(deriveInterestState(true, undefined, now)).toBe('never')
   })
 
   it('pasa a sin respuesta siete días después del último envío', () => {
-    expect(deriveInterestState('a@b.com', summary({ sentAt: at(6) }), now)).toBe('sent')
-    expect(deriveInterestState('a@b.com', summary({ sentAt: at(7) }), now)).toBe('no_response')
-    expect(deriveInterestState('a@b.com', summary({ sentAt: at(20), reminderSentAt: at(2) }), now)).toBe('sent')
+    expect(deriveInterestState(true, summary({ sentAt: at(6) }), now)).toBe('sent')
+    expect(deriveInterestState(true, summary({ sentAt: at(7) }), now)).toBe('no_response')
+    expect(deriveInterestState(true, summary({ sentAt: at(20), reminderSentAt: at(2) }), now)).toBe('sent')
   })
 
   it('prioriza la respuesta explícita', () => {
-    expect(deriveInterestState('a@b.com', summary({ response: 'interested' }), now)).toBe('interested')
-    expect(deriveInterestState('a@b.com', summary({ response: 'not_interested' }), now)).toBe('not_interested')
+    expect(deriveInterestState(true, summary({ response: 'interested' }), now)).toBe('interested')
+    expect(deriveInterestState(true, summary({ response: 'not_interested' }), now)).toBe('not_interested')
+  })
+
+  // EL FALLO que motivó todo esto. Lo que alguien te dijo no deja de ser verdad
+  // porque hoy no puedas volver a escribirle.
+  it('no tapa una respuesta por no poder volver a preguntar', () => {
+    for (const r of ['interested', 'not_interested'] as const) {
+      expect(deriveInterestState(false, summary({ response: r, respondedAt: at(1) }), now)).toBe(r)
+    }
+    expect(deriveInterestState(false, summary({ sentAt: at(2) }), now)).toBe('sent')
+  })
+})
+
+describe('a quién se le puede preguntar por algún sitio', () => {
+  it('con correo, sí', () => {
+    expect(candidateReachable(fields, candidato({ answers: { email: 'ana@example.com' } }))).toBe(true)
+  })
+
+  // El caso que se perdía: teléfono y permiso, sin correo. En construcción y
+  // logística mucha gente rellena el teléfono y deja el correo en blanco.
+  it('sin correo pero con teléfono y permiso, también', () => {
+    expect(candidateReachable(fields, candidato({ answers: { telefono: '612345678' } }))).toBe(true)
+  })
+
+  it('con teléfono pero sin permiso, no', () => {
+    expect(candidateReachable(fields, candidato({ answers: { telefono: '612345678' }, consentAt: null }))).toBe(false)
+  })
+
+  it('sin nada, no', () => {
+    expect(candidateReachable(fields, candidato({ answers: {} }))).toBe(false)
+  })
+
+  it('y el estado que pinta el panel lo respeta', () => {
+    const soloWhatsapp = candidato({
+      answers: { telefono: '612345678' },
+      interest: summary({ channel: 'whatsapp', response: 'interested', respondedAt: at(1) }),
+    })
+    // Antes decía 'unavailable' ("Sin correo") y se comía el "sigo interesado".
+    expect(candidateInterestState({ fields }, soloWhatsapp)).toBe('interested')
   })
 })
 
