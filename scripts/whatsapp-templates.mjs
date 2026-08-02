@@ -156,10 +156,10 @@ const PLANTILLAS = [
     category: 'UTILITY',
     components: [
       {
+        // Una sola línea: la prueba de deriva lo lee con una expresión regular.
+        // Espejo de R.textoInteres().
         type: 'BODY',
-        text: 'Hola {{1}}. Te escribimos de {{2}} por tu candidatura a {{3}}. ' +
-          'Estamos revisando los perfiles y queremos saber si sigues ' +
-          'interesado/a en el puesto antes de seguir adelante.',
+        text: 'Hola {{1}}. Te escribimos de {{2}} por tu candidatura a {{3}}. Estamos revisando los perfiles y queremos saber si sigues interesado/a en el puesto antes de seguir adelante.',
         example: { body_text: [['Rubén', 'Construcciones Ledesma', 'Peón de albañil']] },
       },
       {

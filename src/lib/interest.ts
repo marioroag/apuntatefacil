@@ -1,8 +1,10 @@
+import { extractCandidatePhone } from './phone'
 import type {
   Candidate,
   CandidateInterestState,
   CandidateInterestSummary,
   FormField,
+  InterestChannel,
 } from './types'
 
 export const INTEREST_REMINDER_DAYS = 7
@@ -70,10 +72,39 @@ export function candidateInterestState(campaign: { fields: FormField[] }, candid
 export type InterestSendMode = 'initial' | 'reminder' | 'recheck'
 export type InterestOmissionReason =
   | 'missing_email'
+  | 'missing_phone'
+  | 'no_consent'
   | 'wait_reminder'
   | 'wait_recheck'
   | 'not_interested'
   | 'reminder_used'
+
+/**
+ * A quién se puede escribir por este canal, y con qué.
+ *
+ * Es lo ÚNICO que cambia entre correo y WhatsApp. Los plazos, el recordatorio y
+ * el "ya dijo que no" son de la pregunta, no del canal: si alguien contestó que
+ * no por correo, tampoco se le vuelve a preguntar por WhatsApp. Por eso esto
+ * devuelve el destinatario y el resto del cálculo sigue siendo uno solo.
+ *
+ * WhatsApp pide dos cosas donde el correo pide una: el teléfono, y el
+ * CONSENTIMIENTO que dio al enviar la candidatura. Sin él no se le escribe,
+ * aunque tengamos el número: es la misma puerta que gatea toda la entrevista
+ * (`start_interview_invitation` se niega igual) y aquí no se puede rodear.
+ */
+export function interestRecipient(
+  channel: InterestChannel,
+  fields: FormField[],
+  candidate: Pick<Candidate, 'answers' | 'consentAt'>,
+): { to: string | null; reason?: InterestOmissionReason } {
+  if (channel === 'email') {
+    const email = extractCandidateEmail(fields, candidate.answers)
+    return email ? { to: email } : { to: null, reason: 'missing_email' }
+  }
+  if (!candidate.consentAt) return { to: null, reason: 'no_consent' }
+  const phone = extractCandidatePhone(candidate.answers)
+  return phone ? { to: phone } : { to: null, reason: 'missing_phone' }
+}
 
 export type InterestEligibility =
   | { eligible: true; mode: InterestSendMode }
@@ -102,7 +133,10 @@ export function interestEligibility(
 
 export interface InterestCandidatePreview {
   candidateId: string
-  email: string | null
+  /** Destinatario por el canal elegido: un correo, o un wa_id. */
+  to: string | null
+  /** Por qué no hay destinatario. Solo cuando `to` es null. */
+  missing?: InterestOmissionReason
   eligibility: InterestEligibility
 }
 
@@ -118,14 +152,22 @@ export interface InterestSendResult {
 export function previewInterestCandidates(
   candidates: Candidate[],
   fields: FormField[],
+  channel: InterestChannel = 'email',
   now = Date.now(),
 ): InterestCandidatePreview[] {
   return candidates.map((candidate) => {
-    const email = extractCandidateEmail(fields, candidate.answers)
+    const { to, reason } = interestRecipient(channel, fields, candidate)
     return {
       candidateId: candidate.id,
-      email,
-      eligibility: interestEligibility(email, candidate.interest, now),
+      to,
+      missing: reason,
+      // Los plazos se calculan igual con o sin destinatario: `interestEligibility`
+      // ya devuelve `missing_email` cuando no lo hay, y aquí se sustituye por el
+      // motivo REAL de este canal (sin teléfono, sin permiso). Sin esto, elegir
+      // WhatsApp diría "sin correo" de alguien que sí lo tiene.
+      eligibility: to
+        ? interestEligibility(to, candidate.interest, now)
+        : { eligible: false, reason: reason ?? 'missing_email' },
     }
   })
 }

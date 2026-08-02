@@ -10,10 +10,12 @@ import scriptPlantillas from '../../scripts/whatsapp-templates.mjs?raw'
 // un botón, 24 en el título de una fila, 72 en su descripción) y que el
 // candidato pueda leer la lista sin adivinar de qué día es cada hora.
 import {
-  botonesVispera, diaConContexto, diaCorto, diaISO, diaLargo, donde, dondeODecirlo, enlaceMapa,
-  fechaCorta, filasDias, filasHorarios, hora, textoAsistenciaConfirmada,
-  textoConfirmacion, textoInvitacion, textoVispera,
+  botonesInteres, botonesVispera, diaConContexto, diaCorto, diaISO, diaLargo, donde,
+  dondeODecirlo, enlaceMapa, fechaCorta, filasDias, filasHorarios, hora,
+  textoAcuseInteres, textoAsistenciaConfirmada, textoConfirmacion, textoInteres, textoInvitacion,
+  textoVispera,
 } from '../../supabase/functions/_shared/whatsapp/render'
+import { interestEmailPreview } from './interestEmail'
 
 /**
  * El cuerpo con el que una plantilla se da de alta en Meta.
@@ -245,6 +247,63 @@ describe('el aviso de la víspera', () => {
   it('al confirmar se le contesta una vez y con su hora', () => {
     expect(textoAsistenciaConfirmada('2026-08-04T08:00:00Z', MADRID))
       .toContain('te esperamos el martes, 4 de agosto a las 10:00')
+  })
+})
+
+describe('la comprobación de interés', () => {
+  const t = textoInteres('Rubén', 'Construcciones Ledesma', 'Peón de albañil')
+
+  // La razón de existir de este canal: es la MISMA pregunta que el correo. Si
+  // cada uno la formulara a su manera, "sigue interesado" significaría cosas
+  // distintas según por dónde se preguntó y dejarían de poder compararse.
+  it('pregunta lo mismo que el correo', () => {
+    const correo = interestEmailPreview({
+      campaignTitle: 'Peón de albañil',
+      senderName: 'Construcciones Ledesma',
+      candidateName: 'Rubén',
+    })
+    expect(t).toContain('sigues interesado/a')
+    expect(correo.body).toContain('sigues interesado/a')
+    expect(correo.options).toEqual(['Sí, sigo interesado/a', 'No, ya no me interesa'])
+  })
+
+  it('no empieza por una variable, que Meta lo rechaza', () => {
+    expect(t.startsWith('Hola ')).toBe(true)
+  })
+
+  // El código identifica los botones por POSICIÓN, no por su texto.
+  it('sus botones no chocan con los que ya existen', () => {
+    const [si, no] = botonesInteres(CONV)
+    expect(si).toBe(`c:${CONV}:i:si`)
+    expect(no).toBe(`c:${CONV}:i:no`)
+    // `c:<id>:no%` enruta el "No me interesa" de la INVITACIÓN, que rechaza la
+    // entrevista entera. Que `:i:no` no caiga ahí es lo que separa "ya no me
+    // interesa el puesto" de "no quiero esta cita".
+    for (const carga of [si, no]) {
+      for (const otra of ['no', 'ver', 'pregunta', 'ok', 'mover', 's:', 'd:']) {
+        expect(carga.startsWith(`c:${CONV}:${otra}`), `${carga} vs ${otra}`).toBe(false)
+      }
+    }
+  })
+
+  // Preguntar y quedarse callado enseña a la gente a no contestar la próxima.
+  it('acusa recibo de las dos respuestas', () => {
+    expect(textoAcuseInteres(true)).toContain('queda anotado')
+    expect(textoAcuseInteres(false)).toContain('queda anotado')
+  })
+
+  it('no promete nada que decida el empresario', () => {
+    // Al que dice que sí no se le promete una entrevista, y al que dice que no
+    // no se le dice que queda descartado: su estado lo cambia una persona.
+    expect(textoAcuseInteres(true)).toMatch(/[Ss]i el equipo sigue adelante/)
+    expect(textoAcuseInteres(false)).not.toMatch(/descart|rechaz|elimin/i)
+  })
+
+  it('dice lo mismo que la plantilla que se da de alta en Meta', () => {
+    expect(cuerpoEnMeta('interes_sigue_activo')
+      .replace('{{1}}', 'Rubén')
+      .replace('{{2}}', 'Construcciones Ledesma')
+      .replace('{{3}}', 'Peón de albañil')).toBe(t)
   })
 })
 

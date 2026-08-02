@@ -23,6 +23,7 @@ function candidate(response: CandidateInterestResponse | null, withCheck = true)
       batchId: 'batch-1',
       response,
       sentAt: '2026-07-20T10:00:00.000Z',
+      channel: 'email',
       respondedAt: response ? '2026-07-21T11:00:00.000Z' : null,
       reminderSentAt: null,
       expiresAt: '2026-09-19T10:00:00.000Z',

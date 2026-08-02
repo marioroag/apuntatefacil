@@ -629,6 +629,18 @@ export async function ejecutarTrabajoDeCanal(job: Job): Promise<Desenlace> {
       return await enviarYRegistrar(ctx, { texto }, texto)
     }
 
+    case 'acuse_interes': {
+      // Ha contestado a la comprobación de interés. Es una pregunta cerrada de
+      // una sola respuesta: se le acusa recibo y no se abre conversación.
+      //
+      // La ventana está abierta seguro (acaba de pulsar), pero se comprueba
+      // igual: si por lo que fuera no lo estuviera, mandar aquí una plantilla
+      // sería gastar un envío en cortesía. Que se quede sin el acuse.
+      if (!ctx.ventana_abierta) return { tipo: 'obsoleto', motivo: 'ventana cerrada' }
+      const texto = R.textoAcuseInteres(job.payload?.respuesta === 'interested')
+      return await enviarYRegistrar(ctx, { texto }, texto)
+    }
+
     case 'enviar_despedida': {
       const texto = R.textoDespedida(ctx.empresa)
       if (!ctx.ventana_abierta) return { tipo: 'obsoleto', motivo: 'ventana cerrada, no insistimos' }
@@ -1029,4 +1041,7 @@ export const TRABAJOS_DE_CANAL = new Set([
   // WhatsApp al candidato, así que los lleva el agente.
   'recordatorio_2h', 'recordatorio_24h',
   'recordatorio_vispera', 'acuse_asistencia',
+  // Contestar a quien pulsa en la comprobación de interés. Es el único trabajo
+  // que corre en conversaciones SIN entrevista.
+  'acuse_interes',
 ])

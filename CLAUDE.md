@@ -34,7 +34,7 @@ npx tsc -b --noEmit # sin errores de tipos (OJO: `tsc --noEmit` a secas NO compr
 | `/app/puestos/:id/formulario` | Constructor del formulario (drag & drop) + preview en vivo |
 | `/a/:slug` | Formulario público que rellena el candidato (mobile-first) |
 
-Datos demo: una ETT con 6 puestos (construcción + logística), ~680 candidatos (80–160 por puesto) y tablón de Equipo en `localStorage` (clave `apuntatefacil.demo.v8`). Las fechas se anclan a la visita para que no envejezcan. Los emails de la demo nunca pueden ser de una persona real: el equipo usa `@apuntatefacil.com` y los candidatos, los dominios reservados por la RFC 2606 (`example.com/.org/.net`). Reinicio: borrar la clave o `resetDemo()`.
+Datos demo: una ETT con 6 puestos (construcción + logística), ~680 candidatos (80–160 por puesto) y tablón de Equipo en `localStorage` (clave `apuntatefacil.demo.v9`). Las fechas se anclan a la visita para que no envejezcan. Los emails de la demo nunca pueden ser de una persona real: el equipo usa `@apuntatefacil.com` y los candidatos, los dominios reservados por la RFC 2606 (`example.com/.org/.net`). Reinicio: borrar la clave o `resetDemo()`.
 
 ## Doctrina visual "Instrumento de precisión" (NO cambiar sin debate)
 Sobria, nítida y premium, carácter Linear (registro "SaaS confiable"). **Multisector**: nunca debe oler a construcción (cero cascos, naranjas de obra, mascotas). La identidad vieja (índigo `#4F46E5` + Inter/Manrope + slate) está **retirada**: Mario aprobó el remake total (jun 2026). Tokens en `src/index.css`; botones en `src/lib/buttons.ts`.

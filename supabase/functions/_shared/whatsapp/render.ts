@@ -172,6 +172,43 @@ export const PLANTILLAS = {
 
 export const IDIOMA = 'es'
 
+/**
+ * La comprobación de interés. Es la MISMA pregunta que hace el correo
+ * (`src/lib/interestEmail.ts`), a propósito: si cada canal la formulara a su
+ * manera, las respuestas dejarían de poder compararse entre sí, y la señal de
+ * "sigue interesado" valdría distinto según por dónde se preguntó.
+ *
+ * Esta función la usa el envío Y la pinta el diálogo de la app, que es lo que
+ * ve el empresario antes de mandar: la vista previa no es una versión bonita
+ * aparte, es el texto que sale.
+ */
+export function textoInteres(nombre: string, empresa: string, puesto: string): string {
+  return `Hola ${nombre}. Te escribimos de ${empresa} por tu candidatura a ` +
+    `${puesto}. Estamos revisando los perfiles y queremos saber si sigues ` +
+    'interesado/a en el puesto antes de seguir adelante.'
+}
+
+/** Los dos botones de la comprobación de interés, en el orden aprobado. */
+export function botonesInteres(conversationId: string): string[] {
+  return [`c:${conversationId}:i:si`, `c:${conversationId}:i:no`]
+}
+
+/**
+ * Lo que se le contesta al que pulsa. Preguntar y quedarse callado es lo que
+ * enseña a la gente a no contestar la próxima vez.
+ *
+ * No promete nada que no dependa de nosotros. "Te escriben si siguen adelante"
+ * es condicional a propósito: quien decide seguir con un candidato es el
+ * empresario, y este mensaje sale antes de que lo haya decidido. Y al que dice
+ * que no, no se le dice que queda descartado, porque no lo queda: su estado lo
+ * cambia una persona, no un botón.
+ */
+export function textoAcuseInteres(sigueInteresado: boolean): string {
+  return sigueInteresado
+    ? 'Gracias, queda anotado. Si el equipo sigue adelante contigo, te escriben por aquí.'
+    : 'Gracias por decírnoslo, queda anotado. Mucha suerte con la búsqueda.'
+}
+
 /** Los tres botones de la invitación, en el orden en que están aprobados. */
 export function botonesInvitacion(conversationId: string): string[] {
   return [

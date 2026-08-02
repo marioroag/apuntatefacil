@@ -607,6 +607,12 @@ for (const cmp of campaigns) {
       submittedAt,
       source: pick(SOURCES),
       favorito,
+      // Aceptó al enviar. En la demo lo tienen TODOS y es lo correcto: la
+      // casilla es obligatoria en el formulario público, así que una
+      // candidatura sin consentimiento no puede nacer. Los que salen sin él en
+      // una cuenta real son los anteriores a que existiera la casilla, y
+      // fabricar aquí unos cuantos sería pintar un estado imposible.
+      consentAt: submittedAt,
       notes: noteFor(status),
       tagIds: tagsForStatus(status),
       ai: analyzed ? aiFor(status, favorito, submittedAt) : undefined,
