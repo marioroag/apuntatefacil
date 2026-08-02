@@ -18,6 +18,7 @@ export function BottomSheet({
   footer,
   label,
   zClass = 'z-50',
+  inert = false,
 }: {
   open: boolean
   onClose: () => void
@@ -28,15 +29,26 @@ export function BottomSheet({
   label?: string
   /** clase de z-index (p. ej. z-[60] para apilar sobre otra capa). */
   zClass?: string
+  /** Hay otro diálogo encima: ni foco, ni Escape, ni cierre por telón. */
+  inert?: boolean
 }) {
   const drag = useDragControls()
   const sheetRef = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
+  // El foco se devuelve a quien abrió la hoja, y solo cuando la hoja se cierra:
+  // separado del atrapado de foco a propósito, porque al quedar inerte (otro
+  // diálogo encima) la hoja sigue abierta y devolver el foco se lo robaría al
+  // diálogo que acaba de abrirse.
   useEffect(() => {
     if (!open) return
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    return () => previousFocus?.focus()
+  }, [open])
+
+  useEffect(() => {
+    if (!open || inert) return
     const focusable = () =>
       sheetRef.current?.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -62,11 +74,8 @@ export function BottomSheet({
     }
 
     document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      previousFocus?.focus()
-    }
-  }, [open])
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [open, inert])
 
   return (
     <AnimatePresence>
@@ -74,8 +83,10 @@ export function BottomSheet({
         <div
           className={`fixed inset-0 ${zClass} sm:hidden`}
           role="dialog"
-          aria-modal="true"
+          aria-modal={!inert}
+          aria-hidden={inert || undefined}
           aria-label={label ?? (typeof title === 'string' ? title : undefined)}
+          inert={inert || undefined}
         >
           <motion.div
             className="absolute inset-0 bg-slate-900/40"
@@ -83,7 +94,7 @@ export function BottomSheet({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            onClick={onClose}
+            onClick={inert ? undefined : onClose}
           />
           <motion.div
             ref={sheetRef}
