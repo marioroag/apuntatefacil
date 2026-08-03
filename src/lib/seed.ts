@@ -18,6 +18,7 @@ import type {
   TeamRequestComment,
 } from './types'
 import { partesClave, sumarDias } from './agenda'
+import { WHATSAPP_LISTO } from './whatsapp'
 
 // PRNG determinista (mulberry32) para que los datos de ejemplo sean estables.
 function rng(seed: number) {
@@ -719,6 +720,14 @@ interface PlanCita {
   host: 'demo-user' | 'demo-laura'
   /** El candidato contestó al aviso de la víspera: "ahí estaré". */
   viene?: boolean
+  /**
+   * Solo tiene sentido con el canal encendido. "Invitada" y "Proponiendo" son
+   * estados de una conversación por WhatsApp: mientras no haya número (ver
+   * `lib/whatsapp.ts`), enseñarlos sería vender en la demo lo único que el
+   * producto todavía no hace, y además se contradiría con la propia ficha del
+   * candidato, que ahí dice que no escribimos por WhatsApp.
+   */
+  necesitaWhatsapp?: boolean
 }
 
 // A quién se cita NO se decide a dedo: se coge de los que YA están en ese
@@ -760,8 +769,8 @@ const PLAN_CITAS: PlanCita[] = [
   // La semana que viene: al pasar de semana no aparece el desierto.
   { candidato: citables.carretillero[1], dia: 6, hora: [10, 0], minutos: 30, status: 'confirmada', mode: 'presencial', host: 'demo-user' },
   // Sin hora todavía: esto es la pestaña En marcha.
-  { candidato: citables.preparador[1], dia: null, hora: [0, 0], minutos: 30, status: 'invitada', mode: 'presencial', host: 'demo-user' },
-  { candidato: citables.peon[2], dia: null, hora: [0, 0], minutos: 30, status: 'proponiendo', mode: 'presencial', host: 'demo-laura' },
+  { candidato: citables.preparador[1], dia: null, hora: [0, 0], minutos: 30, status: 'invitada', mode: 'presencial', host: 'demo-user', necesitaWhatsapp: true },
+  { candidato: citables.peon[2], dia: null, hora: [0, 0], minutos: 30, status: 'proponiendo', mode: 'presencial', host: 'demo-laura', necesitaWhatsapp: true },
 ]
 
 const MADRID = 'Europe/Madrid'
@@ -842,6 +851,7 @@ export function demoInterviews(candidatos: Candidate[], now = Date.now()): Inter
     const semilla = plan.candidato
     const candidato = semilla ? porId.get(semilla.id) : undefined
     if (!candidato) return []
+    if (plan.necesitaWhatsapp && !WHATSAPP_LISTO) return []
     const campaign = campaigns.find((c) => c.id === candidato.campaignId)
     const dia = plan.dia !== null ? diaHabil(hoy, plan.dia) : null
     const startsAt = dia ? instanteEnMadrid(dia, plan.hora[0], plan.hora[1]) : null

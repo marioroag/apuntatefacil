@@ -44,6 +44,7 @@ import { TAGS_ENABLED, planHas } from '../lib/pricing'
 import { InterestSignal } from '../components/InterestSignal'
 import { AgendarManualDialog, InterviewHeaderButton } from '../components/InterviewAction'
 import { InterviewConversation } from '../components/InterviewConversation'
+import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import { MeridianAvatar, MeridianPanelBlock } from '../components/Meridian'
 import { MERIDIAN_NAME, candidateFit } from '../lib/meridian'
 
@@ -320,7 +321,11 @@ export function CandidateModal({
               {/* Va antes que llamar o escribir: es LA acción que hace avanzar
                   el proceso, no un atajo de contacto. */}
               {puedeEntrevistar && (
-                <InterviewHeaderButton candidate={candidate} onOpen={abrirConversacion} />
+                <InterviewHeaderButton
+                  candidate={candidate}
+                  onOpen={abrirConversacion}
+                  onScheduleManually={() => setAgendarManual(true)}
+                />
               )}
               <span className="hidden items-center gap-2 sm:flex">
               {phone && !maskPhone && (
@@ -851,10 +856,16 @@ function ConversacionBloqueada({ base }: { base: string }) {
   return (
     <div className="m-auto max-w-[40ch] px-6 py-8 text-center">
       <MessageCircle className="mx-auto size-6 text-slate-400" aria-hidden />
-      <p className="mt-2 text-sm font-medium text-slate-800">Deja que cuadremos la cita</p>
+      <p className="mt-2 text-sm font-medium text-slate-800">
+        {WHATSAPP_LISTO ? 'Deja que cuadremos la cita' : 'Lleva tus entrevistas aquí'}
+      </p>
+      {/* Lo que vende Pro tiene que ser lo que Pro hace HOY. Mientras el canal
+          no esté de alta, prometer aquí que escribimos al candidato es cobrar
+          por algo que todavía no pasa (ver `lib/whatsapp.ts`). */}
       <p className="mt-1 text-[13px] leading-5 text-slate-500">
-        Apúntate Fácil escribe al candidato por WhatsApp, comprueba su disponibilidad y cierra un
-        horario compatible con tu agenda.
+        {WHATSAPP_LISTO
+          ? 'Apúntate Fácil escribe al candidato por WhatsApp, comprueba su disponibilidad y cierra un horario compatible con tu agenda.'
+          : 'Cuadra la cita, colócala en tu agenda y que el equipo sepa quién entrevista a quién y cuándo.'}
       </p>
       <Link to={`${base}/plan`} className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-600 hover:text-indigo-700">
         <Lock className="size-3.5" aria-hidden /> Disponible con Pro

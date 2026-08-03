@@ -12,6 +12,7 @@
 // Los importes REALES de cobro viven en los prices de Stripe (STRIPE_PRICE_*):
 // al cambiar estos números hay que recrear los prices con los importes nuevos.
 // -----------------------------------------------------------------------------
+import { WHATSAPP_LISTO } from './whatsapp'
 
 export interface Tier {
   id: string
@@ -103,7 +104,12 @@ export const FEATURE_COPY: Record<PlanFeature, { label: string; blurb: string; m
   },
   entrevistas: {
     label: 'las Entrevistas',
-    blurb: 'Invita a un candidato y deja que Apúntate Fácil cuadre la cita por ti.',
+    // Lo que se vende es lo que el plan hace HOY: mientras el canal no esté de
+    // alta no hay nadie escribiendo al candidato, y cobrar por eso sería vender
+    // una promesa (ver `lib/whatsapp.ts`). Queda la agenda, que funciona entera.
+    blurb: WHATSAPP_LISTO
+      ? 'Invita a un candidato y deja que Apúntate Fácil cuadre la cita por ti.'
+      : 'Cuadra las citas con tus candidatos y llévalas todas en una agenda, con quién entrevista a quién.',
     minPlan: 'pro',
   },
   multiBrand: {

@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { useProfiles } from '../lib/profiles'
 import { planHas } from '../lib/pricing'
+import { WHATSAPP_LISTO, WHATSAPP_WIP } from '../lib/whatsapp'
 import { BTN_SECONDARY_SM } from '../lib/buttons'
 import { FeatureLocked } from '../components/FeatureLocked'
 import { Tabs, TabPanel } from '../components/ui/Tabs'
@@ -300,7 +301,9 @@ function Agenda({ demo }: { demo: boolean }) {
                   <div className="mb-3 rounded-xl bg-white px-3.5 py-2.5 text-[13px] text-slate-500 shadow-card ring-1 ring-slate-200/70">
                     {soloDe
                       ? `${nombreDelFiltro} todavía no tiene ninguna entrevista.`
-                      : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Invitar a entrevista".'}
+                      : WHATSAPP_LISTO
+                        ? 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Invitar a entrevista".'
+                        : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Agendar entrevista".'}
                   </div>
                 )}
                 <AgendaGrid
@@ -601,12 +604,19 @@ function Vacio({ seccion, filtrado = false }: { seccion: Seccion; filtrado?: boo
           }
         : {
             titulo: 'No tienes entrevistas por delante',
-            cuerpo: 'Abre la ficha de un candidato y pulsa "Invitar a entrevista" para cuadrar una cita.',
+            // El consejo tiene que llevar al botón que existe: mientras el canal
+            // no esté de alta, la cabecera de la ficha dice "Agendar entrevista"
+            // y no "Invitar a entrevista" (ver `lib/whatsapp.ts`).
+            cuerpo: WHATSAPP_LISTO
+              ? 'Abre la ficha de un candidato y pulsa "Invitar a entrevista" para cuadrar una cita.'
+              : 'Abre la ficha de un candidato y pulsa "Agendar entrevista" para apuntar la cita.',
           }
       : seccion === 'enMarcha'
         ? {
             titulo: 'Nada en marcha',
-            cuerpo: 'Aquí verás las invitaciones enviadas mientras el candidato elige horario.',
+            cuerpo: WHATSAPP_LISTO
+              ? 'Aquí verás las invitaciones enviadas mientras el candidato elige horario.'
+              : `${WHATSAPP_WIP.linea} Cuando esté, aquí verás las invitaciones mientras el candidato elige horario.`,
           }
         : { titulo: 'Todavía no hay historial', cuerpo: 'Las entrevistas pasadas se quedan aquí.' }
 

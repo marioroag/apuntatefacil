@@ -5,6 +5,8 @@ import { useAuth } from '../lib/auth'
 import { BTN_PRIMARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import { useToast } from '../components/ui/Toast'
 import { ModoEntrevista } from '../components/ModoEntrevista'
+import { AvisoWhatsappPendiente } from '../components/WhatsappPendiente'
+import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import type { InterviewMode } from '../lib/types'
 
 // Cómo, cuándo y dónde entrevistas. Es lo que el agente usa para hablar con un
@@ -335,10 +337,17 @@ export function AjustesCalendario() {
 
   return (
     <div className="space-y-5">
+      {/* Estos ajustes NO se bloquean mientras el canal se da de alta: la
+          modalidad y el sitio son también con lo que viene puesta la cita que
+          apuntas a mano, así que siguen gobernando algo de verdad. Lo que se
+          dice arriba es lo único que hoy no pasa: que hablemos nosotros. */}
+      {!WHATSAPP_LISTO && <AvisoWhatsappPendiente />}
       <section className="rounded-xl bg-white p-4 shadow-card ring-1 ring-slate-200 sm:p-5">
         <h2 className="text-[15px] font-semibold text-slate-900">Cómo entrevistas</h2>
         <p className="mt-0.5 text-[13px] text-slate-500">
-          Con lo que vienen puestas tus invitaciones. En cada candidato puedes cambiarlo.
+          {WHATSAPP_LISTO
+            ? 'Con lo que vienen puestas tus invitaciones. En cada candidato puedes cambiarlo.'
+            : 'Con lo que vienen puestas tus entrevistas. En cada candidato puedes cambiarlo.'}
         </p>
 
         <div className="mt-4">

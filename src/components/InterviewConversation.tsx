@@ -11,6 +11,8 @@ import { BTN_PRIMARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import { clockTime, formatPhone, fullDateTimeInZone } from '../lib/format'
 import { currentInterview, isLive } from '../lib/interviews'
 import { useAnfitrion } from '../lib/anfitrion'
+import { WHATSAPP_LISTO, WHATSAPP_WIP } from '../lib/whatsapp'
+import { PanelWhatsappPendiente } from './WhatsappPendiente'
 import { ModoEntrevista } from './ModoEntrevista'
 import {
   CONVERSATION_STATE_META, INTERVIEW_MODE_META,
@@ -53,6 +55,10 @@ export function InterviewConversation({
     if (entrevista && entrevista.origin === 'manual' && isLive(entrevista.status) && entrevista.startsAt) {
       return <CitaAMano entrevista={entrevista} campaign={campaign} telefono={telefonoDe(candidate)} />
     }
+    // Sin canal de alta no hay invitación que ofrecer, y esta pantalla prometía
+    // justo eso ("Apúntate Fácil escribirá al candidato por WhatsApp"). Se dice
+    // lo que falta y se manda a la cita a mano, que funciona entera.
+    if (!WHATSAPP_LISTO) return <PanelWhatsappPendiente />
     return (
       <Inicio
         candidate={candidate}
@@ -203,6 +209,13 @@ function Inicio({
     // no hace nada: el silencio se lee como que la app está rota.
     if (res.status === 'demo') {
       toast.show('En la demo solo puedes mirar. Crea tu cuenta para invitar a tus candidatos a una entrevista.')
+      return
+    }
+    // Con el canal apagado esta pantalla ni se pinta, así que aquí no se llega.
+    // Se atiende igual: el día que alguien vuelva a enseñarla sin encender el
+    // canal, tiene que decir la verdad y no un "no se pudo" genérico.
+    if (res.status === 'wip') {
+      setError(WHATSAPP_WIP.cuerpo)
       return
     }
     if (res.status === 'sin_telefono') {

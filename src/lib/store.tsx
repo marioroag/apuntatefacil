@@ -6,6 +6,7 @@ import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
 import { SEED, SEED_BRANDS, SEED_CANDIDATE_COMMENTS, SEED_CANDIDATE_EVENTS, SEED_MEMBERS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, demoInterviews, freshenDemoData } from './seed'
 import { interestEligibility, interestRecipient, type InterestSendResult } from './interest'
+import { WHATSAPP_LISTO, WHATSAPP_WIP } from './whatsapp'
 
 // Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
 // quita espacios de los extremos y colapsa los interiores. La comparación de
@@ -1057,6 +1058,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     idempotencyKey: string,
     channel: InterestChannel = 'email',
   ): Promise<InterestSendResult> => {
+    // El correo sigue saliendo igual; lo único que se para es el canal que
+    // todavía no existe. La rama demo queda debajo a propósito: simular un
+    // WhatsApp que no podemos mandar es enseñar una función que no hay.
+    if (channel === 'whatsapp' && !WHATSAPP_LISTO) {
+      return { ok: false, sent: 0, failed: 0, omitted: {}, error: WHATSAPP_WIP.linea }
+    }
     if (!companyId) return { ok: false, sent: 0, failed: 0, omitted: {}, error: 'No hay una empresa activa.' }
     if (companyId === 'demo') {
       const campaign = campaigns.find((c) => c.id === campaignId)
@@ -1836,6 +1843,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return (data as ConversationMessageRow[]).map(toConversationMessage)
     },
     startInvitation: async (input) => {
+      // Mientras no haya número de alta no sale ni una invitación, y la puerta
+      // se cierra AQUÍ además de en la pantalla: la interfaz decide qué se
+      // ofrece, pero lo que garantiza que no se escribe a un candidato es que el
+      // único camino hasta el RPC pase por esta línea (ver `lib/whatsapp.ts`).
+      if (!WHATSAPP_LISTO) return { status: 'wip' }
       if (companyId === 'demo') return { status: 'demo' }
       const { data, error } = await supabase.rpc('start_interview_invitation', {
         p_candidate: input.candidateId,
@@ -1885,6 +1897,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return true
     },
     sendConversationMessage: async (id, body) => {
+      // Sin canal no hay por dónde mandarlo. No debería llegarse aquí (sin
+      // invitación no hay conversación que abrir), y justo por eso se cierra:
+      // los caminos que "no pueden pasar" son los que nadie vuelve a mirar.
+      if (!WHATSAPP_LISTO) return false
       if (companyId === 'demo') return false
       const { data, error } = await supabase.functions.invoke('whatsapp-send', {
         body: { conversation_id: id, body },
