@@ -175,9 +175,14 @@ export function OnboardingGuide() {
                 un trazo. Un único momento ganado, sobrio; en tinta (el verde es de
                 "contratado"). SVG propio para controlar el trazo del dibujo. */}
             <span className="onboarding-badge grid size-9 shrink-0 place-items-center rounded-full bg-slate-900 text-white">
+              {/* El trazo se expresa RELATIVO al del sistema, no como un número suelto:
+                  es un check de celebración y va más gordo a propósito, pero si algún
+                  día se mueve `--stroke-icon` este se mueve con él en vez de quedarse
+                  descolgado (que es justo lo que le pasó cuando el sistema bajó a 1,75). */}
               <svg
-                viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}
-                strokeLinecap="round" strokeLinejoin="round" className="onboarding-check size-5" aria-hidden
+                viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeLinecap="round" strokeLinejoin="round"
+                className="onboarding-check size-5 [stroke-width:calc(var(--stroke-icon)*1.4)]" aria-hidden
               >
                 <path d="M20 6 9 17l-5-5" pathLength={1} />
               </svg>

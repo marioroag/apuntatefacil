@@ -69,7 +69,7 @@ Webhook local: `stripe listen --forward-to localhost:54321/functions/v1/stripe-w
 - [ ] RPC público sigue siendo security definer + grant anon mínimo
 - [ ] Migración aditiva si va a producción
 - [ ] cd /Users/mario/criba && npm run build
-- [ ] cd /Users/mario/criba && npx tsc --noEmit
+- [ ] cd /Users/mario/criba && npx tsc -b --noEmit
 ```
 
 ## Referencias

@@ -173,7 +173,7 @@ function PageCard({ children }: { children: React.ReactNode }) {
           <Logo className="size-6" />
           <span>apuntatefacil</span>
         </div>
-        <section className="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center shadow-[0_12px_36px_rgba(18,22,34,0.06)] sm:px-8">
+        <section className="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center shadow-card sm:px-8">
           {children}
         </section>
         <p className="mt-4 text-center text-xs text-slate-400">Respuesta segura. No compartas este enlace.</p>

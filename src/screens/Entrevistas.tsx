@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { useProfiles } from '../lib/profiles'
 import { planHas } from '../lib/pricing'
+import { BTN_SECONDARY_SM } from '../lib/buttons'
 import { FeatureLocked } from '../components/FeatureLocked'
 import { Tabs, TabPanel } from '../components/ui/Tabs'
 import { Avatar } from '../components/ui/Avatar'
@@ -206,7 +207,10 @@ export function Entrevistas() {
                 </p>
               ) : (
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center overflow-hidden rounded-lg bg-white shadow-[0_1px_2px_rgba(18,22,34,0.06)] ring-1 ring-slate-300/80">
+                  {/* Grupo segmentado: no es un botón, es la CARCASA de dos. Lleva la
+                      misma pintura de hairline que el secundario (y su `ring-inset`,
+                      o el grupo se vería 2px más ancho que el botón "Hoy" de al lado). */}
+                  <div className="flex items-center overflow-hidden rounded-lg bg-white shadow-control ring-1 ring-inset ring-slate-300/80">
                     <button
                       type="button"
                       onClick={() => setCursor((c) => sumarDias(c, -salto))}
@@ -229,7 +233,7 @@ export function Entrevistas() {
                     type="button"
                     onClick={() => setCursor(hoy)}
                     disabled={dias.includes(hoy)}
-                    className="inline-flex h-8 items-center rounded-lg bg-white px-3 text-[13px] font-medium text-slate-800 shadow-[0_1px_2px_rgba(18,22,34,0.06)] ring-1 ring-slate-300/80 transition-colors hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40"
+                    className={`${BTN_SECONDARY_SM} disabled:pointer-events-none disabled:opacity-40`}
                   >
                     Hoy
                   </button>
@@ -376,7 +380,7 @@ function Segmentado<T extends string>({
             onClick={() => onChange(o.value)}
             className={`inline-flex h-7 items-center rounded-[6px] px-2.5 text-[13px] transition-colors ${
               activo
-                ? 'bg-white font-semibold text-slate-900 shadow-[0_1px_2px_rgba(18,22,34,0.10)]'
+                ? 'bg-white font-semibold text-slate-900 shadow-control'
                 : 'font-medium text-slate-500 hover:text-slate-800'
             }`}
           >

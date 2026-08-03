@@ -60,7 +60,7 @@ or verification gaps.
 
 - Ultramarine `#374cce` only for action, active nav, focus, and selection. Never decorative or status.
 - Candidate status colors come from `STATUS_META`; `descartado` is never red.
-- Use `BTN_*`, `Checkbox`, `SlideOver`, `FieldRenderer`, tokens in `src/index.css`.
+- Use `BTN_*`, `Checkbox`, `CandidateModal`, `FieldRenderer`, tokens in `src/index.css`.
 - Text with meaning must pass AA contrast. `slate-400` is only for icons.
 - Focus visible, semantic buttons/links/tables, accessible drag alternatives.
 - Motion short and sober; no springs, no decorative gradients, no stacked shadows.
@@ -102,7 +102,7 @@ Before considering a PR merge-ready:
 
 ```bash
 cd /Users/mario/criba && npm run build
-cd /Users/mario/criba && npx tsc --noEmit
+cd /Users/mario/criba && npx tsc -b --noEmit
 ```
 
 Extra checks by area:

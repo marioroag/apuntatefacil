@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
 import { Logo } from '../components/Logo'
 import { BRAND } from '../lib/brand'
+import { BTN_PRIMARY_BLOCK } from '../lib/buttons'
 
 type Inv = { company_name: string; email: string; status: string }
 
@@ -84,7 +85,7 @@ export function Invitacion() {
               </p>
               <Link
                 to={loginHref}
-                className="mt-5 flex h-11 w-full items-center justify-center rounded-xl bg-indigo-600 text-sm font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px"
+                className={`mt-5 ${BTN_PRIMARY_BLOCK}`}
               >
                 Iniciar sesión para continuar
               </Link>
@@ -118,7 +119,7 @@ export function Invitacion() {
                 <button
                   onClick={accept}
                   disabled={busy}
-                  className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px disabled:opacity-60"
+                  className={`mt-5 ${BTN_PRIMARY_BLOCK}`}
                 >
                   {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
                   Unirme al equipo

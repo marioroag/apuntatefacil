@@ -21,12 +21,12 @@ export function SwitchTrack({ checked, disabled = false }: { checked: boolean; d
   return (
     <span
       aria-hidden
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 ease-[var(--ease-out)] motion-reduce:transition-none ${
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none ${
         disabled ? 'opacity-40' : ''
       } ${checked ? 'bg-indigo-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}
     >
       <span
-        className={`pointer-events-none absolute left-0.5 size-4 rounded-full bg-white shadow-[0_1px_2px_rgba(18,22,34,0.2)] transition-transform duration-150 ease-[var(--ease-out)] motion-reduce:transition-none ${
+        className={`pointer-events-none absolute left-0.5 size-4 rounded-full bg-white shadow-raised transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none ${
           checked ? 'translate-x-4' : 'translate-x-0'
         }`}
       />

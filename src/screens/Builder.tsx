@@ -252,7 +252,7 @@ export function Builder() {
         {saveError ? (
           <button
             onClick={retrySave}
-            className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold text-red-700 ring-1 ring-inset ring-red-200 transition hover:bg-red-100"
+            className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold text-red-700 ring-1 ring-inset ring-red-200 transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] hover:bg-red-100"
             title="Tus cambios no se guardaron. Toca para reintentar."
           >
             <CloudOff className="size-3.5" aria-hidden /> Sin guardar, reintentar

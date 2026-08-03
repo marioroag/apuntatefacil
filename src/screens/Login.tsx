@@ -6,6 +6,7 @@ import { setRememberMe } from '../lib/supabase'
 import { Logo } from '../components/Logo'
 import { Checkbox } from '../components/ui/Checkbox'
 import { PWD_RULES, passwordValid } from '../lib/password'
+import { BTN_PRIMARY_BLOCK, BTN_SECONDARY_BLOCK } from '../lib/buttons'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -193,7 +194,7 @@ export function Login() {
                   className={inputClass(!!error)}
                 />
                 {error && <p className="mt-1.5 text-[13px] font-medium text-red-600">{error}</p>}
-                <button type="submit" disabled={busy} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px disabled:opacity-70">
+                <button type="submit" disabled={busy} className={`mt-3 ${BTN_PRIMARY_BLOCK}`}>
                   {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Enviando...</> : 'Enviar enlace'}
                 </button>
               </form>
@@ -213,7 +214,7 @@ export function Login() {
                   type="button"
                   onClick={() => switchMode('signin')}
                   aria-pressed={mode === 'signin'}
-                  className={`rounded-lg py-2 text-sm font-semibold transition-colors ${mode === 'signin' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                  className={`rounded-lg py-2 text-sm font-semibold transition-colors ${mode === 'signin' ? 'bg-white text-slate-900 shadow-control' : 'text-slate-500 hover:text-slate-900'}`}
                 >
                   Entrar
                 </button>
@@ -221,7 +222,7 @@ export function Login() {
                   type="button"
                   onClick={() => switchMode('signup')}
                   aria-pressed={mode === 'signup'}
-                  className={`rounded-lg py-2 text-sm font-semibold transition-colors ${mode === 'signup' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+                  className={`rounded-lg py-2 text-sm font-semibold transition-colors ${mode === 'signup' ? 'bg-white text-slate-900 shadow-control' : 'text-slate-500 hover:text-slate-900'}`}
                 >
                   Crear cuenta
                 </button>
@@ -229,7 +230,7 @@ export function Login() {
 
               <button
                 onClick={() => { setRememberMe(remember); signInWithGoogle() }}
-                className="mt-5 flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-800 shadow-[0_1px_2px_rgba(18,22,34,0.06)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-slate-50 active:translate-y-px"
+                className={`mt-5 ${BTN_SECONDARY_BLOCK}`}
               >
                 <GoogleIcon /> Continuar con Google
               </button>
@@ -336,7 +337,7 @@ export function Login() {
                 <button
                   type="submit"
                   disabled={busy || (mode === 'signup' && !passwordValid(password))}
-                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px disabled:opacity-60"
+                  className={`mt-4 ${BTN_PRIMARY_BLOCK}`}
                 >
                   {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> {mode === 'signin' ? 'Entrando...' : 'Creando cuenta...'}</> : mode === 'signin' ? 'Entrar' : 'Crear cuenta'}
                 </button>

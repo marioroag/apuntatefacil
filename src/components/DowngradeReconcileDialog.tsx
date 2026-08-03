@@ -104,7 +104,7 @@ export function DowngradeReconcileDialog() {
                     onClick={() => toggle(c.id)}
                     disabled={disabled}
                     aria-pressed={selected}
-                    className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors duration-150 ease-[var(--ease-out)] ${
+                    className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] ${
                       selected
                         ? 'border-indigo-300 bg-indigo-50/50'
                         : disabled
@@ -118,7 +118,7 @@ export function DowngradeReconcileDialog() {
                         selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white'
                       }`}
                     >
-                      {selected && <Check className="size-3.5" strokeWidth={3} />}
+                      {selected && <Check className="size-3.5 [stroke-width:3]" />}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-slate-900">{c.title}</span>

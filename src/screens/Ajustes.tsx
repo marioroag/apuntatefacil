@@ -202,7 +202,7 @@ function Fila({ ajuste, ctx, salto }: { ajuste: Ajuste; ctx: AjustesCtx; salto: 
         const res = await ajuste.set(ctx, !valor)
         if (res.error) toast.error(res.error)
       }}
-      className={`group -mx-2 flex w-full items-start justify-between gap-4 rounded-lg px-2 py-3 text-left transition-[background-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 enabled:hover:bg-slate-50 disabled:cursor-not-allowed ${
+      className={`group -mx-2 flex w-full items-start justify-between gap-4 rounded-lg px-2 py-3 text-left transition-[background-color,box-shadow] duration-[var(--duration-control)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 enabled:hover:bg-slate-50 disabled:cursor-not-allowed ${
         resaltado ? 'ring-2 ring-inset ring-indigo-500/40' : ''
       }`}
     >

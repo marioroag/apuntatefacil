@@ -156,7 +156,7 @@ export function Bandeja() {
                             <span className="text-[12px] text-slate-500">–</span>
                           )}
                         </td>
-                        <td className="hidden px-3 py-2.5 text-sm text-slate-600 lg:table-cell tnum">
+                        <td className="hidden px-3 py-2.5 text-sm text-slate-600 lg:table-cell num">
                           <span className="block truncate">
                             {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
                           </span>

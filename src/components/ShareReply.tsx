@@ -244,7 +244,7 @@ export function ShareReply({
       </button>
 
       <div className="mt-2 flex min-w-0 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 py-1 pl-3 pr-1">
-        <p className="min-w-0 flex-1 truncate text-[12px] tabular-nums text-slate-600" title={display}>
+        <p className="min-w-0 flex-1 truncate text-[12px] num text-slate-600" title={display}>
           {display}
         </p>
         {formDemo ? (

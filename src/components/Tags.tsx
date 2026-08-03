@@ -104,7 +104,7 @@ export function TagCell({ tagIds, tags, singleLine = false }: { tagIds: string[]
             }}
             aria-expanded={open}
             aria-label={`Ver ${rest.length} etiquetas más`}
-            className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-200"
+            className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold num text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-200"
           >
             +{rest.length}
           </button>
@@ -539,7 +539,7 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
                     ) : (
                       <>
                         <TagChip name={t.name} glyph />
-                        <span className="ml-auto shrink-0 text-[12px] tabular-nums text-slate-500">
+                        <span className="ml-auto shrink-0 text-[12px] num text-slate-500">
                           {usage} {usage === 1 ? 'candidato' : 'candidatos'}
                         </span>
                         <button

@@ -562,7 +562,7 @@ function ThreadProposals({
         </span>
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-800">{label}</span>
         <ChevronRight
-          className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+          className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
             expanded ? 'rotate-90' : ''
           }`}
           aria-hidden
@@ -572,12 +572,12 @@ function ThreadProposals({
         id={listId}
         role="region"
         inert={!expanded || undefined}
-        className={`grid transition-[grid-template-rows] duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+        className={`grid transition-[grid-template-rows] duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
           expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
         }`}
       >
         <div
-          className={`overflow-hidden transition-opacity duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+          className={`overflow-hidden transition-opacity duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
             expanded ? 'opacity-100' : 'opacity-0'
           }`}
         >
@@ -817,7 +817,7 @@ function ProposalsSection({
           {proposals.length} candidatos
         </span>
         <ChevronRight
-          className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+          className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
             open ? 'rotate-90' : ''
           }`}
           aria-hidden
@@ -827,12 +827,12 @@ function ProposalsSection({
         id={listId}
         role="region"
         inert={!open || undefined}
-        className={`grid transition-[grid-template-rows] duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+        className={`grid transition-[grid-template-rows] duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
           open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
         }`}
       >
         <div
-          className={`overflow-hidden transition-opacity duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+          className={`overflow-hidden transition-opacity duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
             open ? 'opacity-100' : 'opacity-0'
           }`}
         >

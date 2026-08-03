@@ -31,15 +31,16 @@ export const Checkbox = forwardRef<HTMLInputElement, Props>(function Checkbox(
         {...props}
       />
       {/* Tilde (marcado) y guion (indeterminado): blancos y nítidos sobre el relleno acento.
-          Aparecen con un fundido corto y sobrio (transform/opacity), respetando reduced-motion. */}
+          Aparecen con un fundido corto y sobrio (transform/opacity), respetando reduced-motion.
+          Trazo GRUESO a propósito y con `[stroke-width:]`, no con la prop `strokeWidth`: son
+          12px sobre relleno sólido y al trazo del sistema se ven anémicos. La prop de lucide
+          ya no pinta, la pisa la regla `.lucide` de index.css; la propiedad arbitraria sí. */}
       <Check
-        strokeWidth={3.5}
-        className="pointer-events-none absolute inset-0 m-auto size-3 scale-90 text-white opacity-0 transition duration-150 peer-checked:scale-100 peer-checked:opacity-100 peer-indeterminate:opacity-0 motion-reduce:transition-none"
+        className="pointer-events-none absolute inset-0 m-auto size-3 scale-90 text-white opacity-0 transition-[opacity,transform] duration-[var(--duration-control)] [stroke-width:3.5] peer-checked:scale-100 peer-checked:opacity-100 peer-indeterminate:opacity-0 motion-reduce:transition-none"
         aria-hidden
       />
       <Minus
-        strokeWidth={3.5}
-        className="pointer-events-none absolute inset-0 m-auto size-3 text-white opacity-0 transition duration-150 peer-indeterminate:opacity-100 motion-reduce:transition-none"
+        className="pointer-events-none absolute inset-0 m-auto size-3 text-white opacity-0 transition-opacity duration-[var(--duration-control)] [stroke-width:3.5] peer-indeterminate:opacity-100 motion-reduce:transition-none"
         aria-hidden
       />
     </span>

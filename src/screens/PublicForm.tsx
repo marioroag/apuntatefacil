@@ -267,7 +267,7 @@ function ThankYou({ campaign, isTest = false }: { campaign: PublicCampaign; isTe
           <motion.div
             initial={{ scale: 0.6, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.4, ease: [0, 0, 0.2, 1] }}
+            transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
             className="mx-auto grid size-14 place-items-center rounded-full bg-green-100 text-green-600"
           >
             <Check className="size-7" aria-hidden />

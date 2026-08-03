@@ -198,7 +198,7 @@ function Anillo({ paso }: { paso: number }) {
           strokeDasharray={vuelta}
           strokeDashoffset={vuelta * (1 - hecho)}
           transform="rotate(-90 8 8)"
-          className="stroke-slate-900 transition-[stroke-dashoffset] duration-300 ease-[var(--ease-out)] motion-reduce:transition-none"
+          className="stroke-slate-900 transition-[stroke-dashoffset] duration-[var(--duration-max)] ease-[var(--ease-out)] motion-reduce:transition-none"
         />
       )}
     </svg>

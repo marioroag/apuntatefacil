@@ -277,7 +277,7 @@ export function AjustesCalendario() {
           onChange={(e) => setCfg({ ...cfg, defaultLocation: e.target.value })}
           placeholder="Calle Marina 32, nave 4, Las Palmas"
           maxLength={300}
-          className="mt-1 h-10 w-full rounded-xl border-0 bg-white px-3 text-[14px] text-slate-800 ring-1 ring-inset ring-slate-300 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-indigo-600"
+          className="mt-1 h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-[14px] text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none"
         />
         <p className="mt-1 text-[12px] text-slate-500">
           Tal cual se lo dirías por teléfono. Portal, nave o planta incluidos.
@@ -366,7 +366,7 @@ export function AjustesCalendario() {
                 className="mt-2 inline-flex items-center gap-1 rounded-lg px-1 py-0.5 text-[13px] font-semibold text-indigo-700 hover:underline"
               >
                 <ChevronDown
-                  className={`size-3.5 transition-transform duration-150 ${verDireccion ? 'rotate-180' : ''}`}
+                  className={`size-3.5 transition-transform duration-[var(--duration-control)] ${verDireccion ? 'rotate-180' : ''}`}
                   aria-hidden
                 />
                 ¿Alguna la haces en persona?
@@ -414,7 +414,7 @@ export function AjustesCalendario() {
                         value={t.inicio}
                         onChange={(e) => cambiarTramo(d.n, i, 'inicio', e.target.value)}
                         aria-label={`${d.largo}, hora de inicio`}
-                        className="num h-10 rounded-lg border-0 bg-white px-2.5 text-[14px] text-slate-800 ring-1 ring-inset ring-slate-300 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-indigo-600"
+                        className="num h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-[14px] text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none"
                       />
                       <span className="text-[13px] text-slate-400">a</span>
                       <input
@@ -422,7 +422,7 @@ export function AjustesCalendario() {
                         value={t.fin}
                         onChange={(e) => cambiarTramo(d.n, i, 'fin', e.target.value)}
                         aria-label={`${d.largo}, hora de fin`}
-                        className="num h-10 rounded-lg border-0 bg-white px-2.5 text-[14px] text-slate-800 ring-1 ring-inset ring-slate-300 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-indigo-600"
+                        className="num h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-[14px] text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none"
                       />
                       {(dias[d.n]?.length ?? 0) > 1 && (
                         <button
@@ -531,7 +531,7 @@ function Campo({
         id={id}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-1 h-10 w-full rounded-lg border-0 bg-white px-2.5 text-[14px] text-slate-800 ring-1 ring-inset ring-slate-300 focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-indigo-600"
+        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-[14px] text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none"
       >
         {/* Si el valor guardado no está en la lista (por ejemplo tras cambiar
             estas opciones), se añade para no perderlo en silencio al guardar. */}

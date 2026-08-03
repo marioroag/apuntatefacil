@@ -190,7 +190,7 @@ function TopNav() {
             Ver la demo
           </Link>
           <Link to="/login" className={`${BTN_PRIMARY} group ml-1`}>
-            Empezar <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
+            Empezar <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
         </div>
         <button onClick={() => setOpen((o) => !o)} className="grid size-11 place-items-center rounded-lg text-slate-600 hover:bg-slate-100 md:hidden" aria-label="Menú" aria-expanded={open}>
@@ -234,7 +234,7 @@ function Hero() {
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link to="/login" className={`${BTN_PRIMARY_LG} group`}>
-            Crea tu primer puesto gratis <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
+            Crea tu primer puesto gratis <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
           <Link to="/demo" className={BTN_SECONDARY_LG}>
             Ver la demo
@@ -372,7 +372,7 @@ function Compare() {
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {['Carnet B', 'Zona: Getafe', 'Empieza ya', '627 41…'].map((p) => (
-                      <span key={p} className="rounded-lg bg-slate-50 px-2.5 py-1 text-caption font-medium text-slate-600 ring-1 ring-inset ring-slate-200 tabular-nums">{p}</span>
+                      <span key={p} className="rounded-lg bg-slate-50 px-2.5 py-1 text-caption font-medium text-slate-600 ring-1 ring-inset ring-slate-200 num">{p}</span>
                     ))}
                   </div>
                 </div>
@@ -700,7 +700,10 @@ function TeamBoardMock() {
 
         <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
           <p className="text-[13px] text-slate-500">Petición completada por ti.</p>
-          <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-medium text-slate-800 ring-1 ring-slate-300/80 shadow-[0_1px_2px_rgba(18,22,34,0.06)]">
+          {/* Mock: es un <span>, no un botón, así que lleva la pintura del secundario
+              pero sin hover ni press (un mock que reacciona y no hace nada miente).
+              Lo que sí comparte es el `ring-inset` y la sombra del vocabulario. */}
+          <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-medium text-slate-800 shadow-control ring-1 ring-inset ring-slate-300/80">
             <RotateCcw className="size-3.5" />
             Reabrir
           </span>
@@ -817,7 +820,7 @@ function PricingTierCard({ tier: t, annual, gridEmphasis = false }: { tier: Tier
         </div>
       ) : (
         <Link to="/login" className={`${BTN_PRIMARY_LG} group mt-7 w-full`}>
-          {t.cta} <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
+          {t.cta} <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
         </Link>
       )}
     </div>
@@ -1022,7 +1025,7 @@ function Pricing() {
                 aria-selected={selected}
                 aria-controls="tier-panel"
                 onClick={() => setSelectedTier(t.id)}
-                className={`flex min-h-11 flex-1 flex-col items-center justify-center rounded-full px-2 py-2 transition-colors duration-150 ease-[var(--ease-out)] ${
+                className={`flex min-h-11 flex-1 flex-col items-center justify-center rounded-full px-2 py-2 transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] ${
                   selected ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
@@ -1083,7 +1086,7 @@ function FaqItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean
         {q}
         <span
           aria-hidden
-          className={`grid size-6 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${open ? 'rotate-45' : ''}`}
+          className={`grid size-6 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${open ? 'rotate-45' : ''}`}
         >
           +
         </span>
@@ -1093,7 +1096,7 @@ function FaqItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean
         role="region"
         aria-labelledby={buttonId}
         inert={!open || undefined}
-        className={`grid transition-[grid-template-rows] duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+        className={`grid transition-[grid-template-rows] duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
       >
         <div className="overflow-hidden">
           <p className="px-4 pb-4 text-copy-md text-slate-600 sm:px-5">{a}</p>
@@ -1147,7 +1150,7 @@ function FinalCta() {
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <Link to="/demo" className={`${BTN_INVERTED_LG} group`}>
-            Ver la demo <ArrowRight className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-1" aria-hidden />
+            Ver la demo <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
           <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-lg px-5 text-base font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:bg-white/15">
             Empezar

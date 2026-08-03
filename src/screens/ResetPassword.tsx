@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/Logo'
 import { PWD_RULES, passwordValid } from '../lib/password'
+import { BTN_PRIMARY_BLOCK } from '../lib/buttons'
 
 type Status = 'checking' | 'ready' | 'invalid'
 
@@ -150,7 +151,7 @@ export function ResetPassword() {
                 <button
                   type="submit"
                   disabled={busy || !passwordValid(password)}
-                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 text-sm font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px disabled:opacity-60"
+                  className={`mt-4 ${BTN_PRIMARY_BLOCK}`}
                 >
                   {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Guardando...</> : 'Guardar y entrar'}
                 </button>

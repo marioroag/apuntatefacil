@@ -795,7 +795,7 @@ export function Dashboard() {
           <button
             type="button"
             onClick={() => setInterestDialogOpen(true)}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1 font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1 font-semibold text-indigo-700 shadow-control hover:bg-indigo-50"
           >
             <MailCheck className="size-4" aria-hidden /> Comprobar interés
           </button>
@@ -1012,7 +1012,7 @@ export function Dashboard() {
               >
                 <X className="size-5" aria-hidden />
               </button>
-              <span className="text-sm font-semibold text-slate-900 tabular-nums">{selected.size} seleccionados</span>
+              <span className="text-sm font-semibold text-slate-900 num">{selected.size} seleccionados</span>
               <button
                 type="button"
                 onClick={toggleSelectAll}
@@ -1092,7 +1092,7 @@ function StatusSummary({
             onClick={() => onToggle(s)}
             aria-pressed={active}
             title={`${m.label}: ${n} de ${total} (${pct}%). Filtrar.`}
-            className={`group relative flex flex-col gap-1.5 px-4 py-3.5 text-left transition-colors duration-150 ${
+            className={`group relative flex flex-col gap-1.5 px-4 py-3.5 text-left transition-colors duration-[var(--duration-control)] ${
               active ? 'bg-indigo-50/70' : 'hover:bg-slate-50'
             }`}
           >
@@ -1103,7 +1103,7 @@ function StatusSummary({
             <span className="num text-2xl font-semibold leading-none tracking-[-0.01em] text-slate-900">{n}</span>
             {/* Proporción: hairline de fondo + tramo lleno del color del estado. */}
             <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate-100" aria-hidden>
-              <span className={`block h-full rounded-full ${m.dot} transition-[width] duration-500 ease-[var(--ease-out)]`} style={{ width: `${pct}%` }} />
+              <span className={`block h-full rounded-full ${m.dot} transition-[width] duration-[var(--duration-max)] ease-[var(--ease-out)]`} style={{ width: `${pct}%` }} />
             </span>
             {/* Acento de "filtro activo" en la base del segmento. */}
             {active && <span className="absolute inset-x-0 bottom-0 h-[2px] rounded-t-full bg-indigo-600" aria-hidden />}
@@ -1144,7 +1144,7 @@ function SortHead({
         aria-label={active
           ? `${children}: orden ${currentOrder}. Cambiar a ${nextOrder}`
           : `${children}: sin ordenar. Ordenar de forma ascendente`}
-        className={`group inline-flex w-full min-w-0 items-center gap-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 motion-reduce:transition-none ${
+        className={`group inline-flex w-full min-w-0 items-center gap-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors duration-[var(--duration-control)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 motion-reduce:transition-none ${
           active ? 'text-slate-700' : 'text-slate-500 hover:text-slate-800'
         }`}
       >
@@ -1154,7 +1154,7 @@ function SortHead({
             initial={false}
             animate={{ opacity: active ? 0 : 1, scale: active ? 0.82 : 1 }}
             transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute inset-0 grid place-items-center text-slate-300 transition-colors duration-150 group-hover:text-slate-500 motion-reduce:transition-none"
+            className="absolute inset-0 grid place-items-center text-slate-300 transition-colors duration-[var(--duration-control)] group-hover:text-slate-500 motion-reduce:transition-none"
           >
             <ArrowUpDown className="size-3" />
           </motion.span>
@@ -1534,13 +1534,13 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
         <caption className="sr-only">Candidatos de {campaign.title}</caption>
         <thead
           ref={tableHeadRef}
-          className={`${headerCanStick ? 'sticky top-0 z-20' : ''} border-b transition-[background-color,border-color,box-shadow,backdrop-filter] duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+          className={`${headerCanStick ? 'sticky top-0 z-20' : ''} border-b transition-[background-color,border-color,box-shadow,backdrop-filter] duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
             headerStuck
-              ? 'border-slate-200/80 bg-white/82 shadow-[0_6px_8px_-7px_rgba(15,23,42,0.24)] backdrop-blur-md backdrop-saturate-125'
+              ? 'border-slate-200/80 bg-white/82 shadow-sticky backdrop-blur-md backdrop-saturate-125'
               : 'border-transparent bg-transparent shadow-none backdrop-blur-0 backdrop-saturate-100'
           }`}
         >
-          <tr className={`border-b transition-[background-color,border-color] duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+          <tr className={`border-b transition-[background-color,border-color] duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
             headerStuck ? 'border-transparent bg-transparent' : 'border-slate-200 bg-slate-50/60'
           }`}>
             <th scope="col" className="w-10 px-0 py-2.5 text-center align-middle leading-none">
@@ -1620,7 +1620,7 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                   ? { animation: `drop-in 240ms var(--ease-out) ${Math.min(arrivedAt, 4) * 45}ms both` }
                   : undefined}
                 onClick={() => onOpen(c.id)}
-                className={`group h-16 cursor-pointer border-b border-slate-100 transition-colors duration-150 last:border-0 ${
+                className={`group h-16 cursor-pointer border-b border-slate-100 transition-colors duration-[var(--duration-control)] last:border-0 ${
                   sel ? 'bg-indigo-50/70' : 'hover:bg-slate-50'
                 }`}
               >
@@ -1965,7 +1965,7 @@ function FilterMenu({
           <div key={f.id} className="mb-4 sm:mb-3">
             <div className="mb-2 flex items-baseline justify-between">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{f.label}</p>
-              <span className="text-[12px] font-medium tabular-nums text-slate-600">{from} – {to}</span>
+              <span className="text-[12px] font-medium num text-slate-600">{from} – {to}</span>
             </div>
             <RangeSlider min={lo} max={hi} from={from} to={to} onChange={(nFrom, nTo) => setRange(f, lo, hi, nFrom, nTo)} />
           </div>
@@ -1985,7 +1985,7 @@ function FilterMenu({
         <Filter className="size-4 text-slate-400" aria-hidden /> Filtros
         {/* Badge en la esquina: absoluto, no altera el ancho del botón. */}
         {count > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold leading-none text-white tabular-nums ring-2 ring-white">
+          <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold leading-none text-white num ring-2 ring-white">
             {count}
           </span>
         )}
@@ -2194,7 +2194,7 @@ function ShareMenu({
         <Share2 className="size-4 shrink-0 text-slate-400" aria-hidden />
         <span className="max-sm:hidden">Compartir</span>
         <ChevronDown
-          className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-150 max-sm:hidden ${
+          className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-[var(--duration-control)] max-sm:hidden ${
             open ? 'rotate-180' : ''
           }`}
           aria-hidden
@@ -2584,7 +2584,7 @@ function SettingSelect({
         aria-expanded={open}
         aria-labelledby={labelId}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 w-full items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-left text-sm text-slate-900 shadow-[0_1px_2px_rgba(18,22,34,0.04)] transition-shadow hover:bg-slate-50 focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/15"
+        className="flex h-9 w-full items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-left text-sm text-slate-900 shadow-control transition-shadow hover:bg-slate-50 focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/15"
       >
         {current.leading}
         <span className="min-w-0 flex-1 truncate">{current.label}</span>

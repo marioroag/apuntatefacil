@@ -290,11 +290,11 @@ export function InterestCheckDialog({
               <>
                 <div className="mt-5 grid grid-cols-2 gap-3">
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <p className="text-2xl font-semibold tabular-nums text-slate-950">{preview.recipients}</p>
+                    <p className="text-2xl font-semibold num text-slate-950">{preview.recipients}</p>
                     <p className="mt-0.5 text-xs text-slate-500">Destinatarios únicos</p>
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <p className="text-2xl font-semibold tabular-nums text-slate-950">{candidates.length - preview.recipients}</p>
+                    <p className="text-2xl font-semibold num text-slate-950">{candidates.length - preview.recipients}</p>
                     <p className="mt-0.5 text-xs text-slate-500">Candidaturas omitidas</p>
                   </div>
                 </div>
@@ -330,7 +330,7 @@ export function InterestCheckDialog({
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Omitidos</p>
                 <ul className="mt-2 space-y-1 text-[13px] text-slate-600">
                   {Object.entries(displayedOmissions).filter(([, count]) => Number(count) > 0).map(([reason, count]) => (
-                    <li key={reason} className="flex justify-between gap-3"><span>{REASON_LABEL[reason as keyof typeof REASON_LABEL]}</span><span className="font-medium tabular-nums text-slate-800">{count}</span></li>
+                    <li key={reason} className="flex justify-between gap-3"><span>{REASON_LABEL[reason as keyof typeof REASON_LABEL]}</span><span className="font-medium num text-slate-800">{count}</span></li>
                   ))}
                 </ul>
               </div>

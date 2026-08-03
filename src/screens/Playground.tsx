@@ -11,7 +11,10 @@
 // Si el experimento cuaja, muévelo a su sitio final y (si aplica) bórralo de aquí.
 // -----------------------------------------------------------------------------
 import { useState } from 'react'
-import { Trash2, Plus, ArrowRight, Loader2 } from 'lucide-react'
+import {
+  Trash2, Plus, ArrowRight, Loader2,
+  Bell, Briefcase, Clock, Download, MapPin, Phone, Search, Settings,
+} from 'lucide-react'
 import {
   BTN_PRIMARY,
   BTN_SECONDARY,
@@ -34,6 +37,80 @@ function Section({ title, note, children }: { title: string; note?: string; chil
   )
 }
 
+// -----------------------------------------------------------------------------
+// COMPARATIVA DE TRAZO DE ICONO (ago 2026).
+//
+// Los ~420 iconos de la app van al trazo por defecto de lucide (2) porque hasta
+// ahora no había ni un sitio donde decidirlo. Ya lo hay: `--stroke-icon`, que la
+// regla `.lucide` de index.css aplica a todos. Como el token se HEREDA, aquí basta
+// con ponerlo en un contenedor para ver una columna entera con otro grosor, sin
+// tocar ni un icono.
+//
+// Las filas son las de verdad y a los tamaños de verdad: el 71% del inventario
+// está a size-4 (16px) y size-3.5 (14px), que es donde se decide la cuestión. Un
+// icono suelto a 32px no dice nada del producto.
+const TRAZOS = ['2', '1.75', '1.5'] as const
+
+function FilasReales() {
+  return (
+    <div className="w-full min-w-0 space-y-3">
+      {/* Menú lateral: icono 16px junto a texto de 14px */}
+      <div className="rounded-lg bg-indigo-50 px-2.5 py-2">
+        <div className="flex items-center gap-2.5 text-sm font-semibold text-slate-900">
+          <Briefcase className="size-4 shrink-0 text-indigo-600" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">Peón de albañil</span>
+          <span className="num shrink-0 rounded-full bg-slate-200 px-1.5 py-px text-[11px] font-bold text-slate-700">96</span>
+        </div>
+      </div>
+      {/* Fila de candidato: metadatos a 14px con iconos de 14px */}
+      <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+        <p className="text-sm font-semibold text-slate-900">Mohamed El Amrani</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-slate-500">
+          <span className="inline-flex items-center gap-1"><Phone className="size-3.5 text-slate-400" aria-hidden /><span className="num">612 34 56 78</span></span>
+          <span className="inline-flex items-center gap-1"><MapPin className="size-3.5 text-slate-400" aria-hidden />Valencia</span>
+          <span className="inline-flex items-center gap-1"><Clock className="size-3.5 text-slate-400" aria-hidden />hace 2 días</span>
+        </div>
+      </div>
+      {/* Barra superior: cluster de acciones a 16px */}
+      <div className="flex items-center justify-end gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+        {[Search, Bell, Settings].map((Ico, i) => (
+          <span key={i} className="grid size-8 place-items-center rounded-lg text-slate-500"><Ico className="size-4" aria-hidden /></span>
+        ))}
+      </div>
+      {/* Botones con icono */}
+      <div className="flex flex-wrap gap-2">
+        <button className={BTN_PRIMARY}><Plus className="size-4" aria-hidden />Nuevo puesto</button>
+        <button className={BTN_SECONDARY}><Download className="size-4" aria-hidden />Exportar</button>
+      </div>
+    </div>
+  )
+}
+
+function TrazoIconos() {
+  return (
+    <Section
+      title="Grosor de trazo de los iconos"
+      note="Mismas filas, mismo tamaño, tres grosores. El de la izquierda es el actual (el de fábrica de lucide). Se cambia en un sitio: --stroke-icon en index.css."
+    >
+      <div className="grid gap-6 lg:grid-cols-3">
+        {TRAZOS.map((t) => (
+          <div key={t} style={{ ['--stroke-icon' as string]: t }} className="min-w-0">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[var(--tracking-overline)] text-slate-500">
+              Trazo {t.replace('.', ',')}
+              {t === '2' && <span className="ml-1.5 font-normal normal-case tracking-normal text-slate-400">· el de ahora</span>}
+            </p>
+            <FilasReales />
+          </div>
+        ))}
+      </div>
+      <p className="mt-5 text-xs text-slate-400">
+        Los checks sobre relleno sólido (casilla marcada) NO se ven afectados: llevan su grosor con
+        `[stroke-width:3.5]`, que gana a la regla global a propósito.
+      </p>
+    </Section>
+  )
+}
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 py-4 first:border-t-0 first:pt-0">
@@ -49,6 +126,10 @@ const SAMPLE_FIELDS: FormField[] = [
   { id: 'phone', type: 'phone', label: 'Teléfono', required: true },
   { id: 'email', type: 'email', label: 'Email', required: true },
   { id: 'select', type: 'select', label: 'Disponibilidad', options: ['Inmediata', 'En 15 días', 'En 1 mes'], required: true },
+  // Con más de 5 opciones, `select` deja de pintar botones y pasa a un <select>
+  // nativo. Es una rama de render DISTINTA y hay que poder verla: aquí vivía sin
+  // cubrir el bug del chevron, que estuvo meses sin flecha porque nadie la miró.
+  { id: 'select-largo', type: 'select', label: 'Zona (más de 5 opciones)', options: ['Valencia ciudad', 'Torrent', 'Paterna', 'Sagunto', 'Manises', 'Aldaia'], required: false },
   { id: 'multiselect', type: 'multiselect', label: 'Turnos disponibles', options: ['Mañana', 'Tarde', 'Noche', 'Fin de semana'], required: false },
   { id: 'boolean', type: 'boolean', label: '¿Tienes carnet de conducir?', required: true },
   { id: 'number', type: 'number', label: 'Años de experiencia', required: false },
@@ -167,12 +248,17 @@ export function Playground() {
           </div>
         </Section>
 
-        <Section title="Sombras" note="una por elevación: shadow-card para tarjetas, shadow-pop para overlays.">
+        <Section title="Sombras" note="el vocabulario cerrado de elevación. Una por nivel, nunca apiladas.">
           <div className="flex flex-wrap gap-6">
-            <div className="flex h-20 w-36 items-center justify-center rounded-xl bg-white text-xs text-slate-500 shadow-card">shadow-card</div>
-            <div className="flex h-20 w-36 items-center justify-center rounded-xl bg-white text-xs text-slate-500 shadow-pop">shadow-pop</div>
+            {(['control', 'raised', 'pressed', 'card', 'pop', 'sticky'] as const).map((s) => (
+              <div key={s} className={`flex h-20 w-32 items-center justify-center rounded-xl bg-white text-xs text-slate-500 shadow-${s}`}>
+                shadow-{s}
+              </div>
+            ))}
           </div>
         </Section>
+
+        <TrazoIconos />
 
         <Section title="Campos de formulario" note="components/FieldRenderer.tsx. El mismo componente pinta el builder y el formulario público.">
           <div className="flex flex-col gap-5">

@@ -196,7 +196,7 @@ export function ApplicationForm({
             style={consent ? { backgroundColor: 'var(--accent)', borderColor: 'var(--accent)' } : undefined}
             className={`size-5 cursor-pointer appearance-none rounded-[5px] border transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--accent)_22%,transparent)] motion-reduce:transition-none ${consent ? '' : consentError ? 'border-red-400 bg-white' : 'border-slate-300 bg-white'}`}
           />
-          <Check strokeWidth={3.5} aria-hidden className={`pointer-events-none absolute inset-0 m-auto size-3.5 text-on-accent transition-opacity motion-reduce:transition-none ${consent ? 'opacity-100' : 'opacity-0'}`} />
+          <Check aria-hidden className={`pointer-events-none absolute inset-0 m-auto size-3.5 text-on-accent transition-opacity [stroke-width:3.5] motion-reduce:transition-none ${consent ? 'opacity-100' : 'opacity-0'}`} />
         </span>
         {/* El texto NO se escribe aquí: se lee de src/lib/consent.ts, que es lo
             que se guarda por versión con cada candidatura. Si se escribiera en
@@ -228,7 +228,7 @@ export function ApplicationForm({
         type="submit"
         disabled={busy || preview}
         aria-busy={busy}
-        className="on-accent mt-4 flex w-full items-center justify-center gap-2 rounded-xl text-base font-semibold text-on-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(18,22,34,0.24)] ring-1 ring-inset ring-black/10 transition-[filter,transform] duration-150 ease-[var(--ease-out)] hover:brightness-[1.06] active:translate-y-px disabled:opacity-70"
+        className="on-accent mt-4 flex w-full items-center justify-center gap-2 rounded-xl text-base font-semibold text-on-accent shadow-raised ring-1 ring-inset ring-black/10 transition-[filter,transform] duration-[var(--duration-control)] ease-[var(--ease-out)] hover:brightness-[1.06] active:translate-y-px active:shadow-pressed disabled:opacity-70"
         style={{ backgroundColor: accent, height: 52 }}
       >
         {busy && <Loader2 className="size-5 shrink-0 animate-spin" aria-hidden />}

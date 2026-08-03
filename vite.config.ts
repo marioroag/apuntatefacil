@@ -15,6 +15,13 @@ export default defineConfig({
   optimizeDeps: { exclude: ['@shadcn/react'] },
   resolve: { dedupe: ['react', 'react-dom'] },
   test: {
+    // `?raw` sobre un .css devuelve cadena VACÍA con el ajuste por defecto de
+    // vitest (`css: false` stubea los imports de CSS). El guardián del acabado
+    // (src/lib/acabado.test.ts) lee index.css para sacar de ahí el vocabulario de
+    // sombras y duraciones en vez de copiarlo, así que sin esto sus detectores de
+    // coherencia pasaban SIEMPRE, en verde y sin comprobar nada. Ningún otro test
+    // importa CSS, así que el coste es cero.
+    css: true,
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

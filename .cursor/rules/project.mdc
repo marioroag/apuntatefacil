@@ -41,7 +41,7 @@ npm run build          # debe quedar verde (tsc -b + vite build)
 - **Mismo rigor en el cambio pequeño que en el grande**, también en follow-ups cortos.
 - **Verificar siempre en navegador** cualquier cambio observable: capturar, mirarlo, probar
   interacciones y **rehacer si no cumple**. No dar nada por bueno sin verlo.
-- `npm run build` y `npx tsc --noEmit` verdes antes de cerrar.
+- `npm run build` y `npx tsc -b --noEmit` verdes antes de cerrar.
 - El sistema de diseño está formalizado: para piezas nuevas, ejecuta la MISMA doctrina (ver
   reglas de diseño y copy), no inventes otra dirección.
 

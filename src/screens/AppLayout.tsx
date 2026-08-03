@@ -34,7 +34,7 @@ function GroupHeader({ children, count }: { children: React.ReactNode; count?: n
   return (
     <div className={`flex h-7 items-center gap-1.5 px-2.5 ${GROUP_LABEL}`}>
       <span className="min-w-0 flex-1 truncate">{children}</span>
-      {count !== undefined && <span className="num tabular-nums text-slate-400" aria-hidden>{count}</span>}
+      {count !== undefined && <span className="num text-slate-400" aria-hidden>{count}</span>}
     </div>
   )
 }
@@ -65,9 +65,9 @@ function SiteGroupHeader({
       aria-expanded={!collapsed}
       className="sticky top-0 z-10 flex h-7 w-full items-center gap-1.5 rounded-lg bg-white px-2.5 text-[12px] font-medium text-slate-500 outline-none transition-colors hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-indigo-600"
     >
-      <ChevronDown className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-150 ease-[var(--ease-out)] motion-reduce:transition-none ${collapsed ? '-rotate-90' : ''}`} aria-hidden />
+      <ChevronDown className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none ${collapsed ? '-rotate-90' : ''}`} aria-hidden />
       <span className="min-w-0 flex-1 truncate text-left">{name}</span>
-      <span className="num tabular-nums text-slate-400" aria-hidden>{count}</span>
+      <span className="num text-slate-400" aria-hidden>{count}</span>
       <span className="sr-only">{count === 1 ? '1 puesto' : `${count} puestos`}</span>
     </button>
   )
@@ -78,7 +78,7 @@ function SiteGroupHeader({
 // enlace en vez de en un `title=`, que los lectores de pantalla no anuncian.
 function CountBadge({ count, label }: { count: number; label?: string }) {
   return (
-    <span className="num shrink-0 rounded-full bg-slate-200 px-1.5 py-px text-[11px] font-bold tabular-nums text-slate-700">
+    <span className="num shrink-0 rounded-full bg-slate-200 px-1.5 py-px text-[11px] font-bold text-slate-700">
       {count}
       {label && <span className="sr-only"> {label}</span>}
     </span>
@@ -109,7 +109,7 @@ function SideNavItem({
       to={to}
       onClick={onNavigate}
       className={({ isActive }) =>
-        `flex min-h-11 w-full items-center gap-2.5 rounded-xl px-2.5 text-sm outline-none transition-[background-color,color] duration-150 ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 lg:min-h-10 ${
+        `flex min-h-11 w-full items-center gap-2.5 rounded-xl px-2.5 text-sm outline-none transition-[background-color,color] duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 lg:min-h-10 ${
           isActive ? 'bg-indigo-50 font-semibold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900'
         }`
       }
@@ -375,8 +375,13 @@ export function AppLayout() {
         <NavLink
           to={`${base}/puestos/${c.id}`}
           onClick={() => setOpen(false)}
+          // El `shadow-[inset...]` del estado activo NO es una elevación y por eso no
+          // sale del vocabulario de sombras: es un FILO DE LUZ sobre una superficie
+          // teñida, la misma idea que el borde superior del botón primario. Va al 72%
+          // porque el fondo es indigo-50: el 16% del botón se pierde sobre un tinte
+          // tan claro. Es una excepción declarada en el guardián del acabado.
           className={({ isActive }) =>
-            `group flex min-h-11 items-center gap-2.5 rounded-xl border px-2.5 py-2 text-sm outline-none transition-[background-color,border-color,box-shadow,color] duration-150 ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 lg:min-h-10 ${
+            `group flex min-h-11 items-center gap-2.5 rounded-xl border px-2.5 py-2 text-sm outline-none transition-[background-color,border-color,box-shadow,color] duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 lg:min-h-10 ${
               isActive
                 ? 'border-indigo-200/80 bg-indigo-50 font-semibold text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]'
                 : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'

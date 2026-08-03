@@ -61,16 +61,66 @@
      Los botones fijan 8px en su propia clase; las pills siguen en 9999px. */
   --radius-xl: 0.625rem; /* 10px (era 12) */
 
-  /* Una sola sombra por nivel de elevación. Nunca apilar.
-     Reposo: lift premium muy contenido sobre el borde a 1px.
-     Flotante: SOLO superficies que de verdad flotan (dropdowns, paneles, modales). */
+  /* --- Elevación: SEIS piezas con nombre ---------------------------------------
+     Una sola sombra por nivel. Nunca apilar. El vocabulario está CERRADO: si una
+     pantalla necesita una sombra que no esté aquí, no la inventa en su className,
+     se discute y se añade a esta lista. El pecado no es el número de piezas, es la
+     sombra ANÓNIMA: un `shadow-[...]` suelto es deriva por definición, y el
+     guardián de `src/lib/acabado.test.ts` lo caza.
+
+     Por qué dos capas y no una: un objeto apoyado en una superficie produce una
+     línea oscura y APRETADA donde toca (contacto) más una penumbra ancha y suave
+     (ambiente). La UI barata solo pone la segunda, muy grande y muy gris, y el
+     resultado flota en niebla. Todas van por debajo del 10% de opacidad salvo el
+     relieve del primario, y ninguna es negro puro: van teñidas con la tinta
+     (#131822), porque el negro sobre un fondo frío se enturbia. */
+  --shadow-control: 0 1px 2px rgba(18, 22, 34, 0.06);
+  --shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 2px rgba(18, 22, 34, 0.24);
+  --shadow-pressed: inset 0 1px 2px rgba(15, 20, 60, 0.35);
   --shadow-card: 0 1px 2px rgba(18, 22, 34, 0.05), 0 2px 6px -2px rgba(18, 22, 34, 0.08);
   --shadow-pop: 0 16px 40px -12px rgba(18, 22, 34, 0.20), 0 6px 16px -8px rgba(18, 22, 34, 0.12);
+  /* Cabecera pegajosa: no es una tarjeta apoyada, es un borde bajo el que PASA el
+     contenido. Por eso el spread negativo grande, que la deja en una banda fina y
+     dirigida en vez de una penumbra. Solo aparece cuando de verdad hay algo debajo. */
+  --shadow-sticky: 0 6px 8px -7px rgba(18, 22, 34, 0.24);
 
-  /* Curvas y duraciones. ease-out exponencial (sin rebote) para el tacto preciso. */
+  /* Curvas. ease-out exponencial (sin rebote) para el tacto preciso.
+     `standard` es la de los overlays de Framer Motion; `in` es para lo que SALE. */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* --- Duraciones: TRES y se acabó ---------------------------------------------
+     Tailwind no genera utilidades desde un namespace de duración, así que se
+     consumen igual que las curvas: `duration-[var(--duration-control)]`.
+     El 150 no es un capricho, es lo que el producto ya usaba en sus 35 sitios
+     (y resulta ser el `--default-transition-duration` de Tailwind). Se adopta
+     como canónico en vez de fingir un 120 que nunca se escribió. */
+  --duration-control: 150ms;  /* responde al dedo: hover, press, color, iconos */
+  --duration-enter: 180ms;    /* algo aparece o desaparece */
+  --duration-max: 240ms;      /* el TECHO: overlays grandes y barras que recorren
+                                 distancia. Nada de la app dura más que esto. */
+  --default-transition-duration: var(--duration-control);
+
+  /* --- Iconografía --------------------------------------------------------------
+     lucide-react pone las clases `lucide` y `lucide-<nombre>` en cada <svg>, así
+     que este token gobierna los ~420 iconos de la app desde un solo sitio (la
+     regla vive en @layer base). El CSS gana a los atributos de presentación del
+     SVG: para conservar un trazo distinto a propósito hay que usar la propiedad
+     arbitraria `stroke-width` entre corchetes, no la prop `strokeWidth` de lucide.
+
+     1,75 y no el 2 de fábrica de lucide (decidido ago 2026 comparando las filas
+     reales en /dev/playground). El icono tiene que sentarse POR DEBAJO del texto,
+     no competir con él, y a los tamaños que de verdad usamos (el 71% del
+     inventario está a 14 y 16px) el 2 lo empataba. Tampoco se baja a 1,5: a 14px
+     eso son 0,88px en pantalla, por debajo del pixel completo, y el icono se
+     apaga en una pantalla no retina. A 1,75 quedan 1,17px a 16px y 1,02px a 14px:
+     aligera sin volverse alambre. */
+  --stroke-icon: 1.75;
+
+  /* Versalita del overline. Las mayúsculas juntas se emplastan: piden lo
+     contrario que los titulares, tracking POSITIVO. */
+  --tracking-overline: 0.05em;
 
   --animate-shimmer: shimmer 1.6s linear infinite;
 
@@ -210,8 +260,12 @@
     font-synthesis-weight: none;
   }
 
-  /* Números siempre tabulares para que las columnas alineen. */
-  table, .tnum, time, [data-num] {
+  /* Red de seguridad, NO un mecanismo: toda tabla y todo <time> alinean aunque
+     nadie se acuerde de marcarlos. El mecanismo declarado es la clase `.num`
+     (más abajo). Aquí vivían además `.tnum` y `[data-num]`: el primero se usaba
+     dos veces y el segundo cero, así que eran una tercera y una cuarta forma de
+     decir lo mismo. Migrados a `.num`. */
+  table, time {
     font-variant-numeric: tabular-nums;
   }
 
@@ -232,10 +286,25 @@
   }
 
   /* DATOS: recuentos, fechas, teléfonos, importes. En la sans de producto, con
-     cifras TABULARES para que las columnas alineen sin recurrir a una mono. */
+     cifras TABULARES para que las columnas alineen sin recurrir a una mono.
+     Es el MECANISMO ÚNICO: no usar la utilidad `tabular-nums` de Tailwind ni
+     inventar otra clase. Con cifras proporcionales el 1 es estrecho y el 8 ancho,
+     así que una columna queda con el borde dentado y un contador que pasa de 9 a
+     10 empuja lo que tiene al lado. Ese microsalto es de las cosas que más rápido
+     delatan un prototipo. */
   .num {
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1;
+  }
+
+  /* ICONOS: un solo sitio para el grosor de los ~420 iconos de la app.
+     lucide-react marca cada <svg> con la clase `lucide`, así que esta regla los
+     alcanza a todos sin envoltorio ni tocar una sola llamada. OJO: el CSS gana a
+     los atributos de presentación del SVG, de modo que la prop `strokeWidth` de
+     lucide YA NO PINTA. Para un trazo distinto a propósito (los checks sobre
+     relleno sólido) hay que usar la propiedad arbitraria `stroke-width` entre corchetes. */
+  .lucide {
+    stroke-width: var(--stroke-icon);
   }
 
   /* Quita la apariencia nativa de los campos de texto. Safari/iOS les pone su
@@ -298,8 +367,19 @@
 }
 
 @layer utilities {
-  .shadow-card { box-shadow: var(--shadow-card); }
-  .shadow-pop { box-shadow: var(--shadow-pop); }
+  /* AQUÍ NO VAN LAS SOMBRAS. Tailwind ya genera `shadow-control`, `shadow-card` y
+     el resto a partir de los tokens `--shadow-*` del @theme, y las genera BIEN:
+     alimentan `--tw-shadow`, que se compone con el anillo dentro de un único
+     `box-shadow`.
+       box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+                   var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)
+     Escribirlas a mano como `.shadow-card { box-shadow: var(--shadow-card) }` parece
+     inofensivo y es un desastre silencioso: al declararse después, PISA esa cadena
+     con un box-shadow plano y **borra el anillo del elemento**. Cualquier cosa con
+     `ring-1 shadow-card` se quedaba sin borde y se fundía con el fondo. Estuvo así
+     en main hasta ago 2026 (se notó al pasar los botones a los tokens: de golpe
+     Filtros y Vistas perdieron su hairline). Si necesitas una sombra nueva, se
+     añade al @theme y ya está: no hay que declarar ninguna utilidad. */
 
   /* Landing / marketing: ritmo vertical y horizontal de sección */
   .section-y {

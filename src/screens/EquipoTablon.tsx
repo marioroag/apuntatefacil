@@ -140,13 +140,13 @@ export function EquipoTablon() {
             opacidad, 180ms ease-out. El contenido permanece montado para animar
             también el cierre tras publicar. */}
         <div
-          className={`grid transition-[grid-template-rows] duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+          className={`grid transition-[grid-template-rows] duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
             detailsOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
           }`}
           inert={!detailsOpen || undefined}
         >
           <div
-            className={`overflow-hidden transition-opacity duration-[180ms] ease-[var(--ease-out)] motion-reduce:transition-none ${
+            className={`overflow-hidden transition-opacity duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
               detailsOpen ? 'opacity-100' : 'opacity-0'
             }`}
           >

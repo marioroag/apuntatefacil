@@ -39,6 +39,9 @@ color **+** texto, nunca solo color. Mapa en `src/lib/types.ts` (`STATUS_META`).
 - superficies externas (landing, formulario público) pueden usar 16px en tarjetas grandes
 
 ## Botones, sombras, movimiento
+
+> Resumen. La fuente de verdad es la sección **"Acabado"** de `CLAUDE.md`, y la hace
+> cumplir el test `src/lib/acabado.test.ts`. Si algo de aquí la contradice, gana ella.
 - Botón "instrumento": relieve nítido (filo de luz interior + anillo 1px + sombra mínima),
   press = `translate-y-px` (nunca `scale`). Constantes `BTN_PRIMARY/SECONDARY/DANGER/_LG/_SM`
   en `src/lib/buttons.ts`.
@@ -55,6 +58,6 @@ color **+** texto, nunca solo color. Mapa en `src/lib/types.ts` (`STATUS_META`).
 - Foco visible con `:focus-visible` (nunca quitar el outline sin reemplazo visible). `<button>`/`<a>`
   reales. `<table>` semántica con `aria-sort`. Drag-to-reorder SIEMPRE con alternativa de teclado y
   botones subir/bajar.
-- Detalle del candidato = panel lateral (SlideOver), nunca modal a pantalla completa que tape la lista.
+- Detalle del candidato = pop-up con pestañas (`screens/CandidateModal.tsx`). El SlideOver es para detalles secundarios (tablón).
 - Un único `FieldRenderer` (`src/components/FieldRenderer.tsx`) pinta a la vez la preview del builder
   y el formulario público (WYSIWYG real): si tocas uno, tocas los dos.

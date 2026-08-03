@@ -732,7 +732,7 @@ function TaskRow({ task, seenAt, getCand, getCampaign, onOpen }: {
           <span className="num ml-auto shrink-0 text-[12px] font-medium text-slate-500">{done}/{total}</span>
         </span>
         <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate-100">
-          <span className="block h-full rounded-full bg-slate-400 transition-[width] duration-300" style={{ width: `${(done / total) * 100}%` }} />
+          <span className="block h-full rounded-full bg-slate-400 transition-[width] duration-[var(--duration-max)]" style={{ width: `${(done / total) * 100}%` }} />
         </span>
         <span className="mt-1 block truncate text-[12px] text-slate-500">
           {last
@@ -786,7 +786,7 @@ function TaskBlock({ task, senderName, getCand, getCampaign, onOpen, onWrite, on
           <p className="num shrink-0 text-[13px] font-semibold text-slate-700">{done}/{total}</p>
         </div>
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-100">
-          <div className="h-full rounded-full bg-slate-700 transition-[width] duration-300" style={{ width: `${(done / total) * 100}%` }} />
+          <div className="h-full rounded-full bg-slate-700 transition-[width] duration-[var(--duration-max)]" style={{ width: `${(done / total) * 100}%` }} />
         </div>
         <div className="mt-2.5">
           <button onClick={() => setShowEmail((s) => !s)} aria-expanded={showEmail} className="inline-flex items-center gap-1 text-[12px] font-medium text-slate-500 transition-colors hover:text-slate-700">
@@ -1133,7 +1133,7 @@ function RecipeLauncher({ onPick }: { onPick: (key: string) => void }) {
         type="button" onClick={() => setOpen((o) => !o)} aria-label="Tareas rápidas" aria-expanded={open}
         className={`grid size-9 place-items-center rounded-xl border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${open ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-transparent text-slate-400 hover:bg-slate-100 hover:text-slate-600'}`}
       >
-        <Plus className={`size-5 transition-transform duration-200 ${open ? 'rotate-45' : ''}`} aria-hidden />
+        <Plus className={`size-5 transition-transform duration-[var(--duration-control)] ${open ? 'rotate-45' : ''}`} aria-hidden />
       </button>
       {open && (
         <motion.div

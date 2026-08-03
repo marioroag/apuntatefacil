@@ -10,7 +10,7 @@ export function MaskedPhone({ value, className = '' }: { value: string; classNam
   const m = value.match(/^(.*?)(\d{3})(\D*)$/)
   const prefix = m ? m[1] : value
   return (
-    <span className={`tnum whitespace-nowrap ${className}`}>
+    <span className={`num whitespace-nowrap ${className}`}>
       {prefix}
       {m ? (
         <span aria-hidden className="phone-mask-rects">

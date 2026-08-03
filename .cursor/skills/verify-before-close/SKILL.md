@@ -20,13 +20,19 @@ Si tocó UI, copy, layout, interacción o formulario: **obligatorio navegador**.
 5. Formulario público: envío fallido → **no** debe borrar respuestas ni CV
 6. Estados candidato: acento ultramarine **no** en chips de estado; descartado **sin rojo**
 
-## 3. Build y tipos (siempre)
+## 3. Build, tipos y guardianes (siempre)
 
 ```bash
 cd /Users/mario/criba && pwd    # confirmar cwd
 cd /Users/mario/criba && npm run build
-cd /Users/mario/criba && npx tsc --noEmit
+cd /Users/mario/criba && npx tsc -b --noEmit
+cd /Users/mario/criba && npm test
 ```
+
+`npm test` no son solo pruebas de lógica: incluye los **guardianes**, que fallan cuando
+algo nuevo se sale de las reglas de la casa. El del acabado (`src/lib/acabado.test.ts`)
+vigila sombras, anillos, press, duraciones, trazo de icono y cifras. Cuando salta, el
+mensaje dice qué hacer y dónde; no lo silencies añadiendo una excepción sin motivo.
 
 El cwd del shell se resetea entre llamadas: **siempre** `cd /Users/mario/criba` explícito.
 

@@ -40,11 +40,13 @@ Punto de color **+** texto. Mapa: `STATUS_META` en `src/lib/types.ts`.
 ### Radios, botones, sombras
 - Inputs/campos/tarjetas/paneles/modales: **10px** (`rounded-xl`). Botones/controles pequeños: **8px** (`rounded-lg`). Pills: 999px. Landing/formulario público: tarjetas grandes hasta 16px.
 - Botones: constantes `BTN_*` en `src/lib/buttons.ts`. Relieve nítido, press = `translate-y-px` (nunca `scale`).
-- Una sombra por elevación: `shadow-card` tarjetas; `shadow-pop` solo overlays reales. Sin gradientes (salvo skeleton).
+- Elevación: seis piezas con nombre (`shadow-control/raised/pressed/card/pop/sticky`). Nunca a mano, nunca apiladas, nunca la escala de Tailwind. Sin gradientes (salvo skeleton).
+- Iconos: lucide a `--stroke-icon` (1,75). La prop `strokeWidth` NO pinta, la pisa la regla `.lucide`; usa la propiedad arbitraria `stroke-width` entre corchetes.
+- **El acabado entero está en la sección "Acabado" de CLAUDE.md, y lo vigila `src/lib/acabado.test.ts`.**
 
 ### Componentes clave
 - `FieldRenderer`: WYSIWYG real (builder preview = formulario público). Tocar uno, tocar ambos.
-- Detalle candidato: `SlideOver`, nunca modal a pantalla completa.
+- Detalle candidato: `src/screens/CandidateModal.tsx` (pop-up con pestañas, jul 2026). El `SlideOver` es lo correcto para detalles SECUNDARIOS (peticiones del tablón), no para el candidato.
 - Checkbox de marca: `src/components/ui/Checkbox.tsx` (app). Formulario público usa acento del cliente vía `--accent`, no ultramarine.
 - Logo: `src/components/Logo.tsx` (SVG inline).
 
@@ -59,7 +61,7 @@ Punto de color **+** texto. Mapa: `STATUS_META` en `src/lib/types.ts`.
 ### 1. Shape
 - Jerarquía por peso/color, no por tamaño exagerado.
 - Plano por defecto: borde + `shadow-card`. Cards solo cuando son el affordance correcto; nunca anidadas.
-- Movimiento: 120/180/240 ms, solo `transform`/`opacity`, sin springs. Respeta `prefers-reduced-motion`.
+- Movimiento: tres tokens, `duration-[var(--duration-control|enter|max)]` (150/180/240). Solo `transform`/`opacity`, sin springs. Toda transición declara qué anima. Respeta `prefers-reduced-motion`.
 - Reveals en montaje CSS, **no** `whileInView` / `IntersectionObserver` (no dispara en preview embebido).
 
 ### 2. Implement
@@ -77,14 +79,15 @@ Checklist:
 - [ ] Contraste AA en texto significativo
 - [ ] Foco visible (:focus-visible)
 - [ ] cd /Users/mario/criba && npm run build
-- [ ] cd /Users/mario/criba && npx tsc --noEmit
+- [ ] cd /Users/mario/criba && npx tsc -b --noEmit   # `tsc --noEmit` a secas NO comprueba nada aquí
+- [ ] cd /Users/mario/criba && npm test               # incluye el guardián del acabado
 ```
 
 Si algo no cumple, rehacer antes de cerrar. Safari/dnd-kit: no confiar solo en preview Chrome.
 
 ## Anti-referencias rápidas
 
-Rechazar: plantilla SaaS genérica, `.99`, urgencia falsa, testimonios inventados, mascotas/emojis, cascos/naranjas de obra, glassmorphism decorativo, sombras apiladas, borde lateral de color como acento, modal fullscreen para detalle candidato.
+Rechazar: plantilla SaaS genérica, `.99`, urgencia falsa, testimonios inventados, mascotas/emojis, cascos/naranjas de obra, glassmorphism decorativo, sombras apiladas, borde lateral de color como acento, sombras escritas a mano (`shadow-[...]`), `scale` en el press.
 
 ## Recursos
 

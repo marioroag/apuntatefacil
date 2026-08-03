@@ -1,45 +1,153 @@
-// Botón "instrumento de precisión": secundario blanco con hairline + sombra
-// mínima; primario ULTRAMARINE sólido con un filo de luz superior (inset 1px) y
-// un anillo interno oscuro a 1px (tacto "mecanizado", no caramelo). Radio 8px.
+// -----------------------------------------------------------------------------
+// EL BOTÓN "INSTRUMENTO DE PRECISIÓN". Fuente de verdad ÚNICA.
+//
+// Hasta ago 2026 esto vivía en dos sitios (aquí y en `components/ui/Button.tsx`,
+// con las cadenas copiadas a mano) y encima se recreaba suelto en tres pantallas.
+// El resultado fue el previsible: el mismo botón con cinco opacidades de sombra
+// distintas y tres copias sin `ring-inset`. Ahora la PINTURA (`BTN_SUPERFICIE`)
+// se declara una vez y la componen tanto las constantes de abajo como el
+// componente `<Button>`. Si quieres un botón, sale de aquí; no lo reescribas en
+// tu pantalla, que es exactamente como empezó el problema.
+//
+// EL RELIEVE, que es lo que da el tacto mecanizado y no de caramelo:
+//   · filo de luz de 1px arriba por dentro (`--shadow-raised`), coherente con una
+//     escena iluminada desde arriba;
+//   · anillo interno de 1px, que hace de canto;
+//   · sombra de CONTACTO mínima, no una penumbra difusa.
+// Al pulsar, el objeto se hunde y la luz cambia con él: el hairline pierde la
+// sombra de contacto (ya no hay hueco que sombrear) y el sólido la cambia por una
+// interior (`--shadow-pressed`), que es lo que hace un botón rehundido. Nadie lo
+// analiza; todo el mundo lo nota.
+//
+// EL PRESS ES `translate-y-px`, NUNCA `scale`. Un botón físico se hunde, no se
+// encoge. El `scale` es lenguaje de dibujo animado: funciona en un juego, no en
+// una herramienta de trabajo.
+//
 // TODOS los anillos van `ring-inset`, y esto no es cosmética: `ring-1` sin inset
 // es un box-shadow que se pinta FUERA de la caja, así que un botón de 36px se ve
 // de 38. El primario ya era inset y el secundario no, de modo que cada pareja
 // primario+secundario (Compartir/Editar) iba desalineada 2px, y lo mismo contra
 // cualquier input con `border` (que se pinta dentro). Con inset, el rectángulo
 // pintado es siempre igual a la caja de layout. No quitar el `ring-inset`.
+// Ojo al verificarlo: `getBoundingClientRect()` NO ve esta diferencia (el ring no
+// ocupa layout); hay que sumar el spread del `box-shadow` computado.
+//
 // Alto compacto (36px) en escritorio; en punteros táctiles (móvil/tablet) sube a
 // 44px (`pointer-coarse:min-h-11`) para que el objetivo de toque cumpla el mínimo,
-// sin tocar la densidad de escritorio. Mismo criterio que el 16px de inputs en táctil.
-// Transición acotada a color/sombra/transform (nunca layout); foco lo cubre :focus-visible.
-export const BTN_SECONDARY =
-  'inline-flex h-9 pointer-coarse:min-h-11 items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-slate-800 ring-1 ring-inset ring-slate-300/80 shadow-[0_1px_2px_rgba(18,22,34,0.06)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-slate-50 hover:ring-slate-300 active:translate-y-px active:shadow-none'
+// sin tocar la densidad de escritorio. Mismo criterio que el 16px de inputs.
+// -----------------------------------------------------------------------------
 
-export const BTN_PRIMARY =
-  'inline-flex h-9 pointer-coarse:min-h-11 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px active:shadow-[inset_0_1px_2px_rgba(15,20,60,0.35)]'
+/**
+ * Movimiento compartido. Acotado a color/sombra/transform: NUNCA a layout, que es
+ * lo que provoca los saltos de un pixel al pasar el ratón. La duración sale del
+ * token, no de un número suelto. El foco lo cubre `:focus-visible` en index.css.
+ */
+export const BTN_MOTION =
+  'transition-[background-color,box-shadow,transform,color] duration-[var(--duration-control)] ease-[var(--ease-out)] active:translate-y-px'
 
-// Botón destructivo del sistema (acción clara con borde + icono, nunca solo color):
-// mismo patrón que BTN_SECONDARY pero en rojo de peligro. Una sola fuente de verdad
-// para alto/radio/sombra; no recrear con valores sueltos en cada pantalla.
-export const BTN_DANGER =
-  'inline-flex h-9 pointer-coarse:min-h-11 items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-medium text-red-600 ring-1 ring-inset ring-red-200 shadow-[0_1px_2px_rgba(18,22,34,0.06)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-red-50 active:translate-y-px active:shadow-none'
+/** Esqueleto: caja y forma. El radio de los controles es 8px (`rounded-lg`). */
+const CAJA = 'inline-flex items-center justify-center rounded-lg whitespace-nowrap select-none'
 
-// Variantes grandes (h-12) para los CTA de la landing: mismo lenguaje "instrumento"
-// (relieve nítido) que el resto, solo que más grandes. Añade `group` en el sitio
-// de uso si el icono lleva el desplazamiento al hover.
-export const BTN_PRIMARY_LG =
-  'inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 text-base font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px'
+/**
+ * LA PINTURA de cada variante, que es lo único que de verdad estaba duplicado.
+ * Las sombras salen de las cinco piezas del vocabulario de elevación (`@theme`),
+ * nunca de un `shadow-[...]` suelto.
+ *
+ * `inverted` comparte `shadow-raised` con el primario a propósito: su filo de luz
+ * es blanco sobre blanco y no se ve, pero la sombra de contacto al 24% es justo
+ * la que necesita para despegar de un bloque oscuro.
+ */
+export const BTN_SUPERFICIE = {
+  primary:
+    'bg-indigo-600 text-white ring-1 ring-inset ring-indigo-800/60 shadow-raised hover:bg-indigo-700 active:shadow-pressed',
+  secondary:
+    'bg-white text-slate-800 ring-1 ring-inset ring-slate-300/80 shadow-control hover:bg-slate-50 hover:ring-slate-300 active:shadow-none',
+  danger:
+    'bg-white text-red-600 ring-1 ring-inset ring-red-200 shadow-control hover:bg-red-50 active:shadow-none',
+  inverted: 'bg-white text-slate-900 shadow-raised hover:bg-slate-100 active:shadow-none',
+  ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
+} as const
 
-export const BTN_SECONDARY_LG =
-  'inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 text-base font-semibold text-slate-800 ring-1 ring-inset ring-slate-300/80 shadow-[0_1px_2px_rgba(18,22,34,0.06)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-slate-50 hover:ring-slate-300 active:translate-y-px'
+export type BtnVariant = keyof typeof BTN_SUPERFICIE
+export type BtnSize = 'sm' | 'md' | 'lg'
 
-// CTA claro sobre bloque oscuro (CTA final del landing).
-export const BTN_INVERTED_LG =
-  'inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-white px-6 text-base font-semibold text-slate-900 shadow-[0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,transform] duration-150 ease-[var(--ease-out)] hover:bg-slate-100 active:translate-y-px'
+/** Alto, hueco icono-texto y tamaño de letra. Tres alturas y ni una más. */
+const TALLA: Record<BtnSize, string> = {
+  sm: 'h-8 gap-1.5 text-[13px]',
+  md: 'h-9 pointer-coarse:min-h-11 gap-1.5 text-sm',
+  lg: 'h-12 gap-2 text-base',
+}
 
-// Variante compacta (h-8) del primario, para botones inline dentro de pills/grupos
-// estrechos (p. ej. "Copiar enlace" junto a una URL), donde el h-9 queda grande.
-export const BTN_PRIMARY_SM =
-  'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-[13px] font-semibold text-white ring-1 ring-inset ring-indigo-800/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(18,22,34,0.24)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-indigo-700 active:translate-y-px active:shadow-[inset_0_1px_2px_rgba(15,20,60,0.35)]'
+/**
+ * El relleno horizontal depende de si la variante es SÓLIDA o de hairline: un
+ * botón relleno necesita más aire a los lados que uno de línea con el mismo alto,
+ * o el color se le come al texto. No es una inconsistencia heredada, es la regla.
+ */
+const AIRE_SOLIDO: Record<BtnSize, string> = { sm: 'px-3', md: 'px-4', lg: 'px-6' }
+const AIRE_HAIRLINE: Record<BtnSize, string> = { sm: 'px-3', md: 'px-3', lg: 'px-5' }
+const SOLIDAS: readonly BtnVariant[] = ['primary', 'inverted']
 
-export const BTN_SECONDARY_SM =
-  'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-medium text-slate-800 ring-1 ring-inset ring-slate-300/80 shadow-[0_1px_2px_rgba(18,22,34,0.06)] transition-[background-color,box-shadow,transform] duration-150 ease-[var(--ease-out)] hover:bg-slate-50 hover:ring-slate-300 active:translate-y-px active:shadow-none'
+/**
+ * El peso sigue a la jerarquía, no al tamaño: la acción principal va en semibold y
+ * la secundaria en medium. En `lg` (los CTA de la landing) todo sube a semibold,
+ * porque ahí compiten contra titulares.
+ */
+function peso(variant: BtnVariant, size: BtnSize) {
+  return size === 'lg' || SOLIDAS.includes(variant) ? 'font-semibold' : 'font-medium'
+}
+
+/** Compone la clase completa de un botón. Es la única forma de fabricar uno. */
+export function botonClase(variant: BtnVariant = 'primary', size: BtnSize = 'md', extra = '') {
+  const aire = SOLIDAS.includes(variant) ? AIRE_SOLIDO[size] : AIRE_HAIRLINE[size]
+  return [CAJA, BTN_MOTION, BTN_SUPERFICIE[variant], TALLA[size], aire, peso(variant, size), extra]
+    .filter(Boolean)
+    .join(' ')
+}
+
+// --- Las constantes de siempre, ahora compuestas ------------------------------
+// Mismo aspecto que antes: lo que cambia es que ya no hay cadenas sueltas capaces
+// de derivar por su cuenta. Las variantes `lg` ganan además el cambio de luz al
+// pulsar, que se les había olvidado (solo bajaban 1px, sin tocar la sombra).
+
+export const BTN_PRIMARY = botonClase('primary', 'md')
+export const BTN_SECONDARY = botonClase('secondary', 'md')
+export const BTN_DANGER = botonClase('danger', 'md')
+
+/** Compacta (h-8) para botones inline en pills o grupos estrechos. */
+export const BTN_PRIMARY_SM = botonClase('primary', 'sm')
+export const BTN_SECONDARY_SM = botonClase('secondary', 'sm')
+
+/** CTA grandes de la landing: mismo lenguaje, más cuerpo. */
+export const BTN_PRIMARY_LG = botonClase('primary', 'lg')
+export const BTN_SECONDARY_LG = botonClase('secondary', 'lg')
+/** CTA claro sobre bloque oscuro (cierre de la landing). */
+export const BTN_INVERTED_LG = botonClase('inverted', 'lg')
+
+/**
+ * BOTÓN DE BLOQUE: el que cierra un formulario de acceso (entrar, crear cuenta,
+ * aceptar invitación, restablecer). Ancho completo, 44px de alto y radio de CAMPO
+ * (10px), no de control (8px).
+ *
+ * No es un capricho ni deriva: un botón que ocupa todo el ancho debajo de una pila
+ * de inputs que también lo ocupan tiene que compartir su radio y su ancho, o el
+ * bloque se ve descosido por abajo. El 44px es el objetivo de toque, que en una
+ * pantalla de login importa más que la densidad.
+ *
+ * Estaba recreado a mano en seis sitios (Login ×3, Invitación ×2, ResetPassword),
+ * cada uno con su propia opacidad de `disabled`. Ahora se declara una vez.
+ */
+export function botonBloque(variant: BtnVariant = 'primary', extra = '') {
+  return [
+    'flex w-full items-center justify-center gap-2 rounded-xl whitespace-nowrap select-none',
+    'h-11 text-sm font-semibold',
+    BTN_MOTION,
+    BTN_SUPERFICIE[variant],
+    'disabled:pointer-events-none disabled:opacity-60',
+    extra,
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+export const BTN_PRIMARY_BLOCK = botonBloque('primary')
+export const BTN_SECONDARY_BLOCK = botonBloque('secondary')

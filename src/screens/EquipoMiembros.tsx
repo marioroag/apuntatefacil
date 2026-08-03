@@ -371,7 +371,11 @@ function RolePill({ active, onClick, label, hint }: { active: boolean; onClick: 
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex-1 rounded-xl border px-3 py-2 text-left transition-colors ${active ? 'border-indigo-300 bg-indigo-50/60 ring-1 ring-indigo-200' : 'border-slate-200 hover:bg-slate-50'}`}
+      // Un solo trazo. El estado activo llevaba `border-indigo-300` Y `ring-1
+      // ring-indigo-200` a la vez: dos hairlines de 1px pegados, es decir un canto de
+      // 2px que además hacía la tarjeta más grande que la inactiva. La selección se
+      // dice con el color del borde y el tinte del fondo; no hace falta engordarla.
+      className={`flex-1 rounded-xl border px-3 py-2 text-left transition-colors ${active ? 'border-indigo-300 bg-indigo-50/60' : 'border-slate-200 hover:bg-slate-50'}`}
     >
       <span className="block text-sm font-medium text-slate-800">{label}</span>
       <span className="block text-[12px] text-slate-500">{hint}</span>

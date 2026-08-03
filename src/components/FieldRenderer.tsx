@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { AlertCircle, Check, Paperclip, X } from 'lucide-react'
+import { AlertCircle, Check, ChevronDown, Paperclip, X } from 'lucide-react'
 import type { FormField } from '../lib/types'
 
 export type FieldValue = string | string[] | boolean | undefined
@@ -53,7 +53,7 @@ function formatPhoneTyping(raw: string): string {
 
 const inputBase =
   'w-full rounded-xl border bg-white px-3.5 text-base text-slate-900 placeholder:text-slate-500 ' +
-  'transition-[border-color,box-shadow] duration-150 outline-none ' +
+  'transition-[border-color,box-shadow] duration-[var(--duration-control)] outline-none ' +
   'focus:border-[var(--accent)] focus:ring-4 focus:ring-[color-mix(in_srgb,var(--accent)_18%,transparent)]'
 
 function fieldBorder(error?: string) {
@@ -318,21 +318,34 @@ function SelectControl({
   const refs = useRef<(HTMLButtonElement | null)[]>([])
 
   if (options.length > 5) {
+    // El chevron es un icono de verdad, no una imagen de fondo. Antes era el
+    // `ChevronDown` de lucide embebido como data-URI dentro de la clase
+    // `bg-[url(...)]`, y **Tailwind nunca llegó a generar esa utilidad**: el
+    // desplegable salía con `appearance-none` y sin ninguna flecha, o sea con
+    // pinta de campo de texto que no se puede escribir. Se descubrió al buscarlo
+    // en el CSS compilado (ago 2026); llevaba roto en main. Como icono normal
+    // hereda `--stroke-icon` igual que los demás y no hay nada que recordar.
     return (
-      <select
-        id={id}
-        onBlur={onBlur}
-        aria-describedby={describedBy}
-        aria-invalid={invalid || undefined}
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        className={`${inputBase} ${invalid ? 'border-red-400' : 'border-slate-300'} h-12 appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2364748b%22 stroke-width=%222%22><path d=%22M6 9l6 6 6-6%22/></svg>')] bg-[length:18px] bg-[right_0.85rem_center] bg-no-repeat pr-10`}
-      >
-        <option value="" disabled>Elige una opción</option>
-        {options.map((o) => (
-          <option key={o} value={o}>{o}</option>
-        ))}
-      </select>
+      <div className="relative">
+        <select
+          id={id}
+          onBlur={onBlur}
+          aria-describedby={describedBy}
+          aria-invalid={invalid || undefined}
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          className={`${inputBase} ${invalid ? 'border-red-400' : 'border-slate-300'} h-12 appearance-none pr-10`}
+        >
+          <option value="" disabled>Elige una opción</option>
+          {options.map((o) => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+        <ChevronDown
+          className="pointer-events-none absolute right-3.5 top-1/2 size-[18px] -translate-y-1/2 text-slate-500"
+          aria-hidden
+        />
+      </div>
     )
   }
 

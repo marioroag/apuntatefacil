@@ -44,7 +44,8 @@ supabase start
 cp .env.example .env.local
 npm run dev
 npm run build
-npx tsc --noEmit
+npx tsc -b --noEmit
+npm test          # includes the "guardian" tests: they fail when new code breaks a house rule
 ```
 
 Always run commands from the repo root:

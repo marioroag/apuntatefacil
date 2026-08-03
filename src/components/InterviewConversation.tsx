@@ -289,7 +289,7 @@ function Inicio({
           className="inline-flex items-center gap-1 rounded-lg px-1 py-0.5 text-[13px] font-semibold text-indigo-700 hover:underline"
         >
           <ChevronDown
-            className={`size-3.5 transition-transform duration-150 ${ajustando ? 'rotate-180' : ''}`}
+            className={`size-3.5 transition-transform duration-[var(--duration-control)] ${ajustando ? 'rotate-180' : ''}`}
             aria-hidden
           />
           {ajustando ? 'Listo' : 'Ajustar'}

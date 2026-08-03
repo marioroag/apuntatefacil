@@ -474,11 +474,14 @@ function Favorito({ value, onChange }: { value: boolean; onChange: (v: boolean) 
       aria-pressed={value}
       aria-label={value ? 'Quitar de favoritos' : 'Guardar en favoritos'}
       onClick={() => onChange(!value)}
-      className={`group grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg transition-colors duration-150 ease-[var(--ease-out)] hover:bg-slate-100 ${
+      className={`group grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg transition-[color,background-color,transform] duration-[var(--duration-control)] ease-[var(--ease-out)] hover:bg-slate-100 active:translate-y-px ${
         value ? 'text-indigo-600 hover:text-indigo-700' : 'text-slate-400 hover:text-indigo-600'
       }`}
     >
-      <Star strokeWidth={1.75} className={`size-[18px] transition-transform duration-150 ease-[var(--ease-out)] group-active:scale-95 motion-reduce:transition-none ${value ? 'fill-current' : ''}`} aria-hidden />
+      {/* El press es `translate-y-px` en el botón, nunca `scale` en el icono: un
+          control se hunde, no se encoge. El `scale` es lenguaje de dibujo animado
+          y aquí desentonaba contra los 16 botones del sistema. */}
+      <Star className={`size-[18px] [stroke-width:1.75] ${value ? 'fill-current' : ''}`} aria-hidden />
     </button>
   )
 }

@@ -116,7 +116,7 @@ Checklist rápido:
 ### 5. Implementar
 
 - Cambios visibles: verificar en navegador (misma rigor que diseño).
-- `cd /Users/mario/criba && npm run build` y `npx tsc --noEmit` si tocaste TSX.
+- `cd /Users/mario/criba && npm run build` y `npx tsc -b --noEmit` si tocaste TSX.
 
 ## Patrones que funcionan en este producto
 

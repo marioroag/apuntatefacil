@@ -154,7 +154,7 @@ export function Resumen() {
                       >
                         <Briefcase className="size-4 shrink-0 text-slate-500" aria-hidden />
                         <span className="min-w-0 flex-1 truncate text-sm text-slate-800">{c.title}</span>
-                        <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[11px] font-bold tabular-nums text-slate-700">{n}</span>
+                        <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[11px] font-bold num text-slate-700">{n}</span>
                       </Link>
                     </li>
                   ))}
@@ -376,7 +376,7 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
     <figure className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
       <figcaption className="flex items-baseline justify-between">
         <span className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</span>
-        <span className="text-[12px] tabular-nums text-slate-500">media de {miles(avg)}/semana</span>
+        <span className="text-[12px] num text-slate-500">media de {miles(avg)}/semana</span>
       </figcaption>
       <div ref={ref} className="mt-2">
         <svg
@@ -388,7 +388,7 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
         >
           {/* Línea de máximo: da escala para leer las alturas. */}
           <line x1={padL} y1={maxY} x2={w - padR} y2={maxY} className="stroke-slate-200" strokeDasharray="2 4" />
-          <text x={w - padR} y={maxY - 5} textAnchor="end" className="fill-slate-400 text-[10px] tabular-nums">{max}</text>
+          <text x={w - padR} y={maxY - 5} textAnchor="end" className="fill-slate-400 text-[10px] num">{max}</text>
           {/* Área + línea RECTA (honesta con datos discretos). */}
           <path d={area} className="fill-slate-700/10" />
           <path d={solidLine} fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" className="stroke-slate-700" />
@@ -405,7 +405,7 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
               <g key={weeks[i].start}>
                 <circle cx={p.x} cy={p.y} r="2.5" strokeWidth="2" className={partial ? 'fill-white stroke-slate-400' : 'fill-slate-700 stroke-white'} />
                 {(labelEach || i === n - 1) && p.v !== max && (
-                  <text x={p.x} y={p.y - 8} textAnchor="middle" className={`text-[10px] tabular-nums ${partial ? 'fill-slate-400' : 'fill-slate-600'}`}>{p.v}</text>
+                  <text x={p.x} y={p.y - 8} textAnchor="middle" className={`text-[10px] num ${partial ? 'fill-slate-400' : 'fill-slate-600'}`}>{p.v}</text>
                 )}
               </g>
             )
@@ -433,7 +433,7 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
               {weeks.map((wk, i) => (
                 <tr key={wk.start}>
                   <td className="px-3 py-1.5 text-slate-700">{wk.label}{partialLast && i === n - 1 ? ' (en curso)' : ''}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums text-slate-800">{wk.count}</td>
+                  <td className="px-3 py-1.5 text-right num text-slate-800">{wk.count}</td>
                 </tr>
               ))}
             </tbody>
@@ -507,7 +507,7 @@ function Kpi({ label, n }: { label: string; n: number }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
       <p className="text-[12px] text-slate-500">{label}</p>
-      <p className="mt-0.5 text-2xl font-semibold tabular-nums text-slate-900">{miles(n)}</p>
+      <p className="mt-0.5 text-2xl font-semibold num text-slate-900">{miles(n)}</p>
     </div>
   )
 }
@@ -517,7 +517,7 @@ function Panel({ title, right, children }: { title: string; right?: string; chil
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
       <div className="mb-1 flex items-baseline justify-between">
         <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-        {right && <span className="text-[13px] tabular-nums text-slate-500">{right}</span>}
+        {right && <span className="text-[13px] num text-slate-500">{right}</span>}
       </div>
       {children}
     </div>

@@ -13,7 +13,7 @@
 | Formulario WYSIWYG | `src/components/FieldRenderer.tsx` |
 | Formulario público | `src/screens/PublicForm.tsx`, `src/components/ApplicationForm.tsx` |
 | Constructor | `src/screens/Builder.tsx` |
-| Detalle candidato | SlideOver en panel de puestos |
+| Detalle candidato | `screens/CandidateModal.tsx` (pop-up con pestañas) |
 | Checkbox app | `src/components/ui/Checkbox.tsx` |
 | Logo | `src/components/Logo.tsx` |
 | Estrategia producto | `PRODUCT.md` |
@@ -83,7 +83,7 @@ Plan Pro: chapa **"Recomendado"**, nunca "el más elegido".
 
 ```bash
 cd /Users/mario/criba && npm run build
-cd /Users/mario/criba && npx tsc --noEmit
+cd /Users/mario/criba && npx tsc -b --noEmit
 ```
 
 ### Visual

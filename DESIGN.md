@@ -185,19 +185,27 @@ Los cinco estados de candidato tienen color propio y **nunca** usan el índigo d
 
 ## 4. Elevation
 
-Plano por defecto. La profundidad la dan los bordes y la capa de fondo (`#F9FAFB` bajo superficies blancas), no las sombras. Cuando hace falta elevación hay **exactamente dos** sombras, y nunca se apilan.
+> Los valores viven en el `@theme` de `src/index.css` y la doctrina completa en la sección
+> **"Acabado"** de `CLAUDE.md`. Esto es el resumen; si divergen, gana el CSS.
+
+Plano por defecto. La profundidad la dan los bordes y la capa de fondo (`#f9fafb` bajo superficies blancas), no las sombras. Cuando hace falta elevación hay **seis piezas con nombre**, y nunca se apilan.
 
 ### Shadow Vocabulary
-- **Reposo de tarjeta** (`box-shadow: 0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04)`): tarjetas y paneles asentados sobre el fondo. Apenas perceptible, da peso sin dramatismo.
-- **Capa flotante** (`box-shadow: 0 8px 24px rgba(15,23,42,0.12)`): SOLO superficies que de verdad flotan sobre el contenido (dropdowns, paneles deslizantes, modales).
-- **Relieve de botón primario** (`inset 0 1px 0 rgba(255,255,255,0.25), 0 1px 2px rgba(30,27,75,0.35)`): excepción consciente y única a la planitud; el brillo interior + sombra ínfima dan tacto al botón primario sin convertirlo en un objeto 3D.
+- **`shadow-control`** (`0 1px 2px rgba(18,22,34,0.06)`): un control en reposo, botón hairline o campo.
+- **`shadow-raised`** (`inset 0 1px 0 rgba(255,255,255,0.16), 0 1px 2px rgba(18,22,34,0.24)`): sólido con relieve. Filo de luz de 1px arriba por dentro más sombra de contacto: es lo que da el tacto mecanizado del primario sin convertirlo en un objeto 3D.
+- **`shadow-pressed`** (`inset 0 1px 2px rgba(15,20,60,0.35)`): hundido. Sustituye al relieve mientras se pulsa.
+- **`shadow-card`** (`0 1px 2px rgba(18,22,34,0.05), 0 2px 6px -2px rgba(18,22,34,0.08)`): tarjeta o panel asentado. Dos capas porque un objeto apoyado produce una línea apretada donde toca más una penumbra ancha; con solo la segunda, flota en niebla.
+- **`shadow-pop`** (`0 16px 40px -12px rgba(18,22,34,0.20), 0 6px 16px -8px rgba(18,22,34,0.12)`): SOLO lo que de verdad flota (dropdowns, paneles, modales).
+- **`shadow-sticky`** (`0 6px 8px -7px rgba(18,22,34,0.24)`): cabecera pegajosa con contenido pasando por debajo. El spread negativo grande la deja en una banda fina y dirigida.
+
+Ninguna es negro puro: van teñidas con la tinta `#131822`, porque el negro sobre un fondo frío se enturbia. Todas por debajo del 10% de opacidad salvo el relieve.
 
 ### Named Rules
-**La regla de una sombra por elevación.** Cada elemento usa como mucho una sombra del vocabulario. Apilar sombras, o usar `shadow-pop` en algo que no flota de verdad, está prohibido. En `forced-colors`, las sombras se refuerzan con un borde de 1px.
+**La regla de una sombra por elevación.** Cada elemento usa como mucho una del vocabulario. Apilarlas, usar `shadow-pop` en algo que no flota, o escribir una a mano con `shadow-[...]`, está prohibido: el test `src/lib/acabado.test.ts` lo hace fallar. La escala de Tailwind (`shadow-sm/md/lg/xl`) no pertenece al sistema. En `forced-colors`, las sombras se refuerzan con un borde de 1px.
 
 ## 5. Components
 
-Familiar y de confianza: vocabulario estándar, cero affordances inventadas. La herramienta desaparece en la tarea. Misma forma de botón, mismo control de formulario, mismo estilo de icono en toda la app (Lucide, trazo 2px).
+Familiar y de confianza: vocabulario estándar, cero affordances inventadas. La herramienta desaparece en la tarea. Misma forma de botón, mismo control de formulario, mismo estilo de icono en toda la app (Lucide a `--stroke-icon`, hoy 1,75; el trazo se gobierna desde `index.css`, la prop `strokeWidth` ya no pinta).
 
 ### Buttons
 - **Shape:** esquinas de 10px (`rounded-[10px]`), altura fija 36px (`h-9`).
@@ -228,8 +236,8 @@ Familiar y de confianza: vocabulario estándar, cero affordances inventadas. La 
 ### Signature: el FieldRenderer WYSIWYG
 Un único componente pinta a la vez la preview del constructor de formularios y el formulario público real. Si tocas uno, tocas los dos: no existe una versión "bonita" distinta del producto. El acento configurable del cliente pasa por una guarda de contraste AA (`src/lib/colors.ts`): si el blanco no llega a 4.5:1 sobre su color, el texto del botón pasa a tinta oscura automáticamente.
 
-### Signature: el detalle en panel lateral
-El detalle de un candidato abre en un SlideOver (panel lateral con `shadow-pop`), nunca en un modal a pantalla completa que tape la lista filtrada. El usuario no pierde el contexto de lo que estaba revisando.
+### Signature: el detalle en pop-up con pestañas
+El detalle de un candidato abre en un **pop-up con pestañas** (`src/screens/CandidateModal.tsx`, jul 2026): reparto fijo, a la izquierda lo que dice el candidato (Resumen / Respuestas / CV) y a la derecha lo que dice tu equipo (Equipo / Historial), con flechas al siguiente de la lista filtrada y enlace directo. Sustituyó al SlideOver de 460px, que obligaba a apilar en una columna estrecha todo lo que hay que saber de una persona; que la lista siga a la vista ya lo da el telón translúcido. El SlideOver sigue siendo lo correcto para detalles SECUNDARIOS (peticiones del tablón).
 
 ## 6. Do's and Don'ts
 

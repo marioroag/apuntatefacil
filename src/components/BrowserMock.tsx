@@ -53,7 +53,7 @@ export function BrowserMock({ className = '', dropIn = false }: { className?: st
                     </div>
                   </div>
                 </td>
-                <td className="hidden px-2 py-2.5 text-[12px] tabular-nums text-slate-500 sm:table-cell"><MaskedPhone value={r.phone} /></td>
+                <td className="hidden px-2 py-2.5 text-[12px] num text-slate-500 sm:table-cell"><MaskedPhone value={r.phone} /></td>
                 <td className="px-2 py-2.5">
                   <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${m.chip}`}>
                     <span className={`size-1.5 rounded-full ${m.dot}`} />
