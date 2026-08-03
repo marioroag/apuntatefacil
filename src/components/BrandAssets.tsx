@@ -1,139 +1,67 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { ImagePlus, Loader2, X } from 'lucide-react'
-import { useAuth } from '../lib/auth'
-import { useToast } from '../components/ui/Toast'
-import { useAppBase } from '../lib/useAppBase'
-import { supabase } from '../lib/supabase'
-import { brandAssetUrl } from '../lib/brandAsset'
 
-const MAX_IMG = 2 * 1024 * 1024 // 2 MB
-
-// Foto de perfil y banner de la marca: las dos imágenes que ve el candidato en el
-// formulario. Viven en la marca (no en el puesto), así que subirlas una vez las
-// pone en todos sus formularios. Único sitio de subida de la app.
-export function BrandAssets({
-  logoPath,
-  bannerPath,
-  onChange,
-}: {
-  logoPath: string | null
-  bannerPath: string | null
-  onChange: (patch: { logoPath?: string | null; bannerPath?: string | null }) => void
-}) {
-  const { company } = useAuth()
-  const toast = useToast()
-  const demo = useAppBase() === '/demo'
-  const [uploading, setUploading] = useState<'logo' | 'banner' | null>(null)
-
-  const upload = async (file: File, kind: 'logo' | 'banner') => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('Sube un archivo de imagen.')
-      return
-    }
-    if (file.size > MAX_IMG) {
-      toast.error('La imagen es muy grande (máximo 2 MB).')
-      return
-    }
-    const key = kind === 'logo' ? 'logoPath' : 'bannerPath'
-    setUploading(kind)
-    // En la demo (sin backend) la imagen se guarda como data URL en local.
-    if (demo || !company?.id || company.id === 'demo') {
-      const reader = new FileReader()
-      reader.onload = () => {
-        onChange({ [key]: reader.result as string })
-        setUploading(null)
-      }
-      reader.onerror = () => {
-        setUploading(null)
-        toast.error('No se pudo leer la imagen.')
-      }
-      reader.readAsDataURL(file)
-      return
-    }
-    const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png'
-    const path = `${company.id}/${kind}-${crypto.randomUUID()}.${ext}`
-    const { error } = await supabase.storage.from('brand-assets').upload(path, file, { upsert: false, contentType: file.type })
-    setUploading(null)
-    if (error) {
-      toast.error('No se pudo subir la imagen.')
-      return
-    }
-    onChange({ [key]: path })
-  }
-
-  return (
-    <div className="flex flex-wrap items-start gap-3">
-      <AssetField
-        label="Foto de perfil"
-        shape="logo"
-        url={brandAssetUrl(logoPath)}
-        busy={uploading === 'logo'}
-        onPick={(f) => upload(f, 'logo')}
-        onRemove={() => onChange({ logoPath: null })}
-      />
-      <AssetField
-        label="Banner"
-        shape="banner"
-        url={brandAssetUrl(bannerPath)}
-        busy={uploading === 'banner'}
-        onPick={(f) => upload(f, 'banner')}
-        onRemove={() => onChange({ bannerPath: null })}
-      />
-    </div>
-  )
-}
-
-function AssetField({
+// Una de las dos imágenes. La caja entera es el botón de elegir archivo; su forma
+// y su radio son los del formulario público, así que vacía o llena se lee lo que
+// va a ser. La equis para quitarla NO se pinta a todas horas (estaba encima de la
+// imagen tapando justo el logo que acabas de subir): aparece al pasar por encima
+// o al recibir el foco, que es cuando puedes usarla.
+export function AssetBox({
   label,
-  shape,
+  empty,
   url,
   busy,
+  className,
   onPick,
   onRemove,
 }: {
   label: string
-  shape: 'logo' | 'banner'
+  /** Texto dentro de la caja vacía. Sin él solo va el icono (cajas pequeñas). */
+  empty?: string
   url: string | null
   busy: boolean
+  className: string
   onPick: (file: File) => void
   onRemove: () => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const box = shape === 'logo' ? 'size-20' : 'h-20 w-44'
   return (
-    <div>
-      <p className="mb-1 text-[12px] font-medium text-slate-500">{label}</p>
-      <div className={`relative ${box} overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50`}>
-        {url && <img src={url} alt="" className="h-full w-full object-cover" />}
+    <div className={`group/asset relative shrink-0 overflow-hidden bg-slate-50 ${url ? 'border border-slate-200' : 'border border-dashed border-slate-300'} ${className}`}>
+      {url && <img src={url} alt="" className="h-full w-full object-cover" />}
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        aria-label={url ? `Cambiar ${label}` : `Subir ${label}`}
+        // La caja pequeña (la foto) no lleva su nombre escrito dentro: el título lo
+        // dice al pasar por encima, sin gastar la línea que necesita el nombre.
+        title={url ? `Cambiar ${label}` : `Subir ${label}`}
+        className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-500 transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] hover:bg-white/45 hover:text-slate-600"
+      >
+        {busy ? (
+          <Loader2 className="size-5 animate-spin" aria-hidden />
+        ) : (
+          !url && (
+            <>
+              <ImagePlus className="size-5" aria-hidden />
+              {empty && <span className="text-[12px] font-medium">{empty}</span>}
+            </>
+          )
+        )}
+      </button>
+      {url && !busy && (
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={busy}
-          aria-label={url ? `Cambiar ${label}` : `Subir ${label}`}
-          className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-500 transition-colors hover:bg-white/40 hover:text-slate-600"
+          onClick={onRemove}
+          aria-label={`Quitar ${label}`}
+          // `group-hover` de Tailwind va dentro de `@media (hover: hover)`, así que en
+          // táctil no se revelaría NUNCA y la imagen no habría forma de quitarla:
+          // donde no hay puntero que pase por encima, se pinta siempre.
+          className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-slate-900/60 text-white opacity-0 transition-opacity duration-[var(--duration-control)] ease-[var(--ease-out)] hover:bg-slate-900/80 focus-visible:opacity-100 group-hover/asset:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100"
         >
-          {busy ? (
-            <Loader2 className="size-5 animate-spin" aria-hidden />
-          ) : (
-            !url && (
-              <>
-                <ImagePlus className="size-5" aria-hidden />
-                <span className="text-[11px]">Subir</span>
-              </>
-            )
-          )}
+          <X className="size-3.5" aria-hidden />
         </button>
-        {url && !busy && (
-          <button
-            type="button"
-            onClick={onRemove}
-            aria-label={`Quitar ${label}`}
-            className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-slate-900/60 text-white transition-colors hover:bg-slate-900/80"
-          >
-            <X className="size-3.5" aria-hidden />
-          </button>
-        )}
-      </div>
+      )}
       <input
         ref={inputRef}
         type="file"

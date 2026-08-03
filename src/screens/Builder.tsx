@@ -44,13 +44,14 @@ import { ApplicationForm } from '../components/ApplicationForm'
 import type { FieldValue } from '../components/FieldRenderer'
 import { FIELD_TYPE_META } from '../lib/types'
 import type { Brand, Campaign, FieldType, FormField } from '../lib/types'
-import { SWATCHES, accentPassesWhite } from '../lib/colors'
+import { SWATCHES, accentPassesWhite, readableOn } from '../lib/colors'
 import { FORM_WELCOME_DEFAULT, FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import { BrandAssets } from '../components/BrandAssets'
+import { AssetBox } from '../components/BrandAssets'
+import { useBrandAssetUpload, type BrandAssetPatch } from '../lib/brandUpload'
 import { UpgradeDialog } from '../components/UpgradeDialog'
 import { PLAN_BRAND_LIMIT } from '../lib/pricing'
 
@@ -650,7 +651,7 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o:
 // caso normal) nunca aparece la palabra "marca": editas tu identidad y ya. Tener
 // VARIAS es lo que desbloquea Multi.
 function Identidad({ campaign }: { campaign: Campaign }) {
-  const { brands, createBrand, updateBrand, deleteBrand, updateCampaign, campaigns } = useStore()
+  const { brands, createBrand, updateBrand, deleteBrand, updateCampaign, campaigns, loading } = useStore()
   const { company } = useAuth()
   const demo = useAppBase() === '/demo'
   const toast = useToast()
@@ -672,6 +673,15 @@ function Identidad({ campaign }: { campaign: Campaign }) {
 
   const limit = demo ? Infinity : PLAN_BRAND_LIMIT[company?.plan ?? 'trial'] ?? 1
   const compartida = active ? campaigns.filter((c) => c.brandId === active.id).length : 0
+  // Lo que sale de verdad en el formulario: la marca manda, y si no tiene nombre
+  // propio hereda el de la empresa (igual que ApplicationForm).
+  const visible = (active?.name || company?.name) ?? ''
+  // Cerrada salvo que no haya nada que enseñar: con la identidad sin poner, la
+  // fila no diría nada y además es lo único pendiente de esta pantalla. Se decide
+  // con los datos ya cargados (mientras cargan, `active` es null y se abriría sola
+  // para cerrarse de golpe al llegar la marca); en cuanto la tocas, mandas tú.
+  const [open, setOpen] = useState<boolean | null>(null)
+  const abierta = open ?? (!loading && !(active?.logoPath || active?.bannerPath || active?.name))
 
   // Con una sola marca no hay elección que hacer: es la identidad de la casa y le
   // toca a todos los puestos. Si este aún no la tiene (se creó antes, o se quedó
@@ -727,73 +737,98 @@ function Identidad({ campaign }: { campaign: Campaign }) {
   return (
     <section>
       <SectionTitle>Identidad</SectionTitle>
-      <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5">
-        {/* Con varias marcas hay que elegir de cuál es este puesto antes de editarla. */}
-        {brands.length > 1 && (
-          <label className="block">
-            <span className="mb-1 block text-[12px] font-medium text-slate-500">Marca de este puesto</span>
-            <select
-              value={campaign.brandId ?? ''}
-              onChange={(e) => void updateCampaign(campaign.id, { brandId: e.target.value || null })}
-              className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
-            >
-              <option value="">Sin marca, usa el nombre de la empresa</option>
-              {brands.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name || 'Marca sin nombre'}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {brands.length > 1 && !active ? (
-          <p className="text-[12px] leading-relaxed text-slate-500">
-            Este formulario sale con el nombre de tu empresa, {company?.name}, y sin imágenes. Elige una marca arriba para darle otra cara.
-          </p>
-        ) : (
-          <>
-            <LabeledInput
-              label="Nombre que ve el candidato"
-              value={name}
-              onChange={setName}
-              onBlur={() => {
-                const v = name.trim()
-                if (v !== (active?.name ?? '')) void patch({ name: v })
-              }}
-              placeholder={company?.name ?? 'El nombre de tu empresa'}
-            />
-            <BrandAssets
-              logoPath={active?.logoPath ?? null}
-              bannerPath={active?.bannerPath ?? null}
-              onChange={(p) => void patch(p)}
-            />
-            {compartida > 1 && (
-              <p className="text-[12px] leading-relaxed text-slate-500">
-                Esta marca la comparten {compartida} puestos: al cambiarla, cambian todos sus formularios.
-              </p>
-            )}
-          </>
-        )}
-
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1">
-          <button
-            type="button"
-            onClick={crearMarca}
-            className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700"
-          >
-            <Plus className="size-3.5" aria-hidden /> Añadir otra marca
-          </button>
-          {brands.length > 1 && active && (
-            <button
-              type="button"
-              onClick={() => setToDelete(true)}
-              className="text-[13px] font-medium text-slate-500 hover:text-red-600"
-            >
-              Eliminar esta marca
-            </button>
+      {/* Misma forma que un campo del formulario (fila que se despliega): la
+          identidad se pone una vez y el trabajo de esta pantalla son los campos,
+          así que en reposo ocupa una fila y no media pantalla. La fila enseña la
+          foto y el nombre REALES, así que se comprueba de un vistazo sin abrirla.
+          Se abre sola cuando no hay nada puesto: entonces sí hay algo que hacer. */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <button
+          type="button"
+          onClick={() => setOpen(!abierta)}
+          aria-expanded={abierta}
+          // La fila mide y sangra lo mismo que una fila de campo (44px de alto, el
+          // texto a 48px del filo): son el mismo vocabulario y se recorren con la
+          // vista por la misma columna, así que un desfase de 4px se nota.
+          className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] hover:bg-slate-50"
+        >
+          <MarcaTile logoUrl={brandAssetUrl(active?.logoPath)} name={visible} accent={campaign.branding.accent} />
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">{visible || 'Sin nombre'}</span>
+          {/* Solo cerrada: abierta lo dice entero el pie de la cabecera, y repetido
+              a dos alturas se lee como dos datos distintos. */}
+          {compartida > 1 && !abierta && (
+            <span className="hidden shrink-0 text-[12px] text-slate-500 sm:inline">
+              En <span className="num">{compartida}</span> puestos
+            </span>
           )}
-        </div>
+          <ChevronDown className={`size-4 shrink-0 text-slate-500 transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] ${abierta ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+
+        {abierta && (
+          <div className="space-y-3 border-t border-slate-100 bg-slate-50/50 px-3 py-3">
+            {/* Con varias marcas hay que elegir de cuál es este puesto antes de editarla. */}
+            {brands.length > 1 && (
+              <label className="block">
+                <span className="mb-1 block text-[12px] font-medium text-slate-500">Marca de este puesto</span>
+                <select
+                  value={campaign.brandId ?? ''}
+                  onChange={(e) => void updateCampaign(campaign.id, { brandId: e.target.value || null })}
+                  className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+                >
+                  <option value="">Sin marca, usa el nombre de la empresa</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name || 'Marca sin nombre'}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {brands.length > 1 && !active ? (
+              <p className="text-[12px] leading-relaxed text-slate-500">
+                Este formulario sale con el nombre de tu empresa, {company?.name}, y sin imágenes. Elige una marca arriba para darle otra cara.
+              </p>
+            ) : (
+              <CabeceraEditor
+                logoPath={active?.logoPath ?? null}
+                bannerPath={active?.bannerPath ?? null}
+                onChange={(p) => void patch(p)}
+                name={name}
+                onNameChange={setName}
+                onNameBlur={() => {
+                  const v = name.trim()
+                  if (v !== (active?.name ?? '')) void patch({ name: v })
+                }}
+                namePlaceholder={company?.name ?? 'El nombre de tu empresa'}
+                nota={
+                  compartida > 1
+                    ? `Esta marca la comparten ${compartida} puestos: al cambiarla, cambian todos sus formularios.`
+                    : 'Es lo primero que ve el candidato al abrir tu enlace.'
+                }
+              />
+            )}
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200/70 pt-2.5">
+              <button
+                type="button"
+                onClick={crearMarca}
+                className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700"
+              >
+                <Plus className="size-3.5" aria-hidden /> Añadir otra marca
+              </button>
+              {brands.length > 1 && active && (
+                <button
+                  type="button"
+                  onClick={() => setToDelete(true)}
+                  className="text-[13px] font-medium text-slate-500 hover:text-red-600"
+                >
+                  Eliminar esta marca
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {upgrade && <UpgradeDialog open feature="multiBrand" onClose={() => setUpgrade(false)} />}
@@ -811,6 +846,84 @@ function Identidad({ campaign }: { campaign: Campaign }) {
         Sus puestos no se borran: pasan a salir con el nombre de tu empresa y sin estas imágenes.
       </ConfirmDialog>
     </section>
+  )
+}
+
+// La cara de la marca en miniatura, con el mismo repuesto que el formulario
+// público: si no hay foto, la inicial sobre el color de acento. Así la fila
+// cerrada enseña exactamente lo que va a ver el candidato.
+function MarcaTile({ logoUrl, name, accent }: { logoUrl: string | null; name: string; accent: string }) {
+  if (logoUrl) return <img src={logoUrl} alt="" className="size-7 shrink-0 rounded-lg object-cover ring-1 ring-inset ring-slate-200" />
+  return (
+    <span
+      aria-hidden
+      className="grid size-7 shrink-0 place-items-center rounded-lg text-[13px] font-bold"
+      style={{ backgroundColor: accent, color: readableOn(accent) }}
+    >
+      {name.slice(0, 1).toUpperCase()}
+    </span>
+  )
+}
+
+// Editor de la cabecera del formulario: es un espejo de lo que se pinta arriba de
+// `ApplicationForm` (banner ancho, y debajo la foto junto al nombre), a escala.
+// Antes eran dos cajas punteadas etiquetadas "Foto de perfil" y "Banner", del
+// mismo peso y sin relación entre ellas: había que leer las etiquetas para saber
+// cuál era cuál y aun así no se veía dónde acaba cada una en el formulario.
+function CabeceraEditor({
+  logoPath,
+  bannerPath,
+  onChange,
+  name,
+  onNameChange,
+  onNameBlur,
+  namePlaceholder,
+  nota,
+}: {
+  logoPath: string | null
+  bannerPath: string | null
+  onChange: (patch: BrandAssetPatch) => void
+  name: string
+  onNameChange: (v: string) => void
+  onNameBlur: () => void
+  namePlaceholder: string
+  nota: string
+}) {
+  const { upload, uploading } = useBrandAssetUpload(onChange)
+  return (
+    <div>
+      <span className="mb-1.5 block text-[12px] font-medium text-slate-500">Cabecera del formulario</span>
+      <div className="space-y-2">
+        <AssetBox
+          label="Banner"
+          empty="Banner"
+          url={brandAssetUrl(bannerPath)}
+          busy={uploading === 'banner'}
+          className="h-16 w-full rounded-xl"
+          onPick={(f) => void upload(f, 'banner')}
+          onRemove={() => onChange({ bannerPath: null })}
+        />
+        <div className="flex items-center gap-2.5">
+          <AssetBox
+            label="Foto de perfil"
+            url={brandAssetUrl(logoPath)}
+            busy={uploading === 'logo'}
+            className="size-10 rounded-xl"
+            onPick={(f) => void upload(f, 'logo')}
+            onRemove={() => onChange({ logoPath: null })}
+          />
+          <input
+            value={name}
+            onChange={(e) => onNameChange(e.target.value)}
+            onBlur={onNameBlur}
+            placeholder={namePlaceholder}
+            aria-label="Nombre que ve el candidato"
+            className="h-10 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+          />
+        </div>
+      </div>
+      <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">{nota}</p>
+    </div>
   )
 }
 
