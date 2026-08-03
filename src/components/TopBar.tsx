@@ -14,6 +14,7 @@ import {
   Pencil,
   Search,
   Settings,
+  X,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useProfiles } from '../lib/profiles'
@@ -59,14 +60,17 @@ const ICONO =
 const ONBOARDING_TOTAL = 4
 
 export function TopBar({
-  onOpenMenu,
+  menuOpen,
+  onToggleMenu,
   onOpenSupport,
   onOpenProfile,
   onOpenOnboarding,
   onboardingPaso,
   betaBannerOpen,
 }: {
-  onOpenMenu: () => void
+  /** Si el cajón de navegación (solo móvil) está desplegado. */
+  menuOpen: boolean
+  onToggleMenu: () => void
   onOpenSupport: () => void
   onOpenProfile: () => void
   /** Abre o reabre la guía de primer uso. */
@@ -86,7 +90,23 @@ export function TopBar({
 
   return (
     <>
-      <header className="relative z-30 flex h-14 shrink-0 items-center border-b border-slate-200 bg-white">
+      {/* z-50, por encima del cajón de navegación (z-40): en móvil el cajón entra
+          POR DEBAJO de la barra, así que la barra tiene que seguir viva mientras
+          está abierto, y con ella sus dos desplegables (empresa y avisos), que
+          se pintan dentro de este contexto de apilamiento. Los diálogos de
+          verdad (modales, buscador a pantalla completa) también van a z-50 y le
+          ganan por orden en el DOM: se montan después. */}
+      <header
+        className="relative z-50 flex h-14 shrink-0 items-center border-b border-slate-200 bg-white"
+        // Tocar la barra retira el cajón (menos su propio botón, que alterna).
+        // Ahora que conviven en pantalla, cualquier otra cosa de aquí arriba abre
+        // una capa o lleva a otro sitio, y dejar la navegación desplegada detrás
+        // sería apilar dos superficies para lo mismo. Se filtra por el origen del
+        // evento, como las filas de la tabla: nada de apagar zonas enteras.
+        onPointerDownCapture={(e) => {
+          if (menuOpen && !(e.target as HTMLElement).closest('[data-cajon]')) onToggleMenu()
+        }}
+      >
         {/* La celda de la empresa ocupa la misma columna que el menú lateral
             (w-64) y su filo continúa el borde del lateral: la esquina superior
             izquierda es una celda, no un elemento suelto flotando sobre el
@@ -161,15 +181,25 @@ export function TopBar({
               </button>
             )}
 
-            <button onClick={onOpenMenu} aria-label="Abrir menú de puestos" className={`${ICONO} lg:hidden`}>
-              <Menu className="size-5" aria-hidden />
+            {/* Un solo control para el cajón: el que lo abre lo cierra. El cajón
+                entra por debajo de la barra, así que este botón nunca queda
+                tapado y no hace falta una equis dentro del menú. */}
+            <button
+              data-cajon
+              onClick={onToggleMenu}
+              aria-label={menuOpen ? 'Cerrar menú de puestos' : 'Abrir menú de puestos'}
+              aria-expanded={menuOpen}
+              aria-controls={menuOpen ? 'menu-lateral' : undefined}
+              className={`${ICONO} lg:hidden ${menuOpen ? 'bg-slate-100 text-slate-900' : ''}`}
+            >
+              {menuOpen ? <X className="size-5" aria-hidden /> : <Menu className="size-5" aria-hidden />}
             </button>
           </div>
         </div>
       </header>
 
-      {/* Fuera del header a propósito: el header tiene z-30 y crearía un contexto
-          de apilamiento que dejaría esta capa por debajo del cajón lateral. */}
+      {/* Fuera del header a propósito: el header es un contexto de apilamiento y
+          esta capa, que va a pantalla completa, se quedaría dentro de él. */}
       {buscarMovil && (
         <GlobalSearch variant="sheet" onClose={() => setBuscarMovil(false)} onUpgrade={setUpgrade} />
       )}

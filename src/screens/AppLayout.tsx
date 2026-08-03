@@ -414,19 +414,12 @@ export function AppLayout() {
     // inalcanzables. En la ventana normal no se activa: el único scroll es el de
     // los puestos.
     <nav className="flex h-full flex-col overflow-y-auto overscroll-contain" aria-label="Menú principal">
-      {/* Solo en el cajón móvil: en escritorio el lateral es fijo y no se cierra. */}
-      <div className="flex justify-end px-2 pt-2 lg:hidden">
-        <button
-          onClick={() => setOpen(false)}
-          className="grid size-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-          aria-label="Cerrar menú"
-        >
-          <X className="size-5" aria-hidden />
-        </button>
-      </div>
-
+      {/* Sin fila de cierre propia (ago 2026): el cajón móvil ya no tapa la barra,
+          así que el que cierra es el mismo botón que abrió, arriba a la derecha.
+          Esa fila era además el resto de la cabecera de marca que se retiró: 240px
+          de nada con una equis suelta al final. Aquí arriba manda la acción. */}
       {canCreate && (
-        <div className="px-3 pt-3 lg:pt-4">
+        <div className="px-3 pt-4">
           <button
             onClick={() => { setWizardOpen(true); setOpen(false) }}
             className={`${BTN_PRIMARY} w-full`}
@@ -440,7 +433,7 @@ export function AppLayout() {
           que diga el registro, y añadir uno nuevo es una entrada en ese array.
           `shrink-0` porque lo único que crece sin techo son los puestos, y es a
           ellos a quien se le da el hueco elástico de abajo. */}
-      <div className={`shrink-0 space-y-5 px-3 ${canCreate ? 'pt-4' : 'pt-3 lg:pt-4'}`}>
+      <div className="shrink-0 space-y-5 px-3 pt-4">
         {grupos.map((g) => (
           <div key={g.id}>
             {g.label && <GroupHeader>{g.label}</GroupHeader>}
@@ -549,7 +542,8 @@ export function AppLayout() {
         hacer={() => setWizardOpen(true)}
       />
       <TopBar
-        onOpenMenu={() => setOpen(true)}
+        menuOpen={open}
+        onToggleMenu={() => setOpen((o) => !o)}
         onOpenSupport={() => setSupportOpen(true)}
         onOpenProfile={() => setProfileOpen(true)}
         onOpenOnboarding={abrirGuia}
@@ -564,9 +558,15 @@ export function AppLayout() {
             continuo; si se cambia aquí, se cambia allí. */}
         <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white lg:block">{nav}</aside>
 
+        {/* El cajón móvil arranca DEBAJO de la barra (top-14 = su h-14), no sobre
+            ella. Antes iba a `inset-0` y tapaba la esquina de la empresa, que es
+            donde vive tu cuenta: con el menú abierto no había forma de llegar a
+            ella, y encima el cajón tenía que pintar su propia equis. Así el
+            mismo botón que lo abre lo cierra y la identidad nunca se va.
+            Si cambia la altura de la barra, cambia este `top-14`. */}
         <AnimatePresence>
           {open && (
-            <div className="fixed inset-0 z-40 lg:hidden">
+            <div className="fixed inset-x-0 bottom-0 top-14 z-40 lg:hidden">
               <motion.div
                 className="absolute inset-0 bg-slate-900/40"
                 initial={{ opacity: 0 }}
@@ -576,6 +576,7 @@ export function AppLayout() {
                 onClick={() => setOpen(false)}
               />
               <motion.div
+                id="menu-lateral"
                 className="absolute left-0 top-0 h-full w-72 bg-white shadow-pop"
                 initial={{ x: '-100%' }}
                 animate={{ x: 0 }}
