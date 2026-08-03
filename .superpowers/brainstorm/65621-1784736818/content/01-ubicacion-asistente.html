@@ -1,0 +1,116 @@
+<style>
+  .board { display:grid; gap:18px; }
+  .intro { max-width:780px; }
+  .intro strong { color:#131822; }
+  .layout-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; align-items:stretch; }
+  .layout-choice { cursor:pointer; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; background:#fff; transition:box-shadow .18s ease,border-color .18s ease,transform .18s ease; }
+  .layout-choice:hover { border-color:#b9c3e8; box-shadow:0 5px 14px rgba(18,22,34,.08); transform:translateY(-1px); }
+  .layout-choice.selected { border-color:#374cce; box-shadow:0 0 0 3px rgba(55,76,206,.12); }
+  .choice-head { padding:14px 15px 12px; border-bottom:1px solid #e5e7eb; }
+  .choice-kicker { display:flex; gap:8px; align-items:center; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#6f727c; }
+  .choice-kicker b { display:grid; width:20px; height:20px; place-items:center; border-radius:50%; background:#f4f5f7; color:#3c404a; font-size:11px; }
+  .choice-head h3 { margin:7px 0 4px; font-size:15px; color:#131822; }
+  .choice-head p { margin:0; min-height:40px; font-size:12px; line-height:1.45; color:#50545e; }
+  .preview { padding:12px; background:#f9fafb; min-height:332px; }
+  .app { overflow:hidden; border:1px solid #d1d4db; border-radius:8px; background:#fff; color:#131822; font-family:ui-sans-serif,system-ui,sans-serif; font-size:8px; line-height:1.3; box-shadow:0 1px 2px rgba(18,22,34,.05); }
+  .appbar { display:flex; align-items:center; height:23px; padding:0 8px; border-bottom:1px solid #e5e7eb; color:#50545e; font-size:7px; }
+  .appdot { width:9px; height:9px; margin-right:5px; border-radius:3px; background:#374cce; }
+  .appmain { padding:9px; }
+  .crumb { color:#6f727c; font-size:7px; }
+  .titleline { display:flex; align-items:center; justify-content:space-between; margin-top:5px; }
+  .titleline strong { font-size:11px; }
+  .ghost-button { border:1px solid #d1d4db; border-radius:4px; padding:3px 5px; color:#3c404a; background:#fff; font-weight:600; }
+  .statusbar { display:flex; gap:4px; margin:8px 0; }
+  .status { height:16px; flex:1; border:1px solid #e5e7eb; border-radius:4px; padding:3px 4px; color:#50545e; background:#fff; }
+  .filters { display:flex; gap:4px; margin-bottom:7px; }
+  .search { flex:1; height:18px; border:1px solid #d1d4db; border-radius:4px; padding:4px 5px; color:#6f727c; }
+  .filter { border:1px solid #d1d4db; border-radius:4px; padding:4px 5px; color:#50545e; background:#fff; }
+  .table { overflow:hidden; border:1px solid #e5e7eb; border-radius:5px; }
+  .row { display:grid; grid-template-columns:1.5fr .7fr .85fr .7fr; align-items:center; min-height:22px; padding:0 6px; border-bottom:1px solid #f0f1f3; color:#50545e; }
+  .row:last-child { border-bottom:0; }
+  .row.head { min-height:18px; background:#f9fafb; color:#6f727c; font-size:6px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+  .row b { color:#242833; font-size:8px; }
+  .pill { display:inline-flex; align-items:center; gap:3px; width:max-content; border-radius:999px; background:#f4f5f7; padding:2px 4px; color:#50545e; font-size:6px; }
+  .pill:before { width:4px; height:4px; border-radius:50%; background:#3b82f6; content:""; }
+  .ai-banner { margin-bottom:8px; padding:8px; border:1px solid #d1d4db; border-radius:6px; background:#fff; }
+  .ai-heading { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; font-size:8px; font-weight:700; }
+  .ai-mark { display:inline-grid; width:13px; height:13px; place-items:center; margin-right:4px; border-radius:4px; background:#f4f5f7; color:#374cce; font-size:9px; }
+  .ai-input { display:flex; align-items:center; gap:5px; border:1px solid #b9c3e8; border-radius:5px; padding:5px 6px; color:#50545e; background:#fff; font-size:7px; }
+  .send { margin-left:auto; border-radius:3px; background:#374cce; padding:3px 5px; color:#fff; font-size:6px; font-weight:700; }
+  .ai-inline { display:flex; align-items:center; gap:6px; margin:0 0 7px; border:1px solid #d1d4db; border-radius:5px; padding:6px 7px; background:#fff; }
+  .ai-inline .ai-input { flex:1; border:0; padding:0; }
+  .ai-side { display:grid; grid-template-columns:1fr 74px; gap:7px; }
+  .ai-card { padding:7px; border:1px solid #d1d4db; border-radius:6px; background:#fff; }
+  .ai-card strong { display:block; font-size:8px; }
+  .ai-card p { margin:3px 0 7px; color:#50545e; font-size:6px; line-height:1.4; }
+  .mini-result { margin-top:4px; padding-top:4px; border-top:1px solid #e5e7eb; font-size:6px; color:#50545e; }
+  .result-score { float:right; color:#242833; font-weight:700; }
+  .reco { margin:0; border-top:1px solid #e5e7eb; padding:12px 15px 14px; color:#50545e; font-size:12px; line-height:1.45; }
+  .reco strong { color:#242833; }
+  @media (max-width:850px) { .layout-options { grid-template-columns:1fr; } .preview { min-height:260px; } }
+</style>
+
+<div class="board">
+  <div class="intro">
+    <h2>¿Dónde debe vivir el asistente de selección?</h2>
+    <p class="subtitle">La IA debe ayudar a decidir, pero la tabla sigue siendo la superficie de trabajo. He preparado tres ubicaciones con el mismo contenido para comparar su jerarquía.</p>
+  </div>
+
+  <div class="layout-options">
+    <article class="layout-choice" data-choice="cabecera" onclick="toggleSelect(this)">
+      <div class="choice-head">
+        <div class="choice-kicker"><b>A</b> Contextual</div>
+        <h3>Bloque completo antes de filtrar</h3>
+        <p>Convierte la IA en el primer paso, con espacio para explicar lo que analiza.</p>
+      </div>
+      <div class="preview">
+        <div class="app"><div class="appbar"><span class="appdot"></span> apuntatefacil</div><div class="appmain">
+          <div class="crumb">Puestos / Repartidor con furgoneta</div><div class="titleline"><strong>Repartidor con furgoneta</strong><span class="ghost-button">Exportar</span></div>
+          <div class="statusbar"><span class="status">Nuevos 24</span><span class="status">Contactados 16</span><span class="status">Entrevista 6</span></div>
+          <div class="ai-banner"><div class="ai-heading"><span><i class="ai-mark">✦</i>Asistente de selección</span><span style="color:#6f727c;font-weight:500">Beta</span></div><div class="ai-input">Necesito alguien con carnet B y 3 años de experiencia <span class="send">Buscar</span></div></div>
+          <div class="filters"><span class="search">Buscar candidatos...</span><span class="filter">Filtros</span><span class="filter">Vistas</span></div>
+          <div class="table"><div class="row head"><span>Candidato</span><span>Experiencia</span><span>Estado</span><span>Recibida</span></div><div class="row"><b>Lucía Martínez</b><span>5 años</span><span class="pill">Contactado</span><span>Ayer</span></div><div class="row"><b>Jorge Soto</b><span>4 años</span><span class="pill">Entrevista</span><span>Hoy</span></div><div class="row"><b>Álvaro R.</b><span>3 años</span><span class="pill">Nuevo</span><span>Hoy</span></div></div>
+        </div></div>
+      </div>
+      <p class="reco"><strong>Ventaja:</strong> máxima presencia y contexto. <strong>Riesgo:</strong> añade altura antes de la lista, incluso cuando no se necesita.</p>
+    </article>
+
+    <article class="layout-choice" data-choice="barra" onclick="toggleSelect(this)">
+      <div class="choice-head">
+        <div class="choice-kicker"><b>B</b> Integrado</div>
+        <h3>Barra junto a la búsqueda</h3>
+        <p>Una entrada directa que convive con filtros y conserva la tabla cerca.</p>
+      </div>
+      <div class="preview">
+        <div class="app"><div class="appbar"><span class="appdot"></span> apuntatefacil</div><div class="appmain">
+          <div class="crumb">Puestos / Repartidor con furgoneta</div><div class="titleline"><strong>Repartidor con furgoneta</strong><span class="ghost-button">Exportar</span></div>
+          <div class="statusbar"><span class="status">Nuevos 24</span><span class="status">Contactados 16</span><span class="status">Entrevista 6</span></div>
+          <div class="ai-inline"><span class="ai-mark">✦</span><strong style="font-size:7px;white-space:nowrap">Asistente</strong><div class="ai-input">Describe el perfil que necesitas...</div><span class="send">Buscar</span></div>
+          <div class="filters"><span class="search">Buscar candidatos...</span><span class="filter">Filtros</span><span class="filter">Vistas</span></div>
+          <div class="table"><div class="row head"><span>Candidato</span><span>Experiencia</span><span>Estado</span><span>Recibida</span></div><div class="row"><b>Lucía Martínez</b><span>5 años</span><span class="pill">Contactado</span><span>Ayer</span></div><div class="row"><b>Jorge Soto</b><span>4 años</span><span class="pill">Entrevista</span><span>Hoy</span></div><div class="row"><b>Álvaro R.</b><span>3 años</span><span class="pill">Nuevo</span><span>Hoy</span></div></div>
+        </div></div>
+      </div>
+      <p class="reco"><strong>Ventaja:</strong> compacto y fácil de descubrir. <strong>Riesgo:</strong> puede leerse como otro filtro más y devaluar la promesa.</p>
+    </article>
+
+    <article class="layout-choice" data-choice="panel" onclick="toggleSelect(this)">
+      <div class="choice-head">
+        <div class="choice-kicker"><b>C</b> Recomendado</div>
+        <h3>Módulo de decisión sobre la tabla</h3>
+        <p>Da a la IA su propio espacio, pero lo mantiene plegable y conectado a los resultados.</p>
+      </div>
+      <div class="preview">
+        <div class="app"><div class="appbar"><span class="appdot"></span> apuntatefacil</div><div class="appmain">
+          <div class="crumb">Puestos / Repartidor con furgoneta</div><div class="titleline"><strong>Repartidor con furgoneta</strong><span class="ghost-button">Exportar</span></div>
+          <div class="statusbar"><span class="status">Nuevos 24</span><span class="status">Contactados 16</span><span class="status">Entrevista 6</span></div>
+          <div class="ai-side"><div class="ai-card"><strong><i class="ai-mark">✦</i>Encuentra el perfil adecuado</strong><p>Describe lo que necesitas. Compararemos experiencia, respuestas, notas, valoración, estado y etiquetas.</p><div class="ai-input">Busco reparto con disponibilidad de mañanas <span class="send">Analizar</span></div></div><div class="ai-card"><strong>Mejores coincidencias</strong><div class="mini-result">Lucía M. <span class="result-score">92</span></div><div class="mini-result">Jorge S. <span class="result-score">88</span></div><div class="mini-result">Álvaro R. <span class="result-score">81</span></div></div></div>
+          <div class="filters" style="margin-top:8px"><span class="search">Buscar candidatos...</span><span class="filter">Filtros</span><span class="filter">Vistas</span></div>
+          <div class="table"><div class="row head"><span>Candidato</span><span>Experiencia</span><span>Estado</span><span>Recibida</span></div><div class="row"><b>Lucía Martínez</b><span>5 años</span><span class="pill">Contactado</span><span>Ayer</span></div><div class="row"><b>Jorge Soto</b><span>4 años</span><span class="pill">Entrevista</span><span>Hoy</span></div><div class="row"><b>Álvaro R.</b><span>3 años</span><span class="pill">Nuevo</span><span>Hoy</span></div></div>
+        </div></div>
+      </div>
+      <p class="reco"><strong>Ventaja:</strong> vende una ayuda de decisión real, no un filtro, y deja claro qué señales tendrá en cuenta. <strong>Coste:</strong> requiere una versión compacta en móvil.</p>
+    </article>
+  </div>
+
+  <p class="subtitle">Mi recomendación es <strong>C</strong>: un módulo plegable justo después del resumen de estados y antes de búsqueda y filtros. La IA propone y explica, la tabla sigue permitiendo comprobar y decidir.</p>
+</div>

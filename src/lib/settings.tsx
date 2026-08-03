@@ -138,8 +138,8 @@ export const SECCIONES: SeccionAjustes[] = [
         ajustes: [
           email(
             EMAIL_KEYS.mencion,
-            'Te mencionan en una ficha',
-            'Cuando alguien te escribe con @ en el chat de un candidato.',
+            'Te mencionan',
+            'Cuando alguien te escribe con @, en la ficha de un candidato o en el tablón.',
           ),
           email(
             EMAIL_KEYS.tablon,

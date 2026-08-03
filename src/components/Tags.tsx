@@ -1,9 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Info, Pencil, Plus, Settings2, Tag as TagIcon, Trash2, X } from 'lucide-react'
+import { Pencil, Plus, Settings2, Tag as TagIcon, Trash2, X } from 'lucide-react'
 import type { Tag } from '../lib/types'
 import { useStore, normalizeTagName } from '../lib/store'
 import { useToast } from './ui/Toast'
 import { ConfirmDialog } from './ui/ConfirmDialog'
+import { InfoTooltip } from './ui/Tooltip'
+import { limitesVisibles } from '../lib/flotante'
 import { BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 
 // ---------------------------------------------------------------------------
@@ -13,6 +15,10 @@ import { BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 // ---------------------------------------------------------------------------
 
 export const TAG_LIMIT_PER_CANDIDATE = 25 // límite blando por candidato
+
+// Alto que reserva el desplegable para decidir si abre hacia arriba: su tope
+// (max-h-60 = 240px) más el hueco de 4px. Si cambia la clase, cambia esto.
+const ALTO_LISTA = 244
 
 // Microcopy (es-ES), en un solo sitio.
 const COPY = {
@@ -111,29 +117,27 @@ export function TagCell({ tagIds, tags }: { tagIds: string[]; tags: Tag[] }) {
 
 // Combobox "Añadir etiqueta" + chips aplicados. Para la ficha del candidato.
 // owner/member pueden crear vocabulario nuevo; el encargado solo aplica existentes.
+//
+// Una sola forma, la de la ficha: manda el campo, porque si estás aquí vas a
+// etiquetar. Hubo una variante `inline` para la cabecera del detalle (chips
+// primero y un "+ Etiqueta" discreto) y se retiró en ago 2026 al bajar las
+// etiquetas al Resumen a todos los anchos.
 export function TagPicker({
   candidateId,
   tagIds,
   canManage,
   onOpenManage,
-  inline = false,
 }: {
   candidateId: string
   tagIds: string[]
   canManage: boolean
   onOpenManage: () => void
-  /**
-   * Variante para la cabecera del detalle: primero los chips, y el campo de
-   * añadir sale de un "+ Etiqueta" discreto. En la ficha manda el campo (vas a
-   * etiquetar); en la cabecera mandan las etiquetas que YA tiene, y un combobox
-   * siempre abierto se comía el sitio de las acciones de contacto.
-   */
-  inline?: boolean
 }) {
   const { tags, applyTag, removeTag, createTag } = useStore()
   const toast = useToast()
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [arriba, setArriba] = useState(false)
   const [active, setActive] = useState(0)
   const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -170,6 +174,22 @@ export function TagPicker({
     return () => document.removeEventListener('mousedown', onDoc)
   }, [open])
 
+  /**
+   * Abre la lista decidiendo antes hacia dónde. El bloque de etiquetas vive
+   * abajo del Resumen, dentro de un panel con scroll propio: abriendo siempre
+   * hacia abajo, la lista se quedaba cortada por el borde del panel y no se
+   * leía. Si no cabe debajo y sí encima, sube.
+   */
+  const abrir = () => {
+    const caja = wrapRef.current?.getBoundingClientRect()
+    if (caja) {
+      const [techo, suelo] = limitesVisibles(wrapRef.current!)
+      const debajo = suelo - caja.bottom
+      setArriba(debajo < ALTO_LISTA && caja.top - techo > debajo)
+    }
+    setOpen(true)
+  }
+
   const atLimit = applied.length >= TAG_LIMIT_PER_CANDIDATE
 
   const choose = async (opt: Opt) => {
@@ -191,7 +211,7 @@ export function TagPicker({
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setOpen(true)
+      abrir()
       setActive((a) => Math.min(a + 1, options.length - 1))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
@@ -202,6 +222,10 @@ export function TagPicker({
     } else if (e.key === 'Escape') {
       if (open) {
         e.preventDefault()
+        // Cierra la lista, no la ficha de detrás: el modal escucha en document
+        // y sin esto un Escape para descartar el desplegable cerraría al
+        // candidato entero.
+        e.stopPropagation()
         setOpen(false)
       }
     } else if (e.key === 'Backspace' && query === '' && applied.length > 0) {
@@ -216,10 +240,8 @@ export function TagPicker({
       <ul
         id={listId}
         role="listbox"
-        className={`absolute left-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-pop ${
-          // En línea el contenedor es una fila de chips de ancho variable: el
-          // desplegable necesita ancho propio, no el del contenedor.
-          inline ? 'w-64 max-w-[80vw]' : 'right-0'
+        className={`absolute inset-x-0 z-50 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-pop ${
+          arriba ? 'bottom-full mb-1' : 'top-full mt-1'
         }`}
       >
         {options.length === 0 && !showCreate && (
@@ -284,52 +306,6 @@ export function TagPicker({
       </ul>
   )
 
-  if (inline) {
-    return (
-      <div ref={wrapRef} className="relative flex flex-wrap items-center gap-1.5">
-        {applied.map((t) => (
-          <TagChip key={t.id} name={t.name} onRemove={() => removeTag(candidateId, t.id)} />
-        ))}
-        {open ? (
-          <input
-            ref={inputRef}
-            type="text"
-            role="combobox"
-            aria-expanded={showDropdown}
-            aria-controls={listId}
-            aria-autocomplete="list"
-            aria-label={COPY.add}
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                // Cierra el campo, no el modal de detrás.
-                e.stopPropagation()
-                setOpen(false)
-                setQuery('')
-                return
-              }
-              onKeyDown(e)
-            }}
-            placeholder={COPY.add}
-            maxLength={40}
-            className="h-7 w-36 rounded-full border border-slate-300 bg-white px-2.5 text-[13px] outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="rounded-full px-2 py-0.5 text-[12px] font-medium text-slate-600 ring-1 ring-inset ring-slate-200 transition-colors hover:bg-slate-50 hover:text-slate-800"
-          >
-            + Etiqueta
-          </button>
-        )}
-        {showDropdown && opciones}
-      </div>
-    )
-  }
-
   return (
     <div ref={wrapRef} className="relative">
       <div className="relative">
@@ -344,9 +320,9 @@ export function TagPicker({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value)
-            setOpen(true)
+            abrir()
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={abrir}
           onKeyDown={onKeyDown}
           placeholder={COPY.add}
           maxLength={40}
@@ -381,40 +357,15 @@ export function TagSection({
 }) {
   return (
     <div>
-      <div className="mb-1.5 flex items-center gap-1.5">
-        <p className="text-sm font-semibold text-slate-800">{COPY.title}</p>
+      {/* Misma versalita que "Contacto" e "Interés actual": son hermanas dentro
+          del Resumen, y un título de 14px entre dos de 11px se lee como si
+          abriera un apartado nuevo. */}
+      <div className="mb-2 flex items-center gap-1.5">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{COPY.title}</h3>
         <InfoTooltip text={COPY.info} />
       </div>
       <TagPicker candidateId={candidateId} tagIds={tagIds} canManage={canManage} onOpenManage={onOpenManage} />
     </div>
-  )
-}
-
-// Icono de info con tooltip accesible (hover + foco). No texto siempre visible.
-function InfoTooltip({ text }: { text: string }) {
-  const [show, setShow] = useState(false)
-  return (
-    <span className="relative inline-flex">
-      <button
-        type="button"
-        aria-label={text}
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-        onFocus={() => setShow(true)}
-        onBlur={() => setShow(false)}
-        className="grid size-4 place-items-center rounded-full text-slate-500 hover:text-slate-600 focus-visible:text-slate-600"
-      >
-        <Info className="size-3.5" aria-hidden />
-      </button>
-      {show && (
-        <span
-          role="tooltip"
-          className="absolute left-1/2 top-6 z-50 w-60 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-[12px] leading-relaxed text-white shadow-pop"
-        >
-          {text}
-        </span>
-      )}
-    </span>
   )
 }
 

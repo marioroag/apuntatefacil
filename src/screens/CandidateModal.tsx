@@ -29,7 +29,7 @@ import { useChatThread } from '../lib/useChatThread'
 import { StatusSelect } from '../components/ui/StatusPill'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import type { Campaign, Candidate, CandidateEvent } from '../lib/types'
-import { SOURCE_META, STATUS_META } from '../lib/types'
+import { FAVORITO_STAR, SOURCE_META, STATUS_META } from '../lib/types'
 import { answerText, candidateName, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
@@ -39,7 +39,7 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { copyText } from '../lib/clipboard'
 import { MaskedPhone } from '../components/MaskedPhone'
-import { TagPicker, TagSection } from '../components/Tags'
+import { TagSection } from '../components/Tags'
 import { TAGS_ENABLED, planHas } from '../lib/pricing'
 import { InterestSignal } from '../components/InterestSignal'
 import { AgendarManualDialog, InterviewHeaderButton } from '../components/InterviewAction'
@@ -237,20 +237,35 @@ export function CandidateModal({
   return (
     <>
       <Modal open={open} onClose={onClose} labelledBy="candidato-nombre" inert={confirmarBorrado}>
-        <header className="border-b border-slate-200 px-4 pb-2.5 pt-3.5 sm:px-5">
-          <div className="flex items-start gap-3">
-            <MeridianAvatar name={name} fit={fit ?? undefined} size={44} />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1">
-                <h2 id="candidato-nombre" title={name} className="truncate text-xl font-semibold leading-tight text-slate-900">
-                  {name}
-                </h2>
-                <Favorito value={candidate.favorito} onChange={(v) => void setFavorito(candidate.id, v)} />
+        {/* En escritorio la cabecera respira más que en móvil: la identidad es lo
+            primero que se lee de una persona y pegada al filo se leía como una
+            barra de herramientas. */}
+        <header className="border-b border-slate-200 px-4 pb-2.5 pt-3.5 sm:px-5 sm:pb-3.5 sm:pt-5">
+          {/* Los dos lados de la fila se centran ENTRE SÍ: con `items-start` las
+              flechas y la equis se pegaban al techo y quedaban 4px por encima del
+              centro del nombre, que es contra lo que las mira el ojo. */}
+          <div className="flex items-center gap-3">
+            {/* La cara y sus dos líneas son UN bloque centrado entre sí: con la fila
+                entera en `items-start` el avatar se colgaba del techo de la
+                cabecera, arrancaba por encima de la mayúscula del nombre y moría a
+                media línea del puesto. Centrado, la cara y el nombre cuadran. */}
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <MeridianAvatar name={name} fit={fit ?? undefined} size={44} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <h2 id="candidato-nombre" title={name} className="truncate text-xl font-semibold leading-tight text-slate-900">
+                    {name}
+                  </h2>
+                  {/* La estrella no estira la línea del nombre (`-my-1`): su caja de
+                      32px la hacía 7px más alta que el texto y descuadraba el bloque
+                      contra la cara. El área de toque no cambia. */}
+                  <Favorito value={candidate.favorito} onChange={(v) => void setFavorito(candidate.id, v)} />
+                </div>
+                {/* Sin etiqueta de ajuste: el anillo del avatar YA dice el encaje
+                    (por longitud de arco) y repetirlo en palabras solo restaba
+                    sitio al puesto. */}
+                <p className="truncate text-[13px] text-slate-500">{campaign.title}</p>
               </div>
-              {/* Sin etiqueta de ajuste: el anillo del avatar YA dice el encaje
-                  (por longitud de arco) y repetirlo en palabras solo restaba
-                  sitio al puesto. */}
-              <p className="truncate text-[13px] text-slate-500">{campaign.title}</p>
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
               {puedeNavegar && (
@@ -290,22 +305,12 @@ export function CandidateModal({
           </div>
 
           {/* Barra de decisión: lo que el empresario cambia sin pensar. */}
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 sm:mt-3.5">
             <StatusSelect status={candidate.status} onChange={(s) => void setStatus(candidate.id, s)} />
-            {/* Las etiquetas no caben en la cabecera de móvil: allí van en Resumen. */}
-            {TAGS_ENABLED && (
-              // Sin el título "Etiquetas": en la cabecera los chips se explican
-              // solos y el rótulo solo robaría el sitio de las acciones.
-              <div className="hidden min-w-0 sm:block">
-                <TagPicker
-                  candidateId={candidate.id}
-                  tagIds={candidate.tagIds}
-                  canManage={canManageTags}
-                  onOpenManage={() => onOpenManageTags?.()}
-                  inline
-                />
-              </div>
-            )}
+            {/* Las etiquetas NO van aquí a ningún ancho: viven en Resumen, como
+                ya hacían en móvil. En la cabecera crecían sin techo y empujaban
+                las acciones de contacto a una segunda línea, con lo que la
+                identidad de la persona quedaba enterrada bajo su clasificación. */}
             {/* La fila de acciones SÍ se ve en móvil, pero solo con la entrevista
                 dentro: llamar y escribir ya están en la barra de abajo, al
                 alcance del pulgar, y repetirlos aquí sería ruido. La entrevista
@@ -463,9 +468,11 @@ export function CandidateModal({
  * Favorito: una sola estrella pegada al nombre. Es un interruptor ("a este lo
  * quiero"), no una nota con matices, y por eso sustituyó a las 5 estrellas.
  *
- * NO es dorada a propósito: el ámbar ya significa "entrevista" y en esta misma
- * cabecera puede haber una pastilla ámbar al lado. Guardar en favoritos es
- * SELECCIÓN, que es uno de los cuatro usos legítimos del acento.
+ * ES DORADA (Mario, ago 2026, y antes iba en el acento): el par de tonos vive
+ * en `FAVORITO_STAR`, que es lo que pintan también la tabla y el filtro.
+ *
+ * El `-my-1` es cosa de la cabecera, no del botón: su caja de 32px hacía la
+ * línea del nombre 7px más alta que el texto.
  */
 function Favorito({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -474,14 +481,27 @@ function Favorito({ value, onChange }: { value: boolean; onChange: (v: boolean) 
       aria-pressed={value}
       aria-label={value ? 'Quitar de favoritos' : 'Guardar en favoritos'}
       onClick={() => onChange(!value)}
-      className={`group grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg transition-[color,background-color,transform] duration-[var(--duration-control)] ease-[var(--ease-out)] hover:bg-slate-100 active:translate-y-px ${
-        value ? 'text-indigo-600 hover:text-indigo-700' : 'text-slate-400 hover:text-indigo-600'
-      }`}
+      className="group -my-1 grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] active:translate-y-px"
     >
       {/* El press es `translate-y-px` en el botón, nunca `scale` en el icono: un
           control se hunde, no se encoge. El `scale` es lenguaje de dibujo animado
-          y aquí desentonaba contra los 16 botones del sistema. */}
-      <Star className={`size-[18px] [stroke-width:1.75] ${value ? 'fill-current' : ''}`} aria-hidden />
+          y aquí desentonaba contra los 16 botones del sistema.
+
+          El hover NO pinta una placa gris detrás: la respuesta ocurre DENTRO del
+          glifo, que se rellena de amarillo al 35%. Es el adelanto de lo que va a
+          pasar al pulsar (la estrella se rellena del todo), en vez de un fondo
+          que no significa nada y que además metía un rectángulo gris pegado al
+          nombre. El color lo lleva SIEMPRE el icono, nunca el botón: si el botón
+          pusiera el suyo, el `text-amber-500` del glifo encendido lo taparía y
+          el hover de "quitar de favoritos" no se vería. */}
+      <Star
+        className={`size-[18px] [stroke-width:1.75] transition-[color,fill] duration-[var(--duration-control)] ease-[var(--ease-out)] ${
+          value
+            ? `${FAVORITO_STAR} group-hover:text-amber-600`
+            : 'fill-transparent text-slate-400 group-hover:fill-amber-400/35 group-hover:text-amber-500'
+        }`}
+        aria-hidden
+      />
     </button>
   )
 }
@@ -593,9 +613,11 @@ function Resumen({
         </dl>
       </section>
 
-      {/* Etiquetas: en móvil viven aquí (en escritorio van en la cabecera). */}
+      {/* Etiquetas: aquí a todos los anchos. Es lo que tu equipo dice de esta
+          persona, así que va con lo demás que se lee de ella, no en la cabecera
+          entre el estado y las acciones. */}
       {TAGS_ENABLED && (
-        <section className="sm:hidden">
+        <section>
           <TagSection candidateId={candidate.id} tagIds={candidate.tagIds} canManage={canManageTags} onOpenManage={() => onOpenManageTags?.()} />
         </section>
       )}
@@ -787,7 +809,7 @@ function Equipo({
               Apunta aquí lo que hables por teléfono: si le encaja el turno, cuándo puede empezar, lo que sea. Queda con tu nombre y lo ve tu equipo.
             </ChatEmpty>
           ) : (
-            <ChatThread messages={mensajes} currentUserId={currentUserId} />
+            <ChatThread messages={mensajes} currentUserId={currentUserId} members={members} />
           )}
         </div>
         <ChatNuevos nuevos={nuevos} onClick={() => irAlFondo(true)} />

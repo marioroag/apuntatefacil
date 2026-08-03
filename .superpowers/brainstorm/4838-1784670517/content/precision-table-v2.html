@@ -1,0 +1,114 @@
+<style>
+  .p2 { --ink:#131822; --ink2:#50545e; --ink3:#6f727c; --line:#e5e7eb; --line2:#d1d4db; --canvas:#f9fafb; --muted:#f4f5f7; --accent:#374cce; color:var(--ink); }
+  .p2 * { box-sizing:border-box; }
+  .p2-intro { max-width:770px; margin-bottom:20px; }
+  .p2-intro h2 { margin:0 0 6px; letter-spacing:-.02em; }
+  .p2-intro p { margin:0; color:var(--ink2); }
+  .anatomy { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 18px; }
+  .anatomy span { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; border-radius:999px; background:var(--muted); color:var(--ink2); font-size:11px; font-weight:600; }
+  .anatomy i { width:6px; height:6px; border-radius:999px; background:var(--ink3); }
+  .mock { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; box-shadow:0 1px 3px rgba(19,24,34,.07); }
+  .top { display:flex; align-items:center; gap:8px; padding:14px 16px 11px; background:var(--canvas); border-bottom:1px solid var(--line); }
+  .search { height:36px; flex:1; max-width:310px; display:flex; align-items:center; gap:8px; padding:0 11px; border:1px solid var(--line2); border-radius:9px; background:#fff; color:var(--ink3); font-size:12px; }
+  .btn { height:36px; display:inline-flex; align-items:center; gap:6px; padding:0 11px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink2); font-size:12px; font-weight:600; }
+  .btn.primary { margin-left:auto; background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 2px rgba(25,34,98,.24); }
+  .context { display:flex; align-items:center; padding:8px 16px; background:var(--canvas); color:var(--ink3); font-size:11px; }
+  .context strong { margin-right:4px; color:var(--ink); font-weight:650; }
+  .context .order { margin-left:auto; }
+  .table-scroll { overflow:auto; }
+  table { width:100%; min-width:760px; border-collapse:collapse; table-layout:fixed; font-size:12px; }
+  th { padding:8px 10px; border-bottom:1px solid var(--line); background:#fafbfc; color:var(--ink3); font-size:11px; font-weight:600; text-align:left; }
+  td { padding:9px 10px; border-bottom:1px solid #eef0f3; color:var(--ink2); vertical-align:middle; }
+  tbody tr:last-child td { border-bottom:0; }
+  tbody tr:hover { background:#f7f8fa; }
+  .checkbox { width:14px; height:14px; border:1px solid var(--line2); border-radius:4px; background:#fff; }
+  .person { display:flex; align-items:flex-start; gap:9px; min-width:0; }
+  .avatar { width:28px; height:28px; flex:0 0 auto; display:grid; place-items:center; border-radius:999px; background:var(--muted); box-shadow:inset 0 0 0 1px var(--line); color:var(--ink2); font-size:9px; font-weight:650; }
+  .person-body { min-width:0; }
+  .name { display:flex; align-items:center; gap:6px; color:var(--ink); font-weight:650; white-space:nowrap; }
+  .new { padding:1px 5px; border-radius:999px; background:#eef0f3; color:var(--ink3); font-size:9px; font-weight:650; }
+  .tags { display:flex; align-items:center; gap:4px; margin-top:4px; min-width:0; }
+  .tag { display:inline-flex; max-width:90px; padding:2px 6px; border-radius:999px; background:var(--muted); box-shadow:inset 0 0 0 1px var(--line); color:var(--ink2); font-size:9px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tag.more { color:var(--ink3); }
+  .phone { font-variant-numeric:tabular-nums; }
+  .interest { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; }
+  .interest svg { width:14px; height:14px; color:var(--ink3); fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .interest.yes svg { color:#228554; }
+  .status { display:inline-flex; align-items:center; gap:6px; padding:3px 7px; border-radius:999px; background:#fff; box-shadow:inset 0 0 0 1px var(--line); color:var(--ink2); font-size:11px; font-weight:600; white-space:nowrap; }
+  .status-dot { width:7px; height:7px; border-radius:999px; background:#6f727c; }
+  .status-dot.blue { background:#3b82f6; } .status-dot.amber { background:#f59e0b; } .status-dot.green { background:#22c55e; }
+  .chevron { color:var(--ink3); font-size:9px; margin-left:1px; }
+  .date { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; color:var(--ink3); }
+  .note { display:flex; gap:10px; align-items:flex-start; margin-top:14px; padding:12px 14px; border-left:2px solid var(--accent); background:rgba(55,76,206,.045); color:var(--ink2); font-size:12px; }
+  .note strong { color:var(--ink); }
+  .approval { margin-top:18px; display:flex; justify-content:flex-end; }
+  .choice { border:1px solid var(--line2); border-radius:9px; background:#fff; color:var(--ink); padding:9px 13px; font-weight:650; cursor:pointer; }
+  .choice.is-selected { border-color:var(--accent); background:var(--accent); color:#fff; }
+  @media (max-width:720px) { .top { overflow-x:auto; } .top > * { flex:0 0 auto; } .search { width:220px; } .context { min-width:760px; } }
+</style>
+
+<div class="p2">
+  <div class="p2-intro">
+    <h2>Dirección C refinada</h2>
+    <p>Etiquetas bajo el nombre, interés con icono funcional y estado con un único punto de color.</p>
+  </div>
+
+  <div class="anatomy" aria-label="Criterios de la fila">
+    <span><i></i> Etiquetas neutras</span>
+    <span><i style="border-radius:2px"></i> Interés con icono</span>
+    <span><i style="background:#3b82f6"></i> Un punto por estado</span>
+  </div>
+
+  <div class="mock">
+    <div class="top">
+      <div class="search">⌕&nbsp; Buscar candidatos</div>
+      <button class="btn">Filtros <span>2</span></button>
+      <button class="btn">Vistas</button>
+      <button class="btn primary">Exportar</button>
+    </div>
+    <div class="context"><strong>128</strong> candidatos · 2 filtros activos <span class="order">Orden: más recientes</span></div>
+    <div class="table-scroll">
+      <table>
+        <colgroup><col style="width:38px"><col style="width:29%"><col style="width:16%"><col style="width:15%"><col style="width:18%"><col style="width:14%"></colgroup>
+        <thead><tr><th></th><th>Candidato ↕</th><th>Teléfono</th><th>Interés</th><th>Estado ↕</th><th style="text-align:right">Recibida ↓</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><div class="checkbox"></div></td>
+            <td><div class="person"><div class="avatar">LM</div><div class="person-body"><div class="name">Lucía Martín <span class="new">Nueva</span></div><div class="tags"><span class="tag">Carnet B</span><span class="tag">Incorporación inmediata</span><span class="tag more">+2</span></div></div></div></td>
+            <td class="phone">611 234 876</td>
+            <td><span class="interest yes"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.2 6.2 12 13.5 4.5"/></svg>Interesada</span></td>
+            <td><span class="status"><span class="status-dot"></span>Nuevo <span class="chevron">⌄</span></span></td>
+            <td class="date">Hace 8 min</td>
+          </tr>
+          <tr>
+            <td><div class="checkbox"></div></td>
+            <td><div class="person"><div class="avatar">DS</div><div class="person-body"><div class="name">David Santana</div><div class="tags"><span class="tag">Carretillero</span></div></div></div></td>
+            <td class="phone">622 843 194</td>
+            <td><span class="interest"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 13 13 3M7 3h6v6"/></svg>Enviado</span></td>
+            <td><span class="status"><span class="status-dot blue"></span>Contactado <span class="chevron">⌄</span></span></td>
+            <td class="date">Ayer</td>
+          </tr>
+          <tr>
+            <td><div class="checkbox"></div></td>
+            <td><div class="person"><div class="avatar">AR</div><div class="person-body"><div class="name">Ana Rodríguez</div><div class="tags"><span class="tag">7 años exp.</span><span class="tag">Turno mañana</span></div></div></div></td>
+            <td class="phone">633 519 072</td>
+            <td><span class="interest yes"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.2 6.2 12 13.5 4.5"/></svg>Interesada</span></td>
+            <td><span class="status"><span class="status-dot amber"></span>Entrevista <span class="chevron">⌄</span></span></td>
+            <td class="date">18 jul</td>
+          </tr>
+          <tr>
+            <td><div class="checkbox"></div></td>
+            <td><div class="person"><div class="avatar">JP</div><div class="person-body"><div class="name">Jorge Pérez</div></div></div></td>
+            <td class="phone">644 708 311</td>
+            <td><span class="interest"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.2"/><path d="M5.8 8h4.4"/></svg>Sin enviar</span></td>
+            <td><span class="status"><span class="status-dot green"></span>Contratado <span class="chevron">⌄</span></span></td>
+            <td class="date">17 jul</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="note"><span>→</span><span><strong>Jerarquía:</strong> nombre primero, etiquetas como contexto de clasificación, interés como señal operativa y estado como acción editable. El color no se duplica.</span></div>
+  <div class="approval"><button class="choice" data-choice="approve-row-anatomy" onclick="toggleSelect(this)">Esta anatomía de fila me encaja</button></div>
+</div>

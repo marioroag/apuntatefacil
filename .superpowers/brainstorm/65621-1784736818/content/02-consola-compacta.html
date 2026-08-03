@@ -1,0 +1,98 @@
+<style>
+  .ai-study { max-width:1160px; margin:0 auto; color:#131822; }
+  .ai-study > h2 { margin:0; font-size:24px; letter-spacing:-.025em; }
+  .ai-study > .subtitle { max-width:720px; margin:7px 0 24px; }
+  .study-label { display:block; margin:24px 0 8px; color:#6f727c; font-size:11px; font-weight:650; letter-spacing:.055em; text-transform:uppercase; }
+  .canvas { overflow:hidden; border:1px solid #dfe1e6; border-radius:12px; background:#f9fafb; box-shadow:0 14px 34px -28px rgba(18,22,34,.34); }
+  .appbar { display:flex; align-items:center; height:43px; padding:0 18px; border-bottom:1px solid #e5e7eb; background:white; color:#50545e; font-size:12px; }
+  .mark { display:grid; width:18px; height:18px; place-items:center; margin-right:7px; border-radius:5px; background:#374cce; color:white; font-size:11px; font-weight:800; }
+  .appbar b { color:#131822; font-weight:700; }
+  .appbar span:last-child { margin-left:auto; color:#6f727c; }
+  .page { padding:20px; }
+  .page-title { display:flex; align-items:baseline; gap:8px; margin-bottom:15px; }
+  .page-title h3 { margin:0; font-size:19px; letter-spacing:-.02em; }
+  .page-title p { margin:0; color:#6f727c; font-size:12px; }
+  .ai-console { position:relative; overflow:hidden; display:grid; grid-template-columns:auto minmax(250px,1fr) auto; align-items:center; gap:12px; min-height:76px; padding:11px 12px 11px 14px; border:1px solid #cfd6fb; border-radius:10px; background:#fff; box-shadow:0 7px 18px -16px rgba(55,76,206,.55), inset 0 1px 0 rgba(255,255,255,.9); }
+  .ai-console::before { position:absolute; top:0; left:16px; right:16px; height:1px; background:#b8c6fb; content:""; }
+  .console-ident { position:relative; display:flex; flex-direction:column; gap:2px; min-width:140px; padding-right:10px; }
+  .console-ident strong { display:flex; align-items:center; gap:7px; font-size:13px; }
+  .spark { position:relative; display:inline-block; width:15px; height:15px; border:1px solid #9fb0f8; border-radius:5px; }
+  .spark::before,.spark::after { position:absolute; width:3px; height:3px; border-radius:50%; background:#374cce; content:""; }
+  .spark::before { top:2px; left:2px; box-shadow:6px 6px 0 #374cce; }
+  .spark::after { right:2px; bottom:2px; opacity:.35; }
+  .console-ident small { color:#6f727c; font-size:11px; line-height:1.35; }
+  .query { position:relative; display:flex; align-items:center; min-width:0; height:42px; padding:0 5px 0 11px; border:1px solid #cbd0db; border-radius:8px; background:#fff; box-shadow:inset 0 1px 1px rgba(18,22,34,.025); }
+  .query span { min-width:0; overflow:hidden; color:#6f727c; font-size:12px; text-overflow:ellipsis; white-space:nowrap; }
+  .query b { color:#3c404a; font-weight:550; }
+  .query-focus { position:absolute; inset:-3px; border:1px solid rgba(55,76,206,.25); border-radius:10px; opacity:0; transition:opacity .18s var(--ease-out,cubic-bezier(.16,1,.3,1)); pointer-events:none; }
+  .query:hover .query-focus { opacity:1; }
+  .action { display:inline-flex; align-items:center; justify-content:center; gap:7px; height:42px; padding:0 14px; border:0; border-radius:8px; background:#374cce; box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 2px rgba(18,22,34,.2); color:#fff; font-family:inherit; font-size:12px; font-weight:700; }
+  .action i { position:relative; width:9px; height:9px; border:1px solid rgba(255,255,255,.75); border-radius:50%; }
+  .action i::after { position:absolute; top:2px; left:2px; width:3px; height:3px; border-radius:50%; background:#fff; content:""; }
+  .fact-row { display:flex; gap:7px; align-items:center; margin:10px 2px 14px; color:#6f727c; font-size:11px; }
+  .fact-row .rail { position:relative; width:50px; height:1px; background:#d1d4db; overflow:hidden; }
+  .fact-row .rail::after { position:absolute; top:0; left:-14px; width:14px; height:1px; background:#374cce; content:""; animation:rail 2.4s cubic-bezier(.16,1,.3,1) infinite; }
+  @keyframes rail { 0% { transform:translateX(0); opacity:0; } 18% { opacity:1; } 75% { opacity:1; } 100% { transform:translateX(70px); opacity:0; } }
+  .filters { display:flex; gap:8px; margin-bottom:10px; }
+  .filter { display:inline-flex; align-items:center; height:32px; padding:0 10px; border:1px solid #d1d4db; border-radius:7px; background:white; color:#50545e; font-size:11px; }
+  .filter.search { min-width:250px; flex:1; color:#6f727c; }
+  .list { overflow:hidden; border:1px solid #e5e7eb; border-radius:9px; background:#fff; }
+  .tr { display:grid; grid-template-columns:1.6fr .8fr 1fr .75fr; align-items:center; min-height:43px; padding:0 13px; border-bottom:1px solid #eef0f2; color:#50545e; font-size:11px; }
+  .tr:last-child { border-bottom:0; }
+  .tr.head { min-height:32px; background:#fbfbfc; color:#6f727c; font-size:9px; font-weight:700; letter-spacing:.045em; text-transform:uppercase; }
+  .tr strong { color:#242833; font-size:12px; }
+  .dot { display:inline-block; width:6px; height:6px; margin-right:5px; border-radius:50%; background:#3b82f6; }
+  .status { color:#50545e; }
+  .callout { margin:20px 0 0; padding:15px 17px; border-left:2px solid #374cce; background:#fff; color:#50545e; font-size:13px; line-height:1.55; }
+  .callout b { color:#131822; }
+  .active-console { grid-template-columns:auto minmax(250px,1fr) auto; border-color:#9fb0f8; }
+  .active-console .query { border-color:#9fb0f8; background:#fafbff; }
+  .active-console .query span { color:#3c404a; }
+  .mode { display:flex; align-items:center; gap:6px; margin-left:auto; color:#374cce; font-size:11px; font-weight:650; white-space:nowrap; }
+  .mode .live { width:6px; height:6px; border-radius:50%; background:#374cce; box-shadow:0 0 0 3px rgba(55,76,206,.12); animation:blink 1.8s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity:.45; } 45% { opacity:1; } }
+  .matched { position:relative; background:#f7f8ff; }
+  .matched::before { position:absolute; left:0; top:0; bottom:0; width:2px; background:#374cce; content:""; }
+  .match { display:inline-flex; width:max-content; align-items:center; gap:5px; color:#374cce; font-weight:650; }
+  .match::before { width:5px; height:5px; border-radius:50%; background:#374cce; content:""; }
+  @media (max-width:760px) { .page { padding:14px; } .ai-console { grid-template-columns:1fr auto; gap:8px; } .console-ident { grid-column:1 / -1; min-width:0; padding:0; } .console-ident small { display:none; } .query { min-width:0; } .fact-row { margin-bottom:12px; } .tr { grid-template-columns:1.5fr 1fr .8fr; } .tr > :nth-child(3) { display:none; } .tr.head > :nth-child(3) { display:none; } }
+</style>
+
+<div class="ai-study">
+  <h2>Dirección: la consola de señal</h2>
+  <p class="subtitle">Una pieza compacta que sustituye el resumen de estados y se integra con la tabla. Especial al usarla, discreta cuando vuelves al trabajo.</p>
+
+  <span class="study-label">Reposo, 76 px de alto</span>
+  <section class="canvas">
+    <div class="appbar"><span class="mark">A</span><b>apuntatefacil</b><span>Puestos / Repartidor con furgoneta</span></div>
+    <main class="page">
+      <div class="page-title"><h3>Repartidor con furgoneta</h3><p>Logística, Las Palmas</p></div>
+      <div class="ai-console">
+        <div class="console-ident"><strong><i class="spark"></i>Selección asistida</strong><small>Compara lo que ya sabes de tus candidatos.</small></div>
+        <div class="query"><span class="query-focus"></span><span>Describe el perfil que necesitas, por ejemplo: <b>carnet B y experiencia en reparto</b></span></div>
+        <button class="action" type="button"><i></i>Analizar</button>
+      </div>
+      <div class="fact-row"><span class="rail"></span><span>Usará respuestas, notas, valoración, estado y etiquetas de tus <b>128 candidatos</b>.</span></div>
+      <div class="filters"><span class="filter search">⌕ &nbsp; Buscar por nombre o teléfono</span><span class="filter">Filtros</span><span class="filter">Vistas</span><span class="filter">Exportar</span></div>
+      <div class="list"><div class="tr head"><span>Candidato</span><span>Experiencia</span><span>Estado</span><span>Recibida</span></div><div class="tr"><strong>María Martín</strong><span>5 años</span><span class="status"><i class="dot"></i>Contactado</span><span>Ayer</span></div><div class="tr"><strong>Jorge Suárez</strong><span>4 años</span><span class="status"><i class="dot"></i>Entrevista</span><span>Hoy</span></div><div class="tr"><strong>Ana Medina</strong><span>3 años</span><span class="status"><i class="dot"></i>Nuevo</span><span>Hoy</span></div></div>
+    </main>
+  </section>
+
+  <span class="study-label">Después de analizar, misma huella</span>
+  <section class="canvas">
+    <div class="appbar"><span class="mark">A</span><b>apuntatefacil</b><span>Puestos / Repartidor con furgoneta</span></div>
+    <main class="page">
+      <div class="page-title"><h3>Repartidor con furgoneta</h3><p>Logística, Las Palmas</p></div>
+      <div class="ai-console active-console">
+        <div class="console-ident"><strong><i class="spark"></i>Selección asistida</strong><small>Resultados ordenados en la tabla.</small></div>
+        <div class="query"><span class="query-focus"></span><span>carnet B y experiencia en reparto</span></div>
+        <div class="mode"><i class="live"></i>128 comparados</div>
+      </div>
+      <div class="fact-row"><span class="rail"></span><span>Se han priorizado los perfiles con más señales a favor. <b>El orden no cambia ningún dato.</b></span></div>
+      <div class="filters"><span class="filter search">⌕ &nbsp; Buscar por nombre o teléfono</span><span class="filter">Filtros</span><span class="filter">Vistas</span><span class="filter">Exportar</span></div>
+      <div class="list"><div class="tr head"><span>Candidato</span><span>Experiencia</span><span>Estado</span><span>Ajuste</span></div><div class="tr matched"><strong>María Martín</strong><span>5 años</span><span class="status"><i class="dot"></i>Contactado</span><span class="match">Ver por qué</span></div><div class="tr matched"><strong>Jorge Suárez</strong><span>4 años</span><span class="status"><i class="dot"></i>Entrevista</span><span class="match">Ver por qué</span></div><div class="tr"><strong>Ana Medina</strong><span>3 años</span><span class="status"><i class="dot"></i>Nuevo</span><span>Coincide</span></div></div>
+    </main>
+  </section>
+
+  <p class="callout"><b>Lo que la hace especial:</b> el borde activo, la señal que recorre el rail y el cambio de orden producen la sensación de que el sistema está trabajando. No aparece una segunda pantalla ni una lista de tarjetas que compita con la base de candidatos.</p>
+</div>

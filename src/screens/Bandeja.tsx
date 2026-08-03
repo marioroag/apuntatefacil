@@ -8,6 +8,7 @@ import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { ColHead, TABLE, ROW, CELL, MOBILE_ROW } from '../components/ui/DataTable'
 import { CandidateModal } from './CandidateModal'
 import { relativeDate, formatPhone, candidateName } from '../lib/format'
+import { clickDeFila } from '../lib/fila'
 import { MeridianAvatar } from '../components/Meridian'
 import { candidateFit } from '../lib/meridian'
 import { MaskedPhone } from '../components/MaskedPhone'
@@ -83,7 +84,7 @@ export function Bandeja() {
                 return (
                   <li
                     key={c.id}
-                    onClick={() => setOpenId(c.id)}
+                    onClick={(e) => clickDeFila(e) && setOpenId(c.id)}
                     className={`${MOBILE_ROW} flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors active:bg-slate-50`}
                   >
                     <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={40} />
@@ -93,7 +94,7 @@ export function Bandeja() {
                           teclado y lo que anuncia el lector. */}
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); setOpenId(c.id) }}
+                        onClick={() => setOpenId(c.id)}
                         className="block min-w-0 max-w-full truncate text-left text-[15px] font-medium text-slate-900"
                       >
                         {name}
@@ -117,7 +118,7 @@ export function Bandeja() {
                             ~44px sin engordar la pastilla. */}
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); setStatusFor(c) }}
+                          onClick={() => setStatusFor(c)}
                           aria-label={`Estado: ${m.label}. Tocar para cambiar`}
                           className={`relative inline-flex shrink-0 items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[12px] font-semibold ring-1 ring-inset transition-[filter] after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] ${m.chip} active:brightness-95`}
                         >
@@ -152,7 +153,7 @@ export function Bandeja() {
                     return (
                       <tr
                         key={c.id}
-                        onClick={() => setOpenId(c.id)}
+                        onClick={(e) => clickDeFila(e) && setOpenId(c.id)}
                         className={`${ROW} group cursor-pointer hover:bg-slate-50`}
                       >
                         <td className={CELL}>
@@ -163,7 +164,7 @@ export function Bandeja() {
                             <span className="truncate text-[14px] font-medium text-slate-900 decoration-slate-400 underline-offset-[3px] group-hover:underline" title={name}>{name}</span>
                           </div>
                         </td>
-                        <td className={CELL} onClick={(e) => e.stopPropagation()}>
+                        <td className={CELL}>
                           {camp ? (
                             <Link
                               to={`${base}/puestos/${camp.id}`}
@@ -181,7 +182,7 @@ export function Bandeja() {
                             {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
                           </span>
                         </td>
-                        <td className={`${CELL} whitespace-nowrap`} onClick={(e) => e.stopPropagation()}>
+                        <td className={`${CELL} whitespace-nowrap`}>
                           <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
                         </td>
                         <td className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>

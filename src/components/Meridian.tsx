@@ -20,7 +20,16 @@ export function MeridianAvatar({ name, fit, size = 40 }: { name: string; fit?: n
   const circ = 2 * Math.PI * r
   const pct = Math.max(0, Math.min(100, fit ?? 0))
   const dash = (pct / 100) * circ
-  const inner = has ? size - 8 : size
+  // El anillo vive en un CARRIL RESERVADO alrededor de la cara, se pinte o no: la
+  // cara mide siempre lo mismo para un `size` dado. Antes el carril se le quitaba a
+  // la cara solo al analizar, y en la misma lista convivían caras de 34 y de 26 px
+  // (con iniciales de 8, por debajo del suelo legible): a la misma persona la
+  // encogía que Meridian hubiera hablado de ella.
+  const carril = stroke + (size >= 40 ? 2 : 1.5)
+  const inner = size - 2 * carril
+  // Misma proporción y mismo suelo que `ui/Avatar`, la primitiva de las caras del
+  // equipo: dos iniciales al 40% del círculo y nunca por debajo de 9px.
+  const fontSize = Math.max(9, Math.round(inner * 0.4))
   return (
     <span
       className="relative grid shrink-0 place-items-center"
@@ -43,8 +52,8 @@ export function MeridianAvatar({ name, fit, size = 40 }: { name: string; fit?: n
         </svg>
       )}
       <span
-        className="grid place-items-center rounded-full bg-slate-100 font-bold text-slate-600"
-        style={{ width: inner, height: inner, fontSize: Math.round(inner * 0.32) }}
+        className="grid place-items-center rounded-full bg-slate-100 font-bold leading-none text-slate-600"
+        style={{ width: inner, height: inner, fontSize }}
       >
         {initials(name)}
       </span>
