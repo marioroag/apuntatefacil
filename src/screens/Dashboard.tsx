@@ -40,7 +40,7 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
-import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH } from '../components/ui/DataTable'
+import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, MOBILE_ROW } from '../components/ui/DataTable'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -1347,13 +1347,13 @@ function CandidateTable({
   return (
     <>
       {/* --- Vista móvil: tarjetas (< md) --- */}
-      <ul className="divide-y divide-slate-100 md:hidden" aria-label={`Candidatos de ${campaign.title}`}>
+      <ul className="md:hidden" aria-label={`Candidatos de ${campaign.title}`}>
         {/* Bloqueados (móvil): ARRIBA, como las candidaturas nuevas (son las más
             recientes). Contenido señuelo REAL (mismo texto que el Excel: "Candidatura
             bloqueada" / "Bloqueada"), difuminado entero para que no se lea nada, con
             el CTA nítido encima: es la única pieza legible y accionable de la fila. */}
         {lockedDates.map((date, i) => (
-          <li key={`locked-${i}`} className="relative overflow-hidden bg-slate-50/70 px-4 py-3">
+          <li key={`locked-${i}`} className={`${MOBILE_ROW} overflow-hidden bg-slate-50/70 px-4 py-3`}>
             <div aria-hidden className="flex items-center gap-3 blur-[4px] select-none">
               <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-200 text-[12.5px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-300">
                 CB
@@ -1381,12 +1381,13 @@ function CandidateTable({
           const fresh = isFreshNuevo(c)
           const sel = selected.has(c.id)
           const arrivedAt = arrivalOrder.get(c.id)
-          const statusChipClass = `${m.chip} inline-flex items-center gap-1 rounded-full ring-1 ring-inset ${
-            fresh
-              ? 'gap-1.5 px-2.5 py-1 text-[13px] font-bold ring-2 ring-slate-400'
-              : 'gap-1 px-2 py-0.5 text-[12px] font-semibold'
-          }`
-          const statusDotClass = `${fresh ? 'size-2' : 'size-1.5'} rounded-full ${m.dot}`
+          // La pastilla mide y pesa lo MISMO en todas las filas, también en las
+          // recién llegadas (ago 2026). Engordarlas (13px, bold, ring-2 slate-400)
+          // dejaba la columna de estados en serrucho y esa fila parecía un fallo de
+          // pintado, no un énfasis. Que ha llegado ahora ya lo dicen el fondo teñido
+          // de la fila y la fecha en negrita, que es donde de verdad se pregunta.
+          const statusChipClass = `${m.chip} inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ring-1 ring-inset`
+          const statusDotClass = `size-1.5 rounded-full ${m.dot}`
           // Tap: en modo selección alterna; si no, abre el detalle. El guard
           // longPressed evita que el click tras la pulsación larga lo deshaga.
           const onTap = () => {
@@ -1403,68 +1404,89 @@ function CandidateTable({
               style={arrivedAt !== undefined
                 ? { animation: `drop-in 240ms var(--ease-out) ${Math.min(arrivedAt, 4) * 45}ms both` }
                 : undefined}
-              className={`px-4 py-3 transition-colors ${selectMode && sel ? 'bg-indigo-50/70' : fresh ? 'bg-slate-50/80' : ''}`}
+              onClick={(e) => clickDeFila(e) && onTap()}
+              onTouchStart={selectMode ? undefined : () => startPress(c.id)}
+              onTouchMove={selectMode ? undefined : cancelPress}
+              onTouchEnd={selectMode ? undefined : cancelPress}
+              className={`${MOBILE_ROW} cursor-pointer px-4 py-3 transition-colors ${
+                selectMode && sel ? 'bg-indigo-50/70' : fresh ? 'bg-slate-50/80 active:bg-slate-100' : 'active:bg-slate-50'
+              }`}
             >
-             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onTap}
-                onTouchStart={selectMode ? undefined : () => startPress(c.id)}
-                onTouchMove={selectMode ? undefined : cancelPress}
-                onTouchEnd={selectMode ? undefined : cancelPress}
-                aria-pressed={selectMode ? sel : undefined}
-                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors active:bg-slate-50"
-              >
-                {selectMode ? (
-                  <span
-                    className={`grid size-10 shrink-0 place-items-center rounded-full border-2 transition-colors ${
-                      sel ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
-                    }`}
-                    aria-hidden
-                  >
-                    {sel && <Check className="size-5 text-white" />}
-                  </span>
-                ) : (
-                  <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={40} />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 text-[15px] font-medium text-slate-900">
-                    <span className="truncate">{name}</span>
+             {/* DOS LÍNEAS QUE OCUPAN LA FILA ENTERA, no dos columnas (ago 2026).
+                 Antes la pastilla de estado vivía en una columna derecha propia, y
+                 como esa columna mide lo que mide su hijo más ancho, se llevaba 150px
+                 de la línea del nombre: "Manuel Soler" se leía "Manuel So…" con media
+                 fila vacía debajo. Ahora arriba va la identidad (quién y cuándo) y
+                 abajo los metadatos (teléfono y estado), cada línea con todo el ancho.
+                 El nombre pasa de ~120px a ~205px sin que la fila crezca ni un pixel.
+
+                 Solo el avatar queda fuera, como raíl: es la columna que alinea las
+                 dos líneas y donde muere el filo sangrado. */}
+             <div className="flex items-start gap-3">
+              {selectMode ? (
+                <span
+                  className={`grid size-10 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                    sel ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
+                  }`}
+                  aria-hidden
+                >
+                  {sel && <Check className="size-5 text-white" />}
+                </span>
+              ) : (
+                <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={40} />
+              )}
+              <div className="min-w-0 flex-1">
+                {/* Línea 1: quién, y cuándo llegó. */}
+                <div className="flex items-baseline gap-2">
+                  <p className="flex min-w-0 flex-1 items-center gap-1.5 text-[15px] font-medium text-slate-900">
+                    {/* La fila entera abre la ficha (como el <tr> de escritorio), pero
+                        el nombre sigue siendo un <button> de verdad: es lo que hace la
+                        fila alcanzable con teclado y lo que anuncia el lector. */}
+                    <button
+                      type="button"
+                      onClick={onTap}
+                      aria-pressed={selectMode ? sel : undefined}
+                      className="min-w-0 truncate text-left"
+                    >
+                      {name}
+                    </button>
                     {c.source === 'prueba' && <TestChip />}
                     <InterestOutcomeIcon campaign={campaign} candidate={c} />
                     <RowSignals favorito={c.favorito} comments={commentCounts[c.id] ?? 0} />
                   </p>
-                  {phone && (
-                    <p className="num mt-0.5 truncate text-sm text-slate-500">
-                      {maskPhone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone)}
-                    </p>
+                  <time
+                    dateTime={c.submittedAt}
+                    className={`num shrink-0 text-[11px] ${fresh ? 'font-semibold text-slate-700' : 'text-slate-500'}`}
+                  >
+                    {relativeDate(c.submittedAt)}
+                  </time>
+                </div>
+                {/* Línea 2: teléfono y estado. */}
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="num min-w-0 flex-1 truncate text-sm text-slate-500">
+                    {phone ? (maskPhone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone)) : ''}
+                  </p>
+                  {selectMode ? (
+                    <span className={`${statusChipClass} shrink-0`}>
+                      <span className={statusDotClass} aria-hidden />
+                      {m.label}
+                    </span>
+                  ) : (
+                    // El área de toque se estira con un ::after invisible hasta ~44px
+                    // sin engordar la pastilla: en el dedo es un objetivo cómodo y en
+                    // pantalla sigue siendo la misma etiqueta pequeña.
+                    <button
+                      type="button"
+                      onClick={() => setStatusFor(c)}
+                      aria-label={`Estado: ${m.label}${fresh ? ', recién llegado' : ''}. Tocar para cambiar`}
+                      className={`${statusChipClass} relative shrink-0 pr-1.5 transition-[filter] after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] active:brightness-95`}
+                    >
+                      <span className={statusDotClass} aria-hidden />
+                      {m.label}
+                      <ChevronDown className="size-3 opacity-60" aria-hidden />
+                    </button>
                   )}
                 </div>
-              </button>
-              <div className="flex shrink-0 flex-col items-end gap-1.5">
-                {selectMode ? (
-                  <span className={statusChipClass}>
-                    <span className={statusDotClass} aria-hidden />
-                    {m.label}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setStatusFor(c)}
-                    aria-label={`Estado: ${m.label}${fresh ? ', recién llegado' : ''}. Tocar para cambiar`}
-                    className={`${statusChipClass} pr-1.5 transition-[filter] active:brightness-95`}
-                  >
-                    <span className={statusDotClass} aria-hidden />
-                    {m.label}
-                    <ChevronDown className="size-3 opacity-60" aria-hidden />
-                  </button>
-                )}
-                <time
-                  dateTime={c.submittedAt}
-                  className={`num text-[11px] ${fresh ? 'font-semibold text-slate-700' : 'text-slate-500'}`}
-                >
-                  {relativeDate(c.submittedAt)}
-                </time>
               </div>
              </div>
              {/* Sin etiquetas en la tarjeta: en móvil la fila tiene que leerse de
