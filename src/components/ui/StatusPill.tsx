@@ -19,23 +19,24 @@ export function StatusPill({ status, className = '' }: { status: CandidateStatus
   )
 }
 
-/** Pill que abre un menú para reasignar el estado sin salir de la fila. */
+/**
+ * Pill que abre un menú para reasignar el estado sin salir de la fila.
+ *
+ * La pill mide SIEMPRE lo que mide su texto, también en columna. Se probó lo
+ * contrario (`uniform`, 124px fijos, ago 2026) con el argumento de que el ojo baja
+ * mejor por un borde recto que por un serrucho, y Mario lo retiró: con la rejilla
+ * puesta, el borde recto ya lo da el filo de la columna, y estirar "Nuevo" hasta el
+ * ancho de "Contratado" solo deja aire muerto entre la palabra y el chevron. La
+ * pastilla es la etiqueta de una palabra, no una caja que rellenar.
+ */
 export function StatusSelect({
   status,
   onChange,
   align = 'left',
-  uniform = false,
 }: {
   status: CandidateStatus
   onChange: (s: CandidateStatus) => void
   align?: 'left' | 'right'
-  /**
-   * En una COLUMNA de tabla todas las pills miden lo mismo (ancho fijo, punto a la
-   * izquierda y chevron al filo derecho): así el ojo baja por un borde recto y no por
-   * un serrucho que cambia con la palabra. Suelto (tarjeta de móvil, ficha) la pill
-   * sigue ajustándose a su texto, que es lo correcto cuando no forma columna.
-   */
-  uniform?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -104,18 +105,18 @@ export function StatusSelect({
   }, [open])
 
   return (
-    <div className={uniform ? 'block' : 'inline-block'}>
+    <div className="inline-block">
       <button
         ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ring-1 ring-inset transition-colors ${m.chip} hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''} ${uniform ? 'w-[124px]' : ''}`}
+        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ring-1 ring-inset transition-colors ${m.chip} hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
       >
         <span className={`size-2 shrink-0 rounded-full ${m.dot}`} aria-hidden />
         {m.label}
-        <ChevronDown className={`size-3.5 shrink-0 opacity-60 ${uniform ? 'ml-auto' : ''}`} aria-hidden />
+        <ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />
       </button>
       {open &&
         pos &&
