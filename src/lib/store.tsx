@@ -537,7 +537,9 @@ const Ctx = createContext<Store | null>(null)
 // La demo es 100% local; guardamos su estado para que aguante recargas.
 // v7: los candidatos pasaron de `rating` (0-5) a `favorito` (sí/no) y el hilo de
 // equipo entró en la demo. Un estado v6 guardado traería candidatos sin favorito.
-const DEMO_KEY = 'apuntatefacil.demo.v9'
+// v10: la triada de Meridian (ago 2026): los análisis traen criterios con nombre,
+// nivel y evidencia. Un estado v9 guardado los traería sin desglose en la ficha.
+const DEMO_KEY = 'apuntatefacil.demo.v10'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
@@ -1201,7 +1203,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (companyId === 'demo') {
         // Demo: sin red. Fabricamos un triaje coherente con estado/favorito,
         // como hace la rama demo de sendInterestCheck.
-        const ai = aiFor(cand.status, cand.favorito, new Date().toISOString())
+        //
+        // Con su espera: en producción la triada son dos llamadas a un modelo y
+        // tarda segundos. Resolver en 0ms no era "rápido", era irreal (y se
+        // saltaba el skeleton, que es donde se ve QUÉ está midiendo). La demo es
+        // el producto, también en los tiempos.
+        await new Promise((r) => setTimeout(r, 900))
+        const ai = aiFor(cand.campaignId, cand.status, cand.favorito, new Date().toISOString())
         patchCandidateLocal(id, { ai })
         return true
       }

@@ -27,12 +27,16 @@ export function hasMeridian(plan: string | undefined | null): boolean {
   return planHas(plan, 'meridian')
 }
 
-/** Cota inferior de "ajuste alto" para dar énfasis discreto (nunca color de estado). */
-export const MERIDIAN_FIT_STRONG = 75
-
 // Etiqueta cualitativa del ajuste. Mario: se muestra la ETIQUETA, no la nota cruda,
 // para que no se sienta como "calificar" a personas. "A valorar" (no "encaja poco"):
-// descartar es rutina y reversible, nunca un veredicto. Umbrales tunables aquí.
+// descartar es rutina y reversible, nunca un veredicto.
+//
+// Los cortes 70/45 son ESPEJO de FIT_BIEN/FIT_PUEDE en _shared/triaje.ts (el
+// servidor, que es quien fabrica el número): si se mueven, se mueven en los dos
+// sitios. Desde la triada (ago 2026) el significado del número cambió sin tocar
+// los cortes: "no_consta" ya no diluye (sale del denominador) y cada criterio
+// pesa según su nivel; un criterio clave incumplido hunde el número por peso,
+// nunca por una categoría eliminatoria (que Mario vetó por subjetiva).
 export type FitTierKey = 'bien' | 'puede' | 'valorar'
 
 export interface FitTier {
@@ -49,4 +53,33 @@ export function fitTier(fit: number): FitTier {
 /** Ajuste utilizable de una candidatura, o null si no está analizada (o falló). */
 export function candidateFit(ai: { fit: number; error?: string } | null | undefined): number | null {
   return ai && !ai.error ? ai.fit : null
+}
+
+// ---------------------------------------------------------------------------
+// Vocabulario de los criterios del baremo (la ficha los pinta desde ago 2026).
+// Palabras llanas, sin jerga de selección: las lee alguien que no es reclutador.
+// ---------------------------------------------------------------------------
+
+export type CriterioValor = 'cumple' | 'parcial' | 'no_consta' | 'no_cumple'
+
+export const CRITERIO_VALOR_LABEL: Record<CriterioValor, string> = {
+  cumple: 'Cumple',
+  parcial: 'A medias',
+  no_consta: 'Sin dato',
+  no_cumple: 'No cumple',
+}
+
+/** Nombres visibles de los 5 criterios genéricos de los análisis anteriores a la
+ *  triada (ago 2026), que guardaban solo la clave. Los nuevos traen `nombre`. */
+export const CRITERIO_NOMBRE_LEGADO: Record<string, string> = {
+  experiencia: 'Experiencia en el puesto',
+  disponibilidad: 'Disponibilidad',
+  desplazamiento: 'Desplazamiento al puesto',
+  requisitos: 'Requisitos del formulario',
+  continuidad: 'Continuidad laboral',
+}
+
+/** Nombre visible de un criterio, venga de un análisis nuevo o de uno viejo. */
+export function criterioNombre(c: { clave: string; nombre?: string }): string {
+  return c.nombre || CRITERIO_NOMBRE_LEGADO[c.clave] || c.clave
 }

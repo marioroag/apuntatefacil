@@ -19,6 +19,9 @@ import type {
 } from './types'
 import { partesClave, sumarDias } from './agenda'
 import { WHATSAPP_LISTO } from './whatsapp'
+// La agregación REAL del triaje (la de la edge function): la demo no puede
+// tener otra vara, o el anillo contradiría al desglose que pinta la ficha.
+import { agregarJuicios } from '../../supabase/functions/_shared/triaje'
 
 // PRNG determinista (mulberry32) para que los datos de ejemplo sean estables.
 function rng(seed: number) {
@@ -522,47 +525,138 @@ const AI_SUMMARY_LOW = [
   'Se aleja de lo que pides en algún requisito importante.',
   'Cobertura justa del perfil. Mejor contrastar antes de avanzar.',
 ]
-const AI_HIGHLIGHTS = [
-  'Experiencia en el sector',
-  'Disponibilidad inmediata',
-  'Vive cerca del puesto',
-  'Carnet y vehículo propio',
-  'Turnos flexibles',
-  'Continuidad en empleos previos',
-]
-const AI_CONCERNS = [
-  'Confirmar años de experiencia reales',
-  'Disponibilidad por confirmar',
-  'No indica vehículo propio',
-  'Salario esperado por aclarar',
-  'Experiencia algo alejada del puesto',
-]
 
-function pickN<T>(pool: T[], n: number): T[] {
-  const out: T[] = []
-  const used = new Set<number>()
-  while (out.length < n && used.size < pool.length) {
-    const i = Math.floor(rnd() * pool.length)
-    if (used.has(i)) continue
-    used.add(i)
-    out.push(pool[i])
-  }
-  return out
+// Baremos de la demo: los criterios que la triada real generaría para cada
+// puesto a partir de su formulario (mismos campos que arriba). Espejo de la
+// forma que persiste `analyze-candidate`: nombre y nivel embebidos en cada
+// juicio para que la ficha se pinte sola. "continuidad" es el único criterio
+// de CV: solo aparece cuando el análisis usó CV (fuente 'cv', como en el real).
+type DemoCriterio = {
+  clave: string
+  nombre: string
+  nivel: 'clave' | 'importante' | 'deseable'
+  fuente?: 'cv'
+  ev: { cumple: string; parcial: string; no_cumple: string }
 }
 
-export function aiFor(status: CandidateStatus, favorito: boolean, submittedAt: string): CandidateAI {
-  const fit = fitFor(status, favorito)
+const CRIT_CONTINUIDAD: DemoCriterio = {
+  clave: 'continuidad', nombre: 'Continuidad laboral', nivel: 'deseable', fuente: 'cv',
+  ev: { cumple: 'Más de dos años en su último empleo', parcial: 'Etapas de un año con algún hueco', no_cumple: 'Cambios de empleo cada pocos meses' },
+}
+
+const DEMO_CRITERIOS: Record<string, DemoCriterio[]> = {
+  cmp_peon: [
+    { clave: 'carnet_b', nombre: 'Carnet de conducir B', nivel: 'clave', ev: { cumple: 'Responde que sí al carnet B', parcial: 'Carnet en trámite', no_cumple: 'Responde que no tiene carnet B' } },
+    { clave: 'exp_obra', nombre: 'Experiencia en obra', nivel: 'importante', ev: { cumple: '4 años de experiencia en obra', parcial: '1 año de experiencia en obra', no_cumple: '0 años de experiencia en obra' } },
+    { clave: 'incorporacion', nombre: 'Incorporación', nivel: 'importante', ev: { cumple: 'Disponibilidad inmediata', parcial: 'Disponible en 15 días', no_cumple: 'No puede incorporarse hasta dentro de un mes' } },
+    { clave: 'zonas', nombre: 'Zonas de trabajo', nivel: 'importante', ev: { cumple: 'Puede trabajar en Valencia ciudad y alrededores', parcial: 'Solo una de las zonas del puesto', no_cumple: 'Ninguna de las zonas del puesto' } },
+    { clave: 'vehiculo', nombre: 'Vehículo propio', nivel: 'deseable', ev: { cumple: 'Responde que sí al vehículo propio', parcial: 'Vehículo compartido', no_cumple: 'Responde que no tiene vehículo' } },
+    CRIT_CONTINUIDAD,
+  ],
+  cmp_oficial: [
+    { clave: 'prl', nombre: 'Formación PRL', nivel: 'clave', ev: { cumple: 'PRL de 60 horas', parcial: 'PRL de 20 horas', no_cumple: 'Responde que no tiene PRL' } },
+    { clave: 'exp_oficial', nombre: 'Experiencia como oficial', nivel: 'importante', ev: { cumple: '8 años como oficial de primera', parcial: '2 años como oficial', no_cumple: 'Sin experiencia como oficial' } },
+    { clave: 'especialidad', nombre: 'Especialidad', nivel: 'importante', ev: { cumple: 'Domina solados, alicatados y enfoscados', parcial: 'Una sola especialidad de las pedidas', no_cumple: 'Especialidad ajena a la obra del puesto' } },
+    { clave: 'incorporacion', nombre: 'Incorporación', nivel: 'importante', ev: { cumple: 'Disponibilidad inmediata', parcial: 'Disponible en 15 días', no_cumple: 'No antes de un mes' } },
+    { clave: 'carnet_b', nombre: 'Carnet de conducir B', nivel: 'deseable', ev: { cumple: 'Responde que sí al carnet B', parcial: 'Carnet en trámite', no_cumple: 'Sin carnet B' } },
+    CRIT_CONTINUIDAD,
+  ],
+  cmp_electricista: [
+    { clave: 'instalador', nombre: 'Carnet de instalador', nivel: 'clave', ev: { cumple: 'Instalador autorizado en baja tensión', parcial: 'Carnet en renovación', no_cumple: 'Responde que no es instalador autorizado' } },
+    { clave: 'exp', nombre: 'Experiencia como electricista', nivel: 'importante', ev: { cumple: '6 años de experiencia', parcial: '1 año de experiencia', no_cumple: 'Sin experiencia en el oficio' } },
+    { clave: 'tipo', nombre: 'Tipo de instalaciones', nivel: 'importante', ev: { cumple: 'Vivienda, industrial y mantenimiento', parcial: 'Solo vivienda', no_cumple: 'Ninguno de los tipos del puesto' } },
+    { clave: 'incorporacion', nombre: 'Incorporación', nivel: 'importante', ev: { cumple: 'Disponibilidad inmediata', parcial: 'Disponible en 15 días', no_cumple: 'No antes de un mes' } },
+    CRIT_CONTINUIDAD,
+  ],
+  cmp_mozo: [
+    { clave: 'carretillero', nombre: 'Carnet de carretillero', nivel: 'clave', ev: { cumple: 'Responde que sí al carnet de carretillero', parcial: 'Carnet caducado', no_cumple: 'Responde que no tiene carnet de carretillero' } },
+    { clave: 'turnos', nombre: 'Cobertura de turnos', nivel: 'importante', ev: { cumple: 'Puede cubrir mañana, tarde y noche', parcial: 'Solo turno de mañana', no_cumple: 'Ningún turno de los del puesto' } },
+    { clave: 'llegar', nombre: 'Llegar al polígono', nivel: 'importante', ev: { cumple: 'Vehículo propio para llegar al polígono', parcial: 'Depende de transporte compartido', no_cumple: 'Sin forma de llegar al polígono' } },
+    { clave: 'exp', nombre: 'Experiencia en almacén', nivel: 'deseable', ev: { cumple: '3 años en logística', parcial: 'Unos meses en almacén', no_cumple: 'Sin experiencia en almacén' } },
+    CRIT_CONTINUIDAD,
+  ],
+  cmp_carretillero: [
+    { clave: 'carnet_vigente', nombre: 'Carnet de carretillas en vigor', nivel: 'clave', ev: { cumple: 'Responde que el carnet está en vigor', parcial: 'Carnet pendiente de renovar', no_cumple: 'Responde que el carnet no está en vigor' } },
+    { clave: 'tipos', nombre: 'Tipos de carretilla', nivel: 'importante', ev: { cumple: 'Frontal, retráctil y recogepedidos', parcial: 'Solo transpaleta eléctrica', no_cumple: 'Ninguna de las carretillas del puesto' } },
+    { clave: 'exp', nombre: 'Años con carretilla', nivel: 'importante', ev: { cumple: '5 años con carretilla', parcial: '1 año con carretilla', no_cumple: 'Sin experiencia con carretilla' } },
+    { clave: 'turnos', nombre: 'Cobertura de turnos', nivel: 'importante', ev: { cumple: 'Puede cubrir los tres turnos', parcial: 'Solo mañana y tarde', no_cumple: 'Ningún turno de los del puesto' } },
+    CRIT_CONTINUIDAD,
+  ],
+  cmp_preparador: [
+    { clave: 'pda', nombre: 'Manejo de PDA', nivel: 'importante', ev: { cumple: 'Experiencia con PDA y radiofrecuencia', parcial: 'Ha usado PDA de forma puntual', no_cumple: 'Responde que no ha usado PDA' } },
+    { clave: 'turnos', nombre: 'Cobertura de turnos', nivel: 'importante', ev: { cumple: 'Puede cubrir mañana, tarde y noche', parcial: 'Solo turno de tarde', no_cumple: 'Ningún turno de los del puesto' } },
+    { clave: 'findes', nombre: 'Fines de semana', nivel: 'deseable', ev: { cumple: 'Disponible algún fin de semana', parcial: 'Solo un finde al mes', no_cumple: 'Responde que no puede en fin de semana' } },
+    { clave: 'exp', nombre: 'Experiencia en picking', nivel: 'deseable', ev: { cumple: '2 años preparando pedidos', parcial: 'Unos meses de picking', no_cumple: 'Sin experiencia en picking' } },
+    CRIT_CONTINUIDAD,
+  ],
+}
+
+type ValorCriterio = NonNullable<CandidateAI['criterios']>[number]['valor']
+
+// Reparto de valores coherente con la banda objetivo: los criterios clave
+// (los que más pesan) van mejor cuanto más alta es la banda, y en la baja es
+// donde aparecen los "no cumple" de peso que hunden el número.
+function valorPara(nivel: DemoCriterio['nivel'], fit: number): ValorCriterio {
+  if (fit >= 70) {
+    if (nivel === 'clave') return 'cumple'
+    if (nivel === 'deseable') return chance(0.55) ? 'cumple' : chance(0.6) ? 'no_consta' : 'parcial'
+    return chance(0.8) ? 'cumple' : 'parcial'
+  }
+  if (fit >= 45) {
+    if (nivel === 'clave') return chance(0.8) ? 'cumple' : 'no_consta'
+    if (nivel === 'deseable') return chance(0.5) ? 'no_consta' : chance(0.6) ? 'parcial' : 'cumple'
+    return chance(0.5) ? 'parcial' : chance(0.6) ? 'cumple' : 'no_consta'
+  }
+  if (nivel === 'clave') return chance(0.5) ? 'no_cumple' : chance(0.6) ? 'cumple' : 'no_consta'
+  if (nivel === 'deseable') return chance(0.6) ? 'no_consta' : chance(0.5) ? 'no_cumple' : 'parcial'
+  return chance(0.4) ? 'no_cumple' : chance(0.6) ? 'parcial' : 'no_consta'
+}
+
+export function aiFor(campaignId: string, status: CandidateStatus, favorito: boolean, submittedAt: string): CandidateAI {
+  // La banda objetivo (correlada con estado y favorito) solo GUÍA el reparto de
+  // valores; el número final lo pone la MISMA agregación que producción
+  // (agregarJuicios, _shared/triaje.ts). Así el anillo nunca contradice a las
+  // filas: cinco "cumple" no pueden salir con un 77.
+  const objetivo = fitFor(status, favorito)
+  const cvUsed = chance(0.65)
+  const defs = (DEMO_CRITERIOS[campaignId] ?? []).filter((c) => c.fuente !== 'cv' || cvUsed)
+  const criterios = defs.map((c) => {
+    const valor = valorPara(c.nivel, objetivo)
+    return {
+      clave: c.clave,
+      valor,
+      nombre: c.nombre,
+      nivel: c.nivel,
+      ...(valor !== 'no_consta' ? { evidencia: c.ev[valor === 'cumple' ? 'cumple' : valor === 'parcial' ? 'parcial' : 'no_cumple'] } : {}),
+    }
+  })
+  const { fit } = agregarJuicios(
+    defs.map((c) => ({
+      clave: c.clave, familia: 'requisitos' as const, nombre: c.nombre, nivel: c.nivel,
+      fuente: c.fuente ?? 'formulario' as const, anclas: { cumple: '', parcial: '', no_cumple: '' },
+    })),
+    criterios.map((c) => ({ clave: c.clave, valor: c.valor, evidencia: c.evidencia })),
+  )
   const summary = fit >= 70 ? pick(AI_SUMMARY_HIGH) : fit >= 50 ? pick(AI_SUMMARY_MID) : pick(AI_SUMMARY_LOW)
-  const highlights = pickN(AI_HIGHLIGHTS, fit >= 70 ? between(2, 3) : between(1, 2))
-  const concerns = fit >= 78 ? pickN(AI_CONCERNS, chance(0.5) ? 1 : 0) : pickN(AI_CONCERNS, between(1, 2))
+  // A favor y a confirmar DERIVAN de los criterios, como garantiza el juez en el
+  // triaje real: la evidencia de lo que cumple, y lo parcial o sin dato que pesa.
+  const highlights = criterios
+    .filter((c) => c.valor === 'cumple' && c.evidencia)
+    .map((c) => c.evidencia as string)
+    .slice(0, 3)
+  const concerns = criterios
+    .filter((c) => c.valor === 'parcial' || (c.valor === 'no_consta' && c.nivel !== 'deseable'))
+    .map((c) => (c.valor === 'parcial' ? (c.evidencia as string) : `${c.nombre} por confirmar`))
+    .slice(0, 3)
   return {
     summary,
     highlights,
     concerns,
     fit,
+    criterios,
     model: 'demo',
     analyzedAt: submittedAt,
-    cvUsed: chance(0.65),
+    cvUsed,
   }
 }
 
@@ -620,7 +714,7 @@ for (const cmp of campaigns) {
       consentAt: submittedAt,
       notes: noteFor(status),
       tagIds: tagsForStatus(status),
-      ai: analyzed ? aiFor(status, favorito, submittedAt) : undefined,
+      ai: analyzed ? aiFor(cmp.id, status, favorito, submittedAt) : undefined,
     })
     n = candidateNumber
   }

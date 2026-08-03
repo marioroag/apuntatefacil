@@ -15,6 +15,8 @@
 // Meridian no puede hablar de personas.
 // De Supabase solo se necesita `rpc`, así que se declara aquí en vez de importar
 // el SDK: este módulo queda comprobable y testeable por su cuenta.
+import { FIT_BIEN, FIT_PUEDE } from '../_shared/triaje.ts'
+
 export interface RpcClient {
   rpc(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }>
 }
@@ -71,9 +73,11 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const fitOf = (ai: CandidateAI | null): number | null =>
   ai && !ai.error && typeof ai.fit === 'number' ? ai.fit : null
 
-/** Misma escala cualitativa que la interfaz (fitTier en src/lib/meridian.ts). */
+/** Misma escala cualitativa que la interfaz (fitTier en src/lib/meridian.ts).
+ *  Los cortes vienen de _shared/triaje.ts, que es quien fabrica el número:
+ *  aquí estaban duplicados a mano y una recalibración los habría dejado atrás. */
 const fitLabel = (fit: number | null): string =>
-  fit == null ? 'Sin analizar' : fit >= 70 ? 'Encaja bien' : fit >= 45 ? 'Puede encajar' : 'A valorar'
+  fit == null ? 'Sin analizar' : fit >= FIT_BIEN ? 'Encaja bien' : fit >= FIT_PUEDE ? 'Puede encajar' : 'A valorar'
 
 function nameOf(answers: Answers, fields: Field[]): string {
   for (const f of fields) {
@@ -243,7 +247,7 @@ export function estadisticas(ctx: ToolContext, args: { puesto_id?: string | null
   const porEstado: Record<string, number> = {}
   for (const c of pool) porEstado[c.status] = (porEstado[c.status] ?? 0) + 1
   const analizados = pool.filter((c) => fitOf(c.ai) != null)
-  const encajanBien = analizados.filter((c) => (fitOf(c.ai) ?? 0) >= 70).length
+  const encajanBien = analizados.filter((c) => (fitOf(c.ai) ?? 0) >= FIT_BIEN).length
   const ultimos7 = pool.filter((c) => daysSince(c.created_at) <= 7).length
   return {
     total: pool.length,
@@ -253,7 +257,7 @@ export function estadisticas(ctx: ToolContext, args: { puesto_id?: string | null
     entradas_ultimos_7_dias: ultimos7,
     // Destacados sin contactar: lo que de verdad duele en una oleada.
     encajan_bien_sin_contactar: analizados.filter(
-      (c) => (fitOf(c.ai) ?? 0) >= 70 && c.status === 'nuevo' && daysSince(c.created_at) >= 2,
+      (c) => (fitOf(c.ai) ?? 0) >= FIT_BIEN && c.status === 'nuevo' && daysSince(c.created_at) >= 2,
     ).length,
   }
 }

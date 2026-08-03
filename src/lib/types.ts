@@ -110,13 +110,24 @@ export type CandidateInterestState =
  *  NUNCA un veredicto: el merchant decide. `fit` (0..100) es "ajuste al puesto",
  *  orientativo. `error` presente = el último intento falló (permite reintentar). */
 /**
- * Juicio del triaje sobre un criterio fijo. `no_consta` es "no hay dato", NO un
- * punto negativo. Las claves y los pesos viven en `analyze-candidate`: el número
- * lo calcula el servidor, aquí solo se guarda para poder explicarlo.
+ * Juicio del triaje sobre un criterio. `no_consta` es "no hay dato", NO un
+ * punto negativo. Los criterios salen del BAREMO del puesto (triada, ago 2026:
+ * `_shared/triaje.ts`, persistido en campaigns.baremo); el número lo calcula el
+ * servidor, aquí solo se guarda para poder explicarlo. `nombre`, `nivel` y
+ * `evidencia` van embebidos para que la ficha se pinte sola aunque el baremo
+ * del puesto haya cambiado después: faltan en análisis anteriores a ago 2026,
+ * cuyos criterios eran 5 claves genéricas fijas.
  */
 export interface AiCriterion {
   clave: string
   valor: 'cumple' | 'parcial' | 'no_consta' | 'no_cumple'
+  /** Nombre visible del criterio ("Carnet de carretillas"). */
+  nombre?: string
+  /** Cuánto PESA el criterio en el número, nunca una categoría eliminatoria
+   *  (Mario, ago 2026: "imprescindible" es subjetivo y no se califica así). */
+  nivel?: 'clave' | 'importante' | 'deseable'
+  /** Cita corta de la candidatura que sostiene el juicio. Nunca con no_consta. */
+  evidencia?: string
 }
 
 export interface CandidateAI {
@@ -126,6 +137,8 @@ export interface CandidateAI {
   fit: number // 0..100, ajuste al puesto (orientativo, nunca gate)
   /** De dónde sale `fit`. Ausente en análisis anteriores a jul 2026. */
   criterios?: AiCriterion[]
+  /** Con qué versión del baremo del puesto se midió (procedencia). */
+  baremoHash?: string
   model: string // procedencia: qué modelo lo generó
   analyzedAt: string // ISO
   cvUsed?: boolean // false = analizado solo con las respuestas (CV ausente o no PDF)

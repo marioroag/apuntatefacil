@@ -170,6 +170,67 @@
   100% { background-position: 480px 0; }
 }
 
+/* Meridian imprime su informe: cada pieza (lectura, filas del desglose, pie)
+   entra con un desfase corto, como un instrumento que escribe su medición.
+   SOLO en el momento de analizar, nunca al abrir una ficha ya analizada: el
+   producto carga en la tarea, sin coreografía de carga. Con reduced-motion la
+   clase no hace nada y el informe aparece entero. */
+@keyframes meridian-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .meridian-in { animation: meridian-in var(--duration-enter) var(--ease-out) both; }
+}
+
+/* El informe de Meridian se PLIEGA deslizándose. La altura se anima con
+   `grid-template-rows: 0fr -> 1fr` y no con `max-height`: el truco de max-height
+   obliga a inventarse un techo (si te quedas corto, corta el contenido; si te
+   pasas, la última parte del recorrido va vacía y el cierre arranca tarde), y
+   aquí el alto depende de cuántos criterios tenga el puesto. Con el grid, el
+   recorrido es SIEMPRE el alto real, así que abrir y cerrar duran lo mismo con
+   4 criterios que con 8. El hijo lleva `min-h-0` + `overflow-hidden` porque un
+   ítem de rejilla no encoge por debajo de su contenido si no se le dice.
+
+   ABRIR y CERRAR no duran lo mismo, y esto se midió frame a frame antes de
+   decidirlo. La altura usa el techo de 240ms, que es la categoría declarada
+   "recorre distancia". El contenido, en cambio: al ABRIR arranca a la vez que el
+   hueco y sin retardo (se probó con 60ms de espera y durante los primeros frames
+   se veía una rendija vacía que luego se rellenaba, dos movimientos en vez de
+   uno); al CERRAR se va más rápido que el hueco (`--duration-control`), para que
+   el texto no se quede a medio leer mientras el borde ya le pasa por encima.
+   Con reduced-motion no hay recorrido: abre y cierra en seco. */
+.meridian-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration-max) var(--ease-out);
+}
+.meridian-fold > * {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity var(--duration-control) var(--ease-out);
+}
+.meridian-fold-open { grid-template-rows: 1fr; }
+.meridian-fold-open > * { opacity: 1; transition-duration: var(--duration-enter); }
+@media (prefers-reduced-motion: reduce) {
+  .meridian-fold, .meridian-fold > * { transition: none; }
+}
+
+/* El anillo de ajuste BARRE hasta su medida la primera vez que hay medida. Solo
+   declara el `from` (arco vacío): el final es el valor que lleve el elemento, así
+   que la misma clase sirve para cualquier nota. Dura más que el techo de 240ms a
+   propósito, como el trazo del check de onboarding: no es una transición de
+   interfaz, es un trazo que RECORRE una distancia, y a 240ms la curva se lo come
+   en 60ms y vuelve a leerse como un salto. Es el único momento celebrado del
+   triaje; con reduced-motion el arco ya está en su sitio. */
+@keyframes meridian-sweep {
+  from { stroke-dashoffset: var(--circ); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .meridian-sweep { animation: meridian-sweep 620ms var(--ease-out) both; }
+}
+
 @keyframes pop-pulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.06); }
