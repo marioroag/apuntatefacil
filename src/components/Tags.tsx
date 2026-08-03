@@ -1,9 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Info, Pencil, Plus, Settings2, Tag as TagIcon, Trash2, X } from 'lucide-react'
+import { Pencil, Plus, Settings2, Tag as TagIcon, Trash2, X } from 'lucide-react'
 import type { Tag } from '../lib/types'
 import { useStore, normalizeTagName } from '../lib/store'
 import { useToast } from './ui/Toast'
 import { ConfirmDialog } from './ui/ConfirmDialog'
+import { InfoTooltip } from './ui/Tooltip'
+import { limitesVisibles } from '../lib/flotante'
 import { BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 
 // ---------------------------------------------------------------------------
@@ -17,24 +19,6 @@ export const TAG_LIMIT_PER_CANDIDATE = 25 // límite blando por candidato
 // Alto que reserva el desplegable para decidir si abre hacia arriba: su tope
 // (max-h-60 = 240px) más el hueco de 4px. Si cambia la clase, cambia esto.
 const ALTO_LISTA = 244
-
-/**
- * Borde superior e inferior de lo que se ve, para el desplegable. No basta con
- * la ventana: la lista se dibuja dentro del panel con scroll de la ficha, y es
- * ESE borde el que la corta. Se queda con el primer antepasado que recorta.
- */
-function limitesVisibles(el: HTMLElement): [number, number] {
-  let p = el.parentElement
-  while (p) {
-    const ov = getComputedStyle(p).overflowY
-    if (ov === 'auto' || ov === 'scroll' || ov === 'hidden') {
-      const caja = p.getBoundingClientRect()
-      return [Math.max(caja.top, 0), Math.min(caja.bottom, window.innerHeight)]
-    }
-    p = p.parentElement
-  }
-  return [0, window.innerHeight]
-}
 
 // Microcopy (es-ES), en un solo sitio.
 const COPY = {
@@ -382,34 +366,6 @@ export function TagSection({
       </div>
       <TagPicker candidateId={candidateId} tagIds={tagIds} canManage={canManage} onOpenManage={onOpenManage} />
     </div>
-  )
-}
-
-// Icono de info con tooltip accesible (hover + foco). No texto siempre visible.
-function InfoTooltip({ text }: { text: string }) {
-  const [show, setShow] = useState(false)
-  return (
-    <span className="relative inline-flex">
-      <button
-        type="button"
-        aria-label={text}
-        onMouseEnter={() => setShow(true)}
-        onMouseLeave={() => setShow(false)}
-        onFocus={() => setShow(true)}
-        onBlur={() => setShow(false)}
-        className="grid size-4 place-items-center rounded-full text-slate-500 hover:text-slate-600 focus-visible:text-slate-600"
-      >
-        <Info className="size-3.5" aria-hidden />
-      </button>
-      {show && (
-        <span
-          role="tooltip"
-          className="absolute left-1/2 top-6 z-50 w-60 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-[12px] leading-relaxed text-white shadow-pop"
-        >
-          {text}
-        </span>
-      )}
-    </span>
   )
 }
 

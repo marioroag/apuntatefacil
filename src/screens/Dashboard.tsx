@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
@@ -40,7 +40,7 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
-import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH } from '../components/ui/DataTable'
+import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, MOBILE_ROW } from '../components/ui/DataTable'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -75,10 +75,6 @@ import { InterestCheckDialog } from '../components/InterestCheckDialog'
 import { InterestOutcomeIcon } from '../components/InterestSignal'
 import { candidateInterestState, INTEREST_STATE_LABEL } from '../lib/interest'
 
-// Array vacío con identidad fija: escrito en línea en el JSX (`?? []`) sería uno
-// nuevo en cada render y despertaría a la tabla memoizada por nada.
-const SIN_FECHAS: string[] = []
-
 function answerStr(c: Candidate, fieldId: string): string {
   const v = c.answers[fieldId]
   if (v === undefined) return ''
@@ -102,6 +98,9 @@ function numberFilterLabel(nf: NumberFilter): string {
   if (nf.min != null) return `≥ ${nf.min}`
   return `≤ ${nf.max}`
 }
+
+// "Ninguna candidatura bloqueada", con identidad fija: ver `lockedDates`.
+const SIN_FECHAS: string[] = []
 
 export function Dashboard() {
   const { campaignId } = useParams()
@@ -136,29 +135,28 @@ export function Dashboard() {
   // así el aviso de una mención puede enlazar directamente a su ficha, y volver
   // atrás cierra el detalle en vez de salir del puesto.
   const openId = searchParams.get('candidato')
-  // `setSearchParams` NO es estable entre renders (react-router lo recrea con
-  // cada location), así que un useCallback que dependa de él tampoco lo sería.
-  // Va por ref para que `setOpenId` tenga identidad fija: es una prop de la
-  // tabla memoizada y una identidad nueva la volvería a pintar entera.
+  // `setSearchParams` NO es estable entre renders: react-router lo recrea con
+  // cada location, así que un `useCallback` que lo lleve en las dependencias
+  // tampoco lo es, y `onOpen` cambiaba de identidad justo al abrir una ficha
+  // (que es cuando cambia la URL). Era la única prop que seguía despertando a la
+  // tabla memoizada: 563ms de las 142 filas por cada click en una persona. Va
+  // por ref para que `setOpenId` tenga identidad fija de verdad.
   const setSearchParamsRef = useRef(setSearchParams)
   useEffect(() => {
     setSearchParamsRef.current = setSearchParams
   })
-  const setOpenId = useCallback(
-    (id: string | null) =>
-      setSearchParamsRef.current(
-        (prev) => {
-          const next = new URLSearchParams(prev)
-          if (id) next.set('candidato', id)
-          else next.delete('candidato')
-          return next
-        },
-        // replace: recorrer 40 candidatos con las flechas no debe dejar 40 entradas
-        // en el historial del navegador.
-        { replace: true },
-      ),
-    [],
-  )
+  const setOpenId = useCallback((id: string | null) =>
+    setSearchParamsRef.current(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (id) next.set('candidato', id)
+        else next.delete('candidato')
+        return next
+      },
+      // replace: recorrer 40 candidatos con las flechas no debe dejar 40 entradas
+      // en el historial del navegador.
+      { replace: true },
+    ), [])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [interestDialogOpen, setInterestDialogOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false) // modo selección múltiple (móvil)
@@ -178,6 +176,20 @@ export function Dashboard() {
   const [deleting, setDeleting] = useState(false)
   // Feature avanzada que se intentó usar sin tenerla en el plan: abre el aviso.
   const [upgrade, setUpgrade] = useState<PlanFeature | null>(null)
+
+  // Lo que le pasamos a `CandidateTable` se declara con identidad ESTABLE: esa tabla
+  // está memoizada y una función nueva en cada render le rompe la comparación, o sea
+  // 142 filas repintadas por cada tecla del buscador. Viven aquí arriba, y no junto a
+  // los demás manejadores, porque son hooks: por debajo está el `return` temprano del
+  // puesto no encontrado y ahí ya no se pueden llamar.
+  const toggleSort = useCallback((key: SortKey) =>
+    // Al elegir una columna nueva empieza ascendente, salvo Encaje: ahí lo que se
+    // pide al pulsar es "enséñame primero a quien encaja", no al revés.
+    setSort((s) => (s.key === key
+      ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+      : { key, dir: key === 'encaje' ? 'desc' : 'asc' })), [])
+  const openLockedDialog = useCallback(() => setLockedDialogOpen(true), [])
+  const enterSelectMode = useCallback(() => setSelectMode(true), [])
 
   // Duplicar el puesto: crea una copia (campos, apariencia y datos), sin candidatos,
   // y abre su editor. El error, si lo hay, lo avisa el store.
@@ -339,7 +351,20 @@ export function Dashboard() {
     return () => window.clearTimeout(t)
   }, [justArrived])
 
-  // Búsqueda tolerante: el input actualiza `search` al instante; lo debouncamos a `dq`.
+  // Una sola búsqueda a tres ritmos, porque tres cosas distintas cuestan distinto:
+  //   `search` es lo que enseña el campo. Urgente: la letra tiene que aparecer en
+  //     el mismo frame en que se pulsa la tecla, pase lo que pase debajo.
+  //   `q` es lo que filtra la lista. Va en una TRANSICIÓN (`useDeferredValue`), así
+  //     que React repinta las filas en trocitos y sin bloquear el teclado: mientras
+  //     sigues escribiendo, la tabla se queda un momento con el resultado anterior
+  //     en vez de comerse el hilo, y si tecleas otra vez abandona y vuelve a empezar.
+  //     Con 142 candidatos, repintar la tabla son ~200ms; a eso no se le puede pedir
+  //     el turno del dedo.
+  //   `dq` es lo que se le pide al servidor. Debounce, para no lanzar un RPC por tecla.
+  // No son el mismo mecanismo dos veces: el debounce ahorra RED (esperar a que pares
+  // de escribir), la transición ahorra PINTURA (no bloquear mientras escribes). Uno
+  // solo no basta: sin la transición, el repintado bloquea igual cuando llega `dq`.
+  const q = useDeferredValue(search.trim())
   const [dq, setDq] = useState('')
   useEffect(() => {
     const t = setTimeout(() => setDq(search.trim()), 250)
@@ -370,12 +395,12 @@ export function Dashboard() {
     // instantáneo mientras llega/si falla el RPC). Sin query, todos los candidatos.
     let relevance: Map<string, number> | null = null
     let base0 = all
-    if (dq) {
+    if (q) {
       const ids =
         base !== '/demo' && rpcIds !== null
           ? rpcIds
           : all
-              .map((c) => [c, searchScore(c, dq)] as const)
+              .map((c) => [c, searchScore(c, q)] as const)
               .filter(([, s]) => s > 0)
               .sort((a, b) => b[1] - a[1])
               .map(([c]) => c.id)
@@ -437,7 +462,7 @@ export function Dashboard() {
       })
     }
     return list
-  }, [all, campaign, dq, rpcIds, base, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
+  }, [all, campaign, q, rpcIds, base, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
 
   // Dominio real (mín/máx) de cada pregunta numérica, para acotar sus sliders.
   const numberDomains = useMemo(() => {
@@ -460,26 +485,17 @@ export function Dashboard() {
   // bloquean). Las filas difuminadas, solo en la vista sin filtrar.
   const lockedFor = campaign && company?.plan === 'trial' ? lockedInfo[campaign.id] : undefined
   const lockedCount = lockedFor?.count ?? 0
+  // Sin bloqueadas, SIN_FECHAS (constante del módulo) en vez de un `[]` recién
+  // hecho: es una prop de la tabla memoizada y un array nuevo por render la
+  // repintaría entera.
   const lockedDates = lockedFor?.dates ?? SIN_FECHAS
   const isFiltered =
-    !!dq || statusFilter.size > 0 || interestFilter.size > 0 || favoritosOnly || tagFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0
+    !!q || statusFilter.size > 0 || interestFilter.size > 0 || favoritosOnly || tagFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0
   // Los bloqueados (difuminados) salen ARRIBA, como las candidaturas nuevas (son
   // las más recientes), solo en la vista por defecto (más nuevos primero y sin
   // filtros): con otro orden no tendría sentido cronológico, así que ahí no se
   // pintan (el aviso de upsell sí sigue saliendo, va por el recuento aparte).
   const showLockedRows = !isFiltered && sort.key === 'fecha' && sort.dir === 'desc'
-
-  // Las tres funciones que viajan a la tabla van con `useCallback`: la tabla está
-  // memoizada y una función nueva en cada render la despertaría igual (ver la
-  // nota sobre `memo` en CandidateTable).
-  const toggleSort = useCallback((key: SortKey) =>
-    // Al elegir una columna nueva empieza ascendente, salvo Encaje: ahí lo que se
-    // pide al pulsar es "enséñame primero a quien encaja", no al revés.
-    setSort((s) => (s.key === key
-      ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
-      : { key, dir: key === 'encaje' ? 'desc' : 'asc' })), [])
-  const abrirDialogoBloqueo = useCallback(() => setLockedDialogOpen(true), [])
-  const entrarEnSeleccion = useCallback(() => setSelectMode(true), [])
 
   if (!campaign) {
     return (
@@ -893,7 +909,9 @@ export function Dashboard() {
               <EmptyFirstUse publicUrl={publicUrl} onCopy={copyLink} />
             )
           ) : (
-            <EmptyNoResults search={search} hasFilters={statusFilter.size + valueFilters.length + numberFilters.length > 0} onClear={clearFilters} />
+            // El texto cita `q`, no lo que hay tecleado: describe la lista que se
+            // está enseñando, que es la de la última búsqueda ya aplicada.
+            <EmptyNoResults search={q} hasFilters={statusFilter.size + valueFilters.length + numberFilters.length > 0} onClear={clearFilters} />
           )
         ) : (
           <CandidateTable
@@ -902,7 +920,7 @@ export function Dashboard() {
             rows={filtered}
             justArrived={justArrived}
             lockedDates={showLockedRows ? lockedDates : SIN_FECHAS}
-            onLockedClick={abrirDialogoBloqueo}
+            onLockedClick={openLockedDialog}
             tags={tags}
             sort={sort}
             onSort={toggleSort}
@@ -911,7 +929,7 @@ export function Dashboard() {
             onOpen={setOpenId}
             maskPhone={maskPhone}
             selectMode={selectMode}
-            onEnterSelect={entrarEnSeleccion}
+            onEnterSelect={enterSelectMode}
           />
         )}
       </div>
@@ -1189,21 +1207,11 @@ function FitCell({ candidate }: { candidate: Candidate }) {
   )
 }
 
-/**
- * La tabla NO se vuelve a pintar porque abras una ficha (`memo`, ago 2026).
- *
- * El detalle del candidato vive en la URL (`?candidato=<id>`) y el pop-up cuelga
- * del panel, así que abrirlo, cerrarlo o pasar al siguiente con las flechas
- * volvía a renderizar las 142 filas de debajo: 440ms medidos con el Profiler
- * frente a 15ms de la ficha entera. Ese era TODO el retraso que se sentía al
- * pulsar una fila; el pop-up nunca fue lento.
- *
- * Para que esto siga funcionando, las props que llegan aquí tienen que ser
- * estables entre renders: las funciones van con `useCallback` y los arrays
- * vacíos son constantes de módulo (`SIN_FECHAS`). Una función escrita en línea
- * en el JSX (`onSort={() => ...}`) apaga el memo en silencio y devuelve el
- * retraso, sin romper nada visible. Al tocar el punto de uso, mirar las props.
- */
+// Memoizada: es lo más caro de la pantalla (142 filas son ~200ms de pintura) y el
+// panel se repinta por cosas que no la tocan, la primera de ellas cada tecla del
+// buscador. Con las props estables (ver los `useCallback` del panel), un render que
+// no cambia ni las filas ni la selección no le cuesta nada. Cuando las filas SÍ
+// cambian, el memo no puede ahorrar nada: eso lo resuelve la transición de `q`.
 const CandidateTable = memo(function CandidateTable({
   campaign,
   showFit,
@@ -1382,13 +1390,13 @@ const CandidateTable = memo(function CandidateTable({
   return (
     <>
       {/* --- Vista móvil: tarjetas (< md) --- */}
-      <ul className="divide-y divide-slate-100 md:hidden" aria-label={`Candidatos de ${campaign.title}`}>
+      <ul className="md:hidden" aria-label={`Candidatos de ${campaign.title}`}>
         {/* Bloqueados (móvil): ARRIBA, como las candidaturas nuevas (son las más
             recientes). Contenido señuelo REAL (mismo texto que el Excel: "Candidatura
             bloqueada" / "Bloqueada"), difuminado entero para que no se lea nada, con
             el CTA nítido encima: es la única pieza legible y accionable de la fila. */}
         {lockedDates.map((date, i) => (
-          <li key={`locked-${i}`} className="relative overflow-hidden bg-slate-50/70 px-4 py-3">
+          <li key={`locked-${i}`} className={`${MOBILE_ROW} overflow-hidden bg-slate-50/70 px-4 py-3`}>
             <div aria-hidden className="flex items-center gap-3 blur-[4px] select-none">
               <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-200 text-[12.5px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-300">
                 CB
@@ -1416,12 +1424,13 @@ const CandidateTable = memo(function CandidateTable({
           const fresh = isFreshNuevo(c)
           const sel = selected.has(c.id)
           const arrivedAt = arrivalOrder.get(c.id)
-          const statusChipClass = `${m.chip} inline-flex items-center gap-1 rounded-full ring-1 ring-inset ${
-            fresh
-              ? 'gap-1.5 px-2.5 py-1 text-[13px] font-bold ring-2 ring-slate-400'
-              : 'gap-1 px-2 py-0.5 text-[12px] font-semibold'
-          }`
-          const statusDotClass = `${fresh ? 'size-2' : 'size-1.5'} rounded-full ${m.dot}`
+          // La pastilla mide y pesa lo MISMO en todas las filas, también en las
+          // recién llegadas (ago 2026). Engordarlas (13px, bold, ring-2 slate-400)
+          // dejaba la columna de estados en serrucho y esa fila parecía un fallo de
+          // pintado, no un énfasis. Que ha llegado ahora ya lo dicen el fondo teñido
+          // de la fila y la fecha en negrita, que es donde de verdad se pregunta.
+          const statusChipClass = `${m.chip} inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ring-1 ring-inset`
+          const statusDotClass = `size-1.5 rounded-full ${m.dot}`
           // Tap: en modo selección alterna; si no, abre el detalle. El guard
           // longPressed evita que el click tras la pulsación larga lo deshaga.
           const onTap = () => {
@@ -1438,68 +1447,89 @@ const CandidateTable = memo(function CandidateTable({
               style={arrivedAt !== undefined
                 ? { animation: `drop-in 240ms var(--ease-out) ${Math.min(arrivedAt, 4) * 45}ms both` }
                 : undefined}
-              className={`px-4 py-3 transition-colors ${selectMode && sel ? 'bg-indigo-50/70' : fresh ? 'bg-slate-50/80' : ''}`}
+              onClick={(e) => clickDeFila(e) && onTap()}
+              onTouchStart={selectMode ? undefined : () => startPress(c.id)}
+              onTouchMove={selectMode ? undefined : cancelPress}
+              onTouchEnd={selectMode ? undefined : cancelPress}
+              className={`${MOBILE_ROW} cursor-pointer px-4 py-3 transition-colors ${
+                selectMode && sel ? 'bg-indigo-50/70' : fresh ? 'bg-slate-50/80 active:bg-slate-100' : 'active:bg-slate-50'
+              }`}
             >
-             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={onTap}
-                onTouchStart={selectMode ? undefined : () => startPress(c.id)}
-                onTouchMove={selectMode ? undefined : cancelPress}
-                onTouchEnd={selectMode ? undefined : cancelPress}
-                aria-pressed={selectMode ? sel : undefined}
-                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors active:bg-slate-50"
-              >
-                {selectMode ? (
-                  <span
-                    className={`grid size-10 shrink-0 place-items-center rounded-full border-2 transition-colors ${
-                      sel ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
-                    }`}
-                    aria-hidden
-                  >
-                    {sel && <Check className="size-5 text-white" />}
-                  </span>
-                ) : (
-                  <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={40} />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 text-[15px] font-medium text-slate-900">
-                    <span className="truncate">{name}</span>
+             {/* DOS LÍNEAS QUE OCUPAN LA FILA ENTERA, no dos columnas (ago 2026).
+                 Antes la pastilla de estado vivía en una columna derecha propia, y
+                 como esa columna mide lo que mide su hijo más ancho, se llevaba 150px
+                 de la línea del nombre: "Manuel Soler" se leía "Manuel So…" con media
+                 fila vacía debajo. Ahora arriba va la identidad (quién y cuándo) y
+                 abajo los metadatos (teléfono y estado), cada línea con todo el ancho.
+                 El nombre pasa de ~120px a ~205px sin que la fila crezca ni un pixel.
+
+                 Solo el avatar queda fuera, como raíl: es la columna que alinea las
+                 dos líneas y donde muere el filo sangrado. */}
+             <div className="flex items-start gap-3">
+              {selectMode ? (
+                <span
+                  className={`grid size-10 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                    sel ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
+                  }`}
+                  aria-hidden
+                >
+                  {sel && <Check className="size-5 text-white" />}
+                </span>
+              ) : (
+                <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={40} />
+              )}
+              <div className="min-w-0 flex-1">
+                {/* Línea 1: quién, y cuándo llegó. */}
+                <div className="flex items-baseline gap-2">
+                  <p className="flex min-w-0 flex-1 items-center gap-1.5 text-[15px] font-medium text-slate-900">
+                    {/* La fila entera abre la ficha (como el <tr> de escritorio), pero
+                        el nombre sigue siendo un <button> de verdad: es lo que hace la
+                        fila alcanzable con teclado y lo que anuncia el lector. */}
+                    <button
+                      type="button"
+                      onClick={onTap}
+                      aria-pressed={selectMode ? sel : undefined}
+                      className="min-w-0 truncate text-left"
+                    >
+                      {name}
+                    </button>
                     {c.source === 'prueba' && <TestChip />}
                     <InterestOutcomeIcon campaign={campaign} candidate={c} />
                     <RowSignals favorito={c.favorito} comments={commentCounts[c.id] ?? 0} />
                   </p>
-                  {phone && (
-                    <p className="num mt-0.5 truncate text-sm text-slate-500">
-                      {maskPhone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone)}
-                    </p>
+                  <time
+                    dateTime={c.submittedAt}
+                    className={`num shrink-0 text-[11px] ${fresh ? 'font-semibold text-slate-700' : 'text-slate-500'}`}
+                  >
+                    {relativeDate(c.submittedAt)}
+                  </time>
+                </div>
+                {/* Línea 2: teléfono y estado. */}
+                <div className="mt-1 flex items-center gap-2">
+                  <p className="num min-w-0 flex-1 truncate text-sm text-slate-500">
+                    {phone ? (maskPhone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone)) : ''}
+                  </p>
+                  {selectMode ? (
+                    <span className={`${statusChipClass} shrink-0`}>
+                      <span className={statusDotClass} aria-hidden />
+                      {m.label}
+                    </span>
+                  ) : (
+                    // El área de toque se estira con un ::after invisible hasta ~44px
+                    // sin engordar la pastilla: en el dedo es un objetivo cómodo y en
+                    // pantalla sigue siendo la misma etiqueta pequeña.
+                    <button
+                      type="button"
+                      onClick={() => setStatusFor(c)}
+                      aria-label={`Estado: ${m.label}${fresh ? ', recién llegado' : ''}. Tocar para cambiar`}
+                      className={`${statusChipClass} relative shrink-0 pr-1.5 transition-[filter] after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] active:brightness-95`}
+                    >
+                      <span className={statusDotClass} aria-hidden />
+                      {m.label}
+                      <ChevronDown className="size-3 opacity-60" aria-hidden />
+                    </button>
                   )}
                 </div>
-              </button>
-              <div className="flex shrink-0 flex-col items-end gap-1.5">
-                {selectMode ? (
-                  <span className={statusChipClass}>
-                    <span className={statusDotClass} aria-hidden />
-                    {m.label}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setStatusFor(c)}
-                    aria-label={`Estado: ${m.label}${fresh ? ', recién llegado' : ''}. Tocar para cambiar`}
-                    className={`${statusChipClass} pr-1.5 transition-[filter] active:brightness-95`}
-                  >
-                    <span className={statusDotClass} aria-hidden />
-                    {m.label}
-                    <ChevronDown className="size-3 opacity-60" aria-hidden />
-                  </button>
-                )}
-                <time
-                  dateTime={c.submittedAt}
-                  className={`num text-[11px] ${fresh ? 'font-semibold text-slate-700' : 'text-slate-500'}`}
-                >
-                  {relativeDate(c.submittedAt)}
-                </time>
               </div>
              </div>
              {/* Sin etiquetas en la tarjeta: en móvil la fila tiene que leerse de
