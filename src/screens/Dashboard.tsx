@@ -3,13 +3,13 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
   Archive,
-  ArrowUp,
-  ArrowUpDown,
   Bookmark,
   Briefcase,
   Building2,
   Check,
   ChevronDown,
+  CircleDot,
+  Clock,
   Copy,
   Download,
   Filter,
@@ -20,6 +20,7 @@ import {
   MailCheck,
   Pause,
   PenLine,
+  Phone,
   Play,
   Plus,
   RefreshCw,
@@ -27,16 +28,19 @@ import {
   SearchX,
   Share2,
   SlidersHorizontal,
+  Sparkles,
   Star,
   MessagesSquare,
   Tag,
   Trash2,
+  User,
   X,
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
+import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH } from '../components/ui/DataTable'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -1115,68 +1119,29 @@ function StatusSummary({
 }
 
 // --- Tabla -----------------------------------------------------------------
-function SortHead({
-  k,
-  children,
-  className = '',
-  sort,
-  onSort,
-}: {
-  k: SortKey
-  children: string
-  className?: string
-  sort: { key: SortKey; dir: 'asc' | 'desc' }
-  onSort: (k: SortKey) => void
-}) {
-  const active = sort.key === k
-  const currentOrder = sort.dir === 'asc' ? 'ascendente' : 'descendente'
-  const nextOrder = active && sort.dir === 'asc' ? 'descendente' : 'ascendente'
-
+/**
+ * Señales de la fila: si está en favoritos y si hay conversación. Sin esto, el
+ * filtro "Solo favoritos" ordenaba por algo que no se veía en ninguna parte, y
+ * había que abrir candidato a candidato para saber dónde había hablado alguien.
+ */
+function RowSignals({ favorito, comments }: { favorito: boolean; comments: number }) {
+  if (!favorito && !comments) return null
   return (
-    <th
-      scope="col"
-      className={`overflow-hidden px-3 py-2.5 text-left ${className}`}
-      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-    >
-      <button
-        type="button"
-        onClick={() => onSort(k)}
-        aria-label={active
-          ? `${children}: orden ${currentOrder}. Cambiar a ${nextOrder}`
-          : `${children}: sin ordenar. Ordenar de forma ascendente`}
-        className={`group inline-flex w-full min-w-0 items-center gap-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors duration-[var(--duration-control)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 motion-reduce:transition-none ${
-          active ? 'text-slate-700' : 'text-slate-500 hover:text-slate-800'
-        }`}
-      >
-        <span className="truncate">{children}</span>
-        <span className="relative grid size-3 shrink-0 place-items-center" aria-hidden>
-          <motion.span
-            initial={false}
-            animate={{ opacity: active ? 0 : 1, scale: active ? 0.82 : 1 }}
-            transition={{ duration: 0.12, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute inset-0 grid place-items-center text-slate-300 transition-colors duration-[var(--duration-control)] group-hover:text-slate-500 motion-reduce:transition-none"
-          >
-            <ArrowUpDown className="size-3" />
-          </motion.span>
-          <motion.span
-            initial={false}
-            animate={{
-              opacity: active ? 1 : 0,
-              rotate: active && sort.dir === 'desc' ? 180 : 0,
-              scale: active ? 1 : 0.82,
-            }}
-            transition={{
-              opacity: { duration: 0.1 },
-              rotate: { duration: 0.18, ease: [0.16, 1, 0.3, 1] },
-              scale: { duration: 0.16, ease: [0.16, 1, 0.3, 1] },
-            }}
-            className="absolute inset-0 grid place-items-center text-indigo-500"
-          >
-            <ArrowUp className="size-3" />
-          </motion.span>
+    <span className="flex shrink-0 items-center gap-1.5">
+      {favorito && (
+        <>
+          <Star className="size-3.5 fill-current text-indigo-600" aria-hidden />
+          <span className="sr-only">En favoritos.</span>
+        </>
+      )}
+      {comments > 0 && (
+        <span className="flex items-center gap-0.5 text-[12px] text-slate-500">
+          <MessagesSquare className="size-3.5 text-slate-400" aria-hidden />
+          <span className="num">{comments}</span>
+          <span className="sr-only">{comments === 1 ? 'mensaje del equipo' : 'mensajes del equipo'}</span>
         </span>
-      </button>
-    </th>
+      )}
+    </span>
   )
 }
 
@@ -1275,32 +1240,6 @@ function CandidateTable({
   }, [rows, justArrived])
 
   // CTA de las filas bloqueadas (escritorio): un ÚNICO botón centrado sobre el
-/**
- * Señales de la fila: si está en favoritos y si hay conversación. Sin esto, el
- * filtro "Solo favoritos" ordenaba por algo que no se veía en ninguna parte, y
- * había que abrir candidato a candidato para saber dónde había hablado alguien.
- */
-function RowSignals({ favorito, comments }: { favorito: boolean; comments: number }) {
-  if (!favorito && !comments) return null
-  return (
-    <span className="flex shrink-0 items-center gap-1.5">
-      {favorito && (
-        <>
-          <Star className="size-3.5 fill-current text-indigo-600" aria-hidden />
-          <span className="sr-only">En favoritos.</span>
-        </>
-      )}
-      {comments > 0 && (
-        <span className="flex items-center gap-0.5 text-[12px] text-slate-500">
-          <MessagesSquare className="size-3.5 text-slate-400" aria-hidden />
-          <span className="num">{comments}</span>
-          <span className="sr-only">{comments === 1 ? 'mensaje del equipo' : 'mensajes del equipo'}</span>
-        </span>
-      )}
-    </span>
-  )
-}
-
   // bloque entero. No se puede anclar con position sobre un <tbody>/<tr>/<td>
   // (Safari no crea contenedor de posicionamiento sobre elementos de tabla: el
   // overlay se escaparía al viewport). Así que medimos el bloque de filas con JS
@@ -1395,6 +1334,14 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
     n.has(id) ? n.delete(id) : n.add(id)
     setSelected(n)
   }
+
+  // Fondo de la banda de cabecera. Al despegarse lo cede al velo blanco del
+  // <thead>: si la celda conservara su tinte, el contenido que pasa por debajo
+  // se leería a través de dos capas y la banda dejaría de ser una superficie.
+  const headTone = `transition-colors duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
+    headerStuck ? 'bg-transparent' : 'bg-slate-50/60'
+  }`
+  const sortFor = (k: SortKey) => ({ active: sort.key === k, dir: sort.dir, onToggle: () => onSort(k) })
 
   return (
     <>
@@ -1530,20 +1477,21 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
 
       {/* --- Vista escritorio: tabla (md+) --- */}
       <div ref={tableWrapRef} className={`relative hidden md:block ${headerCanStick ? 'overflow-visible' : 'overflow-x-auto'}`}>
-      <table ref={tableRef} className="w-full min-w-[824px] table-fixed border-collapse">
+      <table ref={tableRef} className={`min-w-[852px] ${TABLE}`}>
         <caption className="sr-only">Candidatos de {campaign.title}</caption>
+        {/* La banda (fondo, velo y sombra) vive en el <thead>; los filos, en cada
+            celda. En `border-separate` los bordes de <thead>/<tr> no se pintan, y
+            es justo lo que permite que la cabecera pegajosa conserve los suyos. */}
         <thead
           ref={tableHeadRef}
-          className={`${headerCanStick ? 'sticky top-0 z-20' : ''} border-b transition-[background-color,border-color,box-shadow,backdrop-filter] duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
+          className={`${headerCanStick ? 'sticky top-0 z-20' : ''} transition-[background-color,box-shadow,backdrop-filter] duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
             headerStuck
-              ? 'border-slate-200/80 bg-white/82 shadow-sticky backdrop-blur-md backdrop-saturate-125'
-              : 'border-transparent bg-transparent shadow-none backdrop-blur-0 backdrop-saturate-100'
+              ? 'bg-white/82 shadow-sticky backdrop-blur-md backdrop-saturate-125'
+              : 'bg-transparent shadow-none backdrop-blur-0 backdrop-saturate-100'
           }`}
         >
-          <tr className={`border-b transition-[background-color,border-color] duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
-            headerStuck ? 'border-transparent bg-transparent' : 'border-slate-200 bg-slate-50/60'
-          }`}>
-            <th scope="col" className="w-10 px-0 py-2.5 text-center align-middle leading-none">
+          <tr>
+            <th scope="col" className={`${HEAD_CELL_FLUSH} w-10 px-0 text-center leading-none ${headTone}`}>
               <Checkbox
                 className="translate-y-[1.5px]"
                 checked={allSel}
@@ -1552,18 +1500,18 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                 aria-label="Seleccionar todos"
               />
             </th>
-            <SortHead k="nombre" sort={sort} onSort={onSort} className="w-[248px]">Candidato</SortHead>
-            {showFit && <SortHead k="encaje" sort={sort} onSort={onSort} className="w-[136px]">Encaje</SortHead>}
+            {/* Candidato y Etiquetas van SIN ancho fijo: en `table-fixed` son las
+                que se reparten el hueco sobrante, así que al ensanchar la ventana
+                crece el nombre (que es lo que se corta) y no una columna cualquiera.
+                El resto mide lo que mide su contenido, ni un pixel más. */}
+            <ColHead icon={User} toneClass={headTone} sort={sortFor('nombre')}>Candidato</ColHead>
+            {showFit && <ColHead icon={Sparkles} className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')}>Encaje</ColHead>}
             {showTags && (
-              <th scope="col" className="hidden px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 xl:table-cell">
-                Etiquetas
-              </th>
+              <ColHead icon={Tag} className="hidden xl:table-cell" toneClass={headTone}>Etiquetas</ColHead>
             )}
-            <th scope="col" className="w-[136px] px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              Teléfono
-            </th>
-            <SortHead k="estado" sort={sort} onSort={onSort} className="w-[168px]">Estado</SortHead>
-            <SortHead k="fecha" sort={sort} onSort={onSort} className="w-[96px] text-right">Recibida</SortHead>
+            <ColHead icon={Phone} className="w-[136px]" toneClass={headTone}>Teléfono</ColHead>
+            <ColHead icon={CircleDot} className="w-[168px]" toneClass={headTone} sort={sortFor('estado')}>Estado</ColHead>
+            <ColHead icon={Clock} className="w-[124px]" align="right" toneClass={headTone} sort={sortFor('fecha')}>Recibida</ColHead>
           </tr>
         </thead>
         {/* Bloqueados (escritorio): ARRIBA, como las candidaturas nuevas (son las
@@ -1575,32 +1523,34 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
         {lockedDates.length > 0 && (
           <tbody ref={lockedBodyRef}>
             {lockedDates.map((date, i) => (
-              <tr key={`locked-${i}`} className="h-16 border-b border-slate-100 bg-slate-50/70 last:border-0">
-                <td className="px-0 py-3 text-center align-middle leading-none">
-                  <div aria-hidden className="size-4 rounded-[5px] border border-slate-300 bg-white blur-[4px] select-none" />
+              // Sin `group/row`: estas filas nunca son la última de la tabla (debajo
+              // vienen las reales), así que conservan su filo inferior siempre.
+              <tr key={`locked-${i}`} className="h-14 bg-slate-50/70">
+                <td className={`${CELL_FLUSH} px-0 text-center leading-none`}>
+                  <div aria-hidden className="mx-auto size-4 rounded-[5px] border border-slate-300 bg-white blur-[4px] select-none" />
                 </td>
-                <td className="px-3 py-3">
+                <td className={CELL}>
                   <span aria-hidden className="block truncate text-[14px] font-medium text-slate-700 blur-[4px] select-none">Candidatura bloqueada</span>
                 </td>
                 {showFit && (
-                  <td className="px-3 py-3">
+                  <td className={CELL}>
                     <span aria-hidden className="block truncate text-[13px] text-slate-600 blur-[4px] select-none">Puede encajar</span>
                   </td>
                 )}
                 {showTags && (
-                  <td className="hidden px-3 py-3 xl:table-cell">
+                  <td className={`${CELL} hidden xl:table-cell`}>
                     <span aria-hidden className="inline-block rounded-full bg-slate-200 px-2 py-0.5 text-[11px] text-slate-600 blur-[4px] select-none">Etiqueta</span>
                   </td>
                 )}
-                <td className="px-3 py-3">
+                <td className={CELL}>
                   <span aria-hidden className="num block truncate text-[13px] text-slate-600 blur-[4px] select-none">612 345 678</span>
                 </td>
-                <td className="whitespace-nowrap px-3 py-3">
+                <td className={`${CELL} whitespace-nowrap`}>
                   <span aria-hidden className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300 blur-[4px] select-none">
                     <span className="size-1.5 rounded-full bg-slate-400" /> Bloqueada
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-right">
+                <td className={`${CELL} whitespace-nowrap text-right`}>
                   <time dateTime={date} aria-hidden className="num text-[13px] text-slate-500 blur-[4px] select-none">{relativeDate(date)}</time>
                 </td>
               </tr>
@@ -1620,11 +1570,9 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                   ? { animation: `drop-in 240ms var(--ease-out) ${Math.min(arrivedAt, 4) * 45}ms both` }
                   : undefined}
                 onClick={() => onOpen(c.id)}
-                className={`group h-16 cursor-pointer border-b border-slate-100 transition-colors duration-[var(--duration-control)] last:border-0 ${
-                  sel ? 'bg-indigo-50/70' : 'hover:bg-slate-50'
-                }`}
+                className={`${ROW} group cursor-pointer ${sel ? 'bg-indigo-50/70' : 'hover:bg-slate-50'}`}
               >
-                <td className="relative px-0 py-3 text-center align-middle leading-none" onClick={(e) => e.stopPropagation()}>
+                <td className={`${CELL_FLUSH} relative px-0 text-center leading-none`} onClick={(e) => e.stopPropagation()}>
                   <Checkbox
                     className="translate-y-[1.5px]"
                     checked={sel}
@@ -1632,14 +1580,18 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                     aria-label={`Seleccionar ${name}`}
                   />
                 </td>
-                <td className="px-3 py-3">
+                <td className={CELL}>
                   <div className="flex items-center gap-2.5">
-                    <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={34} />
+                    <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={32} />
                     <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      {/* Sin subrayado permanente (se probó, ago 2026): la fila ENTERA
+                          abre la ficha, así que subrayar solo el nombre promete un
+                          objetivo más pequeño del que hay, y cien rayas seguidas
+                          compiten con los filos de la rejilla. */}
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
-                        className="block min-w-0 truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
+                        className="block min-w-0 truncate text-left text-[14px] font-medium text-slate-900 decoration-slate-400 underline-offset-[3px] hover:underline focus-visible:underline"
                         title={name}
                       >
                         {name}
@@ -1651,26 +1603,26 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                   </div>
                 </td>
                 {showFit && (
-                  <td className="px-3 py-3 text-[13px]">
+                  <td className={`${CELL} text-[13px]`}>
                     <FitCell candidate={c} />
                   </td>
                 )}
                 {showTags && (
-                  <td className="hidden px-3 py-3 xl:table-cell" onClick={(e) => e.stopPropagation()}>
-                    {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} singleLine /> : <span className="text-[13px] text-slate-600">–</span>}
+                  <td className={`${CELL} hidden xl:table-cell`} onClick={(e) => e.stopPropagation()}>
+                    {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} /> : <span className="text-[13px] text-slate-600">–</span>}
                   </td>
                 )}
-                <td className="px-3 py-3 text-[13px] text-slate-600">
+                <td className={`${CELL} text-[13px] text-slate-600`}>
                   <span className="num block truncate">
                     {maskPhone && answerStr(c, 'telefono')
                       ? <MaskedPhone value={formatPhone(answerStr(c, 'telefono'))} />
                       : (formatPhone(answerStr(c, 'telefono')) || '–')}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                  <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} uniform />
+                <td className={`${CELL} whitespace-nowrap`} onClick={(e) => e.stopPropagation()}>
+                  <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-right text-[13px] text-slate-500">
+                <td className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
                   <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
                 </td>
               </tr>
@@ -2070,7 +2022,7 @@ function SkeletonRows({ showFit }: { showFit: boolean }) {
   return (
     <div role="status" aria-label="Cargando candidatos">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="flex h-16 items-center gap-3 border-b border-slate-100 px-3 py-3 last:border-0">
+        <div key={i} className="flex h-14 items-center gap-3 border-b border-slate-100 px-3 py-3 last:border-0">
           <div className="size-4 shrink-0 rounded skeleton" />
           <div className="h-3.5 w-40 rounded skeleton" />
           <div className="ml-auto hidden items-center gap-8 md:flex">

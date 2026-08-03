@@ -422,17 +422,20 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
           <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden /> Ver datos por semana
         </summary>
         <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
+          {/* Tabla menuda (no es la rejilla de candidatos: no lleva su alto ni sus
+              iconos), pero sí su filo vertical: dos columnas sin línea entre ellas
+              se leen como una lista de dos palabras sueltas. */}
           <table className="w-full text-left text-[12px]">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
-                <th scope="col" className="px-3 py-1.5 font-medium">Semana</th>
+                <th scope="col" className="border-r border-r-slate-100 px-3 py-1.5 font-medium">Semana</th>
                 <th scope="col" className="px-3 py-1.5 text-right font-medium">Candidatos</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {weeks.map((wk, i) => (
                 <tr key={wk.start}>
-                  <td className="px-3 py-1.5 text-slate-700">{wk.label}{partialLast && i === n - 1 ? ' (en curso)' : ''}</td>
+                  <td className="border-r border-r-slate-100 px-3 py-1.5 text-slate-700">{wk.label}{partialLast && i === n - 1 ? ' (en curso)' : ''}</td>
                   <td className="px-3 py-1.5 text-right num text-slate-800">{wk.count}</td>
                 </tr>
               ))}

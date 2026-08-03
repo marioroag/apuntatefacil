@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, ChevronDown, Inbox } from 'lucide-react'
+import { Briefcase, ChevronDown, CircleDot, Clock, Inbox, Phone, User } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
+import { ColHead, TABLE, ROW, CELL } from '../components/ui/DataTable'
 import { CandidateModal } from './CandidateModal'
 import { relativeDate, formatPhone, candidateName } from '../lib/format'
 import { MeridianAvatar } from '../components/Meridian'
@@ -115,15 +116,15 @@ export function Bandeja() {
             </ul>
             {/* Escritorio: tabla */}
             <div className="hidden overflow-x-auto md:block">
-              <table className="w-full min-w-[680px] table-fixed border-collapse">
+              <table className={`min-w-[680px] ${TABLE}`}>
                 <caption className="sr-only">Candidatos nuevos de todos los puestos</caption>
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/60 text-left">
-                    <th scope="col" className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Candidato</th>
-                    <th scope="col" className="overflow-hidden px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Puesto</th>
-                    <th scope="col" className="hidden w-[150px] px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 lg:table-cell">Teléfono</th>
-                    <th scope="col" className="w-[148px] px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Estado</th>
-                    <th scope="col" className="w-[116px] px-3 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500">Recibida</th>
+                  <tr className="bg-slate-50/60">
+                    <ColHead icon={User}>Candidato</ColHead>
+                    <ColHead icon={Briefcase}>Puesto</ColHead>
+                    <ColHead icon={Phone} className="hidden w-[150px] lg:table-cell">Teléfono</ColHead>
+                    <ColHead icon={CircleDot} className="w-[148px]">Estado</ColHead>
+                    <ColHead icon={Clock} align="right" className="w-[116px]">Recibida</ColHead>
                   </tr>
                 </thead>
                 <tbody>
@@ -135,15 +136,17 @@ export function Bandeja() {
                       <tr
                         key={c.id}
                         onClick={() => setOpenId(c.id)}
-                        className="group cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50"
+                        className={`${ROW} group cursor-pointer hover:bg-slate-50`}
                       >
-                        <td className="px-3 py-2.5">
+                        <td className={CELL}>
                           <div className="flex items-center gap-2.5">
-                            <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={34} />
-                            <span className="truncate font-medium text-slate-900" title={name}>{name}</span>
+                            <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={32} />
+                            {/* Mismo gesto que en la tabla del puesto: el nombre se
+                                subraya al pasar por la fila, que es lo que abre la ficha. */}
+                            <span className="truncate text-[14px] font-medium text-slate-900 decoration-slate-400 underline-offset-[3px] group-hover:underline" title={name}>{name}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <td className={CELL} onClick={(e) => e.stopPropagation()}>
                           {camp ? (
                             <Link
                               to={`${base}/puestos/${camp.id}`}
@@ -156,16 +159,16 @@ export function Bandeja() {
                             <span className="text-[12px] text-slate-500">–</span>
                           )}
                         </td>
-                        <td className="hidden px-3 py-2.5 text-sm text-slate-600 lg:table-cell num">
+                        <td className={`${CELL} num hidden text-[13px] text-slate-600 lg:table-cell`}>
                           <span className="block truncate">
                             {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <td className={`${CELL} whitespace-nowrap`} onClick={(e) => e.stopPropagation()}>
                           <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-right text-sm text-slate-500">
-                          <time dateTime={c.submittedAt}>{relativeDate(c.submittedAt)}</time>
+                        <td className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
+                          <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
                         </td>
                       </tr>
                     )

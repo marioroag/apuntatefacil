@@ -33,23 +33,30 @@ export function TagChip({
   onRemove,
   glyph = false,
   size = 'sm',
+  entera = false,
 }: {
   name: string
   onRemove?: () => void
   glyph?: boolean
   size?: 'xs' | 'sm'
+  /**
+   * No recortes el nombre ni dejes que el chip encoja. Es lo que pide una tira que
+   * se desplaza (la celda de la tabla): ahí el sitio lo da el scroll, no el recorte.
+   * En un contenedor que envuelve, el recorte sigue siendo lo correcto.
+   */
+  entera?: boolean
 }) {
   const pad = size === 'xs' ? 'py-0.5 pl-1.5 pr-1.5 text-[11px]' : 'py-1 pl-2 pr-2 text-[12px]'
   return (
     <span
-      className={`inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-slate-100 font-medium text-slate-700 ring-1 ring-inset ring-slate-200 ${
-        onRemove ? (size === 'xs' ? 'pr-0.5' : 'pr-1') : ''
-      } ${pad}`}
+      className={`inline-flex min-w-0 items-center gap-1 rounded-full bg-slate-100 font-medium text-slate-700 ring-1 ring-inset ring-slate-200 ${
+        entera ? 'shrink-0' : 'max-w-full'
+      } ${onRemove ? (size === 'xs' ? 'pr-0.5' : 'pr-1') : ''} ${pad}`}
     >
       {glyph && <TagIcon className="size-3 shrink-0 text-slate-500" aria-hidden />}
-      {/* title: en la columna estrecha de la tabla el chip se corta, y sin esto no
+      {/* title: donde el chip sí se recorta (contenedores que envuelven), sin esto no
           había forma de leer la etiqueta entera sin abrir la ficha. */}
-      <span className="truncate" title={name}>{name}</span>
+      <span className={entera ? 'whitespace-nowrap' : 'truncate'} title={name}>{name}</span>
       {onRemove && (
         <button
           type="button"
@@ -64,62 +71,40 @@ export function TagChip({
   )
 }
 
-// Celda de etiquetas para la tabla / Bandeja: bajo el nombre, máx 2 chips + "+N".
-// `singleLine` impide que las etiquetas alteren la altura de una fila de escritorio.
-export function TagCell({ tagIds, tags, singleLine = false }: { tagIds: string[]; tags: Tag[]; singleLine?: boolean }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+/**
+ * Celda de etiquetas de la tabla: TODAS, ENTERAS y en una sola línea que se
+ * desplaza en horizontal (Mario, ago 2026).
+ *
+ * Antes enseñaba dos y escondía el resto tras un "+N" que abría un desplegable, y
+ * además recortaba el nombre de las que sí enseñaba. Eso convertía la columna en un
+ * acertijo: dos etiquetas a medias y un número no dicen cómo está clasificada una
+ * persona, y para saberlo había que pulsar fila por fila. Una etiqueta o se lee
+ * entera o no sirve, porque "Documentación OK" y "Documentación pendiente" empiezan
+ * igual.
+ *
+ * Por qué scroll y no varias líneas: la fila de una rejilla tiene alto fijo (es lo
+ * que deja bajar la vista por una columna); si las etiquetas la estiran, cada fila
+ * mide una cosa distinta y se pierde la rejilla. El chip cortado por el filo de la
+ * columna es la señal de que hay más, igual que en cualquier tira de chips.
+ *
+ * Sin barra de desplazamiento visible: en una tira de 20px de alto ocuparía casi
+ * tanto como los chips, y en las 142 filas de un puesto sería una trama de rayas.
+ * No hace falta `tabindex`: los navegadores hacen foco en un contenedor con scroll
+ * que no tiene hijos enfocables, y el lector de pantalla lee todos los chips estén
+ * o no a la vista (están en el DOM, no ocultos).
+ */
+export function TagCell({ tagIds, tags }: { tagIds: string[]; tags: Tag[] }) {
   const resolved = useMemo(
     () => tagIds.map((id) => tags.find((t) => t.id === id)).filter((t): t is Tag => !!t),
     [tagIds, tags],
   )
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
   if (resolved.length === 0) return null
-  const shown = resolved.slice(0, 2)
-  const rest = resolved.slice(2)
 
   return (
-    <div className={singleLine ? 'flex h-5 min-w-0 flex-nowrap items-center gap-1' : 'mt-1 flex flex-wrap items-center gap-1'}>
-      {shown.map((t) => (
-        <TagChip key={t.id} name={t.name} size="xs" />
+    <div className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {resolved.map((t) => (
+        <TagChip key={t.id} name={t.name} size="xs" entera />
       ))}
-      {rest.length > 0 && (
-        <div className={`relative ${singleLine ? 'shrink-0' : ''}`} ref={ref}>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              setOpen((o) => !o)
-            }}
-            aria-expanded={open}
-            aria-label={`Ver ${rest.length} etiquetas más`}
-            className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold num text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-200"
-          >
-            +{rest.length}
-          </button>
-          {open && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="absolute left-0 z-50 mt-1 flex max-w-[240px] flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-pop"
-            >
-              {resolved.map((t) => (
-                <TagChip key={t.id} name={t.name} size="xs" />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
