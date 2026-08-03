@@ -2,7 +2,6 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type Mous
 import {
   CheckCircle2,
   ChevronRight,
-  Loader2,
   Lock,
   MessageCircle,
   Phone,
@@ -18,9 +17,11 @@ import { STATUS_META, TEAM_REQUEST_STATUS_META } from '../lib/types'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { candidateName, initials } from '../lib/format'
-import { BTN_PRIMARY_SM, BTN_SECONDARY_SM } from '../lib/buttons'
+import { BTN_SECONDARY_SM } from '../lib/buttons'
 import { SlideOver } from '../components/ui/SlideOver'
-import { ChatSkeleton, ChatThread } from '../components/ui/Chat'
+import {
+  CHAT_ACTIONS, CHAT_ALTO_MAX, CHAT_SURFACE, CHAT_TEXTAREA_BLOQUE, ChatSend, ChatSkeleton, ChatThread,
+} from '../components/ui/Chat'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { CandidateModal } from './CandidateModal'
 
@@ -1004,6 +1005,18 @@ function Composer({
   }, [pickerOpen, query, candidates, attachedSet, proposedSet, campaignFilter, pickerLimit])
 
   const canSend = !sending && (text.trim().length > 0 || attached.length > 0)
+
+  // La caja arranca en una línea y crece con lo escrito hasta el techo, igual
+  // que la del chat del candidato. Antes contaba saltos de línea, así que un
+  // párrafo largo sin Intro se quedaba encerrado en una sola línea con scroll.
+  const areaRef = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const el = areaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, CHAT_ALTO_MAX)}px`
+  }, [text])
+
   const emptyHint = query
     ? 'Nadie coincide con esa búsqueda.'
     : campaignFilter !== 'all'
@@ -1128,8 +1141,9 @@ function Composer({
         </div>
       )}
 
-      {/* Una sola superficie: el hueco entre textarea y botones desaparece. */}
-      <div className="rounded-xl border border-slate-300 bg-white focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/15">
+      {/* Una sola superficie: el hueco entre textarea y botones desaparece. La
+          caja es la misma que la del chat del candidato, y por eso sale de ahí. */}
+      <div className={CHAT_SURFACE}>
         {attached.length > 0 && (
           <div className="flex flex-wrap gap-1.5 border-b border-slate-100 px-2.5 pt-2.5 pb-2">
             {attached.map((id) => {
@@ -1154,7 +1168,11 @@ function Composer({
             })}
           </div>
         )}
+        {/* Dos filas, y aquí sí: proponer candidatos es la otra mitad de lo que
+            se hace en un hilo del tablón, y metida en la línea del mensaje deja
+            el texto en un hueco. El canto y el botón sí son los de siempre. */}
         <textarea
+          ref={areaRef}
           value={text}
           onChange={(e) => onText(e.target.value)}
           onKeyDown={(e) => {
@@ -1163,36 +1181,27 @@ function Composer({
             e.preventDefault()
             if (canSend) onSend()
           }}
-          rows={Math.min(4, Math.max(1, text.split('\n').length))}
+          rows={1}
           placeholder="Añade un mensaje"
           aria-label="Mensaje"
-          className="min-h-11 w-full resize-none border-0 bg-transparent px-3 py-2.5 text-sm pointer-coarse:text-base outline-none placeholder:text-slate-500 focus:ring-0"
+          className={CHAT_TEXTAREA_BLOQUE}
         />
-        <div className="flex items-center justify-between gap-2 px-2 pb-2">
+        <div className={CHAT_ACTIONS}>
           <button
             type="button"
             onClick={() => onPickerOpen(!pickerOpen)}
             aria-expanded={pickerOpen}
             aria-controls={pickerId}
-            className={`inline-flex h-9 pointer-coarse:min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-[13px] font-medium transition-colors ${
+            className={`-ml-2 inline-flex h-8 pointer-coarse:h-11 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] ${
               pickerOpen
                 ? 'bg-slate-100 text-slate-800'
                 : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'
             }`}
           >
-            <UserPlus className="size-3.5" aria-hidden />
+            <UserPlus className="size-4" aria-hidden />
             Proponer candidato
           </button>
-          <button
-            type="button"
-            onClick={onSend}
-            disabled={!canSend}
-            aria-label={sending ? 'Enviando mensaje' : 'Enviar mensaje'}
-            aria-busy={sending}
-            className={`${BTN_PRIMARY_SM} pointer-coarse:min-h-11 disabled:cursor-not-allowed disabled:opacity-60`}
-          >
-            {sending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : 'Enviar'}
-          </button>
+          <ChatSend onClick={onSend} disabled={!canSend} sending={sending} />
         </div>
       </div>
     </div>

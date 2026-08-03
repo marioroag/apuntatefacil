@@ -550,7 +550,7 @@ function Activa({
           <ChatComposer
             id={`wa-${conversacion.id}`}
             onSend={enviar}
-            placeholder="Escribe a este candidato por WhatsApp."
+            placeholder="Escribe al candidato por WhatsApp"
             label="Escribe un mensaje de WhatsApp para el candidato"
           />
         ) : (
