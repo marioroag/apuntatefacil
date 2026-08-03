@@ -29,7 +29,7 @@ import { useChatThread } from '../lib/useChatThread'
 import { StatusSelect } from '../components/ui/StatusPill'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import type { Campaign, Candidate, CandidateEvent } from '../lib/types'
-import { SOURCE_META, STATUS_META } from '../lib/types'
+import { FAVORITO_STAR, SOURCE_META, STATUS_META } from '../lib/types'
 import { answerText, candidateName, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
@@ -468,9 +468,11 @@ export function CandidateModal({
  * Favorito: una sola estrella pegada al nombre. Es un interruptor ("a este lo
  * quiero"), no una nota con matices, y por eso sustituyó a las 5 estrellas.
  *
- * NO es dorada a propósito: el ámbar ya significa "entrevista" y en esta misma
- * cabecera puede haber una pastilla ámbar al lado. Guardar en favoritos es
- * SELECCIÓN, que es uno de los cuatro usos legítimos del acento.
+ * ES DORADA (Mario, ago 2026, y antes iba en el acento): el par de tonos vive
+ * en `FAVORITO_STAR`, que es lo que pintan también la tabla y el filtro.
+ *
+ * El `-my-1` es cosa de la cabecera, no del botón: su caja de 32px hacía la
+ * línea del nombre 7px más alta que el texto.
  */
 function Favorito({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -479,14 +481,27 @@ function Favorito({ value, onChange }: { value: boolean; onChange: (v: boolean) 
       aria-pressed={value}
       aria-label={value ? 'Quitar de favoritos' : 'Guardar en favoritos'}
       onClick={() => onChange(!value)}
-      className={`group -my-1 grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg transition-[color,background-color,transform] duration-[var(--duration-control)] ease-[var(--ease-out)] hover:bg-slate-100 active:translate-y-px ${
-        value ? 'text-indigo-600 hover:text-indigo-700' : 'text-slate-400 hover:text-indigo-600'
-      }`}
+      className="group -my-1 grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] active:translate-y-px"
     >
       {/* El press es `translate-y-px` en el botón, nunca `scale` en el icono: un
           control se hunde, no se encoge. El `scale` es lenguaje de dibujo animado
-          y aquí desentonaba contra los 16 botones del sistema. */}
-      <Star className={`size-[18px] [stroke-width:1.75] ${value ? 'fill-current' : ''}`} aria-hidden />
+          y aquí desentonaba contra los 16 botones del sistema.
+
+          El hover NO pinta una placa gris detrás: la respuesta ocurre DENTRO del
+          glifo, que se rellena de amarillo al 35%. Es el adelanto de lo que va a
+          pasar al pulsar (la estrella se rellena del todo), en vez de un fondo
+          que no significa nada y que además metía un rectángulo gris pegado al
+          nombre. El color lo lleva SIEMPRE el icono, nunca el botón: si el botón
+          pusiera el suyo, el `text-amber-500` del glifo encendido lo taparía y
+          el hover de "quitar de favoritos" no se vería. */}
+      <Star
+        className={`size-[18px] [stroke-width:1.75] transition-[color,fill] duration-[var(--duration-control)] ease-[var(--ease-out)] ${
+          value
+            ? `${FAVORITO_STAR} group-hover:text-amber-600`
+            : 'fill-transparent text-slate-400 group-hover:fill-amber-400/35 group-hover:text-amber-500'
+        }`}
+        aria-hidden
+      />
     </button>
   )
 }

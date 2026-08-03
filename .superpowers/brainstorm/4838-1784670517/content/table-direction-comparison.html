@@ -1,0 +1,156 @@
+<style>
+  .direction-page { --ink:#131822; --ink-2:#50545e; --ink-3:#6f727c; --line:#e5e7eb; --line-strong:#d1d4db; --canvas:#f9fafb; --muted:#f4f5f7; --accent:#374cce; color:var(--ink); }
+  .direction-page * { box-sizing:border-box; }
+  .direction-intro { max-width:760px; margin-bottom:24px; }
+  .direction-intro h2 { margin-bottom:7px; letter-spacing:-.02em; }
+  .direction-intro p { color:var(--ink-2); margin:0; }
+  .direction-list { display:grid; gap:22px; }
+  .direction { border:1px solid var(--line); border-radius:14px; overflow:hidden; background:#fff; cursor:pointer; transition:border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease; }
+  .direction:hover { border-color:var(--line-strong); box-shadow:0 6px 20px rgba(19,24,34,.07); }
+  .direction.is-selected { border-color:var(--accent); box-shadow:0 0 0 2px rgba(55,76,206,.14), 0 8px 24px rgba(19,24,34,.08); }
+  .direction:active { transform:translateY(1px); }
+  .direction-label { display:flex; align-items:flex-start; gap:12px; padding:16px 18px 14px; border-bottom:1px solid var(--line); background:#fff; }
+  .direction-letter { width:28px; height:28px; border-radius:8px; display:grid; place-items:center; flex:0 0 auto; background:var(--muted); color:var(--ink); font-weight:650; }
+  .direction.is-selected .direction-letter { background:var(--accent); color:#fff; }
+  .direction-copy { flex:1; min-width:0; }
+  .direction-copy h3 { margin:0 0 3px; font-size:15px; letter-spacing:-.01em; }
+  .direction-copy p { margin:0; font-size:13px; color:var(--ink-2); }
+  .direction-tradeoff { flex:0 0 auto; font-size:11px; font-weight:600; color:var(--ink-3); background:var(--muted); padding:5px 8px; border-radius:999px; }
+  .product-shell { padding:18px; background:var(--canvas); }
+  .toolbar { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .search { height:34px; flex:1; min-width:140px; max-width:300px; display:flex; align-items:center; gap:8px; padding:0 10px; border:1px solid var(--line-strong); border-radius:9px; background:#fff; color:var(--ink-3); font-size:12px; }
+  .tool { height:34px; display:inline-flex; align-items:center; gap:6px; padding:0 10px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink-2); font-size:12px; font-weight:550; }
+  .tool.primary { margin-left:auto; border-color:var(--accent); background:var(--accent); color:#fff; box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 1px 2px rgba(28,39,110,.25); }
+  .count { margin:0 0 8px; font-size:11px; color:var(--ink-3); }
+  .count strong { color:var(--ink); font-weight:600; }
+  .table-wrap { border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff; box-shadow:0 1px 3px rgba(19,24,34,.06); }
+  .table-demo { width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px; }
+  .table-demo th { padding:9px 10px; text-align:left; color:var(--ink-3); border-bottom:1px solid var(--line); background:#fafbfc; font-size:10px; font-weight:650; }
+  .table-demo td { padding:10px; border-bottom:1px solid #eef0f3; color:var(--ink-2); vertical-align:middle; }
+  .table-demo tr:last-child td { border-bottom:0; }
+  .person { display:flex; align-items:center; gap:9px; min-width:0; }
+  .avatar { width:30px; height:30px; border-radius:999px; display:grid; place-items:center; flex:0 0 auto; background:var(--muted); color:var(--ink-2); font-size:10px; font-weight:650; }
+  .person-copy { min-width:0; }
+  .name { display:block; color:var(--ink); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .meta { display:block; margin-top:2px; color:var(--ink-3); font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .status { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:var(--muted); color:var(--ink-2); font-size:11px; font-weight:550; white-space:nowrap; }
+  .dot { width:6px; height:6px; border-radius:999px; background:#6f727c; }
+  .dot.blue { background:#3b82f6; } .dot.amber { background:#f59e0b; } .dot.green { background:#22c55e; }
+  .interest { display:flex; align-items:center; gap:5px; color:var(--ink-2); white-space:nowrap; }
+  .interest-mark { width:16px; height:16px; display:grid; place-items:center; border-radius:5px; background:var(--muted); font-size:9px; }
+  .check { width:14px; height:14px; border:1px solid var(--line-strong); border-radius:4px; background:#fff; }
+  .date { text-align:right; color:var(--ink-3)!important; font-variant-numeric:tabular-nums; }
+
+  /* A: visual feel */
+  .feel .product-shell { padding:22px; }
+  .feel .table-wrap { border-radius:12px; box-shadow:0 8px 24px rgba(19,24,34,.08); }
+  .feel .table-demo th { padding-top:11px; padding-bottom:11px; letter-spacing:.045em; text-transform:uppercase; }
+  .feel .table-demo td { padding-top:13px; padding-bottom:13px; }
+  .feel .avatar { width:34px; height:34px; background:#eef0f5; }
+  .feel .table-demo tbody tr:hover { background:#fafbfc; }
+
+  /* B: scan speed */
+  .speed .product-shell { padding:14px 18px; }
+  .speed .toolbar { margin-bottom:7px; }
+  .speed .table-wrap { border-left:0; border-right:0; border-radius:0; box-shadow:none; }
+  .speed .table-demo th { padding-top:7px; padding-bottom:7px; background:#fff; text-transform:none; font-size:11px; }
+  .speed .table-demo td { padding-top:7px; padding-bottom:7px; }
+  .speed .avatar { display:none; }
+  .speed .name { font-weight:550; }
+  .speed .meta { display:none; }
+  .speed .status { padding:2px 0; background:transparent; }
+  .speed .table-demo tbody tr:hover { background:#f4f5f7; box-shadow:inset 2px 0 0 var(--accent); }
+
+  /* C: precision */
+  .precision .product-shell { padding:18px; }
+  .precision .toolbar { padding-bottom:10px; border-bottom:1px solid var(--line); }
+  .precision .count { display:flex; align-items:center; gap:8px; }
+  .precision .count:after { content:"Orden: más recientes"; margin-left:auto; color:var(--ink-3); }
+  .precision .table-wrap { border-radius:10px; box-shadow:0 1px 3px rgba(19,24,34,.06); }
+  .precision .table-demo th { padding-top:8px; padding-bottom:8px; background:#fafbfc; text-transform:none; font-size:11px; }
+  .precision .table-demo td { padding-top:9px; padding-bottom:9px; }
+  .precision .avatar { width:28px; height:28px; box-shadow:inset 0 0 0 1px var(--line); }
+  .precision .status { padding:3px 7px; background:#fff; box-shadow:inset 0 0 0 1px var(--line); }
+  .precision .table-demo tbody tr:hover { background:#f7f8fa; }
+  .precision .table-demo tbody tr:first-child { background:#fbfcfd; }
+  .precision .table-demo tbody tr:first-child .name:after { content:"Nueva"; margin-left:7px; padding:2px 5px; border-radius:999px; background:#eef0f3; color:var(--ink-3); font-size:9px; font-weight:650; vertical-align:1px; }
+
+  @media (max-width:760px) {
+    .direction-tradeoff { display:none; }
+    .product-shell { overflow-x:auto; }
+    .toolbar { min-width:610px; }
+    .table-wrap { min-width:610px; }
+    .direction-label { padding:14px; }
+  }
+</style>
+
+<div class="direction-page">
+  <div class="direction-intro">
+    <h2>¿Qué debe hacer que la tabla se sienta profesional?</h2>
+    <p>Las tres usan el mismo contenido. Cambia la jerarquía, la densidad y el papel del acabado visual.</p>
+  </div>
+
+  <div class="direction-list">
+    <section class="direction feel" data-choice="a-feel" onclick="toggleSelect(this)">
+      <div class="direction-label">
+        <div class="direction-letter">A</div>
+        <div class="direction-copy"><h3>Feel primero</h3><p>Más aire, más presencia de superficie y una lectura visual más amable.</p></div>
+        <span class="direction-tradeoff">Elegante, menos densa</span>
+      </div>
+      <div class="product-shell">
+        <div class="toolbar"><div class="search">⌕ Buscar candidatos</div><button class="tool">Filtros · 2</button><button class="tool">Vistas</button><button class="tool primary">Exportar</button></div>
+        <p class="count"><strong>128</strong> candidatos · 2 filtros activos</p>
+        <div class="table-wrap"><table class="table-demo"><colgroup><col style="width:34px"><col style="width:28%"><col style="width:18%"><col style="width:17%"><col style="width:19%"><col style="width:14%"></colgroup>
+          <thead><tr><th></th><th>Candidato</th><th>Experiencia</th><th>Interés</th><th>Estado</th><th style="text-align:right">Recibida</th></tr></thead>
+          <tbody>
+            <tr><td><div class="check"></div></td><td><div class="person"><div class="avatar">LM</div><div class="person-copy"><span class="name">Lucía Martín</span><span class="meta">Las Palmas · 611 234 876</span></div></div></td><td>5 años</td><td><span class="interest"><span class="interest-mark">✓</span>Disponible</span></td><td><span class="status"><span class="dot"></span>Nuevo</span></td><td class="date">Hace 8 min</td></tr>
+            <tr><td><div class="check"></div></td><td><div class="person"><div class="avatar">DS</div><div class="person-copy"><span class="name">David Santana</span><span class="meta">Telde · 622 843 194</span></div></div></td><td>3 años</td><td><span class="interest"><span class="interest-mark">↗</span>Enviado</span></td><td><span class="status"><span class="dot blue"></span>Contactado</span></td><td class="date">Ayer</td></tr>
+            <tr><td><div class="check"></div></td><td><div class="person"><div class="avatar">AR</div><div class="person-copy"><span class="name">Ana Rodríguez</span><span class="meta">Arucas · 633 519 072</span></div></div></td><td>7 años</td><td><span class="interest"><span class="interest-mark">✓</span>Interesada</span></td><td><span class="status"><span class="dot amber"></span>Entrevista</span></td><td class="date">18 jul</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section class="direction speed" data-choice="b-speed" onclick="toggleSelect(this)">
+      <div class="direction-label">
+        <div class="direction-letter">B</div>
+        <div class="direction-copy"><h3>Velocidad primero</h3><p>Menos ornamento, más filas visibles y columnas que se comparan de un vistazo.</p></div>
+        <span class="direction-tradeoff">Eficiente, más austera</span>
+      </div>
+      <div class="product-shell">
+        <div class="toolbar"><div class="search">⌕ Buscar candidatos</div><button class="tool">Filtros · 2</button><button class="tool">Vistas</button><button class="tool primary">Exportar</button></div>
+        <p class="count"><strong>128</strong> candidatos · 2 filtros activos</p>
+        <div class="table-wrap"><table class="table-demo"><colgroup><col style="width:34px"><col style="width:28%"><col style="width:18%"><col style="width:17%"><col style="width:19%"><col style="width:14%"></colgroup>
+          <thead><tr><th></th><th>Candidato ↕</th><th>Experiencia</th><th>Interés</th><th>Estado ↕</th><th style="text-align:right">Recibida ↓</th></tr></thead>
+          <tbody>
+            <tr><td><div class="check"></div></td><td><div class="person"><div class="avatar">LM</div><div class="person-copy"><span class="name">Lucía Martín</span><span class="meta">Las Palmas · 611 234 876</span></div></div></td><td>5 años</td><td><span class="interest"><span class="interest-mark">✓</span>Disponible</span></td><td><span class="status"><span class="dot"></span>Nuevo</span></td><td class="date">Hace 8 min</td></tr>
+            <tr><td><div class="check"></div></td><td><div class="person"><div class="avatar">DS</div><div class="person-copy"><span class="name">David Santana</span><span class="meta">Telde · 622 843 194</span></div></div></td><td>3 años</td><td><span class="interest"><span class="interest-mark">↗</span>Enviado</span></td><td><span class="status"><span class="dot blue"></span>Contactado</span></td><td class="date">Ayer</td></tr>
+            <tr><td><div class="check"></div></td><td><div class="person"><div class="avatar">AR</div><div class="person-copy"><span class="name">Ana Rodríguez</span><span class="meta">Arucas · 633 519 072</span></div></div></td><td>7 años</td><td><span class="interest"><span class="interest-mark">✓</span>Interesada</span></td><td><span class="status"><span class="dot amber"></span>Entrevista</span></td><td class="date">18 jul</td></tr>
+            <tr><td><div class="check"></div></td><td><div class="person"><div class="avatar">JP</div><div class="person-copy"><span class="name">Jorge Pérez</span><span class="meta">Gáldar · 644 708 311</span></div></div></td><td>2 años</td><td><span class="interest"><span class="interest-mark">·</span>Sin enviar</span></td><td><span class="status"><span class="dot green"></span>Contratado</span></td><td class="date">17 jul</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section class="direction precision" data-choice="c-precision" onclick="toggleSelect(this)">
+      <div class="direction-label">
+        <div class="direction-letter">C</div>
+        <div class="direction-copy"><h3>Precisión equilibrada · recomendada</h3><p>La velocidad marca la estructura y el feel aparece en alineación, ritmo, hover y estados.</p></div>
+        <span class="direction-tradeoff">Profesional y operativa</span>
+      </div>
+      <div class="product-shell">
+        <div class="toolbar"><div class="search">⌕ Buscar candidatos</div><button class="tool">Filtros · 2</button><button class="tool">Vistas</button><button class="tool primary">Exportar</button></div>
+        <p class="count"><strong>128</strong> candidatos · 2 filtros activos</p>
+        <div class="table-wrap"><table class="table-demo"><colgroup><col style="width:34px"><col style="width:28%"><col style="width:18%"><col style="width:17%"><col style="width:19%"><col style="width:14%"></colgroup>
+          <thead><tr><th></th><th>Candidato ↕</th><th>Experiencia</th><th>Interés</th><th>Estado ↕</th><th style="text-align:right">Recibida ↓</th></tr></thead>
+          <tbody>
+            <tr><td><div class="check"></div></td><td><div class="person"><div class="avatar">LM</div><div class="person-copy"><span class="name">Lucía Martín</span><span class="meta">Las Palmas · 611 234 876</span></div></div></td><td>5 años</td><td><span class="interest"><span class="interest-mark">✓</span>Disponible</span></td><td><span class="status"><span class="dot"></span>Nuevo</span></td><td class="date">Hace 8 min</td></tr>
+            <tr><td><div class="check"></div></td><td><div class="person"><div class="avatar">DS</div><div class="person-copy"><span class="name">David Santana</span><span class="meta">Telde · 622 843 194</span></div></div></td><td>3 años</td><td><span class="interest"><span class="interest-mark">↗</span>Enviado</span></td><td><span class="status"><span class="dot blue"></span>Contactado</span></td><td class="date">Ayer</td></tr>
+            <tr><td><div class="check"></div></td><td><div class="person"><div class="avatar">AR</div><div class="person-copy"><span class="name">Ana Rodríguez</span><span class="meta">Arucas · 633 519 072</span></div></div></td><td>7 años</td><td><span class="interest"><span class="interest-mark">✓</span>Interesada</span></td><td><span class="status"><span class="dot amber"></span>Entrevista</span></td><td class="date">18 jul</td></tr>
+            <tr><td><div class="check"></div></td><td><div class="person"><div class="avatar">JP</div><div class="person-copy"><span class="name">Jorge Pérez</span><span class="meta">Gáldar · 644 708 311</span></div></div></td><td>2 años</td><td><span class="interest"><span class="interest-mark">·</span>Sin enviar</span></td><td><span class="status"><span class="dot green"></span>Contratado</span></td><td class="date">17 jul</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+  </div>
+</div>

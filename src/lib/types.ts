@@ -517,6 +517,23 @@ export const STATUS_META: Record<
   descartado: { label: 'Descartado', dot: 'bg-slate-300', chip: 'bg-slate-50 text-slate-500 ring-slate-200' },
 }
 
+// La estrella de FAVORITO, en un solo sitio: ficha, tabla, tarjeta de móvil y
+// filtro pintan exactamente esto. Es dorada (Mario, ago 2026; antes iba en el
+// acento): una estrella rellena de oro no hay que aprenderla, y así el
+// ultramarine vuelve a significar solo acción. No se confunde con el ámbar de
+// 'entrevista' porque ese estado se dice siempre con punto redondo + palabra,
+// nunca con este glifo.
+//
+// Dos tonos a propósito: relleno `amber-400` (#fbbf24, amarillo de verdad) y
+// contorno `amber-500` (#f59e0b), medio paso más oscuro. Sin ese contorno el
+// amarillo pierde la silueta sobre blanco y a 14px se deshace. Se probó cerrar
+// el borde con `amber-600` (#d97706) para llegar a los 3:1 de un gráfico con
+// significado y Mario lo tumbó: se veía naranja, no amarillo. Es aceptable
+// porque la estrella NUNCA es el único portador (en la tabla lleva su
+// `sr-only` "En favoritos." y en la ficha su `aria-pressed`): el color aquí
+// reconoce, no informa.
+export const FAVORITO_STAR = 'fill-amber-400 text-amber-500'
+
 // Estados de petición del tablón. Paleta de ESTADO propia (nunca el índigo de
 // marca): abierta = azul (en curso, como 'contactado'), completada = verde
 // (resuelto, como 'contratado'). Siempre punto de color + texto.

@@ -1,0 +1,170 @@
+<style>
+  .af-flow { color:#131822; }
+  .af-flow * { box-sizing:border-box; }
+  .af-kicker { margin:0 0 7px; color:#6f727c; font-size:12px; font-weight:650; letter-spacing:.08em; text-transform:uppercase; }
+  .af-title { margin:0; font-size:28px; line-height:1.15; letter-spacing:-.035em; }
+  .af-lede { margin:9px 0 24px; max-width:760px; color:#50545e; font-size:15px; line-height:1.55; }
+  .af-grid { display:grid; grid-template-columns:minmax(0,1.28fr) minmax(320px,.72fr); gap:18px; align-items:start; }
+  .af-panel { overflow:hidden; border:1px solid #e5e7eb; border-radius:12px; background:#fff; box-shadow:0 1px 2px rgba(19,24,34,.05); }
+  .af-panel-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:15px 17px; border-bottom:1px solid #e5e7eb; }
+  .af-panel-head h3 { margin:0; font-size:14px; font-weight:650; }
+  .af-step { display:inline-grid; width:23px; height:23px; place-items:center; border-radius:999px; background:#f1f3f5; color:#50545e; font-size:12px; font-weight:700; }
+  .af-dashboard { padding:16px; background:#f9fafb; }
+  .af-jobline { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+  .af-jobline h4 { margin:0; font-size:19px; letter-spacing:-.025em; }
+  .af-smallbtn { border:1px solid #d8dbe0; border-radius:8px; background:#fff; padding:8px 11px; color:#313640; font:inherit; font-size:12px; font-weight:600; }
+  .af-selection { display:flex; align-items:center; gap:8px; margin-bottom:12px; padding:9px 11px; border-radius:10px; background:#374cce; color:#fff; box-shadow:inset 0 1px rgba(255,255,255,.18), 0 1px 2px rgba(19,24,34,.12); }
+  .af-selection strong { margin-right:auto; font-size:12px; }
+  .af-selection button { border:0; border-radius:8px; background:rgba(255,255,255,.15); padding:7px 9px; color:#fff; font:inherit; font-size:11px; font-weight:650; }
+  .af-selection .primary { background:#fff; color:#2639ac; }
+  .af-table { overflow:hidden; border:1px solid #e5e7eb; border-radius:10px; background:#fff; }
+  .af-row { display:grid; grid-template-columns:28px 1.15fr .78fr 1fr 74px; align-items:center; gap:8px; min-height:47px; padding:0 11px; border-bottom:1px solid #eceef0; font-size:11px; }
+  .af-row:last-child { border-bottom:0; }
+  .af-row.head { min-height:37px; background:#fafbfc; color:#6f727c; font-weight:650; }
+  .af-check { display:grid; width:16px; height:16px; place-items:center; border:1px solid #374cce; border-radius:4px; background:#374cce; color:#fff; font-size:10px; }
+  .af-name { min-width:0; font-weight:650; }
+  .af-email { overflow:hidden; color:#50545e; text-overflow:ellipsis; white-space:nowrap; }
+  .af-signal { display:inline-flex; width:max-content; max-width:100%; align-items:center; gap:5px; border-radius:999px; padding:4px 7px; background:#eef7f0; color:#216437; font-size:10px; font-weight:650; white-space:nowrap; }
+  .af-signal.pending { background:#f1f3f5; color:#50545e; }
+  .af-dot { width:6px; height:6px; border-radius:99px; background:currentColor; }
+  .af-status { color:#50545e; }
+  .af-side { display:grid; gap:18px; }
+  .af-modalbody { padding:19px; }
+  .af-modalbody h4 { margin:0; font-size:18px; letter-spacing:-.025em; }
+  .af-modalbody > p { margin:7px 0 16px; color:#50545e; font-size:12px; line-height:1.5; }
+  .af-counts { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+  .af-count { border:1px solid #e5e7eb; border-radius:10px; padding:10px; }
+  .af-count strong { display:block; font-size:17px; }
+  .af-count span { color:#6f727c; font-size:10px; }
+  .af-preview { border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#f9fafb; }
+  .af-preview .label { color:#6f727c; font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+  .af-preview .subject { margin:4px 0 8px; font-size:11px; font-weight:650; }
+  .af-preview p { margin:0; color:#50545e; font-size:10px; line-height:1.55; }
+  .af-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .af-actions button { border-radius:8px; padding:8px 11px; font:inherit; font-size:11px; font-weight:650; }
+  .af-actions .cancel { border:1px solid #d8dbe0; background:#fff; color:#313640; }
+  .af-actions .send { border:1px solid #2f42bd; background:#374cce; color:#fff; box-shadow:inset 0 1px rgba(255,255,255,.18); }
+  .af-emailcard { margin:18px; border:1px solid #e5e7eb; border-radius:14px; padding:18px; background:#fff; }
+  .af-wordmark { font-size:13px; font-weight:800; letter-spacing:-.025em; }
+  .af-emailcard h4 { margin:16px 0 8px; font-size:15px; }
+  .af-emailcard p { margin:0; color:#50545e; font-size:11px; line-height:1.6; }
+  .af-email-buttons { display:grid; gap:7px; margin-top:14px; }
+  .af-email-buttons span { display:block; border-radius:8px; padding:9px 11px; text-align:center; font-size:10px; font-weight:700; }
+  .af-email-buttons .yes { background:#374cce; color:#fff; }
+  .af-email-buttons .no { border:1px solid #d8dbe0; background:#fff; color:#313640; }
+  .af-foot { margin-top:12px !important; color:#6f727c !important; font-size:9px !important; }
+  .af-decide { margin-top:22px; }
+  .af-decide h3 { margin:0 0 5px; font-size:16px; }
+  .af-decide p { margin:0 0 12px; color:#50545e; font-size:13px; }
+  .af-decide .options { grid-template-columns:1fr 1fr; }
+  @media (max-width:900px) {
+    .af-grid { grid-template-columns:1fr; }
+    .af-row { grid-template-columns:26px 1fr .95fr 75px; }
+    .af-row > :nth-child(3) { display:none; }
+  }
+  @media (max-width:620px) {
+    .af-selection { flex-wrap:wrap; }
+    .af-selection strong { width:100%; }
+    .af-selection button { flex:1; }
+    .af-row { grid-template-columns:24px 1fr .9fr; }
+    .af-row > :nth-child(3), .af-row > :nth-child(5) { display:none; }
+    .af-decide .options { grid-template-columns:1fr; }
+  }
+</style>
+
+<div class="af-flow">
+  <p class="af-kicker">Propuesta de interfaz</p>
+  <h2 class="af-title">Comprobar el interés sin salir del panel</h2>
+  <p class="af-lede">Una acción masiva controlada, un correo muy corto y una señal separada del estado de selección.</p>
+
+  <div class="af-grid">
+    <section class="af-panel">
+      <div class="af-panel-head">
+        <h3><span class="af-step">1</span>&nbsp;&nbsp;Selección y resultado</h3>
+        <span style="color:#6f727c;font-size:11px">Panel del puesto</span>
+      </div>
+      <div class="af-dashboard">
+        <div class="af-jobline">
+          <h4>Mozo/a de almacén</h4>
+          <button class="af-smallbtn">Compartir</button>
+        </div>
+        <div class="af-selection">
+          <strong>12 seleccionados</strong>
+          <button>Añadir etiqueta</button>
+          <button>Exportar</button>
+          <button class="primary">Comprobar interés</button>
+        </div>
+        <div class="af-table">
+          <div class="af-row head">
+            <span></span><span>Candidato</span><span>Email</span><span>Interés</span><span>Estado</span>
+          </div>
+          <div class="af-row">
+            <span class="af-check">✓</span><span class="af-name">Lucía Hernández</span><span class="af-email">lucia@email.com</span><span class="af-signal"><i class="af-dot"></i>Sigue interesada</span><span class="af-status">Nuevo</span>
+          </div>
+          <div class="af-row">
+            <span class="af-check">✓</span><span class="af-name">Carlos Santana</span><span class="af-email">carlos@email.com</span><span class="af-signal pending"><i class="af-dot"></i>Enviado hace 2 días</span><span class="af-status">Contactado</span>
+          </div>
+          <div class="af-row">
+            <span class="af-check">✓</span><span class="af-name">Marta López</span><span class="af-email">Sin email</span><span style="color:#6f727c">No disponible</span><span class="af-status">Nuevo</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="af-side">
+      <section class="af-panel">
+        <div class="af-panel-head">
+          <h3><span class="af-step">2</span>&nbsp;&nbsp;Confirmación</h3>
+        </div>
+        <div class="af-modalbody">
+          <h4>Comprobar interés</h4>
+          <p>Enviaremos la misma pregunta a los candidatos que tengan email.</p>
+          <div class="af-counts">
+            <div class="af-count"><strong>9</strong><span>recibirán el correo</span></div>
+            <div class="af-count"><strong>3</strong><span>se omitirán, sin email</span></div>
+          </div>
+          <div class="af-preview">
+            <span class="label">Vista previa</span>
+            <div class="subject">¿Sigues interesado/a en Mozo/a de almacén?</div>
+            <p>Logística Acosta está revisando las candidaturas para este puesto y quiere saber si sigues interesado/a.</p>
+          </div>
+          <div class="af-actions">
+            <button class="cancel">Cancelar</button>
+            <button class="send">Enviar a 9</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="af-panel" style="background:#f9fafb">
+        <div class="af-panel-head" style="background:#fff">
+          <h3><span class="af-step">3</span>&nbsp;&nbsp;Correo al candidato</h3>
+        </div>
+        <div class="af-emailcard">
+          <div class="af-wordmark">apuntatefacil</div>
+          <h4>¿Sigues interesado/a?</h4>
+          <p>Hola, Lucía. Logística Acosta está revisando las candidaturas para el puesto de Mozo/a de almacén y quiere saber si sigues interesado/a.</p>
+          <div class="af-email-buttons">
+            <span class="yes">Sí, sigo interesado/a</span>
+            <span class="no">No, ya no me interesa</span>
+          </div>
+          <p class="af-foot">Recibes este correo porque enviaste una candidatura para este puesto.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <section class="af-decide">
+    <h3>¿Encaja esta jerarquía?</h3>
+    <p>La comprobación gana visibilidad solo cuando hay candidatos seleccionados. El resultado aparece junto al candidato, sin sustituir su estado.</p>
+    <div class="options">
+      <div class="option" data-choice="encaja" onclick="toggleSelect(this)">
+        <div class="letter">A</div>
+        <div class="content"><h3>Encaja</h3><p>Mantener esta estructura para la especificación.</p></div>
+      </div>
+      <div class="option" data-choice="ajustes" onclick="toggleSelect(this)">
+        <div class="letter">B</div>
+        <div class="content"><h3>Quiero ajustes</h3><p>Indicar en el chat qué cambiarías.</p></div>
+      </div>
+    </div>
+  </section>
+</div>
