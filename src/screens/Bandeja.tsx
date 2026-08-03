@@ -5,7 +5,7 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
-import { ColHead, TABLE, ROW, CELL } from '../components/ui/DataTable'
+import { ColHead, TABLE, ROW, CELL, MOBILE_ROW } from '../components/ui/DataTable'
 import { CandidateModal } from './CandidateModal'
 import { relativeDate, formatPhone, candidateName } from '../lib/format'
 import { MeridianAvatar } from '../components/Meridian'
@@ -71,45 +71,62 @@ export function Bandeja() {
             {nuevos.length} {nuevos.length === 1 ? 'candidato nuevo' : 'candidatos nuevos'} sin revisar
           </p>
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
-            {/* Móvil: tarjetas (sin scroll horizontal, sin truncar el puesto) */}
-            <ul className="divide-y divide-slate-100 md:hidden" aria-label="Candidatos nuevos de todos los puestos">
+            {/* Móvil: fichas de dos líneas, la misma forma que la lista del puesto
+                (arriba quién, abajo sus datos y el estado). Así el puesto entero cabe
+                en su chip en vez de cortarse por la mitad para dejarle sitio a la
+                pastilla, que antes vivía en la línea del nombre. */}
+            <ul className="md:hidden" aria-label="Candidatos nuevos de todos los puestos">
               {nuevos.map((c) => {
                 const camp = getCampaign(c.campaignId)
                 const name = candidateName(c) || 'Sin nombre'
                 const m = STATUS_META[c.status]
                 return (
-                  // Botón del candidato (abrir) y pastilla de estado (cambiar y triar
-                  // sin abrir el detalle) como hermanos, no anidados.
-                  <li key={c.id} className="flex items-center gap-3 px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => setOpenId(c.id)}
-                      className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors active:bg-slate-50"
-                    >
-                      <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={40} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[15px] font-medium text-slate-900">{name}</p>
-                        {camp && (
-                          <span className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-1.5 pr-2 text-[12px] font-medium text-slate-600">
-                            <Briefcase className="size-3 shrink-0 text-slate-500" aria-hidden />
-                            <span className="truncate">{camp.title}</span>
-                          </span>
-                        )}
+                  <li
+                    key={c.id}
+                    onClick={() => setOpenId(c.id)}
+                    className={`${MOBILE_ROW} flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors active:bg-slate-50`}
+                  >
+                    <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={40} />
+                    <div className="min-w-0 flex-1">
+                      {/* La fila entera abre la ficha; el nombre sigue siendo un
+                          <button> de verdad, que es lo que la hace alcanzable con
+                          teclado y lo que anuncia el lector. */}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setOpenId(c.id) }}
+                        className="block min-w-0 max-w-full truncate text-left text-[15px] font-medium text-slate-900"
+                      >
+                        {name}
+                      </button>
+                      {/* Sin "hace 3 h" en móvil: todos son nuevos y la cola ya va
+                          del más reciente al más antiguo, así que la hora ocupaba
+                          sitio sin decidir nada. Sigue en la tabla de escritorio. */}
+                      <div className="mt-1 flex items-center gap-2">
+                        {/* El chip abraza a su texto: quien reparte el ancho es este
+                            hueco, no la pastilla del puesto (estirada de lado a lado
+                            parecía un campo vacío). */}
+                        <span className="min-w-0 flex-1">
+                          {camp && (
+                            <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-1.5 pr-2 text-[12px] font-medium text-slate-600">
+                              <Briefcase className="size-3 shrink-0 text-slate-500" aria-hidden />
+                              <span className="truncate">{camp.title}</span>
+                            </span>
+                          )}
+                        </span>
+                        {/* El área de toque se estira con un ::after invisible hasta
+                            ~44px sin engordar la pastilla. */}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setStatusFor(c) }}
+                          aria-label={`Estado: ${m.label}. Tocar para cambiar`}
+                          className={`relative inline-flex shrink-0 items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[12px] font-semibold ring-1 ring-inset transition-[filter] after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] ${m.chip} active:brightness-95`}
+                        >
+                          <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
+                          {m.label}
+                          <ChevronDown className="size-3 opacity-60" aria-hidden />
+                        </button>
                       </div>
-                    </button>
-                    {/* Sin "hace 3 h" en móvil: todos son nuevos y la cola ya va
-                        del más reciente al más antiguo, así que la hora ocupaba
-                        sitio sin decidir nada. Sigue en la tabla de escritorio. */}
-                    <button
-                      type="button"
-                      onClick={() => setStatusFor(c)}
-                      aria-label={`Estado: ${m.label}. Tocar para cambiar`}
-                      className={`inline-flex shrink-0 items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[12px] font-semibold ring-1 ring-inset transition-[filter] ${m.chip} active:brightness-95`}
-                    >
-                      <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
-                      {m.label}
-                      <ChevronDown className="size-3 opacity-60" aria-hidden />
-                    </button>
+                    </div>
                   </li>
                 )
               })}
