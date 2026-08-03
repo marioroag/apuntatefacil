@@ -264,6 +264,10 @@ function CompanyMenu({
   const foto = profiles.avatarFor(uid)
   const sinNombre = !profiles.me?.fullName.trim() && !demo
   const isOwner = role === 'owner'
+  // Lo que el bloque de empresa pinta a cualquier ancho. Debajo de sm siempre
+  // hay algo más (Ayuda, y Primeros pasos si procede), así que su raya sabe
+  // desaparecer sola en vez de sumarse a la de arriba.
+  const hayBloqueEmpresa = (!demo && isOwner) || companies.length > 1
   const empresa = company?.name ?? ''
   const planLabel = PLAN_LABEL[company?.plan ?? 'trial'] ?? 'Prueba'
 
@@ -408,7 +412,12 @@ function CompanyMenu({
             </button>
           </div>
 
-          <Separator />
+          {/* Una raya solo vale si separa dos cosas. La de arriba siempre lo
+              hace (empresa y persona están siempre); esta depende de que el
+              bloque de en medio exista, y en la demo con un solo equipo ese
+              bloque solo existe por debajo de sm, así que la raya se va con
+              él. Si no, quedaban dos rayas juntas sin nada entre ellas. */}
+          <Separator className={hayBloqueEmpresa ? undefined : 'sm:hidden'} />
 
           {/* Y quién eres tú. Al fondo, como en la referencia: la sesión es lo
               último que se toca y lo primero que se busca cuando se busca. */}
@@ -450,6 +459,6 @@ function CompanyMenu({
   )
 }
 
-function Separator() {
-  return <div className="my-1 h-px bg-slate-200" role="separator" />
+function Separator({ className = '' }: { className?: string }) {
+  return <div className={`my-1 h-px bg-slate-200 ${className}`} role="separator" />
 }
