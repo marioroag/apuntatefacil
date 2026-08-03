@@ -237,20 +237,35 @@ export function CandidateModal({
   return (
     <>
       <Modal open={open} onClose={onClose} labelledBy="candidato-nombre" inert={confirmarBorrado}>
-        <header className="border-b border-slate-200 px-4 pb-2.5 pt-3.5 sm:px-5">
-          <div className="flex items-start gap-3">
-            <MeridianAvatar name={name} fit={fit ?? undefined} size={44} />
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1">
-                <h2 id="candidato-nombre" title={name} className="truncate text-xl font-semibold leading-tight text-slate-900">
-                  {name}
-                </h2>
-                <Favorito value={candidate.favorito} onChange={(v) => void setFavorito(candidate.id, v)} />
+        {/* En escritorio la cabecera respira más que en móvil: la identidad es lo
+            primero que se lee de una persona y pegada al filo se leía como una
+            barra de herramientas. */}
+        <header className="border-b border-slate-200 px-4 pb-2.5 pt-3.5 sm:px-5 sm:pb-3.5 sm:pt-5">
+          {/* Los dos lados de la fila se centran ENTRE SÍ: con `items-start` las
+              flechas y la equis se pegaban al techo y quedaban 4px por encima del
+              centro del nombre, que es contra lo que las mira el ojo. */}
+          <div className="flex items-center gap-3">
+            {/* La cara y sus dos líneas son UN bloque centrado entre sí: con la fila
+                entera en `items-start` el avatar se colgaba del techo de la
+                cabecera, arrancaba por encima de la mayúscula del nombre y moría a
+                media línea del puesto. Centrado, la cara y el nombre cuadran. */}
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <MeridianAvatar name={name} fit={fit ?? undefined} size={44} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1">
+                  <h2 id="candidato-nombre" title={name} className="truncate text-xl font-semibold leading-tight text-slate-900">
+                    {name}
+                  </h2>
+                  {/* La estrella no estira la línea del nombre (`-my-1`): su caja de
+                      32px la hacía 7px más alta que el texto y descuadraba el bloque
+                      contra la cara. El área de toque no cambia. */}
+                  <Favorito value={candidate.favorito} onChange={(v) => void setFavorito(candidate.id, v)} />
+                </div>
+                {/* Sin etiqueta de ajuste: el anillo del avatar YA dice el encaje
+                    (por longitud de arco) y repetirlo en palabras solo restaba
+                    sitio al puesto. */}
+                <p className="truncate text-[13px] text-slate-500">{campaign.title}</p>
               </div>
-              {/* Sin etiqueta de ajuste: el anillo del avatar YA dice el encaje
-                  (por longitud de arco) y repetirlo en palabras solo restaba
-                  sitio al puesto. */}
-              <p className="truncate text-[13px] text-slate-500">{campaign.title}</p>
             </div>
             <div className="flex shrink-0 items-center gap-0.5">
               {puedeNavegar && (
@@ -290,7 +305,7 @@ export function CandidateModal({
           </div>
 
           {/* Barra de decisión: lo que el empresario cambia sin pensar. */}
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 sm:mt-3.5">
             <StatusSelect status={candidate.status} onChange={(s) => void setStatus(candidate.id, s)} />
             {/* Las etiquetas NO van aquí a ningún ancho: viven en Resumen, como
                 ya hacían en móvil. En la cabecera crecían sin techo y empujaban
@@ -464,7 +479,7 @@ function Favorito({ value, onChange }: { value: boolean; onChange: (v: boolean) 
       aria-pressed={value}
       aria-label={value ? 'Quitar de favoritos' : 'Guardar en favoritos'}
       onClick={() => onChange(!value)}
-      className={`group grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg transition-[color,background-color,transform] duration-[var(--duration-control)] ease-[var(--ease-out)] hover:bg-slate-100 active:translate-y-px ${
+      className={`group -my-1 grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg transition-[color,background-color,transform] duration-[var(--duration-control)] ease-[var(--ease-out)] hover:bg-slate-100 active:translate-y-px ${
         value ? 'text-indigo-600 hover:text-indigo-700' : 'text-slate-400 hover:text-indigo-600'
       }`}
     >
