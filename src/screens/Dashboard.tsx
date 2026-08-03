@@ -44,6 +44,7 @@ import { CandidateModal } from './CandidateModal'
 import { exportCandidatesToExcel } from '../lib/export'
 import { RegistrarAccion } from '../lib/acciones'
 import { relativeDate, miles, formatPhone, candidateName, isFreshNuevo } from '../lib/format'
+import { clickDeFila } from '../lib/fila'
 // El anillo de ajuste se queda en el avatar (Mario, jul 2026) y desde ago 2026 lo
 // acompaña la columna "Encaje", que dice en palabras lo que el anillo dice en arco:
 // mismo par punto+texto que exige la doctrina para el estado. Con ella vuelve su
@@ -1619,11 +1620,13 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                 style={arrivedAt !== undefined
                   ? { animation: `drop-in 240ms var(--ease-out) ${Math.min(arrivedAt, 4) * 45}ms both` }
                   : undefined}
-                onClick={() => onOpen(c.id)}
+                onClick={(e) => clickDeFila(e) && onOpen(c.id)}
                 className={`group h-16 cursor-pointer border-b border-slate-100 transition-colors duration-[var(--duration-control)] last:border-0 ${
                   sel ? 'bg-indigo-50/70' : 'hover:bg-slate-50'
                 }`}
               >
+                {/* La ÚNICA celda que no abre la ficha, y a propósito: es la zona de
+                    puntería de su checkbox, no un hueco de la fila (ver lib/fila.ts). */}
                 <td className="relative px-0 py-3 text-center align-middle leading-none" onClick={(e) => e.stopPropagation()}>
                   <Checkbox
                     className="translate-y-[1.5px]"
@@ -1638,7 +1641,7 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                     <div className="flex min-w-0 flex-1 items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); onOpen(c.id) }}
+                        onClick={() => onOpen(c.id)}
                         className="block min-w-0 truncate text-left text-[14px] font-medium text-slate-900 hover:underline focus-visible:underline"
                         title={name}
                       >
@@ -1656,7 +1659,7 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                   </td>
                 )}
                 {showTags && (
-                  <td className="hidden px-3 py-3 xl:table-cell" onClick={(e) => e.stopPropagation()}>
+                  <td className="hidden px-3 py-3 xl:table-cell">
                     {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} singleLine /> : <span className="text-[13px] text-slate-600">–</span>}
                   </td>
                 )}
@@ -1667,7 +1670,7 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
                       : (formatPhone(answerStr(c, 'telefono')) || '–')}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                <td className="whitespace-nowrap px-3 py-3">
                   <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} uniform />
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-right text-[13px] text-slate-500">

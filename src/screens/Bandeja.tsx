@@ -7,6 +7,7 @@ import { useToast } from '../components/ui/Toast'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { CandidateModal } from './CandidateModal'
 import { relativeDate, formatPhone, candidateName } from '../lib/format'
+import { clickDeFila } from '../lib/fila'
 import { MeridianAvatar } from '../components/Meridian'
 import { candidateFit } from '../lib/meridian'
 import { MaskedPhone } from '../components/MaskedPhone'
@@ -134,7 +135,7 @@ export function Bandeja() {
                     return (
                       <tr
                         key={c.id}
-                        onClick={() => setOpenId(c.id)}
+                        onClick={(e) => clickDeFila(e) && setOpenId(c.id)}
                         className="group cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50"
                       >
                         <td className="px-3 py-2.5">
@@ -143,7 +144,7 @@ export function Bandeja() {
                             <span className="truncate font-medium text-slate-900" title={name}>{name}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-3 py-2.5">
                           {camp ? (
                             <Link
                               to={`${base}/puestos/${camp.id}`}
@@ -161,7 +162,7 @@ export function Bandeja() {
                             {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <td className="whitespace-nowrap px-3 py-2.5">
                           <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right text-sm text-slate-500">

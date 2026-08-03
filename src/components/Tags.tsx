@@ -66,24 +66,17 @@ export function TagChip({
 
 // Celda de etiquetas para la tabla / Bandeja: bajo el nombre, máx 2 chips + "+N".
 // `singleLine` impide que las etiquetas alteren la altura de una fila de escritorio.
+//
+// El "+N" es TEXTO, no un botón: dice cuántas quedan y ya. Fue un botón con su
+// desplegable y se quitó (ago 2026) porque un control en mitad de una fila que
+// abre una ficha es un agujero: se pulsa creyendo pulsar la fila y no pasa lo
+// que se espera. Lo que enseñaba no se pierde: los nombres van en el `title` y
+// las etiquetas están enteras en la ficha, que es adonde lleva pulsar aquí.
 export function TagCell({ tagIds, tags, singleLine = false }: { tagIds: string[]; tags: Tag[]; singleLine?: boolean }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
   const resolved = useMemo(
     () => tagIds.map((id) => tags.find((t) => t.id === id)).filter((t): t is Tag => !!t),
     [tagIds, tags],
   )
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
 
   if (resolved.length === 0) return null
   const shown = resolved.slice(0, 2)
@@ -95,30 +88,12 @@ export function TagCell({ tagIds, tags, singleLine = false }: { tagIds: string[]
         <TagChip key={t.id} name={t.name} size="xs" />
       ))}
       {rest.length > 0 && (
-        <div className={`relative ${singleLine ? 'shrink-0' : ''}`} ref={ref}>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              setOpen((o) => !o)
-            }}
-            aria-expanded={open}
-            aria-label={`Ver ${rest.length} etiquetas más`}
-            className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold num text-slate-500 ring-1 ring-inset ring-slate-200 hover:bg-slate-200"
-          >
-            +{rest.length}
-          </button>
-          {open && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="absolute left-0 z-50 mt-1 flex max-w-[240px] flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-2 shadow-pop"
-            >
-              {resolved.map((t) => (
-                <TagChip key={t.id} name={t.name} size="xs" />
-              ))}
-            </div>
-          )}
-        </div>
+        <span
+          title={rest.map((t) => t.name).join(', ')}
+          className={`inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 num text-[11px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200 ${singleLine ? 'shrink-0' : ''}`}
+        >
+          +{rest.length}
+        </span>
       )}
     </div>
   )
