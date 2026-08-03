@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 // importan nada de `jsr:` ni de `npm:`, así que los cargan los dos runtimes, y
 // Deno no está instalado en esta máquina. Ver la cabecera de schedule.test.ts.
 import { clasificar, whatsappMeta } from '../../supabase/functions/_shared/channels/whatsappMeta'
+import { WHATSAPP_WIP } from './whatsapp'
 
 describe('clasificar', () => {
   it('separa lo que hay que hacer, no lo que ha pasado', () => {
@@ -102,5 +103,76 @@ describe('normalizarWebhook', () => {
       ],
     })
     expect(whatsappMeta.normalizarWebhook(cuerpo).entrantes).toHaveLength(2)
+  })
+})
+
+/**
+ * EL GUARDIÁN DEL CANAL APAGADO.
+ *
+ * Mientras no haya número de alta en Meta, la app no puede escribirle a un
+ * candidato (ver `lib/whatsapp.ts`). Apagar los botones no basta: lo que impide
+ * de verdad que salga un mensaje es que TODOS los caminos hasta el servidor
+ * pasen por `WHATSAPP_LISTO`, y eso se pudre solo. Dentro de dos meses alguien
+ * añade una pantalla que llama al RPC directamente, la bandera sigue en `false`
+ * y el candidato recibe un WhatsApp desde un número que no es el de la empresa.
+ *
+ * Por eso esto no comprueba comportamiento: comprueba que las puertas sigan
+ * siendo las mismas y que sigan teniendo cerradura. Cuando falle, hay dos
+ * salidas honestas: llamar desde el store como los demás, o poner la guarda.
+ */
+describe('el canal apagado', () => {
+  // Los ficheros se leen con los globs de Vite, como el guardián de los ajustes:
+  // el tsconfig de la app no tiene los tipos de node. Ojo con las claves: las de
+  // esta misma carpeta llegan como `./store.tsx` y no como `../lib/store.tsx`,
+  // así que se busca por el final del nombre y no por la ruta entera.
+  const FUENTES = import.meta.glob('../**/*.{ts,tsx}', {
+    query: '?raw',
+    import: 'default',
+    eager: true,
+  }) as Record<string, string>
+
+  const fuente = (nombre: string): string | undefined =>
+    Object.entries(FUENTES).find(([ruta]) => ruta.endsWith(`/${nombre}`) || ruta === `./${nombre}`)?.[1]
+
+  /** Lo que le pide al servidor que escriba a alguien. */
+  const PUERTAS = ['start_interview_invitation', 'kickoff_invitation', 'whatsapp-send', 'send-interest-check']
+
+  it('solo el store llama a lo que manda un mensaje', () => {
+    for (const [ruta, texto] of Object.entries(FUENTES)) {
+      if (ruta.endsWith('store.tsx') || ruta.includes('.test.')) continue
+      for (const puerta of PUERTAS) {
+        expect(
+          texto.includes(`'${puerta}'`),
+          `${ruta} llama a "${puerta}" por su cuenta. Esa llamada va en store.tsx, ` +
+          'que es donde está la guarda de WHATSAPP_LISTO: si no, el botón se apaga ' +
+          'pero el mensaje sale igual.',
+        ).toBe(false)
+      }
+    }
+  })
+
+  it('cada puerta del store tiene su guarda', () => {
+    const store = fuente('store.tsx') ?? ''
+    expect(store, 'no se encuentra store.tsx').toBeTruthy()
+    // Las guardas, literales. Si cambia una, que falle aquí y no en producción.
+    const GUARDAS = [
+      "if (!WHATSAPP_LISTO) return { status: 'wip' }",       // invitar
+      "if (channel === 'whatsapp' && !WHATSAPP_LISTO) {",    // comprobar interés
+      'if (!WHATSAPP_LISTO) return false',                   // escribir en el hilo
+    ]
+    for (const guarda of GUARDAS) {
+      expect(
+        store.includes(guarda),
+        `Falta la guarda \`${guarda}\` en store.tsx. Mientras WHATSAPP_LISTO sea ` +
+        'false no puede salir ni un mensaje: la interfaz decide qué se ofrece, ' +
+        'esta línea decide qué se manda.',
+      ).toBe(true)
+    }
+  })
+
+  it('lo que se le dice al cliente no lleva guion largo', () => {
+    for (const texto of Object.values(WHATSAPP_WIP)) {
+      expect(texto).not.toContain('—')
+    }
   })
 })

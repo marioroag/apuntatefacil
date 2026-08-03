@@ -6,6 +6,8 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { planHas } from '../lib/pricing'
 import { WHATSAPP_ASSISTANT_ENABLED } from '../lib/settings'
+import { WHATSAPP_LISTO } from '../lib/whatsapp'
+import { AvisoWhatsappPendiente } from './WhatsappPendiente'
 import { interestEmailPreview } from '../lib/interestEmail'
 import { textoInteres } from '../../supabase/functions/_shared/whatsapp/render'
 import { INTEREST_BATCH_LIMIT, previewInterestCandidates, type InterestOmissionReason, type InterestSendResult } from '../lib/interest'
@@ -114,7 +116,12 @@ export function InterestCheckDialog({
   const puedeWhatsapp = WHATSAPP_ASSISTANT_ENABLED
     && (demo || planHas(company?.plan, 'entrevistas'))
     && hasPhoneField
-  const canalActivo: InterestChannel = puedeWhatsapp ? canal : 'email'
+  // Aquí el WhatsApp no se esconde mientras se da de alta el número, se enseña
+  // apagado: es una empresa que YA tiene el canal en su plan y con teléfono en
+  // su formulario, así que quitarlo de la vista sin decir nada solo consigue que
+  // lo busque. El motivo va debajo y el correo sigue funcionando igual.
+  const whatsappEnEspera = puedeWhatsapp && !WHATSAPP_LISTO
+  const canalActivo: InterestChannel = puedeWhatsapp && WHATSAPP_LISTO ? canal : 'email'
   const meta = CANAL[canalActivo]
   const Icono = meta.icono
   // Quién firma: la marca del puesto si la tiene, si no la empresa. Lo mismo
@@ -233,14 +240,17 @@ export function InterestCheckDialog({
                 <div className="mt-2 flex gap-1 rounded-xl bg-slate-100 p-1" role="radiogroup" aria-labelledby="interest-canal-label">
                   {(['email', 'whatsapp'] as const).map((id) => {
                     const activo = canalActivo === id
+                    const enEspera = id === 'whatsapp' && whatsappEnEspera
                     const C = CANAL[id].icono
                     return (
                       <label
                         key={id}
-                        className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-indigo-600 ${
+                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-indigo-600 ${
                           activo
                             ? 'bg-white text-slate-900 ring-1 ring-slate-200'
-                            : 'text-slate-500 hover:text-slate-800'
+                            : enEspera
+                              ? 'cursor-not-allowed text-slate-400'
+                              : 'cursor-pointer text-slate-500 hover:text-slate-800'
                         } ${busy ? 'pointer-events-none opacity-60' : ''}`}
                       >
                         <input
@@ -248,15 +258,23 @@ export function InterestCheckDialog({
                           name="interest-canal"
                           className="sr-only"
                           checked={activo}
-                          disabled={busy}
+                          disabled={busy || enEspera}
                           onChange={() => setCanal(id)}
                         />
                         <C className="size-4" aria-hidden />
                         {CANAL[id].nombre}
+                        {/* La chapa dice POR QUÉ no se puede elegir, en el sitio
+                            donde se intenta elegir. El texto largo va debajo. */}
+                        {enEspera && (
+                          <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[var(--tracking-overline)] text-slate-600">
+                            Pronto
+                          </span>
+                        )}
                       </label>
                     )
                   })}
                 </div>
+                {whatsappEnEspera && <AvisoWhatsappPendiente className="mt-2" />}
               </div>
             )}
 

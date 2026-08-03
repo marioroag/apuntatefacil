@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { CalendarDays, Loader2, MessageCircle, X } from 'lucide-react'
+import { CalendarDays, CalendarPlus, Loader2, MessageCircle, X } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { useStore } from '../lib/store'
 import { useToast } from './ui/Toast'
 import { BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import { currentInterview } from '../lib/interviews'
 import { useAnfitrion } from '../lib/anfitrion'
+import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import { ModoEntrevista } from './ModoEntrevista'
 import { formatPhone, shortWhenInZone } from '../lib/format'
 import type { Candidate, InterviewMode } from '../lib/types'
@@ -24,11 +25,15 @@ import type { Candidate, InterviewMode } from '../lib/types'
 export function InterviewHeaderButton({
   candidate,
   onOpen,
+  onScheduleManually,
 }: {
   candidate: Candidate
   /** Abre la pestaña Conversación. El botón NUNCA abre un modal: la
    *  conversación ES la superficie, y un modal encima la taparía. */
   onOpen: () => void
+  /** Abre el diálogo de agendar a mano. Solo se usa mientras WhatsApp no esté
+   *  de alta: sin conversación que abrir, la superficie es el diálogo. */
+  onScheduleManually: () => void
 }) {
   const { interviewsFor } = useStore()
   const entrevista = currentInterview(interviewsFor(candidate.id), candidate.id)
@@ -60,6 +65,18 @@ export function InterviewHeaderButton({
       <button type="button" onClick={onOpen} className={BTN_SECONDARY_SM}>
         <Loader2 className="size-3.5 animate-spin text-slate-400" aria-hidden />
         Agendando...
+      </button>
+    )
+  }
+  // Mientras no podamos escribirle nosotros, la acción que ofrece la cabecera es
+  // la que funciona entera: apuntar la cita. Sigue siendo LA acción de esta
+  // persona, así que conserva el acento; lo que cambia es a dónde lleva, porque
+  // detrás de "Invitar" no hay nadie escribiendo (ver `lib/whatsapp.ts`).
+  if (!WHATSAPP_LISTO) {
+    return (
+      <button type="button" onClick={onScheduleManually} className={BTN_PRIMARY_SM}>
+        <CalendarPlus className="size-3.5 text-indigo-200" aria-hidden />
+        Agendar entrevista
       </button>
     )
   }
