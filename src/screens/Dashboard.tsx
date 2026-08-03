@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
@@ -99,6 +99,9 @@ function numberFilterLabel(nf: NumberFilter): string {
   return `≤ ${nf.max}`
 }
 
+// "Ninguna candidatura bloqueada", con identidad fija: ver `lockedDates`.
+const SIN_FECHAS: string[] = []
+
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -132,7 +135,7 @@ export function Dashboard() {
   // así el aviso de una mención puede enlazar directamente a su ficha, y volver
   // atrás cierra el detalle en vez de salir del puesto.
   const openId = searchParams.get('candidato')
-  const setOpenId = (id: string | null) =>
+  const setOpenId = useCallback((id: string | null) =>
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -143,7 +146,7 @@ export function Dashboard() {
       // replace: recorrer 40 candidatos con las flechas no debe dejar 40 entradas
       // en el historial del navegador.
       { replace: true },
-    )
+    ), [setSearchParams])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [interestDialogOpen, setInterestDialogOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false) // modo selección múltiple (móvil)
@@ -163,6 +166,20 @@ export function Dashboard() {
   const [deleting, setDeleting] = useState(false)
   // Feature avanzada que se intentó usar sin tenerla en el plan: abre el aviso.
   const [upgrade, setUpgrade] = useState<PlanFeature | null>(null)
+
+  // Lo que le pasamos a `CandidateTable` se declara con identidad ESTABLE: esa tabla
+  // está memoizada y una función nueva en cada render le rompe la comparación, o sea
+  // 142 filas repintadas por cada tecla del buscador. Viven aquí arriba, y no junto a
+  // los demás manejadores, porque son hooks: por debajo está el `return` temprano del
+  // puesto no encontrado y ahí ya no se pueden llamar.
+  const toggleSort = useCallback((key: SortKey) =>
+    // Al elegir una columna nueva empieza ascendente, salvo Encaje: ahí lo que se
+    // pide al pulsar es "enséñame primero a quien encaja", no al revés.
+    setSort((s) => (s.key === key
+      ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+      : { key, dir: key === 'encaje' ? 'desc' : 'asc' })), [])
+  const openLockedDialog = useCallback(() => setLockedDialogOpen(true), [])
+  const enterSelectMode = useCallback(() => setSelectMode(true), [])
 
   // Duplicar el puesto: crea una copia (campos, apariencia y datos), sin candidatos,
   // y abre su editor. El error, si lo hay, lo avisa el store.
@@ -324,7 +341,20 @@ export function Dashboard() {
     return () => window.clearTimeout(t)
   }, [justArrived])
 
-  // Búsqueda tolerante: el input actualiza `search` al instante; lo debouncamos a `dq`.
+  // Una sola búsqueda a tres ritmos, porque tres cosas distintas cuestan distinto:
+  //   `search` es lo que enseña el campo. Urgente: la letra tiene que aparecer en
+  //     el mismo frame en que se pulsa la tecla, pase lo que pase debajo.
+  //   `q` es lo que filtra la lista. Va en una TRANSICIÓN (`useDeferredValue`), así
+  //     que React repinta las filas en trocitos y sin bloquear el teclado: mientras
+  //     sigues escribiendo, la tabla se queda un momento con el resultado anterior
+  //     en vez de comerse el hilo, y si tecleas otra vez abandona y vuelve a empezar.
+  //     Con 142 candidatos, repintar la tabla son ~200ms; a eso no se le puede pedir
+  //     el turno del dedo.
+  //   `dq` es lo que se le pide al servidor. Debounce, para no lanzar un RPC por tecla.
+  // No son el mismo mecanismo dos veces: el debounce ahorra RED (esperar a que pares
+  // de escribir), la transición ahorra PINTURA (no bloquear mientras escribes). Uno
+  // solo no basta: sin la transición, el repintado bloquea igual cuando llega `dq`.
+  const q = useDeferredValue(search.trim())
   const [dq, setDq] = useState('')
   useEffect(() => {
     const t = setTimeout(() => setDq(search.trim()), 250)
@@ -355,12 +385,12 @@ export function Dashboard() {
     // instantáneo mientras llega/si falla el RPC). Sin query, todos los candidatos.
     let relevance: Map<string, number> | null = null
     let base0 = all
-    if (dq) {
+    if (q) {
       const ids =
         base !== '/demo' && rpcIds !== null
           ? rpcIds
           : all
-              .map((c) => [c, searchScore(c, dq)] as const)
+              .map((c) => [c, searchScore(c, q)] as const)
               .filter(([, s]) => s > 0)
               .sort((a, b) => b[1] - a[1])
               .map(([c]) => c.id)
@@ -422,7 +452,7 @@ export function Dashboard() {
       })
     }
     return list
-  }, [all, campaign, dq, rpcIds, base, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
+  }, [all, campaign, q, rpcIds, base, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
 
   // Dominio real (mín/máx) de cada pregunta numérica, para acotar sus sliders.
   const numberDomains = useMemo(() => {
@@ -445,9 +475,12 @@ export function Dashboard() {
   // bloquean). Las filas difuminadas, solo en la vista sin filtrar.
   const lockedFor = campaign && company?.plan === 'trial' ? lockedInfo[campaign.id] : undefined
   const lockedCount = lockedFor?.count ?? 0
-  const lockedDates = lockedFor?.dates ?? []
+  // Sin bloqueadas, SIN_FECHAS (constante del módulo) en vez de un `[]` recién
+  // hecho: es una prop de la tabla memoizada y un array nuevo por render la
+  // repintaría entera.
+  const lockedDates = lockedFor?.dates ?? SIN_FECHAS
   const isFiltered =
-    !!dq || statusFilter.size > 0 || interestFilter.size > 0 || favoritosOnly || tagFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0
+    !!q || statusFilter.size > 0 || interestFilter.size > 0 || favoritosOnly || tagFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0
   // Los bloqueados (difuminados) salen ARRIBA, como las candidaturas nuevas (son
   // las más recientes), solo en la vista por defecto (más nuevos primero y sin
   // filtros): con otro orden no tendría sentido cronológico, así que ahí no se
@@ -519,13 +552,6 @@ export function Dashboard() {
   const applyBrand = (brandId: string | null) => {
     updateCampaign(campaign.id, { brandId })
   }
-
-  const toggleSort = (key: SortKey) =>
-    // Al elegir una columna nueva empieza ascendente, salvo Encaje: ahí lo que se
-    // pide al pulsar es "enséñame primero a quien encaja", no al revés.
-    setSort((s) => (s.key === key
-      ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
-      : { key, dir: key === 'encaje' ? 'desc' : 'asc' }))
 
   const clearFilters = () => {
     setStatusFilter(new Set())
@@ -873,7 +899,9 @@ export function Dashboard() {
               <EmptyFirstUse publicUrl={publicUrl} onCopy={copyLink} />
             )
           ) : (
-            <EmptyNoResults search={search} hasFilters={statusFilter.size + valueFilters.length + numberFilters.length > 0} onClear={clearFilters} />
+            // El texto cita `q`, no lo que hay tecleado: describe la lista que se
+            // está enseñando, que es la de la última búsqueda ya aplicada.
+            <EmptyNoResults search={q} hasFilters={statusFilter.size + valueFilters.length + numberFilters.length > 0} onClear={clearFilters} />
           )
         ) : (
           <CandidateTable
@@ -881,8 +909,8 @@ export function Dashboard() {
             showFit={showFit}
             rows={filtered}
             justArrived={justArrived}
-            lockedDates={showLockedRows ? lockedDates : []}
-            onLockedClick={() => setLockedDialogOpen(true)}
+            lockedDates={showLockedRows ? lockedDates : SIN_FECHAS}
+            onLockedClick={openLockedDialog}
             tags={tags}
             sort={sort}
             onSort={toggleSort}
@@ -891,7 +919,7 @@ export function Dashboard() {
             onOpen={setOpenId}
             maskPhone={maskPhone}
             selectMode={selectMode}
-            onEnterSelect={() => setSelectMode(true)}
+            onEnterSelect={enterSelectMode}
           />
         )}
       </div>
@@ -1169,7 +1197,12 @@ function FitCell({ candidate }: { candidate: Candidate }) {
   )
 }
 
-function CandidateTable({
+// Memoizada: es lo más caro de la pantalla (142 filas son ~200ms de pintura) y el
+// panel se repinta por cosas que no la tocan, la primera de ellas cada tecla del
+// buscador. Con las props estables (ver los `useCallback` del panel), un render que
+// no cambia ni las filas ni la selección no le cuesta nada. Cuando las filas SÍ
+// cambian, el memo no puede ahorrar nada: eso lo resuelve la transición de `q`.
+const CandidateTable = memo(function CandidateTable({
   campaign,
   showFit,
   rows,
@@ -1678,7 +1711,7 @@ function CandidateTable({
       />
     </>
   )
-}
+})
 
 // --- Subcomponentes de filtro / estados ------------------------------------
 // Slider de rango con dos pomos (dos inputs range superpuestos; los pomos no se
