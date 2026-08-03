@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Copy, Globe, Loader2, LifeBuoy, Mail, Send } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Building2, Copy, Globe, Loader2, LifeBuoy, Mail } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { SlideOver } from '../components/ui/SlideOver'
-import { Button } from '../components/ui/Button'
+import { CHAT_ALTO_MAX, CHAT_ROW, CHAT_SURFACE, CHAT_TEXTAREA, ChatSend } from '../components/ui/Chat'
 import { relativeDate, fullDateTime } from '../lib/format'
 import { copyText } from '../lib/clipboard'
 
@@ -366,26 +366,45 @@ function ReplyBox({
   statusBusy: boolean
   onToggleStatus: () => void
 }) {
+  // Una línea en reposo, crece con la respuesta hasta el techo. Igual que el
+  // chat del candidato: la caja la comparten, el comportamiento también.
+  const areaRef = useRef<HTMLTextAreaElement>(null)
+  useLayoutEffect(() => {
+    const el = areaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, CHAT_ALTO_MAX)}px`
+  }, [value])
+
   return (
     <div className="space-y-2">
-      <div className="flex items-end gap-2">
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => {
-            // Enviar con Cmd/Ctrl + Enter (Enter solo hace salto de línea).
-            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-              e.preventDefault()
-              onSend()
-            }
-          }}
-          rows={2}
-          placeholder="Escribe tu respuesta..."
-          className="max-h-40 min-h-[44px] flex-1 resize-y rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
-        />
-        <Button onClick={onSend} loading={sending} loadingLabel="Enviando" disabled={!value.trim()} size="lg" icon={<Send className="size-4" aria-hidden />}>
-          Enviar
-        </Button>
+      {/* La misma caja que el chat del candidato y el hilo del tablón: una sola
+          superficie con el botón dentro. Esto también es una conversación. */}
+      <div className={CHAT_SURFACE}>
+        <label htmlFor="soporte-respuesta" className="sr-only">
+          Escribe tu respuesta a esta consulta
+        </label>
+        <div className={CHAT_ROW}>
+          <textarea
+            id="soporte-respuesta"
+            ref={areaRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => {
+              // Enviar con Cmd/Ctrl + Enter (Enter solo hace salto de línea).
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault()
+                onSend()
+              }
+            }}
+            rows={1}
+            placeholder="Escribe tu respuesta"
+            className={CHAT_TEXTAREA}
+          />
+          {/* Aquí NO envía Intro, y por eso el atajo se dice: esto sale como un
+              correo a un cliente, y suelen ser de varios párrafos. */}
+          <ChatSend onClick={onSend} disabled={!value.trim()} sending={sending} hint="Enviar (Cmd/Ctrl + Intro)" />
+        </div>
       </div>
       <button
         onClick={onToggleStatus}

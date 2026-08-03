@@ -124,6 +124,30 @@ export const BTN_SECONDARY_LG = botonClase('secondary', 'lg')
 export const BTN_INVERTED_LG = botonClase('inverted', 'lg')
 
 /**
+ * BOTÓN DE SOLO ICONO: cuadrado, misma pintura y mismo press que los demás.
+ *
+ * Lo único que cambia respecto a `botonClase` es el relleno: sin texto no hay
+ * nada a lo que dar aire a los lados, así que el `px-*` se sustituye por un lado
+ * fijo. Dejando el relleno horizontal del tamaño, el icono queda descentrado en
+ * su caja y el botón sale rectangular sin que nadie lo haya pedido.
+ *
+ * OBLIGATORIO en quien lo use: `aria-label`. Un botón sin texto accesible no
+ * existe para un lector de pantalla, y el nombre que se le quita a la pantalla
+ * tiene que reaparecer ahí (y en el `title`, que es además donde cabe el atajo).
+ */
+const TALLA_ICONO: Record<BtnSize, string> = {
+  sm: 'size-8',
+  md: 'size-9 pointer-coarse:size-11',
+  lg: 'size-12',
+}
+
+export function botonIcono(variant: BtnVariant = 'primary', size: BtnSize = 'md', extra = '') {
+  return [CAJA, BTN_MOTION, BTN_SUPERFICIE[variant], TALLA_ICONO[size], 'shrink-0', extra]
+    .filter(Boolean)
+    .join(' ')
+}
+
+/**
  * BOTÓN DE BLOQUE: el que cierra un formulario de acceso (entrar, crear cuenta,
  * aceptar invitación, restablecer). Ancho completo, 44px de alto y radio de CAMPO
  * (10px), no de control (8px).

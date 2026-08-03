@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { ArrowDown, FileText, Loader2, Send } from 'lucide-react'
+import { ArrowDown, ArrowUp, FileText, Loader2 } from 'lucide-react'
 import { fullDateTime, memberAvatarTone, plural, relativeDate } from '../../lib/format'
-import { BTN_PRIMARY_SM } from '../../lib/buttons'
+import { botonIcono } from '../../lib/buttons'
 import type { CompanyMember } from '../../lib/types'
 import { ES_MENCION, mentionHandle, resolveMentions } from '../../lib/mentions'
 import { useProfiles } from '../../lib/profiles'
@@ -237,17 +237,131 @@ export function ChatThread({
   )
 }
 
+// -----------------------------------------------------------------------------
+// LA CAJA DE ESCRIBIR. Una sola, para todas las conversaciones de la app.
+//
+// Forma: UNA LÍNEA, con el texto y el botón de enviar en la misma fila y dentro
+// del mismo borde. En reposo la caja mide lo que mide una frase, y solo crece si
+// escribes más: una caja de tres o cuatro líneas vacías promete una redacción
+// larga que aquí no se hace (esto son dos frases sobre una persona), y encima le
+// quita al hilo el sitio que necesita, que es justo lo que estás leyendo para
+// poder contestar. El techo son cinco líneas.
+//
+// La excepción es el hilo del tablón, y es una excepción por su contenido, no
+// por su estilo: ahí además de enviar se proponen candidatos, y dos acciones no
+// caben en la línea sin dejar el mensaje en un hueco. Esa caja pone el texto en
+// una fila y los controles en otra (`CHAT_TEXTAREA_BLOQUE` + `CHAT_ACTIONS`),
+// con el mismo canto y el mismo botón que las demás.
+//
+// Por eso el botón va DENTRO y no pegado al lado: el canto de la caja es el
+// único canto, y así se lee como un sitio donde se escribe y no como un input
+// con un botón detrás.
+//
+// Las cadenas se declaran aquí y las usan los tres sitios que tienen una caja de
+// estas (el chat del candidato, el hilo del tablón y la respuesta de soporte).
+// Copiarlas en cada pantalla es exactamente como empezó el problema de los
+// botones: nueve clones y cinco sombras distintas para lo mismo.
+// -----------------------------------------------------------------------------
+
+export const CHAT_SURFACE =
+  'rounded-xl border border-slate-300 bg-white transition-shadow duration-[var(--duration-control)] ease-[var(--ease-out)] focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/15'
+
+/**
+ * La fila: texto y controles. `items-end` para que el botón se quede abajo
+ * cuando el texto crece, que es donde sigue estando el cursor.
+ */
+export const CHAT_ROW = 'flex items-end gap-2 p-2'
+
+/**
+ * El texto. 16px en punteros táctiles (`pointer-coarse`) por lo mismo que el
+ * formulario público: por debajo de eso iOS hace zoom al enfocar.
+ */
+const CHAT_TEXTO =
+  'block min-w-0 resize-none border-0 bg-transparent text-sm pointer-coarse:text-base leading-5 text-slate-900 outline-none placeholder:text-slate-500 focus:ring-0 disabled:opacity-60'
+
+/**
+ * El texto DENTRO de la fila, compartiéndola con el botón. El relleno vertical
+ * lo iguala al alto del botón (32px), que es lo que hace que en reposo se lea
+ * como una sola línea centrada; en táctil los dos suben a 44px.
+ */
+export const CHAT_TEXTAREA = `${CHAT_TEXTO} flex-1 px-1.5 py-1.5 pointer-coarse:py-3`
+
+/**
+ * El texto CON SU PROPIA FILA, cuando debajo hay una barra de controles. Lo usa
+ * el hilo del tablón, que además de enviar propone candidatos: dos acciones no
+ * caben en la línea sin comerse el mensaje, así que ahí la caja es de dos filas
+ * a propósito. Mismo canto, mismo botón, distinta planta.
+ */
+export const CHAT_TEXTAREA_BLOQUE = `${CHAT_TEXTO} w-full px-3 pt-3 pb-1.5`
+
+/**
+ * La barra de controles de esa segunda fila. Mismo hueco lateral que el texto
+ * (12px) para que todo cuelgue de la misma vertical; un control fantasma que
+ * quiera alinear su icono ahí se come su propio relleno con `-ml-2`.
+ */
+export const CHAT_ACTIONS = 'flex items-center justify-between gap-2 px-3 pb-2'
+
+/** Techo de alto del texto, en px: cinco líneas. Pasado eso, scroll dentro. */
+export const CHAT_ALTO_MAX = 112
+
+/**
+ * Enviar. Solo el icono: una flecha hacia arriba es lo que significa "esto sale
+ * de aquí" en cualquier caja de chat, y en una caja de una línea la palabra
+ * "Enviar" se comía el sitio del mensaje. El nombre no se pierde, se muda al
+ * `aria-label` y al `title`, que es además donde cabe decir el atajo sin gastar
+ * pantalla.
+ */
+export function ChatSend({
+  onClick,
+  disabled = false,
+  sending = false,
+  hint = 'Enviar (Intro)',
+}: {
+  onClick: () => void
+  disabled?: boolean
+  sending?: boolean
+  hint?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || sending}
+      title={hint}
+      aria-label={sending ? 'Enviando mensaje' : 'Enviar mensaje'}
+      aria-busy={sending}
+      className={botonIcono('primary', 'sm', 'pointer-coarse:size-11 disabled:pointer-events-none disabled:opacity-40')}
+    >
+      {sending ? (
+        <Loader2 className="size-4 animate-spin" aria-hidden />
+      ) : (
+        <ArrowUp className="size-4" aria-hidden />
+      )}
+    </button>
+  )
+}
+
 /**
  * Campo de escribir. Crece con el texto hasta un techo (nunca salta el layout),
- * envía con Cmd/Ctrl+Enter y ofrece a quién avisar al teclear `@`.
+ * envía con Intro y ofrece a quién avisar al teclear `@`.
  *
- * Por qué Cmd/Ctrl+Enter y no Enter a secas: es un campo multilínea, y aquí se
- * escriben cosas de dos frases. Enter suelto enviaba medio mensaje.
+ * Intro envía y Mayús+Intro hace el salto de línea, que es lo que hace todo
+ * chat y lo que ya hacía el hilo del tablón. Estuvo al revés (Cmd/Ctrl+Intro)
+ * por miedo a mandar medio mensaje, y el resultado fue peor: la mano escribe
+ * dos frases, pulsa Intro y no pasa nada, o peor, se queda el mensaje a medias
+ * en la caja creyendo que salió. La misma tecla en las dos cajas se aprende una
+ * vez; dos teclas para lo mismo no se aprenden nunca.
+ *
+ * Con la lista de menciones abierta manda ella: ahí Intro elige a la persona.
+ * Cmd/Ctrl+Intro sigue enviando, que no estorba a nadie.
  */
 export function ChatComposer({
   members = [],
   onSend,
-  placeholder = 'Escribe a tu equipo. Con @ avisas a alguien.',
+  // Corto porque la caja es de una línea y el panel del equipo mide 380px: el
+  // texto anterior ("Con @ avisas a alguien") se partía en dos y la segunda
+  // línea quedaba cortada por abajo. Dice lo mismo con la mitad de palabras.
+  placeholder = 'Escribe a tu equipo. @ para avisar',
   label = 'Escribe un mensaje para tu equipo',
   id,
   disabled = false,
@@ -274,11 +388,13 @@ export function ChatComposer({
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const profiles = useProfiles()
 
+  // Una línea en reposo y crece con el texto hasta el techo. El `auto` previo no
+  // es opcional: sin él `scrollHeight` nunca baja y la caja solo sabría crecer.
   const autoAlto = () => {
     const el = areaRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+    el.style.height = `${Math.min(el.scrollHeight, CHAT_ALTO_MAX)}px`
   }
 
   // La palabra que se está escribiendo tras un '@', si el cursor sigue dentro.
@@ -374,75 +490,67 @@ export function ChatComposer({
         </ul>
       )}
 
-      <div className="rounded-xl border border-slate-300 bg-white transition-shadow focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/15">
+      <div className={CHAT_SURFACE}>
         <label htmlFor={id} className="sr-only">
           {label}
         </label>
-        <textarea
-          id={id}
-          ref={areaRef}
-          rows={2}
-          value={texto}
-          disabled={disabled}
-          aria-controls={sugerencias.length ? listaId : undefined}
-          aria-expanded={sugerencias.length > 0}
-          onChange={(e) => {
-            setTexto(e.target.value)
-            autoAlto()
-            refrescarSugerencias()
-          }}
-          onClick={refrescarSugerencias}
-          onBlur={() => setSugerencias([])}
-          onKeyDown={(e) => {
-            if (sugerencias.length > 0) {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault()
-                setActivo((i) => (i + 1) % sugerencias.length)
-                return
+        <div className={CHAT_ROW}>
+          <textarea
+            id={id}
+            ref={areaRef}
+            rows={1}
+            value={texto}
+            disabled={disabled}
+            aria-controls={sugerencias.length ? listaId : undefined}
+            aria-expanded={sugerencias.length > 0}
+            onChange={(e) => {
+              setTexto(e.target.value)
+              autoAlto()
+              refrescarSugerencias()
+            }}
+            onClick={refrescarSugerencias}
+            onBlur={() => setSugerencias([])}
+            onKeyDown={(e) => {
+              if (sugerencias.length > 0) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setActivo((i) => (i + 1) % sugerencias.length)
+                  return
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setActivo((i) => (i - 1 + sugerencias.length) % sugerencias.length)
+                  return
+                }
+                if (e.key === 'Enter' || e.key === 'Tab') {
+                  e.preventDefault()
+                  elegir(sugerencias[activo])
+                  return
+                }
+                if (e.key === 'Escape') {
+                  // Cierra la lista, no el panel de detrás.
+                  e.stopPropagation()
+                  setSugerencias([])
+                  return
+                }
               }
-              if (e.key === 'ArrowUp') {
-                e.preventDefault()
-                setActivo((i) => (i - 1 + sugerencias.length) % sugerencias.length)
-                return
-              }
-              if (e.key === 'Enter' || e.key === 'Tab') {
-                e.preventDefault()
-                elegir(sugerencias[activo])
-                return
-              }
-              if (e.key === 'Escape') {
-                // Cierra la lista, no el panel de detrás.
-                e.stopPropagation()
-                setSugerencias([])
-                return
-              }
-            }
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+              if (e.key !== 'Enter') return
+              // Mayús+Intro es el salto de línea. Y `isComposing` es el acento a
+              // medio escribir: en un teclado español, sin esta guarda, cerrar
+              // la tilde con Intro enviaría el mensaje a la mitad.
+              if (e.shiftKey || e.nativeEvent.isComposing) return
               e.preventDefault()
               void enviar()
-            }
-          }}
-          placeholder={placeholder}
-          className="block w-full resize-none bg-transparent px-3 pt-2.5 text-sm leading-5 text-slate-900 outline-none placeholder:text-slate-500 disabled:opacity-60"
-        />
-        <div className="flex items-center justify-end gap-2 px-2 pb-2">
+            }}
+            placeholder={placeholder}
+            className={CHAT_TEXTAREA}
+          />
           {children}
-          <button
-            type="button"
+          <ChatSend
             onClick={() => void enviar()}
-            disabled={!texto.trim() || enviando || disabled}
-            className={`${BTN_PRIMARY_SM} disabled:pointer-events-none disabled:opacity-40`}
-          >
-            {enviando ? (
-              <>
-                <Loader2 className="size-3.5 animate-spin text-indigo-200" aria-hidden /> Enviando
-              </>
-            ) : (
-              <>
-                <Send className="size-3.5 text-indigo-200" aria-hidden /> Enviar
-              </>
-            )}
-          </button>
+            disabled={!texto.trim() || disabled}
+            sending={enviando}
+          />
         </div>
       </div>
     </div>
