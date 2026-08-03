@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
-import type { Candidate, TeamRequest, TeamRequestComment } from '../lib/types'
+import type { Candidate, CompanyMember, TeamRequest, TeamRequestComment } from '../lib/types'
 import { STATUS_META, TEAM_REQUEST_STATUS_META } from '../lib/types'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
@@ -21,7 +21,9 @@ import { BTN_SECONDARY_SM } from '../lib/buttons'
 import { SlideOver } from '../components/ui/SlideOver'
 import {
   CHAT_ACTIONS, CHAT_ALTO_MAX, CHAT_SURFACE, CHAT_TEXTAREA_BLOQUE, ChatSend, ChatSkeleton, ChatThread,
+  MencionesLista, useMenciones,
 } from '../components/ui/Chat'
+import { resolveMentions } from '../lib/mentions'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { CandidateModal } from './CandidateModal'
 
@@ -274,7 +276,10 @@ export function TeamRequestPanel({
     const body = text.trim()
     if (!body && attached.length === 0) return
     setSending(true)
-    const comment = await addTeamComment(request.id, body, attached)
+    // A quién avisa, resuelto del TEXTO al enviar (no al insertar la mención):
+    // así cuenta también el "@laura" escrito a mano, y un identificador que se
+    // rompe editando deja de avisar, que es lo que el autor ve en pantalla.
+    const comment = await addTeamComment(request.id, body, attached, resolveMentions(body, members))
     setSending(false)
     if (!comment) return
     pendingScrollRef.current = true
@@ -343,6 +348,7 @@ export function TeamRequestPanel({
               <Composer
                 text={text}
                 onText={setText}
+                members={members}
                 attached={attached}
                 onAttach={setAttached}
                 pickerOpen={pickerOpen}
@@ -924,6 +930,7 @@ function ProposalRow({
 function Composer({
   text,
   onText,
+  members,
   attached,
   onAttach,
   pickerOpen,
@@ -937,6 +944,8 @@ function Composer({
 }: {
   text: string
   onText: (t: string) => void
+  /** El equipo, para ofrecer a quién avisar al teclear `@`. */
+  members: CompanyMember[]
   attached: string[]
   onAttach: (ids: string[]) => void
   pickerOpen: boolean
@@ -1016,6 +1025,13 @@ function Composer({
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, CHAT_ALTO_MAX)}px`
   }, [text])
+
+  // Las mismas menciones que en la ficha del candidato, y por el mismo motivo:
+  // el hilo del tablón es donde se reparte el trabajo ("¿les escribes tú?"), o
+  // sea el sitio donde más falta hace poder llamar a alguien por su nombre.
+  const menciones = useMenciones({ members, areaRef, onTexto: onText })
+  const listaId = `${pickerId}-menciones`
+  const hayEquipo = members.some((m) => !m.isSelf)
 
   const emptyHint = query
     ? 'Nadie coincide con esa búsqueda.'
@@ -1142,8 +1158,16 @@ function Composer({
       )}
 
       {/* Una sola superficie: el hueco entre textarea y botones desaparece. La
-          caja es la misma que la del chat del candidato, y por eso sale de ahí. */}
-      <div className={CHAT_SURFACE}>
+          caja es la misma que la del chat del candidato, y por eso sale de ahí.
+          `relative` es el hueco donde cae la lista de menciones, que se abre
+          hacia arriba: esta caja está pegada al borde inferior del panel. */}
+      <div className={`relative ${CHAT_SURFACE}`}>
+        <MencionesLista
+          id={listaId}
+          sugerencias={menciones.sugerencias}
+          activo={menciones.activo}
+          onElegir={menciones.elegir}
+        />
         {attached.length > 0 && (
           <div className="flex flex-wrap gap-1.5 border-b border-slate-100 px-2.5 pt-2.5 pb-2">
             {attached.map((id) => {
@@ -1174,15 +1198,26 @@ function Composer({
         <textarea
           ref={areaRef}
           value={text}
-          onChange={(e) => onText(e.target.value)}
+          aria-controls={menciones.sugerencias.length ? listaId : undefined}
+          aria-expanded={menciones.sugerencias.length > 0}
+          onChange={(e) => {
+            onText(e.target.value)
+            menciones.refrescar()
+          }}
+          onClick={menciones.refrescar}
+          onBlur={menciones.cerrar}
           onKeyDown={(e) => {
+            // Con la lista abierta manda ella: ahí Intro elige a la persona.
+            if (menciones.teclas(e)) return
             if (e.key !== 'Enter') return
             if (e.shiftKey || e.nativeEvent.isComposing) return
             e.preventDefault()
             if (canSend) onSend()
           }}
           rows={1}
-          placeholder="Añade un mensaje"
+          // Solo se promete lo que puede pasar: trabajando solo, un '@' no
+          // avisa a nadie y anunciarlo sería una promesa falsa.
+          placeholder={hayEquipo ? 'Añade un mensaje. @ para avisar' : 'Añade un mensaje'}
           aria-label="Mensaje"
           className={CHAT_TEXTAREA_BLOQUE}
         />
