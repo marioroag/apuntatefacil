@@ -39,7 +39,7 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { copyText } from '../lib/clipboard'
 import { MaskedPhone } from '../components/MaskedPhone'
-import { TagPicker, TagSection } from '../components/Tags'
+import { TagSection } from '../components/Tags'
 import { TAGS_ENABLED, planHas } from '../lib/pricing'
 import { InterestSignal } from '../components/InterestSignal'
 import { AgendarManualDialog, InterviewHeaderButton } from '../components/InterviewAction'
@@ -292,20 +292,10 @@ export function CandidateModal({
           {/* Barra de decisión: lo que el empresario cambia sin pensar. */}
           <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
             <StatusSelect status={candidate.status} onChange={(s) => void setStatus(candidate.id, s)} />
-            {/* Las etiquetas no caben en la cabecera de móvil: allí van en Resumen. */}
-            {TAGS_ENABLED && (
-              // Sin el título "Etiquetas": en la cabecera los chips se explican
-              // solos y el rótulo solo robaría el sitio de las acciones.
-              <div className="hidden min-w-0 sm:block">
-                <TagPicker
-                  candidateId={candidate.id}
-                  tagIds={candidate.tagIds}
-                  canManage={canManageTags}
-                  onOpenManage={() => onOpenManageTags?.()}
-                  inline
-                />
-              </div>
-            )}
+            {/* Las etiquetas NO van aquí a ningún ancho: viven en Resumen, como
+                ya hacían en móvil. En la cabecera crecían sin techo y empujaban
+                las acciones de contacto a una segunda línea, con lo que la
+                identidad de la persona quedaba enterrada bajo su clasificación. */}
             {/* La fila de acciones SÍ se ve en móvil, pero solo con la entrevista
                 dentro: llamar y escribir ya están en la barra de abajo, al
                 alcance del pulgar, y repetirlos aquí sería ruido. La entrevista
@@ -593,9 +583,11 @@ function Resumen({
         </dl>
       </section>
 
-      {/* Etiquetas: en móvil viven aquí (en escritorio van en la cabecera). */}
+      {/* Etiquetas: aquí a todos los anchos. Es lo que tu equipo dice de esta
+          persona, así que va con lo demás que se lee de ella, no en la cabecera
+          entre el estado y las acciones. */}
       {TAGS_ENABLED && (
-        <section className="sm:hidden">
+        <section>
           <TagSection candidateId={candidate.id} tagIds={candidate.tagIds} canManage={canManageTags} onOpenManage={() => onOpenManageTags?.()} />
         </section>
       )}
