@@ -787,7 +787,7 @@ function Equipo({
               Apunta aquí lo que hables por teléfono: si le encaja el turno, cuándo puede empezar, lo que sea. Queda con tu nombre y lo ve tu equipo.
             </ChatEmpty>
           ) : (
-            <ChatThread messages={mensajes} currentUserId={currentUserId} />
+            <ChatThread messages={mensajes} currentUserId={currentUserId} members={members} />
           )}
         </div>
         <ChatNuevos nuevos={nuevos} onClick={() => irAlFondo(true)} />

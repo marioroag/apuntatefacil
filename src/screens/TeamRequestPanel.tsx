@@ -168,6 +168,7 @@ export function TeamRequestPanel({
 }) {
   const {
     candidates,
+    members,
     getCampaign,
     loadTeamComments,
     addTeamComment,
@@ -409,6 +410,7 @@ export function TeamRequestPanel({
                       candidatos propuestos, entra debajo del cuerpo por `slot`. */}
                   <ChatThread
                     currentUserId={user?.id}
+                    members={members}
                     messages={comments.map((c) => {
                       const chips = request.proposals.filter((p) => p.commentId === c.id)
                       const hasBody = !!c.body.trim()

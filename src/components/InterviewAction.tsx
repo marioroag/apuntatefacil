@@ -37,10 +37,21 @@ export function InterviewHeaderButton({
     (entrevista?.status === 'confirmada' || entrevista?.status === 'reprogramando') && entrevista.startsAt
 
   if (confirmada) {
+    const cuando = shortWhenInZone(entrevista.startsAt!, entrevista.timezone)
     return (
-      <button type="button" onClick={onOpen} className={BTN_SECONDARY_SM}>
+      // En móvil se cae el verbo y queda "Entrevista · lun 3, 09:30". La fila
+      // mide 343px ahí dentro y la pareja pill de estado + botón sumaba 342:
+      // cabía por un pixel, así que en cualquier teléfono más estrecho (o con
+      // una fecha un poco más larga) el botón se montaba con el estado. El
+      // verbo sigue en el nombre accesible: quien no ve la fila necesita saber
+      // que esto se pulsa, y "Entrevista" a secas suena a estado.
+      <button type="button" onClick={onOpen} aria-label={`Ver entrevista · ${cuando}`} className={BTN_SECONDARY_SM}>
         <CalendarDays className="size-3.5 text-amber-500" aria-hidden />
-        <span className="num">Ver entrevista · {shortWhenInZone(entrevista.startsAt!, entrevista.timezone)}</span>
+        {/* Entero en cada variante, no el verbo suelto en su propio hijo: el
+            botón es un flex con `gap-1.5` y ese hueco se metería antes del "·",
+            que dejaría de estar centrado entre sus dos espacios. */}
+        <span className="num hidden sm:inline">Ver entrevista · {cuando}</span>
+        <span className="num sm:hidden">Entrevista · {cuando}</span>
       </button>
     )
   }

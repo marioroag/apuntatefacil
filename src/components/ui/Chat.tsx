@@ -4,7 +4,7 @@ import { ArrowDown, FileText, Loader2, Send } from 'lucide-react'
 import { fullDateTime, memberAvatarTone, plural, relativeDate } from '../../lib/format'
 import { BTN_PRIMARY_SM } from '../../lib/buttons'
 import type { CompanyMember } from '../../lib/types'
-import { ES_MENCION, mentionHandle, resolveMentions } from '../../lib/mentions'
+import { ES_MENCION, MENTION_SPLIT_RE, mentionHandle, resolveMentions } from '../../lib/mentions'
 import { useProfiles } from '../../lib/profiles'
 import { Avatar } from './Avatar'
 
@@ -14,9 +14,13 @@ import { Avatar } from './Avatar'
  * mismo (gente del equipo hablando de un caso).
  *
  * Ritmo de chat, no de feed de actividad: sin líneas entre mensajes, avatar de
- * 28px con color estable por persona, y el nombre y la hora en la misma línea
+ * 32px con color estable por persona, y el nombre y la hora en la misma línea
  * base. Las divisorias que tenía el tablón hacían que tres frases seguidas
  * parecieran tres sucesos de auditoría.
+ *
+ * Lo que se dice pesa más que quién lo dice: el cuerpo va al mismo tamaño que
+ * el nombre (14px) y en tinta oscura. A 13px y en gris de apoyo, un mensaje de
+ * un compañero se leía como el pie de foto de su nombre.
  *
  * Quién es quién: el nombre y la foto del perfil de la persona (`useProfiles`),
  * con el email como respaldo mientras no se haya puesto nombre. Tus propios
@@ -36,20 +40,45 @@ export type ChatMessage = {
   authority?: boolean
 }
 
-/** Cuerpo del mensaje con las menciones destacadas. */
-function ChatBody({ body }: { body: string }) {
-  const partes = useMemo(() => body.split(/(@[\w.+-]+)/g), [body])
+/**
+ * Cuerpo del mensaje, con las menciones que AVISAN A ALGUIEN destacadas.
+ *
+ * Dos cosas que no son cosmética:
+ *
+ * 1. Se pinta el NOMBRE, no el identificador. En el texto se guarda
+ *    `@laura.gil` (un identificador sin espacios se puede delimitar dentro de
+ *    un texto libre; "Laura Gil" no), pero leer un correo troceado en medio de
+ *    una frase es leer una dirección, no a una persona. Al pintarlo se resuelve
+ *    al nombre que usa el resto de la app (`nameFor`).
+ * 2. Solo se destaca lo que de verdad resuelve a alguien del equipo. Antes
+ *    cualquier `@loquesea` salía con la chapa azul, así que un identificador
+ *    mal escrito (que NO avisa a nadie, `resolveMentions` lo descarta) se veía
+ *    exactamente igual que uno bueno, y quien escribía se quedaba tranquilo
+ *    creyendo que había avisado. Lo que no avisa se lee como texto normal.
+ */
+function ChatBody({ body, porHandle }: { body: string; porHandle: Map<string, CompanyMember> }) {
+  const profiles = useProfiles()
+  const partes = useMemo(() => body.split(MENTION_SPLIT_RE), [body])
   return (
-    <p className="mt-0.5 whitespace-pre-wrap break-words text-[13px] leading-5 text-slate-700">
-      {partes.map((p, i) =>
-        ES_MENCION.test(p) ? (
-          <span key={i} className="rounded bg-indigo-50 px-1 font-semibold text-indigo-700">
-            {p}
+    <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-[22px] text-slate-800">
+      {partes.map((p, i) => {
+        const quien = ES_MENCION.test(p) ? porHandle.get(p.slice(1).toLowerCase()) : undefined
+        if (!quien) return p
+        // Un mensaje suele EMPEZAR mencionando a alguien. Si ahí la chapa
+        // empuja el texto sus 4px de relleno, la primera letra del mensaje se
+        // sale de la columna que forman el nombre y los demás mensajes, y toda
+        // la conversación se ve descuadrada. Se compensa: el relleno sobresale
+        // por la izquierda y la letra cae donde caería sin chapa.
+        const alPrincipio = partes.slice(0, i).every((x) => x === '')
+        return (
+          <span
+            key={i}
+            className={`rounded bg-indigo-50 px-1 py-px font-medium text-indigo-700 ${alPrincipio ? '-ml-1' : ''}`}
+          >
+            @{profiles.nameFor(quien.userId, quien.email)}
           </span>
-        ) : (
-          p
-        ),
-      )}
+        )
+      })}
     </p>
   )
 }
@@ -59,12 +88,12 @@ export function ChatSkeleton() {
     <div className="space-y-5 py-1" role="status" aria-label="Cargando la conversación">
       {[0, 1].map((i) => (
         <div key={i} className="flex gap-3">
-          <span className="size-7 shrink-0 animate-pulse rounded-full bg-slate-200 motion-reduce:animate-none" aria-hidden />
-          <div className="min-w-0 flex-1 space-y-2.5 pt-0.5" aria-hidden>
+          <span className="size-8 shrink-0 animate-pulse rounded-full bg-slate-200 motion-reduce:animate-none" aria-hidden />
+          <div className="min-w-0 flex-1 space-y-2.5 pt-1" aria-hidden>
             <div className="h-3 w-28 animate-pulse rounded bg-slate-200 motion-reduce:animate-none" />
-            <div className="space-y-1.5">
-              <div className="h-3 w-full animate-pulse rounded bg-slate-100 motion-reduce:animate-none" />
-              <div className="h-3 w-4/5 animate-pulse rounded bg-slate-100 motion-reduce:animate-none" />
+            <div className="space-y-2">
+              <div className="h-3.5 w-full animate-pulse rounded bg-slate-100 motion-reduce:animate-none" />
+              <div className="h-3.5 w-4/5 animate-pulse rounded bg-slate-100 motion-reduce:animate-none" />
             </div>
           </div>
         </div>
@@ -192,18 +221,26 @@ export function ChatNuevos({ nuevos, onClick }: { nuevos: number; onClick: () =>
 export function ChatThread({
   messages,
   currentUserId,
+  members = [],
   className = '',
 }: {
   messages: ChatMessage[]
   currentUserId: string | null | undefined
+  /** El equipo, para resolver las menciones a la persona a la que avisan. */
+  members?: CompanyMember[]
   className?: string
 }) {
   const profiles = useProfiles()
+  // El índice se arma una vez por hilo, no una por mensaje.
+  const porHandle = useMemo(
+    () => new Map(members.map((m) => [mentionHandle(m.email), m])),
+    [members],
+  )
   // Aquí NO se hace scroll. Lo lleva `useSeguirAlFondo` en quien monta el hilo,
   // porque el scrollIntoView que había aquí bajaba siempre, también mientras
   // releías diez mensajes más arriba, y eso es peor que no seguir al mensaje.
   return (
-    <ol className={`mt-auto space-y-4 ${className}`}>
+    <ol className={`mt-auto space-y-5 ${className}`}>
       {messages.map((m) => {
         const yo = !!m.authorUserId && m.authorUserId === currentUserId
         // Cómo se llama quien escribe: su nombre de perfil si lo ha puesto y, si
@@ -212,22 +249,22 @@ export function ChatThread({
         const nombre = m.isNote ? 'Nota anterior' : yo ? 'Tú' : real
         const tone = memberAvatarTone(m.authorEmail)
         return (
-          <li key={m.id} className="flex gap-2.5">
+          <li key={m.id} className="flex gap-3">
             {m.isNote ? (
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-white ring-1 ring-slate-200" aria-hidden>
-                <FileText className="size-3.5 text-slate-500" />
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white ring-1 ring-slate-200" aria-hidden>
+                <FileText className="size-4 text-slate-500" />
               </span>
             ) : (
-              <Avatar name={real} seed={m.authorEmail} src={profiles.avatarFor(m.authorUserId)} size={28} />
+              <Avatar name={real} seed={m.authorEmail} src={profiles.avatarFor(m.authorUserId)} size={32} />
             )}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <span className={`text-[13px] font-semibold ${m.authority ? tone.name : 'text-slate-800'}`}>{nombre}</span>
+                <span className={`text-sm font-semibold ${m.authority ? tone.name : 'text-slate-900'}`}>{nombre}</span>
                 <time dateTime={m.createdAt} title={fullDateTime(m.createdAt)} className="num text-[12px] text-slate-500">
                   {relativeDate(m.createdAt)}
                 </time>
               </div>
-              {m.body && <ChatBody body={m.body} />}
+              {m.body && <ChatBody body={m.body} porHandle={porHandle} />}
               {m.slot}
             </div>
           </li>
