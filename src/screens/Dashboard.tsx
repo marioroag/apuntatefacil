@@ -135,8 +135,18 @@ export function Dashboard() {
   // así el aviso de una mención puede enlazar directamente a su ficha, y volver
   // atrás cierra el detalle en vez de salir del puesto.
   const openId = searchParams.get('candidato')
+  // `setSearchParams` NO es estable entre renders: react-router lo recrea con
+  // cada location, así que un `useCallback` que lo lleve en las dependencias
+  // tampoco lo es, y `onOpen` cambiaba de identidad justo al abrir una ficha
+  // (que es cuando cambia la URL). Era la única prop que seguía despertando a la
+  // tabla memoizada: 563ms de las 142 filas por cada click en una persona. Va
+  // por ref para que `setOpenId` tenga identidad fija de verdad.
+  const setSearchParamsRef = useRef(setSearchParams)
+  useEffect(() => {
+    setSearchParamsRef.current = setSearchParams
+  })
   const setOpenId = useCallback((id: string | null) =>
-    setSearchParams(
+    setSearchParamsRef.current(
       (prev) => {
         const next = new URLSearchParams(prev)
         if (id) next.set('candidato', id)
@@ -146,7 +156,7 @@ export function Dashboard() {
       // replace: recorrer 40 candidatos con las flechas no debe dejar 40 entradas
       // en el historial del navegador.
       { replace: true },
-    ), [setSearchParams])
+    ), [])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [interestDialogOpen, setInterestDialogOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false) // modo selección múltiple (móvil)

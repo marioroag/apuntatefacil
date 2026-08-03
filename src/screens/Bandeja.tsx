@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Briefcase, ChevronDown, CircleDot, Clock, Inbox, Phone, User } from 'lucide-react'
 import { useStore } from '../lib/store'
@@ -16,7 +16,7 @@ import { useAppBase } from '../lib/useAppBase'
 import { TAGS_ENABLED } from '../lib/pricing'
 import { ManageTagsModal } from '../components/Tags'
 import { STATUS_META } from '../lib/types'
-import type { Candidate } from '../lib/types'
+import type { Campaign, Candidate, CandidateStatus } from '../lib/types'
 
 function answer(c: Candidate, id: string): string {
   const v = c.answers[id]
@@ -25,6 +25,165 @@ function answer(c: Candidate, id: string): string {
   if (Array.isArray(v)) return v.join(', ')
   return String(v)
 }
+
+/**
+ * La cola NO se vuelve a pintar porque abras una ficha (`memo`, ago 2026).
+ *
+ * Misma historia que la tabla del puesto, y por el mismo motivo: el pop-up del
+ * candidato cuelga de esta pantalla, así que abrirlo, cerrarlo o pasar al
+ * siguiente con las flechas volvía a renderizar las 272 filas de debajo. Ese era
+ * todo el retraso que se sentía al pulsar; el pop-up nunca fue lento.
+ *
+ * La cola estaba escrita en línea dentro de `Bandeja`, o sea sin ningún sitio
+ * donde poner el memo. Vive aquí para tenerlo. Para que siga funcionando, lo que
+ * llega tiene que ser estable entre renders: `rows` sale de un `useMemo`, y
+ * `getCampaign`/`setStatus` del store, que está memoizado. Una función escrita
+ * en línea en el JSX lo apagaría en silencio y devolvería el retraso.
+ */
+const ListaNuevos = memo(function ListaNuevos({
+  rows,
+  getCampaign,
+  setStatus,
+  onOpen,
+  onStatusSheet,
+  maskPhone,
+  base,
+}: {
+  rows: Candidate[]
+  getCampaign: (id: string) => Campaign | undefined
+  setStatus: (id: string, status: CandidateStatus) => void
+  onOpen: (id: string) => void
+  onStatusSheet: (c: Candidate) => void
+  maskPhone: boolean
+  base: string
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+      {/* Móvil: fichas de dos líneas, la misma forma que la lista del puesto
+          (arriba quién, abajo sus datos y el estado). Así el puesto entero cabe
+          en su chip en vez de cortarse por la mitad para dejarle sitio a la
+          pastilla, que antes vivía en la línea del nombre. */}
+      <ul className="md:hidden" aria-label="Candidatos nuevos de todos los puestos">
+        {rows.map((c) => {
+          const camp = getCampaign(c.campaignId)
+          const name = candidateName(c) || 'Sin nombre'
+          const m = STATUS_META[c.status]
+          return (
+            <li
+              key={c.id}
+              onClick={(e) => clickDeFila(e) && onOpen(c.id)}
+              className={`${MOBILE_ROW} flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors active:bg-slate-50`}
+            >
+              <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={40} />
+              <div className="min-w-0 flex-1">
+                {/* La fila entera abre la ficha; el nombre sigue siendo un
+                    <button> de verdad, que es lo que la hace alcanzable con
+                    teclado y lo que anuncia el lector. */}
+                <button
+                  type="button"
+                  onClick={() => onOpen(c.id)}
+                  className="block min-w-0 max-w-full truncate text-left text-[15px] font-medium text-slate-900"
+                >
+                  {name}
+                </button>
+                {/* Sin "hace 3 h" en móvil: todos son nuevos y la cola ya va
+                    del más reciente al más antiguo, así que la hora ocupaba
+                    sitio sin decidir nada. Sigue en la tabla de escritorio. */}
+                <div className="mt-1 flex items-center gap-2">
+                  {/* El chip abraza a su texto: quien reparte el ancho es este
+                      hueco, no la pastilla del puesto (estirada de lado a lado
+                      parecía un campo vacío). */}
+                  <span className="min-w-0 flex-1">
+                    {camp && (
+                      <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-1.5 pr-2 text-[12px] font-medium text-slate-600">
+                        <Briefcase className="size-3 shrink-0 text-slate-500" aria-hidden />
+                        <span className="truncate">{camp.title}</span>
+                      </span>
+                    )}
+                  </span>
+                  {/* El área de toque se estira con un ::after invisible hasta
+                      ~44px sin engordar la pastilla. */}
+                  <button
+                    type="button"
+                    onClick={() => onStatusSheet(c)}
+                    aria-label={`Estado: ${m.label}. Tocar para cambiar`}
+                    className={`relative inline-flex shrink-0 items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[12px] font-semibold ring-1 ring-inset transition-[filter] after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] ${m.chip} active:brightness-95`}
+                  >
+                    <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
+                    {m.label}
+                    <ChevronDown className="size-3 opacity-60" aria-hidden />
+                  </button>
+                </div>
+              </div>
+            </li>
+          )
+        })}
+      </ul>
+      {/* Escritorio: tabla */}
+      <div className="hidden overflow-x-auto md:block">
+        <table className={`min-w-[680px] ${TABLE}`}>
+          <caption className="sr-only">Candidatos nuevos de todos los puestos</caption>
+          <thead>
+            <tr className="bg-slate-50/60">
+              <ColHead icon={User}>Candidato</ColHead>
+              <ColHead icon={Briefcase}>Puesto</ColHead>
+              <ColHead icon={Phone} className="hidden w-[150px] lg:table-cell">Teléfono</ColHead>
+              <ColHead icon={CircleDot} className="w-[148px]">Estado</ColHead>
+              <ColHead icon={Clock} align="right" className="w-[116px]">Recibida</ColHead>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((c) => {
+              const camp = getCampaign(c.campaignId)
+              const name = candidateName(c) || 'Sin nombre'
+              const phone = answer(c, 'telefono')
+              return (
+                <tr
+                  key={c.id}
+                  onClick={(e) => clickDeFila(e) && onOpen(c.id)}
+                  className={`${ROW} group cursor-pointer hover:bg-slate-50`}
+                >
+                  <td className={CELL}>
+                    <div className="flex items-center gap-2.5">
+                      <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={32} />
+                      {/* Mismo gesto que en la tabla del puesto: el nombre se
+                          subraya al pasar por la fila, que es lo que abre la ficha. */}
+                      <span className="truncate text-[14px] font-medium text-slate-900 decoration-slate-400 underline-offset-[3px] group-hover:underline" title={name}>{name}</span>
+                    </div>
+                  </td>
+                  <td className={CELL}>
+                    {camp ? (
+                      <Link
+                        to={`${base}/puestos/${camp.id}`}
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
+                      >
+                        <Briefcase className="size-3.5 shrink-0 text-slate-500" aria-hidden />
+                        <span className="truncate">{camp.title}</span>
+                      </Link>
+                    ) : (
+                      <span className="text-[12px] text-slate-500">–</span>
+                    )}
+                  </td>
+                  <td className={`${CELL} num hidden text-[13px] text-slate-600 lg:table-cell`}>
+                    <span className="block truncate">
+                      {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
+                    </span>
+                  </td>
+                  <td className={`${CELL} whitespace-nowrap`}>
+                    <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
+                  </td>
+                  <td className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
+                    <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+})
 
 // Bandeja única: todos los candidatos en estado "nuevo" de TODOS los puestos
 // en una sola cola para triar de una vez, sin entrar puesto por puesto.
@@ -71,130 +230,15 @@ export function Bandeja() {
           <p className="mb-3 text-[13px] text-slate-500" role="status">
             {nuevos.length} {nuevos.length === 1 ? 'candidato nuevo' : 'candidatos nuevos'} sin revisar
           </p>
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
-            {/* Móvil: fichas de dos líneas, la misma forma que la lista del puesto
-                (arriba quién, abajo sus datos y el estado). Así el puesto entero cabe
-                en su chip en vez de cortarse por la mitad para dejarle sitio a la
-                pastilla, que antes vivía en la línea del nombre. */}
-            <ul className="md:hidden" aria-label="Candidatos nuevos de todos los puestos">
-              {nuevos.map((c) => {
-                const camp = getCampaign(c.campaignId)
-                const name = candidateName(c) || 'Sin nombre'
-                const m = STATUS_META[c.status]
-                return (
-                  <li
-                    key={c.id}
-                    onClick={(e) => clickDeFila(e) && setOpenId(c.id)}
-                    className={`${MOBILE_ROW} flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors active:bg-slate-50`}
-                  >
-                    <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={40} />
-                    <div className="min-w-0 flex-1">
-                      {/* La fila entera abre la ficha; el nombre sigue siendo un
-                          <button> de verdad, que es lo que la hace alcanzable con
-                          teclado y lo que anuncia el lector. */}
-                      <button
-                        type="button"
-                        onClick={() => setOpenId(c.id)}
-                        className="block min-w-0 max-w-full truncate text-left text-[15px] font-medium text-slate-900"
-                      >
-                        {name}
-                      </button>
-                      {/* Sin "hace 3 h" en móvil: todos son nuevos y la cola ya va
-                          del más reciente al más antiguo, así que la hora ocupaba
-                          sitio sin decidir nada. Sigue en la tabla de escritorio. */}
-                      <div className="mt-1 flex items-center gap-2">
-                        {/* El chip abraza a su texto: quien reparte el ancho es este
-                            hueco, no la pastilla del puesto (estirada de lado a lado
-                            parecía un campo vacío). */}
-                        <span className="min-w-0 flex-1">
-                          {camp && (
-                            <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-1.5 pr-2 text-[12px] font-medium text-slate-600">
-                              <Briefcase className="size-3 shrink-0 text-slate-500" aria-hidden />
-                              <span className="truncate">{camp.title}</span>
-                            </span>
-                          )}
-                        </span>
-                        {/* El área de toque se estira con un ::after invisible hasta
-                            ~44px sin engordar la pastilla. */}
-                        <button
-                          type="button"
-                          onClick={() => setStatusFor(c)}
-                          aria-label={`Estado: ${m.label}. Tocar para cambiar`}
-                          className={`relative inline-flex shrink-0 items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[12px] font-semibold ring-1 ring-inset transition-[filter] after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] ${m.chip} active:brightness-95`}
-                        >
-                          <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
-                          {m.label}
-                          <ChevronDown className="size-3 opacity-60" aria-hidden />
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-            {/* Escritorio: tabla */}
-            <div className="hidden overflow-x-auto md:block">
-              <table className={`min-w-[680px] ${TABLE}`}>
-                <caption className="sr-only">Candidatos nuevos de todos los puestos</caption>
-                <thead>
-                  <tr className="bg-slate-50/60">
-                    <ColHead icon={User}>Candidato</ColHead>
-                    <ColHead icon={Briefcase}>Puesto</ColHead>
-                    <ColHead icon={Phone} className="hidden w-[150px] lg:table-cell">Teléfono</ColHead>
-                    <ColHead icon={CircleDot} className="w-[148px]">Estado</ColHead>
-                    <ColHead icon={Clock} align="right" className="w-[116px]">Recibida</ColHead>
-                  </tr>
-                </thead>
-                <tbody>
-                  {nuevos.map((c) => {
-                    const camp = getCampaign(c.campaignId)
-                    const name = candidateName(c) || 'Sin nombre'
-                    const phone = answer(c, 'telefono')
-                    return (
-                      <tr
-                        key={c.id}
-                        onClick={(e) => clickDeFila(e) && setOpenId(c.id)}
-                        className={`${ROW} group cursor-pointer hover:bg-slate-50`}
-                      >
-                        <td className={CELL}>
-                          <div className="flex items-center gap-2.5">
-                            <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={32} />
-                            {/* Mismo gesto que en la tabla del puesto: el nombre se
-                                subraya al pasar por la fila, que es lo que abre la ficha. */}
-                            <span className="truncate text-[14px] font-medium text-slate-900 decoration-slate-400 underline-offset-[3px] group-hover:underline" title={name}>{name}</span>
-                          </div>
-                        </td>
-                        <td className={CELL}>
-                          {camp ? (
-                            <Link
-                              to={`${base}/puestos/${camp.id}`}
-                              className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
-                            >
-                              <Briefcase className="size-3.5 shrink-0 text-slate-500" aria-hidden />
-                              <span className="truncate">{camp.title}</span>
-                            </Link>
-                          ) : (
-                            <span className="text-[12px] text-slate-500">–</span>
-                          )}
-                        </td>
-                        <td className={`${CELL} num hidden text-[13px] text-slate-600 lg:table-cell`}>
-                          <span className="block truncate">
-                            {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
-                          </span>
-                        </td>
-                        <td className={`${CELL} whitespace-nowrap`}>
-                          <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
-                        </td>
-                        <td className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
-                          <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <ListaNuevos
+            rows={nuevos}
+            getCampaign={getCampaign}
+            setStatus={setStatus}
+            onOpen={setOpenId}
+            onStatusSheet={setStatusFor}
+            maskPhone={maskPhone}
+            base={base}
+          />
         </>
       )}
 
