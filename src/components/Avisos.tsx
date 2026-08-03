@@ -8,8 +8,8 @@ import { Avatar } from './ui/Avatar'
 
 /**
  * El timbre de la barra y su panel. Lo que enseña sale entero de datos que ya
- * existen (ver `lib/avisos.ts`): menciones en el chat de un candidato y
- * movimiento del tablón.
+ * existen (ver `lib/avisos.ts`): menciones en el chat (de un candidato o del
+ * tablón) y movimiento del tablón.
  *
  * El contador va en TINTA, no en el acento ni en rojo. Un aviso no es una
  * acción (el acento es para actuar) ni un error (el rojo es para eso). Y no se
@@ -130,7 +130,7 @@ export function Avisos() {
 
           {items.length === 0 ? (
             <p className="px-3 pb-4 pt-1 text-[13px] leading-5 text-slate-500">
-              Nada nuevo. Aquí te avisamos cuando alguien te mencione en una ficha o mueva algo en el tablón.
+              Nada nuevo. Aquí te avisamos cuando alguien te mencione o mueva algo en el tablón.
             </p>
           ) : (
             <ul className="max-h-[min(70vh,26rem)] overflow-y-auto border-t border-slate-100 p-1.5">

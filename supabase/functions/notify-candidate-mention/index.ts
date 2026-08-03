@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
       .select('id')
     if (!claimed || claimed.length === 0) return json({ ok: true, sent: false, skipped: 'ya notificado' })
 
-    const { data: rows } = await admin.rpc('candidate_mention_emails', {
+    const { data: rows } = await admin.rpc('mention_emails', {
       p_company: comment.company_id,
       p_users: mentions,
     })

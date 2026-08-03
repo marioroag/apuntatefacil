@@ -56,6 +56,20 @@ export const HEAD_CELL = `h-10 px-3 text-left align-middle border-b border-b-sla
 /** Cabecera sin filo derecho, pareja de CELL_FLUSH. */
 export const HEAD_CELL_FLUSH = 'h-10 px-3 text-left align-middle border-b border-b-slate-200'
 
+/**
+ * Fila de la MISMA lista en móvil, donde no hay rejilla que valga: por debajo de
+ * `md` cada candidato es una ficha de dos líneas (arriba quién, abajo sus datos).
+ * Vive aquí porque es la otra mitad de la misma tabla, y porque las dos pantallas
+ * que la usan tienen que envejecer juntas.
+ *
+ * El filo va SANGRADO hasta donde empieza el texto (16 de margen + 40 del avatar +
+ * 12 de hueco): así la columna de avatares se lee como un raíl y la lista deja de
+ * parecer una tabla a la que le faltan las columnas. `divide-y` no vale, porque
+ * pinta el filo de lado a lado de la fila.
+ */
+export const MOBILE_ROW =
+  'relative after:pointer-events-none after:absolute after:bottom-0 after:left-[68px] after:right-0 after:h-px after:bg-slate-100 last:after:hidden'
+
 type Sort = {
   active: boolean
   dir: 'asc' | 'desc'

@@ -33,16 +33,35 @@ import {
 type Vista = 'semana' | 'dia' | 'lista'
 type Seccion = 'agenda' | 'enMarcha' | 'pasadas'
 
+// El corte por plan vive AQUÍ, en un componente sin un solo hook, y la agenda
+// entera vive en otro. Antes el corte era un `return` temprano en medio de la
+// agenda, con un comentario encima pidiendo que todos los hooks quedaran por
+// encima: no aguantó, y un `useMemo` acabó colándose por debajo. Con el corte
+// separado el fallo no es que sea improbable, es que no se puede escribir: la
+// agenda no tiene ningún camino que se salte sus hooks, porque solo se monta
+// cuando el plan ya da permiso.
+//
+// Lo que rompía: el número de hooks de un componente montado no puede cambiar
+// entre renders. `company.plan` sí cambia (Stripe puede subirlo o bajarlo por
+// detrás), y el día que algo refresque el plan con esta pantalla abierta, React
+// lanzaría "Rendered more hooks than during the previous render" y la agenda se
+// caería en blanco, con el error a kilómetros de la línea que lo causa.
 export function Entrevistas() {
   const { company } = useAuth()
+  const demo = company?.id === 'demo'
+  if (!demo && !planHas(company?.plan, 'entrevistas')) return <FeatureLocked feature="entrevistas" />
+  // `demo` viaja como prop: es la misma decisión que abre la puerta, así que se
+  // toma una vez y no se recalcula dentro.
+  return <Agenda demo={demo} />
+}
+
+function Agenda({ demo }: { demo: boolean }) {
   const { interviews, candidates, campaigns, members, loading, conversationFor, getCampaign, restoreCandidate } = useStore()
   const toast = useToast()
   const profiles = useProfiles()
   const [params, setParams] = useSearchParams()
   const compacto = useCompacto()
 
-  // Todos los hooks ANTES del corte por plan: un return temprano por encima de
-  // un useMemo cambia el número de hooks entre renders y React lo rompe.
   const tz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
   // El reloj se lee en estado, no en el render: pintar Date.now() directamente
   // es impuro y la línea de la hora actual se quedaría clavada donde se montó.
@@ -124,11 +143,6 @@ export function Entrevistas() {
       },
       { replace: true },
     )
-
-  const demo = company?.id === 'demo'
-  if (!demo && !planHas(company?.plan, 'entrevistas')) {
-    return <FeatureLocked feature="entrevistas" />
-  }
 
   const dias = vista === 'dia' ? [cursor] : semanaDe(cursor)
   const salto = vista === 'dia' ? 1 : 7

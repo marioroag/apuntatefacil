@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from 'react'
 import { ArrowDown, ArrowUp, FileText, Loader2 } from 'lucide-react'
 import { fullDateTime, memberAvatarTone, plural, relativeDate } from '../../lib/format'
 import { botonIcono } from '../../lib/buttons'
@@ -378,6 +378,171 @@ export function ChatSend({
   )
 }
 
+// -----------------------------------------------------------------------------
+// LAS MENCIONES DE LA CAJA. Un solo mecanismo para las dos conversaciones.
+//
+// Vivían dentro de `ChatComposer`, así que el hilo del tablón, que tiene caja
+// propia (dos filas: mensaje arriba, proponer candidatos abajo), se quedó sin
+// ellas: se escribía "@laura" y no pasaba nada. Y eso es lo peor que puede
+// hacer una mención, porque quien escribe se queda creyendo que ha avisado.
+//
+// Se saca a un hook + una lista para que la caja que sea las pueda tener sin
+// copiar nada. La caja pone el textarea y decide dónde cae la lista; esto pone
+// el token en curso, la selección y el teclado.
+// -----------------------------------------------------------------------------
+
+/** Cuántas personas se ofrecen a la vez: una lista más larga se lee peor que teclear otra letra. */
+const MAX_SUGERENCIAS = 5
+
+export function useMenciones({
+  members,
+  areaRef,
+  onTexto,
+}: {
+  /** Sin miembros no hay a quién avisar y el hook queda inerte. */
+  members: CompanyMember[]
+  areaRef: RefObject<HTMLTextAreaElement | null>
+  /** Escribe el texto con la mención ya insertada (la caja es quien lo guarda). */
+  onTexto: (texto: string) => void
+}) {
+  const [sugerencias, setSugerencias] = useState<CompanyMember[]>([])
+  const [activo, setActivo] = useState(0)
+  const profiles = useProfiles()
+
+  // La palabra que se está escribiendo tras un '@', si el cursor sigue dentro.
+  const tokenEnCurso = (el: HTMLTextAreaElement): { desde: number; texto: string } | null => {
+    const hasta = el.selectionStart ?? 0
+    const antes = el.value.slice(0, hasta)
+    const m = /@([\w.+-]*)$/.exec(antes)
+    if (!m) return null
+    return { desde: hasta - m[0].length, texto: m[1].toLowerCase() }
+  }
+
+  const refrescar = () => {
+    const el = areaRef.current
+    const t = el && members.length ? tokenEnCurso(el) : null
+    if (!t) {
+      setSugerencias([])
+      return
+    }
+    const libres = members.filter((m) => !m.isSelf && mentionHandle(m.email).startsWith(t.texto))
+    setSugerencias(libres.slice(0, MAX_SUGERENCIAS))
+    setActivo(0)
+  }
+
+  const cerrar = () => setSugerencias([])
+
+  /** El identificador tal y como se escribe: con las mayúsculas de la persona. */
+  const tokenDe = (m: CompanyMember) => mentionToken(profiles.nameFor(m.userId, m.email), m.email)
+
+  const elegir = (m: CompanyMember) => {
+    const el = areaRef.current
+    if (!el) return
+    const t = tokenEnCurso(el)
+    if (!t) return
+    const hasta = el.selectionStart ?? 0
+    const token = tokenDe(m)
+    onTexto(`${el.value.slice(0, t.desde)}@${token} ${el.value.slice(hasta)}`)
+    setSugerencias([])
+    window.requestAnimationFrame(() => {
+      const caret = t.desde + token.length + 2
+      el.focus()
+      el.setSelectionRange(caret, caret)
+    })
+  }
+
+  /**
+   * El teclado de la lista. Devuelve `true` si se ha quedado con la tecla, y
+   * entonces la caja no hace nada más con ella: con la lista abierta manda
+   * ella, así que ahí Intro elige persona en vez de enviar el mensaje.
+   */
+  const teclas = (e: ReactKeyboardEvent<HTMLTextAreaElement>): boolean => {
+    if (sugerencias.length === 0) return false
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActivo((i) => (i + 1) % sugerencias.length)
+      return true
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActivo((i) => (i - 1 + sugerencias.length) % sugerencias.length)
+      return true
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      elegir(sugerencias[activo])
+      return true
+    }
+    if (e.key === 'Escape') {
+      // Cierra la lista, no el panel de detrás.
+      e.stopPropagation()
+      setSugerencias([])
+      return true
+    }
+    return false
+  }
+
+  return { sugerencias, activo, elegir, refrescar, cerrar, teclas }
+}
+
+/**
+ * A quién avisar. Va SOBRE el campo (`bottom-full`), no debajo: la caja está
+ * pegada al borde inferior del panel y una lista hacia abajo se saldría de la
+ * pantalla. Quien la monta pone `relative` en el hueco de la caja.
+ */
+export function MencionesLista({
+  id,
+  sugerencias,
+  activo,
+  onElegir,
+}: {
+  id: string
+  sugerencias: CompanyMember[]
+  activo: number
+  onElegir: (m: CompanyMember) => void
+}) {
+  const profiles = useProfiles()
+  if (sugerencias.length === 0) return null
+  return (
+    <ul
+      id={id}
+      role="listbox"
+      aria-label="Avisar a alguien del equipo"
+      className="absolute bottom-full left-0 z-10 mb-1 w-64 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-pop"
+    >
+      {sugerencias.map((m, i) => {
+        const nombre = profiles.nameFor(m.userId, m.email)
+        const token = mentionToken(nombre, m.email)
+        return (
+          <li key={m.userId}>
+            <button
+              type="button"
+              role="option"
+              aria-selected={i === activo}
+              onMouseDown={(e) => {
+                e.preventDefault() // no robar el foco al textarea
+                onElegir(m)
+              }}
+              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
+                i === activo ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <Avatar name={nombre} seed={m.email} src={profiles.avatarFor(m.userId)} size={20} />
+              <span className="min-w-0 truncate font-medium">{nombre}</span>
+              {/* El identificador solo si dice algo más que el nombre: con
+                  "Laura" y "@Laura" en la misma fila, la segunda columna es
+                  la primera repetida. */}
+              {token !== nombre && (
+                <span className="shrink-0 truncate text-[12px] text-slate-500">@{token}</span>
+              )}
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 /**
  * Campo de escribir. Crece con el texto hasta un techo (nunca salta el layout),
  * envía con Intro y ofrece a quién avisar al teclear `@`.
@@ -420,10 +585,7 @@ export function ChatComposer({
 }) {
   const [texto, setTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
-  const [sugerencias, setSugerencias] = useState<CompanyMember[]>([])
-  const [activo, setActivo] = useState(0)
   const areaRef = useRef<HTMLTextAreaElement>(null)
-  const profiles = useProfiles()
 
   // Una línea en reposo y crece con el texto hasta el techo. El `auto` previo no
   // es opcional: sin él `scrollHeight` nunca baja y la caja solo sabría crecer.
@@ -434,47 +596,14 @@ export function ChatComposer({
     el.style.height = `${Math.min(el.scrollHeight, CHAT_ALTO_MAX)}px`
   }
 
-  // La palabra que se está escribiendo tras un '@', si el cursor sigue dentro.
-  const tokenEnCurso = (el: HTMLTextAreaElement): { desde: number; texto: string } | null => {
-    const hasta = el.selectionStart ?? 0
-    const antes = el.value.slice(0, hasta)
-    const m = /@([\w.+-]*)$/.exec(antes)
-    if (!m) return null
-    return { desde: hasta - m[0].length, texto: m[1].toLowerCase() }
-  }
-
-  const refrescarSugerencias = () => {
-    const el = areaRef.current
-    const t = el ? tokenEnCurso(el) : null
-    if (!t) {
-      setSugerencias([])
-      return
-    }
-    const libres = members.filter((m) => !m.isSelf && mentionHandle(m.email).startsWith(t.texto))
-    setSugerencias(libres.slice(0, 5))
-    setActivo(0)
-  }
-
-  /** El identificador tal y como se escribe: con las mayúsculas de la persona. */
-  const tokenDe = (m: CompanyMember) => mentionToken(profiles.nameFor(m.userId, m.email), m.email)
-
-  const elegir = (m: CompanyMember) => {
-    const el = areaRef.current
-    if (!el) return
-    const t = tokenEnCurso(el)
-    if (!t) return
-    const hasta = el.selectionStart ?? 0
-    const token = tokenDe(m)
-    const nuevo = `${el.value.slice(0, t.desde)}@${token} ${el.value.slice(hasta)}`
-    setTexto(nuevo)
-    setSugerencias([])
-    window.requestAnimationFrame(() => {
-      const caret = t.desde + token.length + 2
-      el.focus()
-      el.setSelectionRange(caret, caret)
-      autoAlto()
-    })
-  }
+  const menciones = useMenciones({
+    members,
+    areaRef,
+    onTexto: (t) => {
+      setTexto(t)
+      window.requestAnimationFrame(autoAlto)
+    },
+  })
 
   const enviar = async () => {
     const limpio = texto.trim()
@@ -486,7 +615,7 @@ export function ChatComposer({
       // y es justo cuando menos ganas hay.
       await onSend(limpio, resolveMentions(limpio, members))
       setTexto('')
-      setSugerencias([])
+      menciones.cerrar()
       window.requestAnimationFrame(() => {
         if (areaRef.current) areaRef.current.style.height = 'auto'
         areaRef.current?.focus()
@@ -499,46 +628,12 @@ export function ChatComposer({
 
   return (
     <div className="relative">
-      {sugerencias.length > 0 && (
-        // Sobre el campo, no debajo: el composer está pegado al borde inferior
-        // del panel y una lista hacia abajo se saldría de la pantalla.
-        <ul
-          id={listaId}
-          role="listbox"
-          aria-label="Avisar a alguien del equipo"
-          className="absolute bottom-full left-0 z-10 mb-1 w-64 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-pop"
-        >
-          {sugerencias.map((m, i) => {
-            const nombre = profiles.nameFor(m.userId, m.email)
-            const token = tokenDe(m)
-            return (
-              <li key={m.userId}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={i === activo}
-                  onMouseDown={(e) => {
-                    e.preventDefault() // no robar el foco al textarea
-                    elegir(m)
-                  }}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
-                    i === activo ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <Avatar name={nombre} seed={m.email} src={profiles.avatarFor(m.userId)} size={20} />
-                  <span className="min-w-0 truncate font-medium">{nombre}</span>
-                  {/* El identificador solo si dice algo más que el nombre: con
-                      "Laura" y "@Laura" en la misma fila, la segunda columna es
-                      la primera repetida. */}
-                  {token !== nombre && (
-                    <span className="shrink-0 truncate text-[12px] text-slate-500">@{token}</span>
-                  )}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <MencionesLista
+        id={listaId}
+        sugerencias={menciones.sugerencias}
+        activo={menciones.activo}
+        onElegir={menciones.elegir}
+      />
 
       <div className={CHAT_SURFACE}>
         <label htmlFor={id} className="sr-only">
@@ -551,39 +646,18 @@ export function ChatComposer({
             rows={1}
             value={texto}
             disabled={disabled}
-            aria-controls={sugerencias.length ? listaId : undefined}
-            aria-expanded={sugerencias.length > 0}
+            aria-controls={menciones.sugerencias.length ? listaId : undefined}
+            aria-expanded={menciones.sugerencias.length > 0}
             onChange={(e) => {
               setTexto(e.target.value)
               autoAlto()
-              refrescarSugerencias()
+              menciones.refrescar()
             }}
-            onClick={refrescarSugerencias}
-            onBlur={() => setSugerencias([])}
+            onClick={menciones.refrescar}
+            onBlur={menciones.cerrar}
             onKeyDown={(e) => {
-              if (sugerencias.length > 0) {
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault()
-                  setActivo((i) => (i + 1) % sugerencias.length)
-                  return
-                }
-                if (e.key === 'ArrowUp') {
-                  e.preventDefault()
-                  setActivo((i) => (i - 1 + sugerencias.length) % sugerencias.length)
-                  return
-                }
-                if (e.key === 'Enter' || e.key === 'Tab') {
-                  e.preventDefault()
-                  elegir(sugerencias[activo])
-                  return
-                }
-                if (e.key === 'Escape') {
-                  // Cierra la lista, no el panel de detrás.
-                  e.stopPropagation()
-                  setSugerencias([])
-                  return
-                }
-              }
+              // Con la lista abierta manda ella: ahí Intro elige a la persona.
+              if (menciones.teclas(e)) return
               if (e.key !== 'Enter') return
               // Mayús+Intro es el salto de línea. Y `isComposing` es el acento a
               // medio escribir: en un teclado español, sin esta guarda, cerrar
