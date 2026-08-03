@@ -4,7 +4,7 @@ import { useStore } from './store'
 import { useAppBase } from './useAppBase'
 import { candidateName } from './format'
 import { planHas } from './pricing'
-import type { CandidateComment } from './types'
+import type { CandidateComment, TeamRequestComment } from './types'
 
 /**
  * Avisos: lo que ha pasado y te toca a ti. Alimenta el timbre de la barra.
@@ -61,7 +61,8 @@ export interface AvisosState {
 
 export function useAvisos(): AvisosState {
   const { user, company } = useAuth()
-  const { loadMentions, teamRequests, candidates, campaigns, members, chatVersion } = useStore()
+  const { loadMentions, loadBoardMentions, teamRequests, candidates, campaigns, members, chatVersion, boardVersion } =
+    useStore()
   const base = useAppBase()
   const userId = user?.id ?? null
   const companyId = company?.id ?? null
@@ -69,6 +70,7 @@ export function useAvisos(): AvisosState {
   const disponible = demo || planHas(company?.plan, 'teamBoard')
 
   const [menciones, setMenciones] = useState<CandidateComment[]>([])
+  const [mencionesTablon, setMencionesTablon] = useState<TeamRequestComment[]>([])
   const [seen, setSeen] = useState<Record<string, string>>(readSeen)
 
   // El valor del store se rehace con cualquier cambio de datos, así que
@@ -76,6 +78,8 @@ export function useAvisos(): AvisosState {
   // render. Va por referencia, y se recarga cuando cambia el chat.
   const loadRef = useRef(loadMentions)
   loadRef.current = loadMentions
+  const loadTablonRef = useRef(loadBoardMentions)
+  loadTablonRef.current = loadBoardMentions
   useEffect(() => {
     // Sin limpiar el estado al salir: `items` ya devuelve [] cuando no procede,
     // y al cambiar de empresa las menciones viejas se caen solas porque su
@@ -85,6 +89,9 @@ export function useAvisos(): AvisosState {
     void loadRef.current().then((m) => {
       if (vivo) setMenciones(m)
     })
+    void loadTablonRef.current().then((m) => {
+      if (vivo) setMencionesTablon(m)
+    })
     return () => {
       vivo = false
     }
@@ -92,7 +99,9 @@ export function useAvisos(): AvisosState {
     // de localStorage DESPUÉS del primer render, así que sin esto la consulta
     // salía contra un store vacío y las menciones no aparecían nunca. De paso,
     // al entrar una candidatura nueva se refrescan las menciones.
-  }, [disponible, userId, companyId, chatVersion, candidates.length])
+    // `boardVersion` sube con cada ping realtime del tablón: sin él, una
+    // mención en una petición no llegaría al timbre hasta recargar.
+  }, [disponible, userId, companyId, chatVersion, boardVersion, candidates.length])
 
   const items = useMemo<Aviso[]>(() => {
     if (!disponible) return []
@@ -116,6 +125,31 @@ export function useAvisos(): AvisosState {
         accion: 'te mencionó',
         detalle: `${candidateName(cand)} · ${puesto}`,
         to: `${base}/puestos/${cand.campaignId}?candidato=${cand.id}`,
+      })
+    }
+
+    // Menciones del tablón, antes que la actividad: una petición donde te han
+    // llamado por tu nombre se anuncia por eso, no como "movimiento".
+    // Se apunta CUÁNDO fue la última, no solo que la hubo: si después alguien
+    // ha vuelto a escribir, eso es otra cosa que contar y sí merece su línea.
+    const mencionAt = new Map<string, string>()
+    for (const m of mencionesTablon) {
+      if (m.authorUserId === userId) continue
+      const req = teamRequests.find((r) => r.id === m.requestId)
+      // Sin petición visible no hay aviso, por lo mismo que en las fichas: la
+      // RLS puede dejarte fuera y sería mandarte a una puerta cerrada.
+      if (!req) continue
+      const previa = mencionAt.get(req.id)
+      if (!previa || m.createdAt > previa) mencionAt.set(req.id, m.createdAt)
+      out.push({
+        id: `mencion-tablon-${m.id}`,
+        kind: 'mencion',
+        at: m.createdAt,
+        actorUserId: m.authorUserId,
+        actorEmail: m.authorEmail,
+        accion: 'te mencionó en el tablón',
+        detalle: req.title,
+        to: `${base}/equipo?peticion=${req.id}`,
       })
     }
 
@@ -151,6 +185,11 @@ export function useAvisos(): AvisosState {
           to,
         })
       } else {
+        // Si lo último que pasó en esa petición fue que te mencionaran, ese
+        // aviso lo dice todo y mejor: dos líneas del mismo hilo en el timbre
+        // son una de más. Si después alguien escribió otra cosa, se cuenta.
+        const mencion = mencionAt.get(r.id)
+        if (mencion && mencion >= r.lastActivityAt) continue
         out.push({
           id: `respuesta-${r.id}`,
           kind: 'respuesta',
@@ -165,7 +204,7 @@ export function useAvisos(): AvisosState {
     }
 
     return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, MAX)
-  }, [disponible, menciones, teamRequests, candidates, campaigns, members, userId, base])
+  }, [disponible, menciones, mencionesTablon, teamRequests, candidates, campaigns, members, userId, base])
 
   const desde = companyId ? seen[companyId] : undefined
   const sinVer = items.filter((a) => !desde || a.at > desde).length

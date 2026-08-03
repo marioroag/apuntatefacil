@@ -183,14 +183,17 @@ type TeamCommentRow = {
   author_user_id: string | null
   author_email: string
   body: string
+  mentions: string[] | null
   created_at: string
 }
+const TEAM_COMMENT_SELECT = 'id,request_id,author_user_id,author_email,body,mentions,created_at'
 const toTeamComment = (r: TeamCommentRow): TeamRequestComment => ({
   id: r.id,
   requestId: r.request_id,
   authorUserId: r.author_user_id,
   authorEmail: r.author_email ?? '',
   body: r.body ?? '',
+  mentions: r.mentions ?? [],
   createdAt: r.created_at,
 })
 
@@ -444,7 +447,13 @@ interface Store {
   createTeamRequest: (input: { title: string; body: string; siteId: string | null }) => Promise<TeamRequest | null>
   // Responde a una petición, opcionalmente proponiendo candidatos. Devuelve la
   // respuesta creada (para pintarla al instante) o null si falló.
-  addTeamComment: (requestId: string, body: string, candidateIds: string[]) => Promise<TeamRequestComment | null>
+  addTeamComment: (
+    requestId: string,
+    body: string,
+    candidateIds: string[],
+    /** A quién avisa. El servidor lo vuelve a filtrar: esto es comodidad, no seguridad. */
+    mentions?: string[],
+  ) => Promise<TeamRequestComment | null>
   setTeamRequestStatus: (id: string, status: TeamRequestStatus) => Promise<void>
   deleteTeamRequest: (id: string) => Promise<boolean>
   retractProposal: (requestId: string, candidateId: string) => Promise<void>
@@ -504,6 +513,10 @@ interface Store {
   // candidato se resuelve contra `candidates`, que ya está acotado por RLS (un
   // encargado no ve la ficha de otra sede aunque le mencionen en ella).
   loadMentions: () => Promise<CandidateComment[]>
+  // Lo mismo, en el hilo del tablón. Van aparte porque son otra fila y otro
+  // destino, no porque sean otra cosa: para quien recibe el aviso, que te
+  // llamen en una ficha o en una petición es la misma llamada.
+  loadBoardMentions: () => Promise<TeamRequestComment[]>
   addCandidateComment: (candidateId: string, body: string, mentions: string[]) => Promise<CandidateComment | null>
   // Nº de mensajes por candidato, para el indicador de la lista. Se llena en la
   // carga general: saber DÓNDE hay conversación no debe costar abrir el detalle.
@@ -564,7 +577,11 @@ function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; save
         tags: Array.isArray(parsed.tags) ? parsed.tags : SEED_TAGS,
         // Demos guardadas antes del tablón: datos de ejemplo.
         teamRequests: Array.isArray(parsed.teamRequests) ? parsed.teamRequests : SEED_TEAM_REQUESTS,
-        teamComments: Array.isArray(parsed.teamComments) ? parsed.teamComments : SEED_TEAM_COMMENTS,
+        // Demos guardadas antes de las menciones del tablón no traen mentions,
+        // igual que las de antes de las etiquetas no traían tagIds.
+        teamComments: Array.isArray(parsed.teamComments)
+          ? (parsed.teamComments as TeamRequestComment[]).map((c) => ({ ...c, mentions: c.mentions ?? [] }))
+          : SEED_TEAM_COMMENTS,
         candidateComments: Array.isArray(parsed.candidateComments) ? parsed.candidateComments : SEED_CANDIDATE_COMMENTS,
       }
   } catch {
@@ -1915,7 +1932,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       const { data, error } = await supabase
         .from('team_request_comments')
-        .select('id,request_id,author_user_id,author_email,body,created_at')
+        .select(TEAM_COMMENT_SELECT)
         .eq('request_id', requestId)
         .order('created_at', { ascending: true })
       if (error || !data) return []
@@ -1960,7 +1977,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return request
     },
 
-    addTeamComment: async (requestId, body, candidateIds) => {
+    addTeamComment: async (requestId, body, candidateIds, mentions = []) => {
       const now = new Date().toISOString()
       if (companyId === 'demo') {
         const comment: TeamRequestComment = {
@@ -1969,6 +1986,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           authorUserId: userId,
           authorEmail: user?.email ?? '',
           body,
+          mentions,
           createdAt: now,
         }
         setDemoTeamComments((cs) => [...cs, comment])
@@ -1994,8 +2012,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       const { data, error } = await supabase
         .from('team_request_comments')
-        .insert({ request_id: requestId, body })
-        .select('id,request_id,author_user_id,author_email,body,created_at')
+        .insert({ request_id: requestId, body, mentions })
+        .select(TEAM_COMMENT_SELECT)
         .single()
       if (error || !data) {
         toast.error('No se pudo enviar el mensaje. Inténtalo de nuevo.')
@@ -2140,6 +2158,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .limit(20)
       if (error || !data) return []
       return (data as CandidateCommentRow[]).map(toCandidateComment)
+    },
+
+    loadBoardMentions: async () => {
+      if (!userId) return []
+      if (companyId === 'demo')
+        return demoTeamComments
+          .filter((c) => c.mentions.includes(userId))
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+          .slice(0, 20)
+      // Mismo `contains` sobre el uuid[] y mismo índice GIN parcial que en el
+      // chat del candidato. La RLS ya acota a las peticiones de tu empresa.
+      const { data, error } = await supabase
+        .from('team_request_comments')
+        .select(TEAM_COMMENT_SELECT)
+        .contains('mentions', [userId])
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (error || !data) return []
+      return (data as TeamCommentRow[]).map(toTeamComment)
     },
 
     addCandidateComment: async (candidateId, body, mentions) => {

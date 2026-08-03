@@ -1094,7 +1094,9 @@ export const SEED_TEAM_REQUESTS: TeamRequest[] = [
   },
 ]
 
-export const SEED_TEAM_COMMENTS: TeamRequestComment[] = [
+// `mentions` va aparte y por omisión vacío: casi ningún mensaje llama a nadie,
+// y repetir `mentions: []` treinta veces solo escondería los dos que sí lo hacen.
+const TEAM_COMMENTS: (Omit<TeamRequestComment, 'mentions'> & { mentions?: string[] })[] = [
   // --- Carretilleros (abierta, mucho ida y vuelta) ---
   {
     id: 'reqc_c1',
@@ -1125,7 +1127,10 @@ export const SEED_TEAM_COMMENTS: TeamRequestComment[] = [
     requestId: 'req_carretilleros',
     authorUserId: 'demo-laura',
     authorEmail: 'laura@apuntatefacil.com',
-    body: 'Buenos perfiles. ¿Les escribes tú o lo hago yo?',
+    // Repartir trabajo es lo que se hace en un hilo del tablón, y por eso es
+    // donde la mención tiene sentido: aquí se le pregunta a alguien concreto.
+    body: '@sergio buenos perfiles. ¿Les escribes tú o lo hago yo?',
+    mentions: ['demo-sergio'],
     createdAt: '2026-07-14T09:10:00.000Z',
   },
   {
@@ -1199,7 +1204,10 @@ export const SEED_TEAM_COMMENTS: TeamRequestComment[] = [
     requestId: 'req_electricistas',
     authorUserId: 'demo-laura',
     authorEmail: 'laura@apuntatefacil.com',
-    body: 'Este está en entrevista y tiene furgoneta. ¿Le llamo yo para cerrar fecha?',
+    // A ti, y en una petición tuya: es lo que el timbre de avisos tiene que
+    // poder enseñar del tablón.
+    body: '@demo este está en entrevista y tiene furgoneta. ¿Le llamo yo para cerrar fecha?',
+    mentions: ['demo-user'],
     createdAt: '2026-07-15T09:40:00.000Z',
   },
   {
@@ -1403,6 +1411,11 @@ export const SEED_TEAM_COMMENTS: TeamRequestComment[] = [
     createdAt: '2026-07-04T19:05:00.000Z',
   },
 ]
+
+export const SEED_TEAM_COMMENTS: TeamRequestComment[] = TEAM_COMMENTS.map((c) => ({
+  ...c,
+  mentions: c.mentions ?? [],
+}))
 
 // ---------------------------------------------------------------------------
 // Miembros e invitaciones (solo demo). Mismos emails que el tablón para que

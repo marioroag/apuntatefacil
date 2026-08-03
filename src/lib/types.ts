@@ -490,6 +490,8 @@ export interface TeamRequestComment {
   authorUserId: string | null
   authorEmail: string
   body: string // '' permitido: respuesta solo con candidatos adjuntos
+  /** A quién avisa este mensaje. El cliente propone; el trigger filtra al equipo. */
+  mentions: string[]
   createdAt: string // ISO
 }
 
