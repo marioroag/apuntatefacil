@@ -51,7 +51,7 @@ import { clickDeFila } from '../lib/fila'
 // ORDEN; lo que sigue retirado es el buscador en lenguaje natural.
 import { MeridianAvatar, FitLabel } from '../components/Meridian'
 import { candidateFit, hasMeridian } from '../lib/meridian'
-import { STATUS_META, STATUS_ORDER } from '../lib/types'
+import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { Brand, Campaign, Candidate, CandidateInterestState, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
 import { planHas, PLAN_CANDIDATE_LIMIT, TAGS_ENABLED, type PlanFeature } from '../lib/pricing'
 import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
@@ -1287,7 +1287,7 @@ function RowSignals({ favorito, comments }: { favorito: boolean; comments: numbe
     <span className="flex shrink-0 items-center gap-1.5">
       {favorito && (
         <>
-          <Star className="size-3.5 fill-current text-indigo-600" aria-hidden />
+          <Star className={`size-3.5 ${FAVORITO_STAR}`} aria-hidden />
           <span className="sr-only">En favoritos.</span>
         </>
       )}
@@ -1880,7 +1880,10 @@ function FilterMenu({
           estrellas, que era el widget más grande para la decisión más simple. */}
       <label className={`${rowClass} mb-4 sm:mb-3`}>
         <Checkbox checked={favoritosOnly} onChange={() => setFavoritosOnly((v) => !v)} />
-        <Star className="size-4 shrink-0 text-slate-400" aria-hidden />
+        {/* La estrella del filtro va dorada y RELLENA, igual que la marca que
+            filtra: aquí no decora, identifica. Hueca y gris se leería como "no
+            es favorito", que es justo lo contrario de lo que hace la fila. */}
+        <Star className={`size-4 shrink-0 ${FAVORITO_STAR}`} aria-hidden />
         Solo favoritos
       </label>
 
