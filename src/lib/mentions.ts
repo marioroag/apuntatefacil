@@ -14,6 +14,12 @@ import type { CompanyMember } from './types'
 // mención sí, la siguiente no). La de comprobar no puede ser global.
 export const MENTION_RE = /@[\w.+-]+/g
 export const ES_MENCION = /^@[\w.+-]+$/
+/**
+ * La misma gramática, con grupo de captura, para partir un cuerpo en trozos y
+ * pintar las menciones. SOLO para `split()`: es global, así que `test()` sobre
+ * ella arrastraría `lastIndex` (para comprobar está `ES_MENCION`).
+ */
+export const MENTION_SPLIT_RE = /(@[\w.+-]+)/g
 
 export function mentionHandle(email: string | null | undefined): string {
   return (email ?? '').split('@')[0]?.trim().toLowerCase() ?? ''
