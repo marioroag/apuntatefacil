@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
@@ -75,6 +75,10 @@ import { InterestCheckDialog } from '../components/InterestCheckDialog'
 import { InterestOutcomeIcon } from '../components/InterestSignal'
 import { candidateInterestState, INTEREST_STATE_LABEL } from '../lib/interest'
 
+// Array vacío con identidad fija: escrito en línea en el JSX (`?? []`) sería uno
+// nuevo en cada render y despertaría a la tabla memoizada por nada.
+const SIN_FECHAS: string[] = []
+
 function answerStr(c: Candidate, fieldId: string): string {
   const v = c.answers[fieldId]
   if (v === undefined) return ''
@@ -132,18 +136,29 @@ export function Dashboard() {
   // así el aviso de una mención puede enlazar directamente a su ficha, y volver
   // atrás cierra el detalle en vez de salir del puesto.
   const openId = searchParams.get('candidato')
-  const setOpenId = (id: string | null) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        if (id) next.set('candidato', id)
-        else next.delete('candidato')
-        return next
-      },
-      // replace: recorrer 40 candidatos con las flechas no debe dejar 40 entradas
-      // en el historial del navegador.
-      { replace: true },
-    )
+  // `setSearchParams` NO es estable entre renders (react-router lo recrea con
+  // cada location), así que un useCallback que dependa de él tampoco lo sería.
+  // Va por ref para que `setOpenId` tenga identidad fija: es una prop de la
+  // tabla memoizada y una identidad nueva la volvería a pintar entera.
+  const setSearchParamsRef = useRef(setSearchParams)
+  useEffect(() => {
+    setSearchParamsRef.current = setSearchParams
+  })
+  const setOpenId = useCallback(
+    (id: string | null) =>
+      setSearchParamsRef.current(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (id) next.set('candidato', id)
+          else next.delete('candidato')
+          return next
+        },
+        // replace: recorrer 40 candidatos con las flechas no debe dejar 40 entradas
+        // en el historial del navegador.
+        { replace: true },
+      ),
+    [],
+  )
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [interestDialogOpen, setInterestDialogOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false) // modo selección múltiple (móvil)
@@ -445,7 +460,7 @@ export function Dashboard() {
   // bloquean). Las filas difuminadas, solo en la vista sin filtrar.
   const lockedFor = campaign && company?.plan === 'trial' ? lockedInfo[campaign.id] : undefined
   const lockedCount = lockedFor?.count ?? 0
-  const lockedDates = lockedFor?.dates ?? []
+  const lockedDates = lockedFor?.dates ?? SIN_FECHAS
   const isFiltered =
     !!dq || statusFilter.size > 0 || interestFilter.size > 0 || favoritosOnly || tagFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0
   // Los bloqueados (difuminados) salen ARRIBA, como las candidaturas nuevas (son
@@ -453,6 +468,18 @@ export function Dashboard() {
   // filtros): con otro orden no tendría sentido cronológico, así que ahí no se
   // pintan (el aviso de upsell sí sigue saliendo, va por el recuento aparte).
   const showLockedRows = !isFiltered && sort.key === 'fecha' && sort.dir === 'desc'
+
+  // Las tres funciones que viajan a la tabla van con `useCallback`: la tabla está
+  // memoizada y una función nueva en cada render la despertaría igual (ver la
+  // nota sobre `memo` en CandidateTable).
+  const toggleSort = useCallback((key: SortKey) =>
+    // Al elegir una columna nueva empieza ascendente, salvo Encaje: ahí lo que se
+    // pide al pulsar es "enséñame primero a quien encaja", no al revés.
+    setSort((s) => (s.key === key
+      ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+      : { key, dir: key === 'encaje' ? 'desc' : 'asc' })), [])
+  const abrirDialogoBloqueo = useCallback(() => setLockedDialogOpen(true), [])
+  const entrarEnSeleccion = useCallback(() => setSelectMode(true), [])
 
   if (!campaign) {
     return (
@@ -519,13 +546,6 @@ export function Dashboard() {
   const applyBrand = (brandId: string | null) => {
     updateCampaign(campaign.id, { brandId })
   }
-
-  const toggleSort = (key: SortKey) =>
-    // Al elegir una columna nueva empieza ascendente, salvo Encaje: ahí lo que se
-    // pide al pulsar es "enséñame primero a quien encaja", no al revés.
-    setSort((s) => (s.key === key
-      ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
-      : { key, dir: key === 'encaje' ? 'desc' : 'asc' }))
 
   const clearFilters = () => {
     setStatusFilter(new Set())
@@ -881,8 +901,8 @@ export function Dashboard() {
             showFit={showFit}
             rows={filtered}
             justArrived={justArrived}
-            lockedDates={showLockedRows ? lockedDates : []}
-            onLockedClick={() => setLockedDialogOpen(true)}
+            lockedDates={showLockedRows ? lockedDates : SIN_FECHAS}
+            onLockedClick={abrirDialogoBloqueo}
             tags={tags}
             sort={sort}
             onSort={toggleSort}
@@ -891,7 +911,7 @@ export function Dashboard() {
             onOpen={setOpenId}
             maskPhone={maskPhone}
             selectMode={selectMode}
-            onEnterSelect={() => setSelectMode(true)}
+            onEnterSelect={entrarEnSeleccion}
           />
         )}
       </div>
@@ -1169,7 +1189,22 @@ function FitCell({ candidate }: { candidate: Candidate }) {
   )
 }
 
-function CandidateTable({
+/**
+ * La tabla NO se vuelve a pintar porque abras una ficha (`memo`, ago 2026).
+ *
+ * El detalle del candidato vive en la URL (`?candidato=<id>`) y el pop-up cuelga
+ * del panel, así que abrirlo, cerrarlo o pasar al siguiente con las flechas
+ * volvía a renderizar las 142 filas de debajo: 440ms medidos con el Profiler
+ * frente a 15ms de la ficha entera. Ese era TODO el retraso que se sentía al
+ * pulsar una fila; el pop-up nunca fue lento.
+ *
+ * Para que esto siga funcionando, las props que llegan aquí tienen que ser
+ * estables entre renders: las funciones van con `useCallback` y los arrays
+ * vacíos son constantes de módulo (`SIN_FECHAS`). Una función escrita en línea
+ * en el JSX (`onSort={() => ...}`) apaga el memo en silencio y devuelve el
+ * retraso, sin romper nada visible. Al tocar el punto de uso, mirar las props.
+ */
+const CandidateTable = memo(function CandidateTable({
   campaign,
   showFit,
   rows,
@@ -1656,7 +1691,7 @@ function CandidateTable({
       />
     </>
   )
-}
+})
 
 // --- Subcomponentes de filtro / estados ------------------------------------
 // Slider de rango con dos pomos (dos inputs range superpuestos; los pomos no se

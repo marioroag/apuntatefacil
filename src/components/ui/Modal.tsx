@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { DUR } from '../../lib/motion'
+
+/** La curva de salida del panel, la misma que traía. Un fundido no la necesita. */
+const CURVA = [0, 0, 0.2, 1] as const
 
 /**
  * Modal centrado GRANDE (detalle del candidato). Hermano de ConfirmDialog: mismo
@@ -103,6 +107,12 @@ export function Modal({
     }
   }, [open, inert])
 
+  // Entra en `enter` (180ms, "algo aparece") y sale en `control` (150ms): cerrar
+  // es una respuesta a tu dedo y lo que se va no hay que anunciarlo. Las dos son
+  // duraciones del sistema, no números escritos aquí (ver `lib/motion.ts`).
+  const entra = { duration: reducedMotion ? 0 : DUR.enter, ease: CURVA }
+  const sale = { duration: reducedMotion ? 0 : DUR.control, ease: CURVA }
+
   return (
     <AnimatePresence>
       {open && (
@@ -119,9 +129,8 @@ export function Modal({
             className="absolute inset-0 bg-slate-900/40"
             aria-hidden
             initial={reducedMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.16 }}
+            animate={{ opacity: 1, transition: entra }}
+            exit={{ opacity: 0, transition: sale }}
             onClick={inert ? undefined : onClose}
           />
           {/* La capa no captura el clic: lo que cae fuera del panel llega al telón. */}
@@ -131,9 +140,8 @@ export function Modal({
               tabIndex={inert ? undefined : -1}
               className={`pointer-events-auto flex h-full max-h-svh w-full flex-col overflow-hidden bg-white shadow-pop outline-none sm:h-[min(88vh,780px)] sm:rounded-xl ${maxWidthClass}`}
               initial={reducedMotion ? false : { opacity: 0, scale: 0.98, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 6 }}
-              transition={{ duration: reducedMotion ? 0 : 0.18, ease: [0, 0, 0.2, 1] }}
+              animate={{ opacity: 1, scale: 1, y: 0, transition: entra }}
+              exit={reducedMotion ? { opacity: 0, transition: sale } : { opacity: 0, scale: 0.98, y: 6, transition: sale }}
             >
               {children}
             </motion.div>
