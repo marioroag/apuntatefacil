@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, FileText, Loader2 } from 'lucide-react'
 import { fullDateTime, memberAvatarTone, plural, relativeDate } from '../../lib/format'
 import { botonIcono } from '../../lib/buttons'
 import type { CompanyMember } from '../../lib/types'
-import { ES_MENCION, MENTION_SPLIT_RE, mentionHandle, resolveMentions } from '../../lib/mentions'
+import { ES_MENCION, MENTION_SPLIT_RE, mentionHandle, mentionToken, resolveMentions } from '../../lib/mentions'
 import { useProfiles } from '../../lib/profiles'
 import { Avatar } from './Avatar'
 
@@ -455,17 +455,21 @@ export function ChatComposer({
     setActivo(0)
   }
 
+  /** El identificador tal y como se escribe: con las mayúsculas de la persona. */
+  const tokenDe = (m: CompanyMember) => mentionToken(profiles.nameFor(m.userId, m.email), m.email)
+
   const elegir = (m: CompanyMember) => {
     const el = areaRef.current
     if (!el) return
     const t = tokenEnCurso(el)
     if (!t) return
     const hasta = el.selectionStart ?? 0
-    const nuevo = `${el.value.slice(0, t.desde)}@${mentionHandle(m.email)} ${el.value.slice(hasta)}`
+    const token = tokenDe(m)
+    const nuevo = `${el.value.slice(0, t.desde)}@${token} ${el.value.slice(hasta)}`
     setTexto(nuevo)
     setSugerencias([])
     window.requestAnimationFrame(() => {
-      const caret = t.desde + mentionHandle(m.email).length + 2
+      const caret = t.desde + token.length + 2
       el.focus()
       el.setSelectionRange(caret, caret)
       autoAlto()
@@ -504,26 +508,35 @@ export function ChatComposer({
           aria-label="Avisar a alguien del equipo"
           className="absolute bottom-full left-0 z-10 mb-1 w-64 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-pop"
         >
-          {sugerencias.map((m, i) => (
-            <li key={m.userId}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={i === activo}
-                onMouseDown={(e) => {
-                  e.preventDefault() // no robar el foco al textarea
-                  elegir(m)
-                }}
-                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
-                  i === activo ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                <Avatar name={profiles.nameFor(m.userId, m.email)} seed={m.email} src={profiles.avatarFor(m.userId)} size={20} />
-                <span className="min-w-0 truncate font-medium">{profiles.nameFor(m.userId, m.email)}</span>
-                <span className="num shrink-0 truncate text-[12px] text-slate-500">@{mentionHandle(m.email)}</span>
-              </button>
-            </li>
-          ))}
+          {sugerencias.map((m, i) => {
+            const nombre = profiles.nameFor(m.userId, m.email)
+            const token = tokenDe(m)
+            return (
+              <li key={m.userId}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={i === activo}
+                  onMouseDown={(e) => {
+                    e.preventDefault() // no robar el foco al textarea
+                    elegir(m)
+                  }}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
+                    i === activo ? 'bg-slate-100 text-slate-900' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <Avatar name={nombre} seed={m.email} src={profiles.avatarFor(m.userId)} size={20} />
+                  <span className="min-w-0 truncate font-medium">{nombre}</span>
+                  {/* El identificador solo si dice algo más que el nombre: con
+                      "Laura" y "@Laura" en la misma fila, la segunda columna es
+                      la primera repetida. */}
+                  {token !== nombre && (
+                    <span className="shrink-0 truncate text-[12px] text-slate-500">@{token}</span>
+                  )}
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
 
