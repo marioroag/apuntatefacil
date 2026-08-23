@@ -240,6 +240,40 @@ describe('las decisiones de acabado tienen nombre', () => {
     ).toEqual([])
   })
 
+  it('una superficie con radio no deja que su contenido llegue al filo', () => {
+    // El borde de una tarjeta es de 1px y sus hijos son cajas CUADRADAS que
+    // arrancan justo dentro. En los tramos rectos no se tocan, pero en el arco de
+    // la esquina el cuadrado se mete en el anillo del borde y pinta su fondo
+    // ENCIMA: el filo de la esquina se ve de otro color. Pasó en la tabla del
+    // puesto con la banda de la cabecera (`bg-slate-50/60`) y se vio a simple
+    // vista. `overflow-hidden` lo arregla pero convierte la tarjeta en contenedor
+    // de scroll y deja sin efecto cualquier `sticky` de dentro; `overflow-clip`
+    // recorta con el mismo radio SIN crear contenedor de scroll, que es lo que
+    // permite tener las dos cosas.
+    const fallos: Fallo[] = []
+    for (const f of fuentes()) {
+      f.codigo.split('\n').forEach((l, i) => {
+        const limpia = l.trim()
+        if (limpia.startsWith('//') || limpia.startsWith('*')) return
+        if (!/(?<![\w-])(?:[a-z]+:)?overflow-visible(?![\w-])/.test(l)) return
+        if (!/(?<![\w-])rounded-/.test(l)) return
+        if (!/(?<![\w:-])(?:filo|border)(?![\w-])/.test(l)) return
+        fallos.push({ ruta: f.ruta, linea: i + 1, texto: 'overflow-visible en una superficie con radio y filo' })
+      })
+    }
+
+    expect(
+      fallos,
+      `Superficies con radio que no recortan lo que llevan dentro:\n${lista(fallos)}\n\n` +
+        `Cambia \`overflow-visible\` por \`overflow-clip\`. Con \`visible\`, el fondo de ` +
+        `cualquier hijo que llegue al filo se pinta encima del borde JUSTO en la curva y la ` +
+        `esquina se ve de otro color. Con \`hidden\` se arregla el color y se rompe el ` +
+        `\`sticky\` de dentro, porque la tarjeta pasa a ser contenedor de scroll. \`clip\` ` +
+        `hace lo uno sin lo otro. Y si algo de dentro TIENE que salirse, sácalo por un ` +
+        `portal con posición fija, como el menú de estado.`,
+    ).toEqual([])
+  })
+
   it('nada dura más que el techo, ni se sale de la escala', () => {
     const permitidas = DURACIONES.map((d) => `duration-[var(--duration-${d})]`)
     const fallos = buscar(/(?<![\w-])duration-(?!\[var\()[\w.[\]]+/g)

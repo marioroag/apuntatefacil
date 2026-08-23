@@ -896,7 +896,23 @@ export function Dashboard() {
       )}
 
       {/* Tabla / estados */}
-      <div className="mt-3 overflow-hidden rounded-xl filo bg-white shadow-card md:overflow-visible">
+      {/* En escritorio va `overflow-clip`, ni `visible` ni `hidden`, y las tres
+          palabras importan (ago 2026). Con `visible`, la banda de la cabecera (una
+          caja CUADRADA que arranca 1px dentro de la tarjeta) se metía en el arco de
+          las esquinas y pintaba su `bg-slate-50/60` ENCIMA del filo: el borde de la
+          esquina se veía de otro color, y no era cosa del antialias. Medido con
+          `elementsFromPoint` sobre el arco a 45 grados: lo que hay ahí arriba del
+          todo es el fondo del `<th>`, no el borde de la tarjeta. Con `hidden` se
+          arregla el color y se rompe la cabecera pegajosa, porque convierte la
+          tarjeta en contenedor de scroll y el sticky pasa a pegarse a ELLA en vez de
+          al scroll de verdad; por eso estaba en `visible`. `clip` recorta con el
+          mismo radio y NO crea contenedor de scroll, así que arregla lo uno sin
+          romper lo otro. Y nada de dentro necesita salirse: el menú de estado va en
+          un portal con posición fija (por eso mismo) y el CTA de las bloqueadas vive
+          dentro del envoltorio. Corolario: una tarjeta con radio no puede dejar que
+          su contenido llegue al filo sin recortar; el borde es de 1px y cualquier
+          fondo hijo se lo come justo en la curva. */}
+      <div className="mt-3 overflow-hidden rounded-xl filo bg-white shadow-card md:overflow-clip">
         {loading ? (
           <SkeletonRows showFit={showFit} />
         ) : filtered.length === 0 ? (
