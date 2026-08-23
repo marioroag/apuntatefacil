@@ -26,7 +26,7 @@ export function AssetBox({
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   return (
-    <div className={`group/asset relative shrink-0 overflow-hidden bg-slate-50 ${url ? 'border border-slate-200' : 'border border-dashed border-slate-300'} ${className}`}>
+    <div className={`group/asset relative shrink-0 overflow-hidden bg-slate-50 ${url ? 'filo' : 'border border-dashed border-slate-300'} ${className}`}>
       {url && <img src={url} alt="" className="h-full w-full object-cover" />}
       <button
         type="button"

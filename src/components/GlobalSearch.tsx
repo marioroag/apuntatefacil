@@ -284,7 +284,7 @@ export function GlobalSearch({
         </button>
       ) : (
         variant === 'inline' && (
-          <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-500">
+          <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded filo bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-500">
             ⌘K
           </kbd>
         )
@@ -351,7 +351,7 @@ export function GlobalSearch({
     <div ref={wrapRef} className="relative flex h-full w-full max-w-[420px] items-center">
       {campo}
       {mostrar && (
-        <div className="absolute left-0 top-full z-40 mt-1.5 w-full rounded-xl border border-slate-200 bg-white p-1.5 shadow-pop">
+        <div className="absolute left-0 top-full z-40 mt-1.5 w-full rounded-xl filo bg-white p-1.5 shadow-pop">
           {resultados}
         </div>
       )}

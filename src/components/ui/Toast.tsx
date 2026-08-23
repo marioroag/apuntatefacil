@@ -65,7 +65,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
               transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
               role={t.kind === 'error' ? 'alert' : 'status'}
-              className="pointer-events-auto flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 pl-3.5 shadow-pop"
+              className="pointer-events-auto flex items-start gap-3 rounded-xl filo bg-white p-3 pl-3.5 shadow-pop"
             >
               <span className="mt-0.5 shrink-0">{ICON[t.kind]}</span>
               <p className="flex-1 text-sm leading-snug text-slate-700">{t.message}</p>

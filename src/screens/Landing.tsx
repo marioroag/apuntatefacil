@@ -313,7 +313,7 @@ function Compare() {
         <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Antes: por el chat */}
           <Reveal>
-            <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+            <div className="flex h-full flex-col overflow-hidden rounded-2xl filo bg-white shadow-card">
               <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5">
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-caption font-bold text-slate-500">AN</span>
                 <div className="min-w-0 flex-1">
@@ -339,7 +339,7 @@ function Compare() {
 
           {/* Después: con Apúntate Fácil */}
           <Reveal delay={0.08} className="resolved-card">
-            <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-green-200 bg-white shadow-card">
+            <div className="flex h-full flex-col overflow-hidden rounded-2xl filo-green-200 bg-white shadow-card">
               <div className="flex items-center gap-3 border-b border-green-100 px-4 py-3.5">
                 <span className="grid size-9 shrink-0 place-items-center rounded-full bg-green-100 text-caption font-bold text-green-700">AN</span>
                 <div className="min-w-0 flex-1">
@@ -358,7 +358,7 @@ function Compare() {
                 <ChatTime>10:44, dos minutos después</ChatTime>
                 <Bubble from="them">¡Hecho! 👍</Bubble>
 
-                <div className="mt-1.5 rounded-xl border border-green-200 bg-white p-3.5">
+                <div className="mt-1.5 rounded-xl filo-green-200 bg-white p-3.5">
                   <p className="flex items-center gap-1.5 text-label font-semibold text-green-700">
                     <Check className="size-4 shrink-0" aria-hidden /> Te llega ordenado en tu lista, sin preguntar nada
                   </p>
@@ -447,7 +447,7 @@ function FeatureMiniRow({ m, index }: { m: (typeof FEATURE_MINI)[number]; index:
 
 function FeatureMiniList({ rows }: { rows: typeof FEATURE_MINI }) {
   return (
-    <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+    <div className="mt-6 overflow-hidden rounded-xl filo bg-slate-50">
       {rows.map((m, i) => (
         <FeatureMiniRow key={m.name} m={m} index={i} />
       ))}
@@ -467,7 +467,7 @@ function FeaturesHeroCard({
   compactMock: boolean
 }) {
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white card-pad shadow-card lg:card-pad-loose">
+    <div className="flex h-full flex-col rounded-2xl filo bg-white card-pad shadow-card lg:card-pad-loose">
       <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
         <Icon className="size-5" aria-hidden />
       </span>
@@ -500,7 +500,7 @@ function FeatureSecondaryRow({ icon: Icon, title, body }: { icon: LucideIcon; ti
 
 function FeatureSecondaryCard({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+    <div className="flex h-full flex-col rounded-2xl filo bg-white p-6 shadow-card">
       <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
         <Icon className="size-5" aria-hidden />
       </span>
@@ -530,7 +530,7 @@ function Features() {
         {/* Móvil/tablet: hero compacto + panel de filas */}
         <div className="mt-12 lg:hidden">
           <FeaturesHeroCard icon={hero.icon} title={hero.title} body={hero.body} compactMock />
-          <div className="mt-5 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white shadow-card">
+          <div className="mt-5 divide-y divide-slate-200 rounded-2xl filo bg-white shadow-card">
             {rest.map((it) => (
               <FeatureSecondaryRow key={it.title} icon={it.icon} title={it.title} body={it.body} />
             ))}
@@ -566,7 +566,7 @@ function TeamBoardMock() {
 
   return (
     <div aria-hidden className="relative">
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+      <div className="flex flex-col overflow-hidden rounded-2xl filo bg-white shadow-card">
         {/* Cabecera tipo SlideOver */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
           <p className="min-w-0 flex-1 text-balance text-[15px] font-semibold leading-snug text-slate-900 sm:text-base">
@@ -592,7 +592,7 @@ function TeamBoardMock() {
 
           <div className="flex flex-col gap-2">
             <p className="text-sm font-semibold text-slate-800">2 candidatos propuestos</p>
-            <ul className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <ul className="overflow-hidden rounded-xl filo bg-white">
               {TEAM_PROPOSALS.map((p, i) => {
                 const meta = STATUS_META[p.status]
                 return (
@@ -662,7 +662,7 @@ function TeamBoardMock() {
                   <p className="mt-1 text-[13px] leading-[1.45] text-slate-700 sm:text-[14px]">
                     Estos dos viven cerca de la nave y tienen disponibilidad inmediata.
                   </p>
-                  <span className="mt-2 flex min-h-9 w-full max-w-md items-center gap-2.5 rounded-xl border border-slate-200 bg-white py-1.5 pl-2 pr-3">
+                  <span className="mt-2 flex min-h-9 w-full max-w-md items-center gap-2.5 rounded-xl filo bg-white py-1.5 pl-2 pr-3">
                     <span className="flex shrink-0 items-center pl-0.5">
                       {TEAM_PROPOSALS.map((p, i) => (
                         <span
@@ -787,10 +787,10 @@ function PricingTierCard({ tier: t, annual, gridEmphasis = false }: { tier: Tier
     <div
       className={`relative flex h-full flex-col rounded-2xl card-pad ${
         t.available === false
-          ? 'border border-slate-200 bg-slate-50'
+          ? 'filo bg-slate-50'
           : recommended
             ? `border-2 border-indigo-600 bg-white shadow-card${gridEmphasis ? ' lg:scale-[1.02] lg:z-10' : ''}`
-            : 'border border-slate-200 bg-white shadow-card'
+            : 'filo bg-white shadow-card'
       }`}
     >
       {t.available === false ? (
@@ -863,7 +863,7 @@ function onTierTabKeyDown(
 
 function CompactCostComparison() {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+    <div className="overflow-hidden rounded-2xl filo bg-slate-50">
       <div className="grid grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
         <div className="border-b border-r border-slate-200 px-4 py-4">
           <h3 className="text-label font-semibold leading-snug text-slate-700">Lo que ocurre hoy</h3>
@@ -899,7 +899,7 @@ function CostComparisonLedger() {
       <div className="lg:hidden">
         <CompactCostComparison />
       </div>
-      <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 lg:block">
+      <div className="hidden overflow-hidden rounded-2xl filo bg-slate-50 lg:block">
         <div className="grid lg:grid-cols-[0.92fr_1.08fr]">
           <div className="border-b border-slate-200 px-6 py-7 sm:px-8 sm:py-9 lg:border-r lg:px-9">
             <h3 className="max-w-sm text-title font-semibold tracking-tight text-slate-900">Cuando todo se queda repartido</h3>
@@ -984,7 +984,7 @@ function Pricing() {
         <div
           role="group"
           aria-label="Periodicidad de facturación"
-          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1.5"
+          className="inline-flex items-center gap-1 rounded-full filo bg-white p-1.5"
           onKeyDown={(e) => {
             if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
               e.preventDefault()
@@ -1010,7 +1010,7 @@ function Pricing() {
         <div
           role="tablist"
           aria-label="Planes de suscripción"
-          className="mx-auto flex w-full max-w-md gap-1 rounded-full border border-slate-200 bg-white p-1.5"
+          className="mx-auto flex w-full max-w-md gap-1 rounded-full filo bg-white p-1.5"
           onKeyDown={(e) => onTierTabKeyDown(e, selectedTier, setSelectedTier)}
         >
           {TIERS.map((t) => {

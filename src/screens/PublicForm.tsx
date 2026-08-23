@@ -211,11 +211,11 @@ export function PublicForm() {
     <div className="min-h-svh bg-slate-50 px-4 py-8 sm:py-12">
       <div ref={formTop} className="mx-auto w-full max-w-[480px]">
         {submitError && (
-          <div role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+          <div role="alert" className="mb-3 rounded-xl filo-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
             {submitError}
           </div>
         )}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card sm:p-7">
+        <div className="rounded-2xl filo bg-white p-5 shadow-card sm:p-7">
           <ApplicationForm
             campaign={campaign}
             values={values}
@@ -263,7 +263,7 @@ function ThankYou({ campaign, isTest = false }: { campaign: PublicCampaign; isTe
       style={{ ['--accent' as string]: accent, ['--accent-contrast' as string]: readableOn(accent) }}
     >
       <div className="mx-auto w-full max-w-[480px]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-7 text-center shadow-card" role="status">
+        <div className="rounded-2xl filo bg-white p-7 text-center shadow-card" role="status">
           <motion.div
             initial={{ scale: 0.6, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -300,7 +300,7 @@ function ThankYou({ campaign, isTest = false }: { campaign: PublicCampaign; isTe
 function CenteredCard({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-8">
-      <div className="w-full max-w-[420px] rounded-2xl border border-slate-200 bg-white p-7 text-center shadow-card">
+      <div className="w-full max-w-[420px] rounded-2xl filo bg-white p-7 text-center shadow-card">
         {children}
       </div>
     </div>

@@ -115,7 +115,7 @@ export function OnboardingGuide() {
       role="complementary"
       aria-label="Guía de primeros pasos"
     >
-      <div className="relative rounded-xl border border-slate-200 bg-white p-4 shadow-pop">
+      <div className="relative rounded-xl filo bg-white p-4 shadow-pop">
         <button
           onClick={dismiss}
           aria-label="Cerrar la guía"

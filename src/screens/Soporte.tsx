@@ -212,11 +212,11 @@ export function Soporte() {
           <Loader2 className="size-6 animate-spin text-slate-400" aria-hidden />
         </div>
       ) : visible.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-card">
+        <div className="rounded-xl filo bg-white px-6 py-16 text-center shadow-card">
           <p className="text-sm text-slate-500">{filter === 'abierto' ? 'No hay consultas abiertas. Todo al día.' : 'No hay consultas cerradas.'}</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+        <div className="overflow-hidden rounded-xl filo bg-white shadow-card">
           <ul className="divide-y divide-slate-100" aria-label="Consultas de soporte">
             {visible.map((t) => {
               const { Icon } = ORIGEN[t.source]

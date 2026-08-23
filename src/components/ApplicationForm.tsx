@@ -112,7 +112,7 @@ export function ApplicationForm({
 
       {/* Resumen de errores (al enviar) */}
       {errorList.length > 0 && (
-        <div role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3.5">
+        <div role="alert" className="mb-5 rounded-xl filo-red-200 bg-red-50 p-3.5">
           <p className="flex items-center gap-1.5 text-sm font-semibold text-red-700">
             <AlertCircle className="size-4" aria-hidden />
             Revisa {errorList.length === 1 ? 'este campo' : `estos ${errorList.length} campos`}

@@ -508,7 +508,7 @@ export function MencionesLista({
       id={id}
       role="listbox"
       aria-label="Avisar a alguien del equipo"
-      className="absolute bottom-full left-0 z-10 mb-1 w-64 max-w-full overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-pop"
+      className="absolute bottom-full left-0 z-10 mb-1 w-64 max-w-full overflow-hidden rounded-xl filo bg-white py-1 shadow-pop"
     >
       {sugerencias.map((m, i) => {
         const nombre = profiles.nameFor(m.userId, m.email)

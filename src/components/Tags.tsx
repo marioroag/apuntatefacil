@@ -240,7 +240,7 @@ export function TagPicker({
       <ul
         id={listId}
         role="listbox"
-        className={`absolute inset-x-0 z-50 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-pop ${
+        className={`absolute inset-x-0 z-50 max-h-60 overflow-y-auto rounded-xl filo bg-white p-1 shadow-pop ${
           arriba ? 'bottom-full mb-1' : 'top-full mt-1'
         }`}
       >
@@ -600,7 +600,7 @@ export function BulkTagMenu({
         {mode === 'add' ? COPY.addToSel : COPY.removeFromSel}
       </button>
       {open && (
-        <div className={`absolute left-0 z-50 w-60 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-pop ${placement === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+        <div className={`absolute left-0 z-50 w-60 overflow-hidden rounded-xl filo bg-white p-1.5 shadow-pop ${placement === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}

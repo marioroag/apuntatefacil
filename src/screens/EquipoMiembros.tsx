@@ -170,7 +170,7 @@ export function EquipoMiembros() {
       {isOwner && (
         <form
           onSubmit={invite}
-          className={`rounded-xl border border-slate-200 bg-white p-4 shadow-card ${demo ? 'opacity-[0.92]' : ''}`}
+          className={`rounded-xl filo bg-white p-4 shadow-card ${demo ? 'opacity-[0.92]' : ''}`}
         >
           <p className="text-sm font-semibold text-slate-800">Invitar por email</p>
           <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
@@ -223,7 +223,7 @@ export function EquipoMiembros() {
               <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Invitaciones pendientes</h2>
               <div className="space-y-2">
                 {invites.map((inv) => (
-                  <div key={inv.id} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-card">
+                  <div key={inv.id} className="flex items-center gap-3 rounded-xl filo bg-white p-3 shadow-card">
                     <span className="grid size-9 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-600">
                       <Mail className="size-4" aria-hidden />
                     </span>
@@ -328,7 +328,7 @@ function MemberRow({
   // email es lo único que hay y ocupa la primera línea, como siempre.
   const tieneNombre = nombre.toLowerCase() !== personLabel(member.email).toLowerCase()
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-card">
+    <div className="flex items-center gap-3 rounded-xl filo bg-white p-3 shadow-card">
       <Avatar name={nombre} seed={member.email} src={profiles.avatarFor(member.user_id)} size={36} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium text-slate-900">
@@ -385,7 +385,7 @@ function RolePill({ active, onClick, label, hint }: { active: boolean; onClick: 
 
 function SedePicker({ sites, selected, onToggle }: { sites: { id: string; name: string }[]; selected: Set<string>; onToggle: (id: string) => void }) {
   return (
-    <div className="mt-2 rounded-xl border border-slate-200 p-2.5">
+    <div className="mt-2 rounded-xl filo p-2.5">
       <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-slate-600">
         <Building2 className="size-3.5 text-slate-500" aria-hidden /> Sedes que gestiona
       </p>
@@ -423,7 +423,7 @@ function MemberEditor({
   const [role, setRole] = useState<'member' | 'encargado'>(member.role === 'encargado' ? 'encargado' : 'member')
   const [sel, setSel] = useState<Set<string>>(new Set(member.site_ids))
   return (
-    <div className="rounded-xl border border-indigo-200 bg-white p-3 shadow-card">
+    <div className="rounded-xl filo-indigo-200 bg-white p-3 shadow-card">
       <p className="truncate text-sm font-medium text-slate-900">{member.email}</p>
       <div className="mt-2 flex gap-1.5">
         <RolePill active={role === 'member'} onClick={() => setRole('member')} label="Miembro" hint="ve todo" />

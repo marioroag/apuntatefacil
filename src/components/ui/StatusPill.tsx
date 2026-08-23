@@ -125,7 +125,7 @@ export function StatusSelect({
             ref={menuRef}
             role="listbox"
             style={{ position: 'fixed', top: pos.top, left: pos.left, width: MENU_W }}
-            className="z-[70] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-pop"
+            className="z-[70] overflow-hidden rounded-xl filo bg-white py-1 shadow-pop"
           >
             {STATUS_ORDER.map((s) => {
               const mm = STATUS_META[s]

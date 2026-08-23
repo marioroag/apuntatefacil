@@ -56,7 +56,7 @@ export function TemplateGrid({ busyKey, onPick }: {
             key={t.key}
             onClick={() => onPick(t.key, t)}
             disabled={!!busyKey}
-            className="group flex flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-3.5 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 disabled:opacity-60"
+            className="group flex flex-col items-start gap-2 rounded-xl filo bg-white p-3.5 text-left transition-colors hover:filo-indigo-300 hover:bg-indigo-50/40 disabled:opacity-60"
           >
             <span className="grid size-9 place-items-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600">
               {loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Icon className="size-5" aria-hidden />}

@@ -70,7 +70,7 @@ export function ResetPassword() {
           <ArrowLeft className="size-4" aria-hidden /> Volver
         </Link>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-card">
+        <div className="rounded-2xl filo bg-white p-7 shadow-card">
           <div className="flex items-center gap-2.5">
             <Logo className="size-9" />
             <span className="text-xl brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
@@ -81,7 +81,7 @@ export function ResetPassword() {
               <Loader2 className="size-4 animate-spin" aria-hidden /> Comprobando el enlace...
             </div>
           ) : status === 'invalid' ? (
-            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+            <div className="mt-6 rounded-xl filo bg-slate-50 p-4 text-center">
               <p className="text-sm font-semibold text-slate-900">Este enlace no es válido o ha caducado</p>
               <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
                 Pide uno nuevo desde la pantalla de acceso.

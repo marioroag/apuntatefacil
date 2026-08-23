@@ -211,7 +211,7 @@ export function ShareReply({
           className={FIELD}
         />
       ) : (
-        <div className="min-h-[4.5rem] whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm leading-relaxed text-slate-800">
+        <div className="min-h-[4.5rem] whitespace-pre-wrap rounded-xl filo bg-slate-50 px-3.5 py-3 text-sm leading-relaxed text-slate-800">
           {savedBody}
         </div>
       )}
@@ -243,7 +243,7 @@ export function ShareReply({
         )}
       </button>
 
-      <div className="mt-2 flex min-w-0 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 py-1 pl-3 pr-1">
+      <div className="mt-2 flex min-w-0 items-center gap-1 rounded-xl filo bg-slate-50 py-1 pl-3 pr-1">
         <p className="min-w-0 flex-1 truncate text-[12px] num text-slate-600" title={display}>
           {display}
         </p>

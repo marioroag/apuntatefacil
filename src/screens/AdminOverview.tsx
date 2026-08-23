@@ -182,7 +182,7 @@ export function AdminOverview() {
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
         {/* Suscripciones por plan + MRR */}
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+        <section className="rounded-xl filo bg-white p-5 shadow-card">
           <div className="flex items-baseline justify-between">
             <h2 className="text-sm font-semibold text-slate-900">Suscripciones por plan</h2>
             <span className="num text-[13px] font-semibold text-slate-900">
@@ -206,7 +206,7 @@ export function AdminOverview() {
         </section>
 
         {/* Candidaturas por día (14 días) */}
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+        <section className="rounded-xl filo bg-white p-5 shadow-card">
           <div className="flex items-baseline justify-between">
             <h2 className="text-sm font-semibold text-slate-900">Candidaturas, últimos 14 días</h2>
             <span className="num text-[13px] font-semibold text-slate-900">
@@ -230,7 +230,7 @@ export function AdminOverview() {
         </section>
 
         {/* Candidatos por estado */}
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+        <section className="rounded-xl filo bg-white p-5 shadow-card">
           <h2 className="text-sm font-semibold text-slate-900">Candidatos por estado</h2>
           <ul className="mt-4 space-y-2.5">
             {STATUS_ORDER.map((s) => {
@@ -253,7 +253,7 @@ export function AdminOverview() {
 
         {/* Puestos + Soporte */}
         <section className="grid grid-rows-2 gap-3">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+          <div className="rounded-xl filo bg-white p-5 shadow-card">
             <div className="flex items-center gap-2">
               <Briefcase className="size-4 text-slate-400" aria-hidden />
               <h2 className="text-sm font-semibold text-slate-900">Puestos</h2>
@@ -266,7 +266,7 @@ export function AdminOverview() {
           </div>
           <Link
             to="/app/soporte"
-            className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-card transition-colors hover:border-slate-300"
+            className="group flex items-center justify-between rounded-xl filo bg-white p-5 shadow-card transition-colors hover:filo-slate-300"
           >
             <div>
               <div className="flex items-center gap-2">
@@ -342,15 +342,15 @@ export function AdminOverview() {
             </div>
 
             <div className="mt-4 grid grid-cols-3 gap-3 px-2">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="rounded-xl filo bg-slate-50 p-3">
                 <p className="num text-xl font-semibold text-slate-900">{miles(selected.users)}</p>
                 <p className="text-[12px] text-slate-500">{selected.users === 1 ? 'Usuario' : 'Usuarios'}</p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="rounded-xl filo bg-slate-50 p-3">
                 <p className="num text-xl font-semibold text-slate-900">{miles(selected.campaigns)}</p>
                 <p className="text-[12px] text-slate-500">{selected.campaigns === 1 ? 'Puesto' : 'Puestos'}</p>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="rounded-xl filo bg-slate-50 p-3">
                 <p className="num text-xl font-semibold text-slate-900">{miles(selected.candidates)}</p>
                 <p className="text-[12px] text-slate-500">
                   Candidatos{selected.candidates_7d > 0 ? ` · +${miles(selected.candidates_7d)} 7d` : ''}
@@ -464,7 +464,7 @@ function StatCard({
       <p className="mt-1 text-[13px] text-slate-500">{sub}</p>
     </>
   )
-  const cls = 'block rounded-xl border border-slate-200 bg-white p-5 shadow-card'
+  const cls = 'block rounded-xl filo bg-white p-5 shadow-card'
   if (to) {
     return (
       <Link to={to} className={`${cls} transition-colors hover:border-slate-300`}>

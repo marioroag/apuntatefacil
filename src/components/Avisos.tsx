@@ -114,7 +114,7 @@ export function Avisos() {
             else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1) }
           }}
           style={{ top }}
-          className="fixed right-2 z-40 w-[min(22rem,calc(100vw-1rem))] rounded-xl border border-slate-200 bg-white shadow-pop"
+          className="fixed right-2 z-40 w-[min(22rem,calc(100vw-1rem))] rounded-xl filo bg-white shadow-pop"
         >
           <div className="flex items-baseline justify-between px-3 py-2.5">
             <h2 className="text-sm font-semibold text-slate-900">Avisos</h2>

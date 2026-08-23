@@ -67,7 +67,7 @@ function ScrollToEnd() {
     <MessageScroller.Button
       direction="end"
       aria-label="Ir al final de la conversación"
-      className="absolute bottom-4 left-1/2 grid size-9 -translate-x-1/2 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-pop transition-[color,transform,opacity] duration-[var(--duration-control)] hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 data-[active=false]:translate-y-1 data-[active=false]:opacity-0"
+      className="absolute bottom-4 left-1/2 grid size-9 -translate-x-1/2 place-items-center rounded-full filo bg-white text-slate-500 shadow-pop transition-[color,transform,opacity] duration-[var(--duration-control)] hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 data-[active=false]:translate-y-1 data-[active=false]:opacity-0"
     >
       <ArrowDown className="size-4" aria-hidden />
     </MessageScroller.Button>

@@ -222,7 +222,7 @@ export function ProfileDialog({ open, onClose }: { open: boolean; onClose: () =>
             </div>
 
             {error && (
-              <p role="alert" className="mt-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+              <p role="alert" className="mt-4 flex items-start gap-2 rounded-xl filo-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
                 <AlertCircle className="mt-px size-4 shrink-0" aria-hidden />
                 {error}
               </p>

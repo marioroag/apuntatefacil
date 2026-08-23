@@ -174,7 +174,7 @@ export function TopBar({
               <button
                 onClick={onOpenOnboarding}
                 aria-label={`Primeros pasos, paso ${onboardingPaso} de ${ONBOARDING_TOTAL}`}
-                className="ml-1 hidden h-9 items-center gap-2 rounded-full border border-slate-200 pl-2.5 pr-3 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 sm:inline-flex"
+                className="ml-1 hidden h-9 items-center gap-2 rounded-full filo pl-2.5 pr-3 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 sm:inline-flex"
               >
                 <Anillo paso={onboardingPaso} />
                 Primeros pasos
@@ -379,7 +379,7 @@ function CompanyMenu({
             else if (e.key === 'Home') { e.preventDefault(); move('first') }
             else if (e.key === 'End') { e.preventDefault(); move('last') }
           }}
-          className="absolute left-0 top-full z-40 mt-1.5 w-[min(20rem,calc(100vw-1rem))] rounded-xl border border-slate-200 bg-white p-1.5 shadow-pop"
+          className="absolute left-0 top-full z-40 mt-1.5 w-[min(20rem,calc(100vw-1rem))] rounded-xl filo bg-white p-1.5 shadow-pop"
         >
           {/* Dónde estás. Centrado y con aire: es la puerta de entrada de la
               cuenta, no una fila más. No es accionable (el bloque de arriba

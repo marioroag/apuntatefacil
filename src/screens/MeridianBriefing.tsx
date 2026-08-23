@@ -668,7 +668,7 @@ function ActivityBell({ tasks, unread, seenAt, getCand, getCampaign, onOpenPanel
       {open && (
         <motion.div
           initial={{ opacity: 0, y: 6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.16, ease: EASE }}
-          className="absolute right-0 top-full z-30 mt-2 flex max-h-[70vh] w-[392px] max-w-[calc(100vw-2rem)] origin-top-right flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-pop"
+          className="absolute right-0 top-full z-30 mt-2 flex max-h-[70vh] w-[392px] max-w-[calc(100vw-2rem)] origin-top-right flex-col overflow-hidden rounded-2xl filo bg-white shadow-pop"
         >
           <p className="flex items-center gap-1.5 border-b border-slate-100 px-4 py-2.5 text-[13px] font-semibold text-slate-800">
             <Activity className="size-4 text-slate-500" aria-hidden /> Actividad
@@ -772,7 +772,7 @@ function TaskBlock({ task, senderName, getCand, getCampaign, onOpen, onWrite, on
   })
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+    <div className="overflow-hidden rounded-2xl filo bg-white shadow-card">
       {/* Cabecera: qué es, desde cuándo, cómo va */}
       <div className="border-b border-slate-100 px-3.5 py-3">
         <div className="flex items-center gap-2">
@@ -914,7 +914,7 @@ function MeridianTurn({ turn, senderFor, getCand, getCampaign, getTask, onOpen, 
         {turn.block?.kind === 'insight' && (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {turn.block.items.map((it) => (
-              <div key={it.label} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-card">
+              <div key={it.label} className="rounded-xl filo bg-white px-3 py-2.5 shadow-card">
                 <p className="num text-xl font-semibold text-slate-900">{it.value}</p>
                 <p className="text-[11px] leading-tight text-slate-500">{it.label}</p>
               </div>
@@ -927,7 +927,7 @@ function MeridianTurn({ turn, senderFor, getCand, getCampaign, getTask, onOpen, 
         {turn.suggestions && turn.suggestions.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {turn.suggestions.map((s) => (
-              <button key={s} onClick={() => onAsk(s)} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[12px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1">{s}</button>
+              <button key={s} onClick={() => onAsk(s)} className="rounded-full filo bg-white px-3 py-1 text-[12px] font-medium text-slate-600 transition-colors hover:filo-slate-300 hover:bg-slate-50 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1">{s}</button>
             ))}
           </div>
         )}
@@ -965,7 +965,7 @@ function CandidatesBlock({ ids, reasons, hiddenCount, getCand, getCampaign, onOp
   const todoSeleccionado = visibles.length > 0 && visibles.every((id) => sel.has(id))
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+    <div className="overflow-hidden rounded-2xl filo bg-white shadow-card">
       <ul>
         {visibles.map((id, i) => {
           const c = getCand(id); if (!c) return null
@@ -1103,7 +1103,7 @@ function MarkMenu({ onPick }: { onPick: (s: CandidateStatus) => void }) {
         <Check className="size-4 text-slate-500" aria-hidden /> Marcar como <ChevronDown className="size-3.5 text-slate-400" aria-hidden />
       </button>
       {open && (
-        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.14, ease: EASE }} className="absolute bottom-full left-0 z-20 mb-1 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-pop" role="menu">
+        <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.14, ease: EASE }} className="absolute bottom-full left-0 z-20 mb-1 w-44 overflow-hidden rounded-xl filo bg-white py-1 shadow-pop" role="menu">
           {STATUS_ORDER.map((s) => (
             <button key={s} role="menuitem" onClick={() => { setOpen(false); onPick(s) }} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-slate-700 transition-colors hover:bg-slate-50">
               <span className={`size-1.5 rounded-full ${STATUS_META[s].dot}`} aria-hidden /> {STATUS_META[s].label}
@@ -1138,7 +1138,7 @@ function RecipeLauncher({ onPick }: { onPick: (key: string) => void }) {
       {open && (
         <motion.div
           initial={{ opacity: 0, y: 6, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.16, ease: EASE }}
-          className="absolute bottom-full left-0 z-30 mb-2 w-64 origin-bottom-left overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-pop"
+          className="absolute bottom-full left-0 z-30 mb-2 w-64 origin-bottom-left overflow-hidden rounded-2xl filo bg-white p-1.5 shadow-pop"
           role="menu"
         >
           <p className="flex items-center gap-1.5 px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400"><Layers className="size-3.5" aria-hidden /> Tareas rápidas</p>
@@ -1179,7 +1179,7 @@ function CompareBlock({ ids, getCand, getCampaign, onOpen, onMark, onWrite }: {
           const camp = getCampaign(c.campaignId)
           const name = candidateName(c) || 'Sin nombre'
           return (
-            <div key={c.id} className="flex w-[248px] shrink-0 flex-col rounded-2xl border border-slate-200 bg-white p-3.5 shadow-card">
+            <div key={c.id} className="flex w-[248px] shrink-0 flex-col rounded-2xl filo bg-white p-3.5 shadow-card">
               <button
                 onClick={() => onOpen(c.id)} aria-label={`Abrir la ficha de ${name}`}
                 className="flex items-center gap-2.5 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
@@ -1227,7 +1227,7 @@ function CompareBlock({ ids, getCand, getCampaign, onOpen, onMark, onWrite }: {
       </div>
 
       {/* Ya has comparado: aquí es donde decides, sin volver a buscarlos arriba. */}
-      <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-50/80 px-2 py-1.5">
+      <div className="flex flex-wrap items-center gap-1 rounded-xl filo bg-slate-50/80 px-2 py-1.5">
         <span className="px-1.5 text-[12px] text-slate-500">Cuando lo tengas claro:</span>
         <TaskAction icon={Mail} label="Escribirles" onClick={() => onWrite(cands.map((c) => c.id))} />
         <TaskAction icon={Check} label="Pasar a entrevista" onClick={() => onMark(cands.map((c) => c.id), 'entrevista')} />
@@ -1270,7 +1270,7 @@ function ConfirmRow({ confirm, onResolve }: { confirm: NonNullable<Turn['confirm
  */
 function InterestEmailBlock({ preview, recipients }: { preview: InterestEmailPreview; recipients: number }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+    <div className="overflow-hidden rounded-2xl filo bg-white shadow-card">
       <div className="flex items-center gap-2 border-b border-slate-100 px-3.5 py-2 text-[12px] font-medium text-slate-500">
         <Mail className="size-3.5" aria-hidden />
         Correo · <span className="num">{recipients}</span> {recipients === 1 ? 'destinatario' : 'destinatarios'}
@@ -1294,7 +1294,7 @@ function InterestEmailBlock({ preview, recipients }: { preview: InterestEmailPre
 function DraftBlock({ channel, subject, body, to }: { channel: 'email' | 'whatsapp'; subject?: string; body: string; to: string }) {
   const [copied, setCopied] = useState(false)
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
+    <div className="overflow-hidden rounded-2xl filo bg-white shadow-card">
       <div className="flex items-center gap-2 border-b border-slate-100 px-3.5 py-2 text-[12px] font-medium text-slate-500">
         {channel === 'email' ? <Mail className="size-3.5" aria-hidden /> : <MessageSquare className="size-3.5" aria-hidden />}
         {channel === 'email' ? `Correo · ${to}` : `WhatsApp · ${to}`}
@@ -1313,7 +1313,7 @@ function DraftBlock({ channel, subject, body, to }: { channel: 'email' | 'whatsa
 function LockedPanel({ base }: { base: string }) {
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-card">
+      <div className="rounded-2xl filo bg-white p-6 text-center shadow-card">
         <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500"><Sparkles className="size-6" aria-hidden /></div>
         <h2 className="mt-3 text-lg font-semibold text-slate-900">{MERIDIAN_NAME} llega con Pro</h2>
         <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">Tu mano derecha para contratar: te busca candidatos, les escribe, te avisa cuando responden y te da el pulso de cada puesto.</p>

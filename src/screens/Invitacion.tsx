@@ -72,7 +72,7 @@ export function Invitacion() {
           <span className="text-[17px] brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
         </Link>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-card">
+        <div className="rounded-2xl filo bg-white p-7 shadow-card">
           {loading || state === 'loading' ? (
             <div className="grid place-items-center py-6" role="status" aria-label="Cargando">
               <Loader2 className="size-6 animate-spin text-slate-500" aria-hidden />

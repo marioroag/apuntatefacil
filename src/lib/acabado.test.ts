@@ -88,6 +88,19 @@ const TRAZOS_A_MANO: Record<string, string> = {
     'token con calc(), así que no puede descolgarse.',
 }
 
+/**
+ * Superficies que conservan `border` a secas en vez de `filo`, con su motivo. La
+ * segunda mano es un `outline` y el outline se pinta ENCIMA del borde, así que un
+ * elemento cuyo borde cambia de color al enfocarlo o al pasar por encima tiene que
+ * mover las dos manos a la vez (`focus:filo-*`, `hover:filo-*`) o quedarse con una.
+ */
+const MARCO_SIN_FILO: Record<string, string> = {
+  'components/GlobalSearch.tsx':
+    'Es un campo, no una superficie: su borde pasa a indigo-500 con el foco y la ' +
+    'segunda mano, que se pinta encima, taparía justo ese cambio. Los campos se ' +
+    'quedan con una sola mano hasta que el foco pase por `filo-*`.',
+}
+
 /** Elementos que pintan borde y anillo a la vez, y por qué no es un doble trazo. */
 const DOBLE_TRAZO_OK: Record<string, string> = {}
 
@@ -200,6 +213,30 @@ describe('las decisiones de acabado tienen nombre', () => {
         `diferencia (el ring no ocupa layout), hay que mirar el spread del box-shadow ` +
         `computado. Y antes de tocar nada: si lo que quieres es un botón, cógelo de ` +
         `src/lib/buttons.ts en vez de escribirlo a mano.`,
+    ).toEqual([])
+  })
+
+  it('el marco de una superficie se pinta a dos manos', () => {
+    // Un hairline de 1px solo es nítido mientras cae en la rejilla de píxeles, y
+    // en el arco de una esquina no puede: cada píxel recibe cobertura parcial y
+    // el filo pierde hasta un 23% de su pico justo en la curva (medido píxel a
+    // píxel sobre el CSS real). `filo` añade una segunda mano superpuesta que no
+    // cambia nada donde la cobertura ya es entera y recupera el arco donde no lo
+    // es. Por eso el marco no se escribe a mano: escrito a mano es media pieza.
+    const fallos = buscar(
+      /(?<![\w:-])border\s+border-(?:slate|indigo|amber|green|red)-200(?![\w-])/g,
+      (f) => !(f.ruta in MARCO_SIN_FILO),
+    )
+
+    expect(
+      fallos,
+      `Marcos pintados a una sola mano:\n${lista(fallos)}\n\n` +
+        `Usa \`filo\` (o \`filo-<color>\`) en vez de \`border border-<color>-200\`. Es la ` +
+        `misma caja y el mismo píxel de layout: mantiene el borde y le suma un ` +
+        `outline del mismo color a -1px, o sea pintado ENCIMA, no al lado. Donde la ` +
+        `cobertura del rasterizador ya es entera (los tramos rectos) no cambia nada; en ` +
+        `las esquinas recupera lo que se lleva el antialias. Si esta superficie de verdad ` +
+        `necesita una sola mano, apúntala en MARCO_SIN_FILO con el motivo escrito.`,
     ).toEqual([])
   })
 
@@ -321,6 +358,7 @@ describe('el vocabulario se mantiene coherente', () => {
       ...Object.entries(SOMBRAS_SIN_TOKEN),
       ...Object.entries(TRAZOS_A_MANO),
       ...Object.entries(DOBLE_TRAZO_OK),
+      ...Object.entries(MARCO_SIN_FILO),
     ]
       .filter(([, motivo]) => motivo.trim().length < 25)
       .map(([clave]) => clave)

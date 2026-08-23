@@ -52,7 +52,7 @@ export function Onboarding() {
   const Shell = ({ children }: { children: React.ReactNode }) => (
     <div className="grid min-h-svh place-items-center bg-slate-50 px-4">
       <div className="w-full max-w-[420px]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-card">
+        <div className="rounded-2xl filo bg-white p-7 shadow-card">
           <div className="flex items-center gap-2.5">
             <Logo className="size-9" />
             <span className="text-xl brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
@@ -96,7 +96,7 @@ export function Onboarding() {
 
         <div className="mt-5 space-y-2">
           {invites.map((inv) => (
-            <div key={inv.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
+            <div key={inv.id} className="flex items-center justify-between gap-3 rounded-xl filo p-3">
               <div className="min-w-0">
                 <p className="truncate font-medium text-slate-900">{inv.company_name}</p>
                 <p className="text-[12px] text-slate-500">{inv.role === 'encargado' ? 'Encargado' : 'Miembro'}</p>

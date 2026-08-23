@@ -212,7 +212,7 @@ export function Resumen() {
                           <Link
                             key={c.id}
                             to={`${base}/puestos/${c.id}`}
-                            className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 px-2.5 py-1 text-[12px] text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                            className="inline-flex max-w-full items-center gap-1.5 rounded-full filo px-2.5 py-1 text-[12px] text-slate-600 transition-colors hover:filo-slate-300 hover:bg-slate-50 hover:text-slate-900"
                           >
                             <Briefcase className="size-3 shrink-0 text-slate-400" aria-hidden />
                             <span className="truncate">{c.title}</span>
@@ -319,7 +319,7 @@ function IntakeChart({ candidates }: { candidates: Candidate[] }) {
 
 function ChartPlaceholder() {
   return (
-    <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+    <div className="mt-4 rounded-xl filo bg-white p-4 shadow-card sm:p-5">
       <p className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</p>
       <div className="mt-2 flex h-40 items-center justify-center rounded-lg border border-dashed border-slate-200">
         <p className="max-w-xs px-6 text-center text-[13px] text-slate-500">La tendencia aparece en cuanto tengas 2 o más semanas de datos.</p>
@@ -373,7 +373,7 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
   const labelEach = n <= 8
 
   return (
-    <figure className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+    <figure className="mt-4 rounded-xl filo bg-white p-4 shadow-card sm:p-5">
       <figcaption className="flex items-baseline justify-between">
         <span className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</span>
         <span className="text-[12px] num text-slate-500">media de {miles(avg)}/semana</span>
@@ -421,7 +421,7 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
         <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[12px] font-medium text-indigo-700 marker:content-none hover:text-indigo-800">
           <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden /> Ver datos por semana
         </summary>
-        <div className="mt-2 overflow-hidden rounded-lg border border-slate-200">
+        <div className="mt-2 overflow-hidden rounded-lg filo">
           {/* Tabla menuda (no es la rejilla de candidatos: no lleva su alto ni sus
               iconos), pero sí su filo vertical: dos columnas sin línea entre ellas
               se leen como una lista de dos palabras sueltas. */}
@@ -488,7 +488,7 @@ function MeridianHomeCard({ base, destacados, nuevos }: { base: string; destacad
         ? `He revisado tus ${nuevos} ${nuevos === 1 ? 'candidatura nueva' : 'candidaturas nuevas'}. Hoy no destaco a nadie de lleno, pero échales un ojo.`
         : 'Estás al día. Cuando entren candidaturas nuevas, te las reviso y destaco a quien encaja.'
   return (
-    <div className="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-white p-4 shadow-card">
+    <div className="flex items-center gap-3.5 rounded-xl filo bg-white p-4 shadow-card">
       <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-slate-900 text-white">
         <Sparkles className="size-5" aria-hidden />
       </span>
@@ -508,7 +508,7 @@ function MeridianHomeCard({ base, destacados, nuevos }: { base: string; destacad
 
 function Kpi({ label, n }: { label: string; n: number }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-card">
+    <div className="rounded-xl filo bg-white px-4 py-3 shadow-card">
       <p className="text-[12px] text-slate-500">{label}</p>
       <p className="mt-0.5 text-2xl font-semibold num text-slate-900">{miles(n)}</p>
     </div>
@@ -517,7 +517,7 @@ function Kpi({ label, n }: { label: string; n: number }) {
 
 function Panel({ title, right, children }: { title: string; right?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+    <div className="rounded-xl filo bg-white p-4 shadow-card sm:p-5">
       <div className="mb-1 flex items-baseline justify-between">
         <h2 className="text-base font-semibold text-slate-900">{title}</h2>
         {right && <span className="text-[13px] num text-slate-500">{right}</span>}

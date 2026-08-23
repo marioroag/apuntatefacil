@@ -142,14 +142,14 @@ export function Login() {
           <ArrowLeft className="size-4" aria-hidden /> Volver
         </Link>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-card">
+        <div className="rounded-2xl filo bg-white p-7 shadow-card">
           <div className="flex items-center gap-2.5">
             <Logo className="size-9" />
             <span className="text-xl brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
           </div>
 
           {view === 'confirm-sent' ? (
-            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+            <div className="mt-6 rounded-xl filo bg-slate-50 p-4 text-center">
               <Mail className="mx-auto size-6 text-slate-500" aria-hidden />
               <p className="mt-2 text-sm font-semibold text-slate-900">Te hemos enviado un email para confirmar tu cuenta</p>
               <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
@@ -166,7 +166,7 @@ export function Login() {
               </div>
             </div>
           ) : view === 'reset-sent' ? (
-            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+            <div className="mt-6 rounded-xl filo bg-slate-50 p-4 text-center">
               <Mail className="mx-auto size-6 text-slate-500" aria-hidden />
               <p className="mt-2 text-sm font-semibold text-slate-900">Revisa tu email</p>
               <p className="mt-1 text-[13px] leading-relaxed text-slate-600">

@@ -638,7 +638,7 @@ function Resumen({
 
 function Respuestas({ campaign, candidate, maskPhone }: { campaign: Campaign; candidate: Candidate; maskPhone: boolean }) {
   return (
-    <dl className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
+    <dl className="divide-y divide-slate-100 overflow-hidden rounded-xl filo">
       {campaign.fields.map((f) => {
         const raw = candidate.answers[f.id]
         const texto = answerText(raw)
@@ -749,19 +749,19 @@ function Cv({ candidate, cvName }: { candidate: Candidate; cvName: string }) {
       </div>
 
       {!esPdf ? (
-        <div className="grid min-h-[240px] flex-1 place-items-center rounded-xl border border-slate-200 bg-slate-50 px-6 text-center">
+        <div className="grid min-h-[240px] flex-1 place-items-center rounded-xl filo bg-slate-50 px-6 text-center">
           <p className="max-w-[42ch] text-sm leading-6 text-slate-500">
             Este CV está en Word y no se puede ver aquí dentro. Descárgalo para abrirlo.
           </p>
         </div>
       ) : error ? (
-        <div className="grid min-h-[240px] flex-1 place-items-center rounded-xl border border-slate-200 bg-slate-50 px-6 text-center">
+        <div className="grid min-h-[240px] flex-1 place-items-center rounded-xl filo bg-slate-50 px-6 text-center">
           <p className="max-w-[42ch] text-sm leading-6 text-slate-500">No se pudo abrir el CV. Prueba a descargarlo.</p>
         </div>
       ) : url ? (
-        <iframe src={url} title={`CV de ${candidateName(candidate) || 'el candidato'}`} className="min-h-[360px] flex-1 rounded-xl border border-slate-200 bg-slate-50" />
+        <iframe src={url} title={`CV de ${candidateName(candidate) || 'el candidato'}`} className="min-h-[360px] flex-1 rounded-xl filo bg-slate-50" />
       ) : (
-        <div className="grid min-h-[360px] flex-1 place-items-center rounded-xl border border-slate-200 bg-slate-50">
+        <div className="grid min-h-[360px] flex-1 place-items-center rounded-xl filo bg-slate-50">
           <p className="flex items-center gap-2 text-sm text-slate-500" role="status">
             <Loader2 className="size-4 animate-spin text-slate-400" aria-hidden /> Abriendo el CV…
           </p>
@@ -1074,7 +1074,7 @@ function MenuAcciones({ candidate, cvName, onEliminar, size = 'md' }: { candidat
             role="menu"
             aria-label="Acciones del candidato"
             style={{ position: 'fixed', top: pos.top, left: pos.left, width: W }}
-            className="z-[70] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-pop"
+            className="z-[70] overflow-hidden rounded-xl filo bg-white py-1 shadow-pop"
           >
             {candidate.cvPath && (
               <button type="button" role="menuitem" className={item} onClick={() => void descargarCv()}>

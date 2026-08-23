@@ -524,7 +524,7 @@ function ThreadProposals({
       <button
         type="button"
         onClick={() => onOpen(only)}
-        className="mt-2.5 flex min-h-11 w-full max-w-md items-center gap-2.5 rounded-xl border border-slate-200 bg-white py-2 pl-2 pr-3 text-left transition-colors hover:bg-slate-50"
+        className="mt-2.5 flex min-h-11 w-full max-w-md items-center gap-2.5 rounded-xl filo bg-white py-2 pl-2 pr-3 text-left transition-colors hover:bg-slate-50"
       >
         <span
           className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
@@ -546,7 +546,7 @@ function ThreadProposals({
         aria-controls={listId}
         aria-label={expanded ? `Ocultar ${label}` : `Ver ${label}`}
         onClick={() => setExpanded((v) => !v)}
-        className="flex min-h-11 w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-white py-2 pl-2 pr-3 text-left transition-colors hover:bg-slate-50"
+        className="flex min-h-11 w-full items-center gap-2.5 rounded-xl filo bg-white py-2 pl-2 pr-3 text-left transition-colors hover:bg-slate-50"
       >
         <span className="flex shrink-0 items-center pl-0.5" aria-hidden>
           {preview.map(({ id, candidate }, i) => {
@@ -590,7 +590,7 @@ function ThreadProposals({
             expanded ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          <ul className="mt-1.5 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white py-1">
+          <ul className="mt-1.5 max-h-48 overflow-y-auto rounded-xl filo bg-white py-1">
             {resolved.map(({ id, candidate }) => (
               <li key={id} className="group flex items-center gap-0.5 pr-1">
                 {candidate ? (
@@ -687,7 +687,7 @@ function ScrollableProposalList({
         ref={ref}
         onScroll={syncOverflow}
         // ~3.5 filas: la siguiente se ve a medias → queda claro que hay scroll.
-        className="max-h-[11.5rem] overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200 bg-white"
+        className="max-h-[11.5rem] overflow-y-auto overflow-x-hidden rounded-xl filo bg-white"
         aria-label={`${count} candidatos propuestos${canDown || canUp ? '. Desliza para ver más' : ''}`}
       >
         {children}
@@ -741,7 +741,7 @@ function ProposalsSection({
     return (
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-slate-800">Candidatos propuestos</h3>
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-4">
+        <div className="rounded-xl filo bg-slate-50 px-3.5 py-4">
           <p className="text-sm leading-5 text-slate-600">
             {isOpen
               ? 'Todavía no hay candidatos propuestos.'
@@ -799,7 +799,7 @@ function ProposalsSection({
         aria-controls={listId}
         aria-label={open ? 'Ocultar lista de candidatos' : `Ver lista de ${proposals.length} candidatos`}
         onClick={() => setExpanded((v) => !v)}
-        className="inline-flex min-h-11 max-w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-white py-1.5 pl-1.5 pr-3 text-left transition-colors hover:bg-slate-50"
+        className="inline-flex min-h-11 max-w-full items-center gap-2.5 rounded-xl filo bg-white py-1.5 pl-1.5 pr-3 text-left transition-colors hover:bg-slate-50"
       >
         <span className="flex shrink-0 items-center pl-0.5" aria-hidden>
           {preview.map(({ proposal, candidate }, i) => {
@@ -1051,7 +1051,7 @@ function Composer({
   return (
     <div className="space-y-2">
       {pickerOpen && (
-        <div id={pickerId} className="rounded-xl border border-slate-200 bg-white shadow-pop">
+        <div id={pickerId} className="rounded-xl filo bg-white shadow-pop">
           <div className="flex items-center gap-2 border-b border-slate-200 px-3 py-1.5 pointer-coarse:py-1">
             <Search className="size-4 shrink-0 text-slate-400" aria-hidden />
             <input

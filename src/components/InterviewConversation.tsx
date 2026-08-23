@@ -610,7 +610,7 @@ function Cerrado({
   const baja = conversacion.optedOut
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+    <div className="rounded-xl filo bg-slate-50 px-3 py-2.5">
       <p className="text-[13px] font-medium text-slate-800">
         {baja ? 'Pidió no recibir más mensajes' : 'No puedes escribirle ahora mismo'}
       </p>

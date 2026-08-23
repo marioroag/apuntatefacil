@@ -108,7 +108,7 @@ export function EquipoTablon() {
   return (
     <>
       {/* Composer: publicar una petición */}
-      <form onSubmit={publish} className="rounded-xl border border-slate-200 bg-white p-4 shadow-card">
+      <form onSubmit={publish} className="rounded-xl filo bg-white p-4 shadow-card">
         <label htmlFor="board-title" className="text-sm font-semibold text-slate-800">
           Publica una petición
         </label>
@@ -282,7 +282,7 @@ function RequestCard({
   return (
     <button
       onClick={onOpen}
-      className="block w-full rounded-xl border border-slate-200 bg-white p-4 text-left shadow-card transition-colors hover:bg-slate-50"
+      className="block w-full rounded-xl filo bg-white p-4 text-left shadow-card transition-colors hover:bg-slate-50"
     >
       <div className="flex items-start gap-2.5">
         <span className={`min-w-0 flex-1 truncate text-base font-semibold leading-snug ${done ? 'text-slate-500' : 'text-slate-900'}`}>

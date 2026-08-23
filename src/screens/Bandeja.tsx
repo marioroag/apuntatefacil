@@ -58,7 +58,7 @@ const ListaNuevos = memo(function ListaNuevos({
   base: string
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card">
+    <div className="overflow-hidden rounded-xl filo bg-white shadow-card">
       {/* Móvil: fichas de dos líneas, la misma forma que la lista del puesto
           (arriba quién, abajo sus datos y el estado). Así el puesto entero cabe
           en su chip en vez de cortarse por la mitad para dejarle sitio a la
@@ -275,7 +275,7 @@ export function Bandeja() {
 
 function EmptyInbox() {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-16 text-center shadow-card">
+    <div className="flex flex-col items-center justify-center rounded-xl filo bg-white px-6 py-16 text-center shadow-card">
       <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
         <Inbox className="size-6" aria-hidden />
       </div>

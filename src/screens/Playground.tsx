@@ -29,7 +29,7 @@ import { SWATCHES } from '../lib/colors'
 
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-card">
+    <section className="rounded-xl filo bg-white p-6 shadow-card">
       <h2 className="text-base font-semibold text-slate-900">{title}</h2>
       {note && <p className="mt-1 text-sm text-slate-500">{note}</p>}
       <div className="mt-5">{children}</div>
@@ -63,7 +63,7 @@ function FilasReales() {
         </div>
       </div>
       {/* Fila de candidato: metadatos a 14px con iconos de 14px */}
-      <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+      <div className="rounded-lg filo bg-white px-3 py-2.5">
         <p className="text-sm font-semibold text-slate-900">Mohamed El Amrani</p>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-slate-500">
           <span className="inline-flex items-center gap-1"><Phone className="size-3.5 text-slate-400" aria-hidden /><span className="num">612 34 56 78</span></span>
@@ -72,7 +72,7 @@ function FilasReales() {
         </div>
       </div>
       {/* Barra superior: cluster de acciones a 16px */}
-      <div className="flex items-center justify-end gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+      <div className="flex items-center justify-end gap-1 rounded-lg filo bg-white px-2 py-1.5">
         {[Search, Bell, Settings].map((Ico, i) => (
           <span key={i} className="grid size-8 place-items-center rounded-lg text-slate-500"><Ico className="size-4" aria-hidden /></span>
         ))}

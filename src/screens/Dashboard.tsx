@@ -877,7 +877,7 @@ export function Dashboard() {
       {/* Aviso de candidaturas bloqueadas (plan gratuito): se siguen recibiendo,
           pero solo se ven hasta el tope. Invita a mejorar el plan, sin urgencia falsa. */}
       {lockedCount > 0 && !loading && (
-        <div className="mt-3 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-card sm:flex-row sm:items-center">
+        <div className="mt-3 flex flex-col gap-3 rounded-xl filo bg-white px-4 py-3.5 shadow-card sm:flex-row sm:items-center">
           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
             <Lock className="size-[18px]" aria-hidden />
           </span>
@@ -896,7 +896,7 @@ export function Dashboard() {
       )}
 
       {/* Tabla / estados */}
-      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card md:overflow-visible">
+      <div className="mt-3 overflow-hidden rounded-xl filo bg-white shadow-card md:overflow-visible">
         {loading ? (
           <SkeletonRows showFit={showFit} />
         ) : filtered.length === 0 ? (
@@ -1124,7 +1124,7 @@ function StatusSummary({
     // Lectura de instrumento: una sola superficie segmentada por hairlines, no 5
     // tarjetas sueltas. Cada segmento es un filtro por estado (toggle). Solo
     // escritorio: en móvil el filtro por estado vive en Filtros.
-    <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card sm:grid sm:grid-cols-5 sm:divide-x sm:divide-slate-200">
+    <div className="hidden overflow-hidden rounded-xl filo bg-white shadow-card sm:grid sm:grid-cols-5 sm:divide-x sm:divide-slate-200">
       {counts.map(({ s, n }) => {
         const active = statusFilter.has(s)
         const m = STATUS_META[s]
@@ -2016,7 +2016,7 @@ function FilterMenu({
 
       {/* Escritorio: desplegable anclado al botón */}
       {open && (
-        <div className="absolute left-0 z-50 mt-1 hidden max-h-[60vh] w-72 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-pop sm:flex">
+        <div className="absolute left-0 z-50 mt-1 hidden max-h-[60vh] w-72 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl filo bg-white shadow-pop sm:flex">
           <FilterPanelHeader count={count} onClear={clearAll} variant="dropdown" />
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">{controls}</div>
         </div>
@@ -2236,7 +2236,7 @@ function ShareMenu({
             exit={{ opacity: 0, y: 4 }}
             transition={{ duration: 0.15, ease: [0, 0, 0.2, 1] }}
             style={{ top: pos.top, right: pos.right }}
-            className="fixed z-50 hidden w-[min(100vw-1.5rem,25rem)] rounded-xl border border-slate-200 bg-white p-4 shadow-pop sm:block"
+            className="fixed z-50 hidden w-[min(100vw-1.5rem,25rem)] rounded-xl filo bg-white p-4 shadow-pop sm:block"
           >
             <ShareReply
               title={title}
@@ -2290,7 +2290,7 @@ function EmptyFirstUse({ publicUrl, onCopy }: { publicUrl: string; onCopy: () =>
       {/* w-full + max-w para que la fila se ciña al ancho del card y el enlace se
           trunque (en una columna items-center, sin ancho fijo, no truncaría y se
           saldría). El enlace va discreto (más pequeño y tenue): manda la acción. */}
-      <div className="mt-4 flex w-full max-w-md items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-3.5 pr-1.5">
+      <div className="mt-4 flex w-full max-w-md items-center gap-2 rounded-xl filo bg-slate-50 py-1.5 pl-3.5 pr-1.5">
         <span className="min-w-0 flex-1 truncate text-[13px] text-slate-500">{publicUrl}</span>
         <button onClick={onCopy} className={`${BTN_PRIMARY_SM} shrink-0`}>
           Copiar enlace
@@ -2400,7 +2400,7 @@ function SavedViewsMenu({
 
       {/* Escritorio: desplegable anclado al botón */}
       {open && (
-        <div className="absolute left-0 z-50 mt-1 hidden w-72 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-pop sm:block">
+        <div className="absolute left-0 z-50 mt-1 hidden w-72 overflow-hidden rounded-xl filo bg-white p-1.5 shadow-pop sm:block">
           {list}
           <div className="mt-1 border-t border-slate-100 pt-1">
             <button
@@ -2520,14 +2520,14 @@ function SaveViewDialog({
             </p>
           ) : (
             <div className="mt-2 space-y-1.5">
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 px-3 py-2.5 hover:bg-slate-50">
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl filo px-3 py-2.5 hover:bg-slate-50">
                 <input type="radio" name="viewscope" checked={scope === 'global'} onChange={() => setScope('global')} className="mt-0.5 size-4 border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                 <span>
                   <span className="block text-sm font-medium text-slate-800">En todos mis puestos</span>
                   <span className="block text-[12px] text-slate-500">Búsqueda, estado y orden. Aparece en cualquier puesto.</span>
                 </span>
               </label>
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-slate-200 px-3 py-2.5 hover:bg-slate-50">
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl filo px-3 py-2.5 hover:bg-slate-50">
                 <input type="radio" name="viewscope" checked={scope === 'campaign'} onChange={() => setScope('campaign')} className="mt-0.5 size-4 border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                 <span>
                   <span className="block text-sm font-medium text-slate-800">Solo en este puesto</span>
@@ -2617,7 +2617,7 @@ function SettingSelect({
         <ul
           role="listbox"
           aria-labelledby={labelId}
-          className="absolute z-50 mt-1 max-h-[min(240px,40vh)] w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-1 shadow-pop"
+          className="absolute z-50 mt-1 max-h-[min(240px,40vh)] w-full overflow-y-auto rounded-xl filo bg-white py-1 shadow-pop"
         >
           {options.map((opt) => {
             const sel = opt.value === value
@@ -3037,7 +3037,7 @@ function PuestoSettingsSheet({
               )}
 
               {canManage && (
-              <section className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3.5 py-3">
+              <section className="flex items-center justify-between gap-3 rounded-xl filo px-3.5 py-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-800">Avisos por email</p>
                   <p className="mt-0.5 text-[12px] leading-relaxed text-slate-500">Te avisamos cuando entra un candidato nuevo en este puesto.</p>

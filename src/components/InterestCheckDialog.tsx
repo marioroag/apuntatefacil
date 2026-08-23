@@ -279,7 +279,7 @@ export function InterestCheckDialog({
             )}
 
             {canalActivo === 'email' && !hasEmailField ? (
-              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5">
+              <div className="mt-5 rounded-xl filo-amber-200 bg-amber-50 px-4 py-3.5">
                 <div className="flex gap-2.5">
                   <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
                   <div>
@@ -307,16 +307,16 @@ export function InterestCheckDialog({
             ) : (
               <>
                 <div className="mt-5 grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="rounded-xl filo bg-slate-50 px-4 py-3">
                     <p className="text-2xl font-semibold num text-slate-950">{preview.recipients}</p>
                     <p className="mt-0.5 text-xs text-slate-500">Destinatarios únicos</p>
                   </div>
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="rounded-xl filo bg-slate-50 px-4 py-3">
                     <p className="text-2xl font-semibold num text-slate-950">{candidates.length - preview.recipients}</p>
                     <p className="mt-0.5 text-xs text-slate-500">Candidaturas omitidas</p>
                   </div>
                 </div>
-                <div className="mt-4 rounded-xl border border-slate-200 px-4 py-3.5">
+                <div className="mt-4 rounded-xl filo px-4 py-3.5">
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Vista previa</p>
                   {canalActivo === 'email' ? (
                     <>

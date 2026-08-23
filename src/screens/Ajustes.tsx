@@ -139,7 +139,7 @@ function Seccion({ seccion, ctx, salto }: { seccion: SeccionAjustes; ctx: Ajuste
 
 function Grupo({ grupo, ctx, salto }: { grupo: GrupoAjustes; ctx: AjustesCtx; salto: Salto }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-card sm:p-5">
+    <section className="rounded-xl filo bg-white p-4 shadow-card sm:p-5">
       <h3 className="text-sm font-semibold text-slate-900">{grupo.titulo}</h3>
       {grupo.descripcion && <p className="mt-0.5 text-[12px] text-slate-500">{grupo.descripcion}</p>}
       <ul className="mt-2 divide-y divide-slate-100">

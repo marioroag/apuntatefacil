@@ -99,7 +99,7 @@ export function InterestResponse() {
           <p className="mt-2 text-pretty text-sm leading-6 text-slate-600">
             La empresa quiere saber si sigues interesado/a en <span className="font-medium text-slate-800">{context?.campaignTitle}</span>.
           </p>
-          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5">
+          <div className="mt-6 rounded-xl filo bg-slate-50 px-4 py-3.5">
             <p className="text-xs font-medium text-slate-500">Tu respuesta</p>
             <p className="mt-1 text-sm font-semibold text-slate-900">
               {interested ? 'Sí, sigo interesado/a' : 'No, ya no me interesa'}
@@ -173,7 +173,7 @@ function PageCard({ children }: { children: React.ReactNode }) {
           <Logo className="size-6" />
           <span>apuntatefacil</span>
         </div>
-        <section className="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center shadow-card sm:px-8">
+        <section className="rounded-2xl filo bg-white px-6 py-8 text-center shadow-card sm:px-8">
           {children}
         </section>
         <p className="mt-4 text-center text-xs text-slate-400">Respuesta segura. No compartas este enlace.</p>

@@ -293,7 +293,7 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
   // Bloqueado por plan (diferenciador de Pro/Multi): teaser sobrio con upsell.
   if (!enabled) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5">
+      <div className="rounded-xl filo bg-slate-50/60 p-3.5">
         <MeridianLabel />
         <p className="mt-1.5 text-[13px] leading-5 text-slate-500">
           Reviso cada candidatura y calculo su ajuste al puesto para que veas primero a quien encaja.
@@ -350,7 +350,7 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
       </>
     )
     return (
-      <div className="rounded-xl border border-slate-200 p-3.5">
+      <div className="rounded-xl filo p-3.5">
         {hayDetalle ? (
           <button
             type="button"
@@ -425,7 +425,7 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
   // fabricando y dónde va a aparecer.
   if (busy) {
     return (
-      <div className="rounded-xl border border-slate-200 p-3.5">
+      <div className="rounded-xl filo p-3.5">
         <MeridianLabel />
         <p className="mt-1.5 text-[13px] leading-5 text-slate-500" role="status">
           Leyendo la candidatura y midiéndola contra lo que pide el puesto…
@@ -452,7 +452,7 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
 
   // Sin analizar o con error: acción para (re)analizar.
   return (
-    <div className="rounded-xl border border-slate-200 p-3.5">
+    <div className="rounded-xl filo p-3.5">
       <MeridianLabel />
       <p className="mb-2.5 mt-1.5 text-[13px] leading-5 text-slate-500">
         {failed

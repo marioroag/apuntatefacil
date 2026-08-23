@@ -346,7 +346,7 @@ export function Builder() {
                     <button
                       key={t}
                       onClick={() => addField(t)}
-                      className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left text-sm text-slate-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50/50"
+                      className="flex items-center gap-2 rounded-xl filo bg-white px-3 py-2.5 text-left text-sm text-slate-700 transition-colors hover:filo-indigo-300 hover:bg-indigo-50/50"
                     >
                       <Plus className="size-3.5 shrink-0 text-slate-500" aria-hidden />
                       <span className="min-w-0 flex-1 truncate font-medium">{m.label}</span>
@@ -400,7 +400,7 @@ export function Builder() {
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6">
-              <div className="mx-auto w-full max-w-[480px] rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
+              <div className="mx-auto w-full max-w-[480px] rounded-2xl filo bg-white p-5 shadow-card">
                 <Preview key={campaign.id} campaign={campaign} />
               </div>
             </div>
@@ -742,7 +742,7 @@ function Identidad({ campaign }: { campaign: Campaign }) {
           así que en reposo ocupa una fila y no media pantalla. La fila enseña la
           foto y el nombre REALES, así que se comprueba de un vistazo sin abrirla.
           Se abre sola cuando no hay nada puesto: entonces sí hay algo que hacer. */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-hidden rounded-xl filo bg-white">
         <button
           type="button"
           onClick={() => setOpen(!abierta)}
@@ -947,7 +947,7 @@ function Branding({ campaign }: { campaign: Campaign }) {
   return (
     <section>
       <SectionTitle>Apariencia</SectionTitle>
-      <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-3.5">
+      <div className="space-y-3 rounded-xl filo bg-white p-3.5">
         {/* El título se ve en el panel, en la barra lateral y como cabecera del
             formulario. Editarlo aquí no cambia el enlace público.
             Placeholders del resto = texto por defecto si el campo se deja vacío. */}
@@ -1029,7 +1029,7 @@ function Branding({ campaign }: { campaign: Campaign }) {
 // --- Preview ----------------------------------------------------------------
 function DeviceToggle({ device, setDevice }: { device: 'mobile' | 'desktop'; setDevice: (d: 'mobile' | 'desktop') => void }) {
   return (
-    <div className="inline-flex rounded-lg border border-slate-200 bg-white p-1">
+    <div className="inline-flex rounded-lg filo bg-white p-1">
       {([['mobile', Smartphone], ['desktop', Monitor]] as const).map(([d, Icon]) => (
         <button
           key={d}
@@ -1053,7 +1053,7 @@ function PreviewFrame({ device, children }: { device: 'mobile' | 'desktop'; chil
       </div>
     )
   }
-  return <div className="w-full max-w-[520px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-7 shadow-pop">{children}</div>
+  return <div className="w-full max-w-[520px] overflow-hidden rounded-2xl filo bg-white p-7 shadow-pop">{children}</div>
 }
 
 function Preview({ campaign }: { campaign: Campaign }) {

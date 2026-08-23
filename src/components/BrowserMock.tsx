@@ -12,7 +12,7 @@ const ROWS: { name: string; sector: string; phone: string; status: CandidateStat
 
 export function BrowserMock({ className = '', dropIn = false }: { className?: string; dropIn?: boolean }) {
   return (
-    <div className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-pop ${className}`}>
+    <div className={`overflow-hidden rounded-2xl filo bg-white shadow-pop ${className}`}>
       {/* Barra del navegador */}
       <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-3.5 py-2.5">
         <span className="size-2.5 rounded-full bg-slate-300" />

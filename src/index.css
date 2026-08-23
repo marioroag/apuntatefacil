@@ -545,6 +545,75 @@
   .range-thumb::-moz-range-track { background: transparent; }
 }
 
+/* ---------------------------------------------------------------------------
+   `filo` · el marco de una superficie, PINTADO A DOS MANOS
+   ---------------------------------------------------------------------------
+   Un hairline de 1px es nítido mientras cae en la rejilla de píxeles, que es lo
+   que pasa en los tramos rectos: la caja aterriza en enteros y el filo son dos
+   píxeles de dispositivo llenos de color. En las ESQUINAS no puede: el arco
+   cruza la rejilla en diagonal y cada píxel recibe cobertura parcial. La tinta
+   total se conserva (medido: 96%), pero repartida en el doble de ancho, así que
+   el pico baja de 229 a 235 sobre blanco: hasta un 23% menos de filo justo en la
+   curva, un 10% de media. Con un hairline que ya es de 1,15:1 a propósito, ese
+   23% es la diferencia entre canto mecanizado y difuminado, que es la frase que
+   abre la sección de Acabado de CLAUDE.md.
+
+   La segunda mano es un `outline` del MISMO color desplazado a -1px, o sea
+   pintado exactamente encima del borde, no al lado. Y ahí está la gracia:
+     - donde la cobertura ya es entera (los tramos rectos) pintar dos veces no
+       cambia literalmente nada. Comprobado píxel a píxel: el perfil del tramo
+       recto sale idéntico, 229/229 y ni un píxel más de ancho.
+     - donde es parcial (el arco) las dos manos componen 1-(1-a)^2 y recuperan
+       lo que se llevó el antialias: la pérdida en el peor punto baja del 23% al
+       13%.
+   Es decir: corrige la esquina y SOLO la esquina. Las alternativas se midieron y
+   se descartaron: bajar el radio no mejora nada (el arco es más corto, cada
+   píxel pierde igual), `background-clip: padding-box` recupera 4 puntos de 23, y
+   oscurecer el color sube todo el marco y deja la discontinuidad recto/arco
+   intacta, solo que más arriba.
+
+   Tres cosas que no son opcionales:
+   1. Va con `border`, no en vez de él. Una sombra `inset` no sirve de segunda
+      mano porque se recorta a la caja de padding: se pondría AL LADO del borde y
+      el filo pasaría a 2px (medido: 4 píxeles de dispositivo). El outline a -1px
+      es lo único que se superpone sin ocupar layout, así que cambiar a `filo` no
+      mueve un solo píxel de la maquetación.
+   2. Se aparta con el foco. El outline de `:focus-visible` vive en @layer base y
+      las utilidades van después, así que sin el `:not(:focus-visible)` esta
+      segunda mano le ganaría por orden y se comería el anillo de foco.
+   3. Solo donde el outline sigue el border-radius (Safari 16.4, Chrome 94,
+      Firefox 88). No hay consulta directa para eso; `animation-composition` es
+      el proxy más cercano (Safari 16.4 / Chrome 112 / Firefox 115) y falla del
+      lado seguro: en un navegador viejo la tarjeta se queda con la mano de hoy
+      en vez de llevar un rectángulo recto cortándole las esquinas. Cuando esa
+      cola desaparezca, este @supports se borra y el bloque se queda igual.
+
+   `filo-<color>` es la misma pieza con otro tono, y por ser una utilidad de
+   verdad acepta variantes: `filo hover:filo-slate-300` mueve las dos manos a la
+   vez, que es justo lo que un `hover:border-*` suelto no haría.
+--------------------------------------------------------------------------- */
+@utility filo {
+  border: 1px solid var(--color-slate-200);
+
+  @supports (animation-composition: add) {
+    &:not(:focus-visible) {
+      outline: 1px solid var(--color-slate-200);
+      outline-offset: -1px;
+    }
+  }
+}
+
+@utility filo-* {
+  border: 1px solid --value(--color-*);
+
+  @supports (animation-composition: add) {
+    &:not(:focus-visible) {
+      outline: 1px solid --value(--color-*);
+      outline-offset: -1px;
+    }
+  }
+}
+
 /* Respetar reduced-motion globalmente. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
