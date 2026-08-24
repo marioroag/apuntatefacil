@@ -234,7 +234,10 @@ function Hero() {
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link to="/login" className={`${BTN_PRIMARY_LG} group`}>
-            Crea tu primer puesto gratis <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
+            {/* En móvil el botón comparte fila con "Ver la demo": la etiqueta larga los partía en dos líneas. */}
+            <span className="sm:hidden">Empieza gratis</span>
+            <span className="hidden sm:inline">Crea tu primer puesto gratis</span>
+            <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
           <Link to="/demo" className={BTN_SECONDARY_LG}>
             Ver la demo
