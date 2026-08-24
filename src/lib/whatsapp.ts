@@ -50,6 +50,12 @@ export const WHATSAPP_WIP = {
   cuerpo:
     'Estamos dando de alta nuestro número de WhatsApp para poder hablar con tus candidatos. ' +
     'Hasta que esté, esto no manda ningún mensaje.',
-  /** Una línea, para donde el WhatsApp era una opción y no el asunto. */
-  linea: 'WhatsApp todavía no está disponible: estamos dando de alta el número.',
+  /**
+   * Una línea, para donde el WhatsApp era una opción y no el asunto. Se queda en
+   * el qué y se calla el porqué: que estamos dando de alta el número es del
+   * `cuerpo`, donde el WhatsApp SÍ es la pantalla. Aquí, metido entre las otras
+   * opciones que sí funcionan, era una explicación que nadie ha pedido delante de
+   * lo único que hace falta leer para elegir otro canal.
+   */
+  linea: 'Funcionalidades de WhatsApp disponibles próximamente.',
 } as const
