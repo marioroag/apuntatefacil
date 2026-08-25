@@ -1,213 +1,100 @@
 // -----------------------------------------------------------------------------
-// Pricing de Apúntate Fácil. Posicionamiento PREMIUM ("los mejores", no los más baratos).
-// Doctrina de presentación (Mario, jul 2026, sustituye a "números redondos"):
-//  - Efecto dígito izquierdo: 185 / 237 (por debajo del redondo de arriba).
-//  - Multi (533) es el ANCLA del catálogo: hace que Pro (237, casi la mitad del
-//    tope) parezca la jugada inteligente. Quien necesita Multi no es sensible a 50 €.
-//  - Anual = ×10 (2 meses gratis exactos). En anual se enseña el equivalente
-//    mensual con el mensual tachado y el ahorro EN EUROS (regla de 100), no en %.
-//  - El símbolo € se pinta pequeño y arriba (menos "dolor de pago"); "Sin
-//    permanencia" cerca del precio y el IVA en letra pequeña al pie de la sección.
+// Pricing de Apúntate Fácil. Modelo: PAGO POR PROCESO ABIERTO (Mario, ago 2026;
+// sustituye a los tres planes Esencial/Pro/Multi).
+//
+//  - 49 €/mes + IVA por proceso abierto. Todos los procesos al mismo precio
+//    (Mario descartó el descuento del segundo y siguientes). El IVA se comunica
+//    SIEMPRE al lado del precio ("+ IVA"): somos B2B.
+//  - Sin tiers y sin features de pago: TODO el producto está incluido. Se cobra
+//    por escala real (nº de procesos abiertos), nunca por capacidades.
+//  - Prueba: el PRIMER proceso es gratis 15 días o hasta 25 candidaturas, lo que
+//    llegue antes (el límite doble evita que un proceso lento no demuestre valor
+//    y que uno muy activo agote la prueba en 48 h). Sin tarjeta al empezar: se
+//    pide al final de la prueba. Una sola prueba por empresa.
+//  - Cerrar un proceso es un clic y deja de cobrarse; el proceso cerrado no
+//    acepta candidaturas pero se conserva entero y exportable ("tus candidatos
+//    siguen siendo tuyos"). Mes empezado, mes cobrado: al cerrar no hay
+//    devolución parcial, y por eso reabrirlo dentro del ciclo ya pagado es
+//    gratis hasta que el ciclo termine (anti-truco de cerrar y reabrir).
+//
 // Cambia aquí los importes y todo se actualiza en la landing y en /app/plan.
-// Los importes REALES de cobro viven en los prices de Stripe (STRIPE_PRICE_*):
-// al cambiar estos números hay que recrear los prices con los importes nuevos.
+// El importe REAL de cobro vive en el price de Stripe (STRIPE_PRICE_PROCESO):
+// al cambiar este número hay que recrear el price con el importe nuevo.
+// Los planes viejos (esencial/pro/multi) ya no se venden; sus constantes de
+// compatibilidad viven abajo mientras queden suscripciones antiguas activas.
 // -----------------------------------------------------------------------------
-import { WHATSAPP_LISTO } from './whatsapp'
+import type { Campaign } from './types'
 
-export interface Tier {
-  id: string
-  name: string
-  tagline: string
-  monthly: number // EUR/mes (IVA aparte)
-  annual: number // EUR/año (= monthly * 10, dos meses gratis)
-  processes: string
-  features: string[]
-  cta: string
-  /** Plan destacado. La chapa es "Recomendado", NUNCA "el más elegido"
-   *  (sin usuarios reales sería prueba social inventada). */
-  recommended?: boolean
-  /** Contratable HOY. En el lanzamiento solo Esencial; Pro y Multi se anuncian
-   *  como "Próximamente" hasta que sus features estén construidas (honestidad:
-   *  no vendemos lo que aún no existe). */
-  available?: boolean
+/** €/mes + IVA por cada proceso abierto. Espejo del price de Stripe. */
+export const PRECIO_PROCESO = 49
+
+/** Días de prueba del primer proceso. Espejo del trigger start_trial_clock. */
+export const PRUEBA_DIAS = 15
+
+/** Candidaturas visibles durante la prueba. A partir de ahí se siguen
+ *  recopilando pero entran bloqueadas hasta añadir el método de pago.
+ *  Espejo de plan_candidate_limit('trial') en servidor. Mantener sincronizados. */
+export const PRUEBA_CANDIDATOS = 25
+
+/** Un proceso ABIERTO (el que se cobra) es el que no está cerrado: activo o
+ *  pausado. Pausar detiene el enlace pero el proceso sigue abierto y contando;
+ *  cerrar es lo que detiene el cobro. */
+export const procesoAbierto = (c: Pick<Campaign, 'status'>): boolean => c.status !== 'cerrada'
+export const procesosAbiertos = (campaigns: Pick<Campaign, 'status'>[]): number =>
+  campaigns.filter(procesoAbierto).length
+
+/** Reassurance de la prueba en hero y CTAs. Derivada de los topes reales. */
+export const TRIAL_REASSURANCE = `Tu primer proceso gratis: ${PRUEBA_DIAS} días o ${PRUEBA_CANDIDATOS} candidaturas. Sin tarjeta.`
+
+/** La frase completa del modelo, para la landing y el formulario de precios. */
+export const PRECIO_FRASE = `${PRECIO_PROCESO} €/mes + IVA por proceso abierto. Primer proceso gratis. Sin permanencia: ciérralo cuando quieras y tus candidatos siguen siendo tuyos.`
+
+/** Días de prueba restantes (0 si agotada o sin empezar el reloj). */
+export function diasDePruebaRestantes(trialEndsAt: string | null | undefined): number | null {
+  if (!trialEndsAt) return null // el reloj arranca al abrir el primer proceso
+  const ms = new Date(trialEndsAt).getTime() - Date.now()
+  return Math.max(0, Math.ceil(ms / 86_400_000))
 }
 
-// El tope es el nº de puestos ACTIVOS a la vez. Pausar libera cupo (los pausados
-// quedan aparcados y no cuentan); reactivar exige un hueco activo libre. Al bajar
-// de plan, el servidor pausa los activos que sobran (ver 20260707140000).
-// IMPORTANTE: estos topes son el ESPEJO del enforcement de servidor en
-// supabase/migrations/20260615000000_process_limit.sql (reescrito en 20260707140000).
-// Mantener sincronizados.
-export const PLAN_PROCESS_LIMIT: Record<string, number> = {
-  trial: 1,
-  esencial: 2,
-  pro: 10,
-  multi: Infinity,
-}
-
-// Tope de candidatos por plan. Solo el plan de Prueba tiene tope: al recibir el
-// 15º candidato el puesto se pausa y deja de aceptar más hasta subir de plan.
-// ESPEJO del enforcement de servidor en
-// supabase/migrations/20260615130000_trial_candidate_limit.sql. Mantener sincronizados.
-export const PLAN_CANDIDATE_LIMIT: Record<string, number> = {
-  trial: 15,
-  esencial: Infinity,
-  pro: Infinity,
-  multi: Infinity,
-}
-
+// -----------------------------------------------------------------------------
+// Compatibilidad con los planes por tiers, YA RETIRADOS de la venta (ago 2026).
+// Quedan suscripciones antiguas activas (esencial/pro/multi) que conservan sus
+// límites de procesos en servidor; estas etiquetas y topes solo se usan para
+// pintarlas. 'proceso' es el plan del modelo nuevo; 'trial' la prueba.
+// -----------------------------------------------------------------------------
 export const PLAN_LABEL: Record<string, string> = {
   trial: 'Prueba',
+  proceso: 'Pago por proceso',
   esencial: 'Esencial',
   pro: 'Pro',
   multi: 'Multi',
 }
 
-// Capacidades por plan. Es el ÚNICO interruptor de las features avanzadas: una
-// feature Pro/Multi solo aparece si el plan la incluye aquí. Esencial nunca
-// pierde un básico; estas son capacidades NETO-NUEVAS que se desbloquean al subir.
-//
-// Sedes y marcas NO están aquí a propósito (ago 2026): son primitivas, no escala.
-// Poner el nombre del local a un puesto y el logo propio en el formulario no
-// cuesta nada y son de todos los planes. Lo que se cobra es lo que sí escala:
-// delegar por sede (`managers`) y tener más de una marca (`multiBrand`).
-export type PlanFeature =
-  | 'savedViews' | 'multiBrand' | 'managers' | 'teamBoard' | 'meridian' | 'entrevistas'
-
-export const PLAN_FEATURES: Record<string, PlanFeature[]> = {
-  trial: [],
-  esencial: [],
-  pro: ['savedViews', 'teamBoard', 'meridian', 'entrevistas'],
-  multi: ['savedViews', 'multiBrand', 'managers', 'teamBoard', 'meridian', 'entrevistas'],
+// Espejo de plan_process_limit en servidor (solo aplica a trial y a los tiers
+// antiguos; en 'proceso' el tope real es paid_processes, los procesos pagados).
+export const PLAN_PROCESS_LIMIT: Record<string, number> = {
+  trial: 1,
+  proceso: Infinity,
+  esencial: 2,
+  pro: 10,
+  multi: Infinity,
 }
 
-export function planHas(plan: string | undefined | null, feature: PlanFeature): boolean {
-  return !!plan && (PLAN_FEATURES[plan]?.includes(feature) ?? false)
-}
-
-// Las Etiquetas son una primitiva de clasificación (como el favorito), no una
-// feature de escala: disponibles en TODOS los planes, incluido Prueba. No se gatea ni
-// se cobra por número de etiquetas. Único punto de configuración: si algún día se
-// quisiera como upsell a Pro+, este flag es el sitio donde cambiarlo.
-export const TAGS_ENABLED = true
-
-// Copy y plan mínimo de cada feature avanzada. Lo usan el aviso de upgrade
-// (modal) y la pantalla bloqueada para decir EXACTAMENTE qué falta y con qué
-// plan se desbloquea. La etiqueta empieza en minúscula con artículo para que
-// encaje a media frase ("Desbloquea la Bandeja con Pro"); se capitaliza al
-// inicio de oración en el componente.
-export const FEATURE_COPY: Record<PlanFeature, { label: string; blurb: string; minPlan: 'pro' | 'multi' }> = {
-  savedViews: {
-    label: 'las vistas guardadas',
-    blurb: 'Guarda tus combinaciones de filtros y vuelve a aplicarlas en un clic.',
-    minPlan: 'pro',
-  },
-  entrevistas: {
-    label: 'las Entrevistas',
-    // Lo que se vende es lo que el plan hace HOY: mientras el canal no esté de
-    // alta no hay nadie escribiendo al candidato, y cobrar por eso sería vender
-    // una promesa (ver `lib/whatsapp.ts`). Queda la agenda, que funciona entera.
-    blurb: WHATSAPP_LISTO
-      ? 'Invita a un candidato y deja que Apúntate Fácil cuadre la cita por ti.'
-      : 'Cuadra las citas con tus candidatos y llévalas todas en una agenda, con quién entrevista a quién.',
-    minPlan: 'pro',
-  },
-  multiBrand: {
-    label: 'más de una marca',
-    blurb: 'Da a cada marca su propio nombre, logo y banner en el formulario.',
-    minPlan: 'multi',
-  },
-  managers: {
-    label: 'los encargados por sede',
-    blurb: 'Cada encargado ve y exporta solo los candidatos de su sede.',
-    minPlan: 'multi',
-  },
-  teamBoard: {
-    label: 'el Equipo',
-    blurb: 'Comenta cada candidato con tu equipo, publica peticiones internas y responde con candidatos de la base.',
-    minPlan: 'pro',
-  },
-  meridian: {
-    label: 'Meridian',
-    blurb: 'Resume cada candidatura y calcula su ajuste al puesto para que veas primero a quien encaja.',
-    minPlan: 'pro',
-  },
-}
-
-// Tope de marcas por plan (espejo del trigger enforce_brand_limit en servidor).
-// Todos los planes tienen SU marca (nombre, logo y banner del formulario): es
-// una primitiva, no un extra. Lo que desbloquea Multi es tener VARIAS.
-// Mantener sincronizado con la migración plan_brand_limit.
+// Tope de marcas (espejo del trigger enforce_brand_limit en servidor). Quien
+// paga tiene las que su operación pida (caso ETT/cadena); la prueba se queda
+// con una, la identidad de su casa. Mantener sincronizado con plan_brand_limit.
 export const PLAN_BRAND_LIMIT: Record<string, number> = {
   trial: 1,
+  proceso: Infinity,
   esencial: 1,
   pro: 1,
   multi: Infinity,
 }
 
-export const TIERS: Tier[] = [
-  {
-    id: 'esencial',
-    name: 'Esencial',
-    tagline: 'Para contratar puntualmente sin perder respuestas',
-    monthly: 185,
-    annual: 1850,
-    processes: '2 procesos a la vez',
-    available: true,
-    features: [
-      'Candidatos ilimitados',
-      'Formulario de candidatura a tu medida',
-      'Tu nombre, tu logo y tus colores en el formulario',
-      'Filtros, favoritos y etiquetas',
-      'Exporta a Excel cuando quieras',
-      'Soporte humano, te responde una persona',
-    ],
-    cta: 'Empezar con Esencial',
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    tagline: 'Para varias contrataciones activas y trabajo en equipo',
-    monthly: 237,
-    annual: 2370,
-    processes: '10 procesos a la vez',
-    recommended: true,
-    available: true,
-    features: [
-      'Todo lo de Esencial',
-      'Meridian: resume cada candidatura y calcula su ajuste al puesto',
-      'Hasta 10 procesos a la vez',
-      'Equipo: chat en cada candidato y tablón de peticiones',
-      'Guarda tus vistas de filtros y reaplícalas',
-    ],
-    cta: 'Empezar con Pro',
-  },
-  {
-    id: 'multi',
-    name: 'Multi',
-    tagline: 'Para ETTs, cadenas y equipos con varias sedes',
-    monthly: 533,
-    annual: 5330,
-    processes: 'Procesos ilimitados',
-    available: true,
-    features: [
-      'Todo lo de Pro',
-      'Procesos ilimitados',
-      'Encargados por sede: cada uno ve y exporta solo la suya',
-      'Varias marcas, cada una con su nombre, logo y banner',
-    ],
-    cta: 'Empezar con Multi',
-  },
-]
-
-/** Reassurance del trial en hero y CTAs. Derivada de los topes reales. */
-export const TRIAL_REASSURANCE = `${PLAN_PROCESS_LIMIT.trial} puesto y hasta ${PLAN_CANDIDATE_LIMIT.trial} candidatos gratis. Sin tarjeta ni permanencia.`
-
-// Presentación del precio anual como equivalente mensual. El importe facturado
-// es SIEMPRE visible junto al equivalente (transparencia: nada que calcular ni
-// letra pequeña). El equivalente se trunca (207,5 -> 207) porque el total anual
-// exacto se muestra al lado; el ahorro son exactamente 2 mensualidades.
-export const annualPerMonth = (t: Tier): number => Math.floor(t.annual / 12)
-export const annualSavings = (t: Tier): number => t.monthly * 12 - t.annual
 // Números con separador de miles español (2370 -> "2.370").
 export const fmtEs = (n: number): string => n.toLocaleString('es-ES')
+
+// Las Etiquetas son una primitiva de clasificación (como el favorito), no algo
+// que se cobre: disponibles siempre. Único punto de configuración: si algún día
+// se quisiera gatear, este flag es el sitio donde cambiarlo.
+export const TAGS_ENABLED = true

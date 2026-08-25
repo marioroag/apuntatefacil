@@ -19,12 +19,11 @@ import {
 import { useAuth } from '../lib/auth'
 import { useProfiles } from '../lib/profiles'
 import { useAppBase } from '../lib/useAppBase'
-import { PLAN_LABEL, type PlanFeature } from '../lib/pricing'
+import { PLAN_LABEL } from '../lib/pricing'
 import { initials } from '../lib/format'
 import { Avatar } from './ui/Avatar'
 import { BetaBadge } from './BetaBadge'
 import { GlobalSearch } from './GlobalSearch'
-import { UpgradeDialog } from './UpgradeDialog'
 import { Avisos } from './Avisos'
 
 /**
@@ -83,10 +82,6 @@ export function TopBar({
   const base = useAppBase()
   const demo = base === '/demo'
   const [buscarMovil, setBuscarMovil] = useState(false)
-  // El buscador encuentra también apartados que este plan no incluye, y al elegir
-  // uno cuenta qué falta en vez de navegar. El diálogo vive AQUÍ y no dentro del
-  // buscador: en el móvil la capa se cierra al elegir y se lo llevaría por delante.
-  const [upgrade, setUpgrade] = useState<PlanFeature | null>(null)
 
   return (
     <>
@@ -125,7 +120,7 @@ export function TopBar({
               recordar su puesto es lo único que no se puede hacer en ninguna
               pantalla. Por debajo de md no cabe un campo: hay un botón. */}
           <div className="hidden h-full min-w-0 flex-1 items-center md:flex">
-            <GlobalSearch variant="inline" onUpgrade={setUpgrade} />
+            <GlobalSearch variant="inline" />
           </div>
 
           <div className="ml-auto flex h-full items-center gap-0.5 sm:gap-1">
@@ -201,10 +196,8 @@ export function TopBar({
       {/* Fuera del header a propósito: el header es un contexto de apilamiento y
           esta capa, que va a pantalla completa, se quedaría dentro de él. */}
       {buscarMovil && (
-        <GlobalSearch variant="sheet" onClose={() => setBuscarMovil(false)} onUpgrade={setUpgrade} />
+        <GlobalSearch variant="sheet" onClose={() => setBuscarMovil(false)} />
       )}
-
-      <UpgradeDialog open={upgrade !== null} onClose={() => setUpgrade(null)} feature={upgrade ?? 'teamBoard'} />
     </>
   )
 }
@@ -387,7 +380,7 @@ function CompanyMenu({
           <div className="flex flex-col items-center gap-1.5 px-3 pb-3 pt-3">
             <CompanyTile name={empresa} size={44} radius="rounded-xl" />
             <p className="max-w-full truncate text-[15px] font-semibold text-slate-900">{empresa}</p>
-            <p className="text-[12px] text-slate-500">Plan {planLabel}</p>
+            <p className="text-[12px] text-slate-500">{company?.plan === 'proceso' ? planLabel : `Plan ${planLabel}`}</p>
           </div>
 
           <Separator />
@@ -395,7 +388,7 @@ function CompanyMenu({
           {!demo && isOwner && (
             <Link data-mi role="menuitem" to="/app/plan" onClick={close} className={ITEM}>
               <Slot><CreditCard className="size-4 text-slate-400" aria-hidden /></Slot>
-              <span className="flex-1">Plan y facturación</span>
+              <span className="flex-1">Facturación</span>
             </Link>
           )}
 

@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { planHas } from '../lib/pricing'
 import { personLabel, relativeDate } from '../lib/format'
 import { useProfiles } from '../lib/profiles'
 import { Avatar } from '../components/ui/Avatar'
@@ -17,16 +16,18 @@ type Invitation = { id: string; email: string; token: string; created_at: string
 
 const ROLE_LABEL: Record<string, string> = { owner: 'Propietario', member: 'Miembro', encargado: 'Encargado' }
 
-// Gestión de miembros (pestaña "Miembros" de Equipo, Pro+, solo owner): miembros
-// actuales + invitar por email. En Multi se puede invitar como ENCARGADO
-// acotado a sedes. Usuarios ilimitados (sin coste por asiento).
+// Gestión de miembros (pestaña "Miembros" de Equipo, solo owner): miembros
+// actuales + invitar por email. Con sedes creadas se puede invitar como
+// ENCARGADO acotado a sedes. Usuarios ilimitados (sin coste por asiento).
 // En demo: datos de ejemplo en memoria (sin Supabase).
 export function EquipoMiembros() {
   const toast = useToast()
   const { sites } = useStore()
   const { company } = useAuth()
   const demo = company?.id === 'demo'
-  const canManagers = planHas(company?.plan, 'managers') && sites.length > 0
+  // Encargados por sede: incluidos para todos (pago por proceso); solo piden
+  // que exista alguna sede a la que acotar el acceso.
+  const canManagers = sites.length > 0
   const siteName = (id: string) => sites.find((s) => s.id === id)?.name ?? 'sede'
 
   const [members, setMembers] = useState<Member[]>([])

@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Briefcase, Check, ChevronDown, ChevronRight, HelpCircle, Lock, Minus, Sparkles, X } from 'lucide-react'
+import { Briefcase, Check, ChevronDown, ChevronRight, HelpCircle, Minus, Sparkles, X } from 'lucide-react'
 import type { AiCriterion, Candidate } from '../lib/types'
 import { initials, candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
-import { useAuth } from '../lib/auth'
-import { useAppBase } from '../lib/useAppBase'
 import { BTN_SECONDARY } from '../lib/buttons'
 import {
-  CRITERIO_VALOR_LABEL, MERIDIAN_NAME, candidateFit, criterioNombre, fitTier, hasMeridian,
+  CRITERIO_VALOR_LABEL, MERIDIAN_NAME, candidateFit, criterioNombre, fitTier,
 } from '../lib/meridian'
 
 // Avatar de iniciales del candidato ("PFP") con el ajuste de Meridian pintado como
@@ -259,10 +256,6 @@ export function MeridianCandidateRow({
 // Bloque de triaje de Meridian dentro del detalle del candidato (SlideOver).
 export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
   const { analyzeCandidate } = useStore()
-  const { company } = useAuth()
-  // El enlace al plan tiene que respetar la demo: con /app/plan a pelo, pulsarlo
-  // desde /demo te sacaba de la demo a la app real.
-  const base = useAppBase()
   const [busy, setBusy] = useState(false)
   // La ficha del candidato que ACABA de analizarse imprime su informe fila a
   // fila (ver .meridian-in). Guardamos el id, no un booleano: al pasar con las
@@ -275,7 +268,6 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
   // a plegar: cada persona se abre a propósito. Lo que acabas de analizar sí
   // entra abierto, porque acabas de pedirlo.
   const [abiertoId, setAbiertoId] = useState<string | null>(null)
-  const enabled = hasMeridian(company?.plan)
   const ai = candidate.ai
   const failed = !!ai?.error
 
@@ -290,23 +282,10 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
     }
   }
 
-  // Bloqueado por plan (diferenciador de Pro/Multi): teaser sobrio con upsell.
-  if (!enabled) {
-    return (
-      <div className="rounded-xl filo bg-slate-50/60 p-3.5">
-        <MeridianLabel />
-        <p className="mt-1.5 text-[13px] leading-5 text-slate-500">
-          Reviso cada candidatura y calculo su ajuste al puesto para que veas primero a quien encaja.
-        </p>
-        <Link
-          to={`${base}/plan`}
-          className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-600 hover:text-indigo-700"
-        >
-          <Lock className="size-3.5" aria-hidden /> Disponible con Pro
-        </Link>
-      </div>
-    )
-  }
+  // Sin gating por plan: con el pago por proceso (ago 2026) Meridian está
+  // incluido para todo el mundo, también en la prueba (el coste lo acota su
+  // tope de candidaturas). El fail-closed de un plan desconocido lo aplica el
+  // servidor, que responde sin analizar y aquí se traduce en el toast del store.
 
   // Analizado con éxito. El veredicto (etiqueta y anillo) vive en la CABECERA del
   // panel, así que aquí queda solo la lectura: sin repetir la etiqueta ni la barra.

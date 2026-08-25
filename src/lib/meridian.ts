@@ -7,7 +7,6 @@
 // cámbialo aquí y cambia en toda la app (igual que la marca vive solo en brand.ts).
 // -----------------------------------------------------------------------------
 
-import { planHas } from './pricing'
 
 /** Nombre visible del asistente. Placeholder, renómbralo solo aquí. */
 export const MERIDIAN_NAME = 'Meridian'
@@ -21,10 +20,12 @@ export const MERIDIAN_NAME = 'Meridian'
  */
 export const MERIDIAN_CHAT_ENABLED: boolean = false
 
-/** Disponible como diferenciador de Pro/Multi (espejo del gating de servidor en la
- *  edge function, que no analiza para planes por debajo de Pro). */
+/** Con el pago por proceso (ago 2026) Meridian está incluido para todo el
+ *  mundo: se cobra por procesos abiertos, no por capacidades. Espejo del
+ *  gating de servidor (_shared/plans.ts), que sigue fail-closed: un plan
+ *  desconocido no llama a OpenAI. */
 export function hasMeridian(plan: string | undefined | null): boolean {
-  return planHas(plan, 'meridian')
+  return typeof plan === 'string' && ['trial', 'proceso', 'esencial', 'pro', 'multi'].includes(plan)
 }
 
 // Etiqueta cualitativa del ajuste. Mario: se muestra la ETIQUETA, no la nota cruda,

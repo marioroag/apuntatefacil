@@ -1,6 +1,5 @@
 import { Briefcase, CalendarDays, Gauge, Inbox, LayoutGrid, MessagesSquare, Sparkles, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { planHas } from './pricing'
 import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian } from './meridian'
 
 /**
@@ -15,9 +14,10 @@ import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian } from './meridian'
  *
  * Tres reglas que impiden que esto se pudra:
  *
- * 1. **Lo que no incluye tu plan no se pinta.** Nada de tabs bloqueadas en el
- *    menú: el límite se descubre en su contexto (crear puesto, abrir Equipo),
- *    no con un candado en la navegación.
+ * 1. **Lo que no está disponible no se pinta.** Nada de tabs bloqueadas en el
+ *    menú: el límite se descubre en su contexto, no con un candado en la
+ *    navegación. (Con el pago por proceso ya no hay features por plan, pero la
+ *    regla sigue viva para banderas como MERIDIAN_CHAT_ENABLED o el admin.)
  * 2. **Un grupo sin ítems visibles no existe.** Ni cabecera huérfana ni hueco.
  *    Por eso `grupos()` filtra al final y no hay que acordarse en cada sitio.
  * 3. **Un contador se dice, no se enseña.** `contarLabel` es el texto que oye
@@ -110,18 +110,14 @@ export function navGroups(ctx: NavContext): NavGroup[] {
               },
             ]
           : []),
-        ...(planHas(plan, 'entrevistas')
-          ? [
-              {
-                id: 'entrevistas',
-                to: '/entrevistas',
-                label: 'Entrevistas',
-                Icon: CalendarDays,
-                count: counts.entrevistas,
-                contarLabel: (n: number) => plural(n, 'entrevista por venir', 'entrevistas por venir'),
-              },
-            ]
-          : []),
+        {
+          id: 'entrevistas',
+          to: '/entrevistas',
+          label: 'Entrevistas',
+          Icon: CalendarDays,
+          count: counts.entrevistas,
+          contarLabel: (n: number) => plural(n, 'entrevista por venir', 'entrevistas por venir'),
+        },
       ],
     },
     {
@@ -131,21 +127,17 @@ export function navGroups(ctx: NavContext): NavGroup[] {
       id: 'empresa',
       label: 'Empresa',
       items: [
-        // Equipo (tablón + miembros) es Pro+: lo ven todos los roles del plan.
-        // Dentro, la pestaña Miembros solo se pinta al owner (y sus RPCs son
-        // owner-only), así que el encargado entra sin ver de más.
-        ...(planHas(plan, 'teamBoard')
-          ? [
-              {
-                id: 'equipo',
-                to: '/equipo',
-                label: 'Equipo',
-                Icon: Users,
-                count: counts.equipo,
-                contarLabel: (n: number) => plural(n, 'novedad en el tablón', 'novedades en el tablón'),
-              },
-            ]
-          : []),
+        // Equipo (tablón + miembros) lo ven todos los roles. Dentro, la pestaña
+        // Miembros solo se pinta al owner (y sus RPCs son owner-only), así que
+        // el encargado entra sin ver de más.
+        {
+          id: 'equipo',
+          to: '/equipo',
+          label: 'Equipo',
+          Icon: Users,
+          count: counts.equipo,
+          contarLabel: (n: number) => plural(n, 'novedad en el tablón', 'novedades en el tablón'),
+        },
       ],
     },
     {

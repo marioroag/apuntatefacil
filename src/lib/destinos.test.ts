@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DESTINOS, ajustesComoDestinos, destinosVisibles, type DestinosCtx } from './destinos'
 import { SECCIONES, gruposVisibles, seccionesVisibles } from './settings'
-import { FEATURE_COPY, type PlanFeature } from './pricing'
 import { FUERTE, normalizeSearch, scoreEntrada } from './search'
 import { navGroups } from './nav'
 import type { Company } from './auth'
@@ -44,13 +43,6 @@ const RUTAS_SIN_DESTINO: Record<string, string> = {
   'ajustes/:seccion': 'Es la misma pantalla que "ajustes", y cada interruptor entra por su fila con enlace directo.',
   sedes: 'Ruta retirada (ago 2026): redirige. "Sedes" sí se encuentra, y lleva a Vista general, que es donde se administran.',
   marcas: 'Ruta retirada (ago 2026): redirige. La identidad se encuentra y lleva al constructor, que es donde se edita.',
-}
-
-/** Features de pago que no son un sitio al que ir. */
-const FEATURES_SIN_DESTINO: Record<PlanFeature, string> | Partial<Record<PlanFeature, string>> = {
-  savedViews: 'Las vistas guardadas son del panel de un puesto, no un destino: se descubren donde se usan.',
-  multiBrand: 'Es un tope, no una pantalla: la identidad ya se encuentra y el límite salta al crear la segunda marca.',
-  managers: 'Los encargados se invitan desde Equipo, que ya se encuentra por su cuenta.',
 }
 
 /** Secciones de ajustes que se traen su propia pantalla y por eso no se pueden buscar por dentro. */
@@ -155,19 +147,10 @@ describe('lo que se puede visitar, se puede encontrar', () => {
     ).toEqual([])
   })
 
-  it('toda feature de pago se puede encontrar', () => {
-    const conDestino = new Set(DESTINOS.map((d) => d.feature).filter(Boolean))
-    const sinPuerta = (Object.keys(FEATURE_COPY) as PlanFeature[])
-      .filter((f) => !conDestino.has(f))
-      .filter((f) => !(f in FEATURES_SIN_DESTINO))
-
-    expect(
-      sinPuerta,
-      `Estas features se cobran y no se pueden encontrar: ${sinPuerta.join(', ')}. ` +
-        `Quien no las tiene nunca sabrá que existen: dales su destino (saldrá con candado y llevará al plan), ` +
-        `o apúntalas en FEATURES_SIN_DESTINO con el motivo.`,
-    ).toEqual([])
-  })
+  // El detector de "toda feature de pago se puede encontrar" murió con los
+  // tiers (ago 2026): en el pago por proceso no hay features de pago que
+  // vender con candado. Si algún día vuelve algo cobrable por capacidad, su
+  // detector vuelve con él.
 
   it('todo ajuste del registro se encuentra y lleva a su fila', () => {
     const derivados = ajustesComoDestinos(CTX)

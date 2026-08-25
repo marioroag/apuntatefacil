@@ -46,7 +46,7 @@ function lockedRows(campaign: Campaign, lockedDates: string[], header: string[])
     })
     row[col('Estado')] = 'Bloqueada'
     row[col('Recibida')] = fullDateTime(iso) // la fecha sí es real
-    row[col('Conversación')] = 'Mejora tu plan para ver esta candidatura.'
+    row[col('Conversación')] = 'Añade tu método de pago para ver esta candidatura.'
     return row
   })
 }

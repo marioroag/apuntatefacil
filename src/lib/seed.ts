@@ -91,8 +91,8 @@ const SYS_EMAIL = f({ id: 'email', type: 'email', label: 'Email', required: true
 // ---------------------------------------------------------------------------
 // Sedes y marcas
 // ---------------------------------------------------------------------------
-// La demo es una agencia de empleo con dos divisiones (Plan Multi): construcción
-// en Valencia y logística en Madrid. Cada división es una sede y una marca.
+// La demo es una agencia de empleo con dos divisiones: construcción en
+// Valencia y logística en Madrid. Cada división es una sede y una marca.
 
 const sites: Site[] = [
   { id: 'site_valencia', name: 'Valencia', city: 'Valencia' },
@@ -731,7 +731,8 @@ for (const c of candidates) {
 }
 
 export const SEED: AppData = {
-  company: { name: 'Tu empresa', plan: 'multi', accent: '#374cce' },
+  // La demo paga por proceso (el modelo vigente): producto completo sin topes.
+  company: { name: 'Tu empresa', plan: 'proceso', accent: '#374cce' },
   sites,
   campaigns,
   candidates,

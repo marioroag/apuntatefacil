@@ -77,26 +77,20 @@ describe('el menú se declara, no se improvisa', () => {
   })
 })
 
-describe('lo que no incluye tu plan no se pinta', () => {
-  it('en Prueba y Esencial no asoman Equipo ni Entrevistas', () => {
-    // Nada de tabs con candado: el límite se descubre en su contexto, no en la
-    // navegación. Si un plan nuevo cambia esto, cámbialo en PLAN_FEATURES.
-    for (const plan of ['trial', 'esencial']) {
-      expect(ids(ctx({ plan })), `Equipo no es de ${plan}.`).not.toContain('equipo')
-      expect(ids(ctx({ plan })), `Entrevistas no es de ${plan}.`).not.toContain('entrevistas')
+describe('el menú es el mismo para todos los planes', () => {
+  it('Equipo y Entrevistas las tiene todo el mundo', () => {
+    // Con el pago por proceso (ago 2026) el producto entero está incluido: los
+    // candados por plan murieron. Se comprueba en TODOS los planes, también los
+    // tiers retirados, que ganaron las features al retirarse el gating.
+    for (const plan of ['trial', 'proceso', 'esencial', 'pro', 'multi']) {
+      expect(ids(ctx({ plan })), `Equipo falta en ${plan}.`).toContain('equipo')
+      expect(ids(ctx({ plan })), `Entrevistas falta en ${plan}.`).toContain('entrevistas')
     }
   })
 
-  it('en Pro y Multi sí', () => {
-    for (const plan of ['pro', 'multi']) {
-      expect(ids(ctx({ plan }))).toContain('equipo')
-      expect(ids(ctx({ plan }))).toContain('entrevistas')
-    }
-  })
-
-  it('Vista general y Bandeja las tiene todo el mundo', () => {
+  it('Vista general y Bandeja también', () => {
     // Son el suelo del producto: sin ellas no hay dónde volver ni dónde mirar.
-    for (const plan of ['trial', 'esencial', 'pro', 'multi']) {
+    for (const plan of ['trial', 'proceso', 'esencial', 'pro', 'multi']) {
       expect(ids(ctx({ plan })), `Vista general falta en ${plan}.`).toContain('resumen')
       expect(ids(ctx({ plan })), `Bandeja falta en ${plan}.`).toContain('bandeja')
     }
@@ -104,7 +98,7 @@ describe('lo que no incluye tu plan no se pinta', () => {
 
   it('Meridian sigue la llave de su flag, no la del plan', () => {
     // Mientras el hilo esté fuera no hay entrada, tenga el plan lo que tenga.
-    expect(ids(ctx({ plan: 'multi' })).includes('meridian')).toBe(MERIDIAN_CHAT_ENABLED)
+    expect(ids(ctx({ plan: 'proceso' })).includes('meridian')).toBe(MERIDIAN_CHAT_ENABLED)
   })
 })
 

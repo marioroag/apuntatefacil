@@ -2,7 +2,6 @@ import { AtSign, Inbox, Mail, MessageCircle, Sparkles, Users } from 'lucide-reac
 import type { LucideIcon } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { AjustesCalendario } from '../screens/AjustesCalendario'
-import { planHas } from './pricing'
 import { MERIDIAN_NAME, hasMeridian } from './meridian'
 import { useAuth, type Company, type CompanySettings } from './auth'
 import { useProfiles } from './profiles'
@@ -133,8 +132,6 @@ export const SECCIONES: SeccionAjustes[] = [
         id: 'equipo',
         titulo: 'Tu equipo',
         descripcion: 'Cuando alguien cuenta contigo.',
-        // Sin chat de equipo ni tablón no hay nada que avisar.
-        disponible: (c) => planHas(c.company?.plan, 'teamBoard'),
         ajustes: [
           email(
             EMAIL_KEYS.mencion,
@@ -195,8 +192,7 @@ export const SECCIONES: SeccionAjustes[] = [
     icon: MessageCircle,
     titulo: 'Asistente de WhatsApp',
     descripcion: 'Invitar a entrevista y cuadrar la cita hablando con el candidato.',
-    // Solo con el plan que trae entrevistas: sin él no hay nada que configurar.
-    disponible: (c) => WHATSAPP_ASSISTANT_ENABLED && planHas(c.company?.plan, 'entrevistas'),
+    disponible: () => WHATSAPP_ASSISTANT_ENABLED,
     grupos: [],
     // Ver el comentario de `componente`: temporal hasta declarar la agenda como
     // ajustes de verdad.

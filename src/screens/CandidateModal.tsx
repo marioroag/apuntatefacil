@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,7 +9,6 @@ import {
   ExternalLink,
   FileText,
   Loader2,
-  Lock,
   MessageCircle,
   MessagesSquare,
   MoreHorizontal,
@@ -33,18 +31,16 @@ import { FAVORITO_STAR, SOURCE_META, STATUS_META } from '../lib/types'
 import { answerText, candidateName, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { useAppBase } from '../lib/useAppBase'
 import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { copyText } from '../lib/clipboard'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { TagSection } from '../components/Tags'
-import { TAGS_ENABLED, planHas } from '../lib/pricing'
+import { TAGS_ENABLED } from '../lib/pricing'
 import { InterestSignal } from '../components/InterestSignal'
 import { AgendarManualDialog, InterviewHeaderButton } from '../components/InterviewAction'
 import { InterviewConversation } from '../components/InterviewConversation'
-import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import { MeridianAvatar, MeridianPanelBlock } from '../components/Meridian'
 import { MERIDIAN_NAME, candidateFit } from '../lib/meridian'
 
@@ -111,8 +107,7 @@ export function CandidateModal({
 }) {
   const { setFavorito, setStatus, deleteCandidate, loadCandidateComments, addCandidateComment, loadCandidateEvents, members, chatVersion, commentCounts } =
     useStore()
-  const { role, company, user } = useAuth()
-  const base = useAppBase()
+  const { role, user } = useAuth()
   const toast = useToast()
   const [izq, setIzq] = useState<Izquierda>('resumen')
   // UNA sola pieza de estado para cuál de las tres se ve, la use el panel
@@ -125,12 +120,12 @@ export function CandidateModal({
   const dosColumnas = useDosColumnas()
 
   const canManageTags = role !== 'encargado'
-  const chatEnabled = planHas(company?.plan, 'teamBoard') || company?.id === 'demo'
-  // La demo va en Multi, así que ve la pestaña como cualquier cliente de pago:
-  // esconderla ahí sería enseñar un bloqueo de plan a quien no lo tiene. Lo que
-  // cambia en demo es que la invitación no sale (avisa y no escribe a nadie),
-  // igual que llamar o escribir por WhatsApp.
-  const puedeEntrevistar = planHas(company?.plan, 'entrevistas')
+  // Con el pago por proceso todo el producto está incluido: el chat de equipo y
+  // las entrevistas ya no se cortan por plan. En demo lo que cambia es que la
+  // invitación no sale (avisa y no escribe a nadie), igual que llamar o
+  // escribir por WhatsApp.
+  const chatEnabled = true
+  const puedeEntrevistar = true
 
   // Al cambiar de candidato se vuelve a Resumen: la pestaña de CV puede no
   // existir en el siguiente. Se ajusta DURANTE el render (patrón de React para
@@ -199,7 +194,7 @@ export function CandidateModal({
     ...(dosColumnas ? [] : [{ value: 'seguimiento' as const, label: 'Seguimiento', count: nMensajes || undefined }]),
   ]
 
-  const panelEquipo = chatEnabled ? (
+  const panelEquipo = (
     <Equipo
       key={candidate.id}
       candidateId={candidate.id}
@@ -209,19 +204,15 @@ export function CandidateModal({
       load={loadCandidateComments}
       onSend={addCandidateComment}
     />
-  ) : (
-    <EquipoBloqueado base={base} />
   )
 
-  const panelConversacion = puedeEntrevistar ? (
+  const panelConversacion = (
     <InterviewConversation
       key={candidate.id}
       candidate={candidate}
       campaign={campaign}
       onScheduleManually={() => setAgendarManual(true)}
     />
-  ) : (
-    <ConversacionBloqueada base={base} />
   )
 
   const tabsSeguimiento: TabItem<Seguimiento>[] = [
@@ -837,42 +828,7 @@ function Equipo({
 }
 
 /** Chat sin plan: mismo patrón de upsell que el bloque de Meridian. */
-function EquipoBloqueado({ base }: { base: string }) {
-  return (
-    <div className="m-auto max-w-[40ch] px-6 py-8 text-center">
-      <MessagesSquare className="mx-auto size-6 text-slate-400" aria-hidden />
-      <p className="mt-2 text-sm font-medium text-slate-800">Comenta con tu equipo</p>
-      <p className="mt-1 text-[13px] leading-5 text-slate-500">
-        Lo que hablas de cada candidato, en su ficha y con el nombre de quien lo dijo. Con @ avisas a un compañero.
-      </p>
-      <Link to={`${base}/plan`} className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-600 hover:text-indigo-700">
-        <Lock className="size-3.5" aria-hidden /> Disponible con Pro
-      </Link>
-    </div>
-  )
-}
 
-function ConversacionBloqueada({ base }: { base: string }) {
-  return (
-    <div className="m-auto max-w-[40ch] px-6 py-8 text-center">
-      <MessageCircle className="mx-auto size-6 text-slate-400" aria-hidden />
-      <p className="mt-2 text-sm font-medium text-slate-800">
-        {WHATSAPP_LISTO ? 'Deja que cuadremos la cita' : 'Lleva tus entrevistas aquí'}
-      </p>
-      {/* Lo que vende Pro tiene que ser lo que Pro hace HOY. Mientras el canal
-          no esté de alta, prometer aquí que escribimos al candidato es cobrar
-          por algo que todavía no pasa (ver `lib/whatsapp.ts`). */}
-      <p className="mt-1 text-[13px] leading-5 text-slate-500">
-        {WHATSAPP_LISTO
-          ? 'Apúntate Fácil escribe al candidato por WhatsApp, comprueba su disponibilidad y cierra un horario compatible con tu agenda.'
-          : 'Cuadra la cita, colócala en tu agenda y que el equipo sepa quién entrevista a quién y cuándo.'}
-      </p>
-      <Link to={`${base}/plan`} className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-indigo-600 hover:text-indigo-700">
-        <Lock className="size-3.5" aria-hidden /> Disponible con Pro
-      </Link>
-    </div>
-  )
-}
 
 /** Punto de color del historial. Solo el cambio de estado tiene color propio. */
 function eventoDot(e: CandidateEvent): string {

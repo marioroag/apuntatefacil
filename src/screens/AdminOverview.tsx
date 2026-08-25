@@ -5,16 +5,19 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { SlideOver } from '../components/ui/SlideOver'
 import { miles, relativeDate } from '../lib/format'
-import { TIERS, PLAN_LABEL } from '../lib/pricing'
+import { PLAN_LABEL, PRECIO_PROCESO } from '../lib/pricing'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { CandidateStatus } from '../lib/types'
 
 // Forma del RPC admin_overview (ver migración 20260624140000_admin_overview.sql).
 interface Overview {
   accounts: { companies: number; users: number; new_companies_7d: number; new_companies_30d: number }
-  plans: { trial: number; esencial: number; pro: number; multi: number }
+  plans: { trial: number; proceso?: number; esencial: number; pro: number; multi: number }
   subscriptions: {
     active_paid: number
+    /** Procesos pagados en total (pago por proceso). Puede faltar hasta que el
+     *  RPC nuevo esté desplegado. */
+    paid_processes?: number
     by_plan_interval: { plan: string; interval: string; count: number }[]
   }
   candidates: { total: number; new_7d: number; new_30d: number; by_status: Partial<Record<CandidateStatus, number>> }
@@ -44,15 +47,27 @@ interface AccountDetail {
   campaigns: { id: string; title: string; status: string; created_at: string; candidates: number }[]
 }
 
-// MRR a partir del desglose plan x periodicidad, con los precios de pricing.ts (fuente
-// única). El anual cuenta su parte mensual (precio anual / 12).
-function computeMrr(rows: Overview['subscriptions']['by_plan_interval']): number {
-  return rows.reduce((sum, r) => {
-    const tier = TIERS.find((t) => t.id === r.plan)
-    if (!tier) return sum
-    const monthly = r.interval === 'year' ? tier.annual / 12 : tier.monthly
-    return sum + monthly * r.count
+// Importes de los tiers RETIRADOS (solo para el MRR de las suscripciones
+// antiguas que sigan vivas; ya no se venden y no están en pricing.ts).
+const LEGACY_MONTHLY: Record<string, { month: number; year: number }> = {
+  esencial: { month: 185, year: 1850 / 12 },
+  pro: { month: 237, year: 2370 / 12 },
+  multi: { month: 533, year: 5330 / 12 },
+}
+
+// MRR: pago por proceso = procesos pagados x su precio; los tiers antiguos, de
+// su desglose plan x periodicidad. Si el RPC aún no manda paid_processes (deploy
+// viejo), 'proceso' se cuenta a un proceso por empresa (suelo, no cifra exacta).
+function computeMrr(subs: Overview['subscriptions']): number {
+  const proceso = subs.paid_processes != null
+    ? subs.paid_processes * PRECIO_PROCESO
+    : subs.by_plan_interval.filter((r) => r.plan === 'proceso').reduce((s, r) => s + PRECIO_PROCESO * r.count, 0)
+  const legacy = subs.by_plan_interval.reduce((sum, r) => {
+    const t = LEGACY_MONTHLY[r.plan]
+    if (!t) return sum
+    return sum + (r.interval === 'year' ? t.year : t.month) * r.count
   }, 0)
+  return proceso + legacy
 }
 
 export function AdminOverview() {
@@ -138,10 +153,10 @@ export function AdminOverview() {
     )
   }
 
-  const mrr = computeMrr(data.subscriptions.by_plan_interval)
+  const mrr = computeMrr(data.subscriptions)
   const maxDay = Math.max(1, ...data.series_candidates_14d.map((d) => d.count))
   const maxStatus = Math.max(1, ...STATUS_ORDER.map((s) => data.candidates.by_status[s] ?? 0))
-  const maxPlan = Math.max(1, data.plans.trial, data.plans.esencial, data.plans.pro, data.plans.multi)
+  const maxPlan = Math.max(1, data.plans.trial, data.plans.proceso ?? 0, data.plans.esencial, data.plans.pro, data.plans.multi)
 
   return (
     <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8">
@@ -190,16 +205,16 @@ export function AdminOverview() {
             </span>
           </div>
           <ul className="mt-4 space-y-2.5">
-            {(['trial', 'esencial', 'pro', 'multi'] as const).map((p) => (
+            {(['trial', 'proceso', 'esencial', 'pro', 'multi'] as const).map((p) => (
               <li key={p} className="flex items-center gap-3">
                 <span className="w-16 shrink-0 text-[13px] text-slate-600">{PLAN_LABEL[p]}</span>
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
                   <div
                     className={`h-full rounded-full ${p === 'trial' ? 'bg-slate-300' : 'bg-slate-700'}`}
-                    style={{ width: `${Math.round((data.plans[p] / maxPlan) * 100)}%` }}
+                    style={{ width: `${Math.round(((data.plans[p] ?? 0) / maxPlan) * 100)}%` }}
                   />
                 </div>
-                <span className="num w-8 shrink-0 text-right text-[13px] font-semibold text-slate-900">{data.plans[p]}</span>
+                <span className="num w-8 shrink-0 text-right text-[13px] font-semibold text-slate-900">{data.plans[p] ?? 0}</span>
               </li>
             ))}
           </ul>

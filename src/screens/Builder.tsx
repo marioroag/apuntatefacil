@@ -52,7 +52,6 @@ import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { AssetBox } from '../components/BrandAssets'
 import { useBrandAssetUpload, type BrandAssetPatch } from '../lib/brandUpload'
-import { UpgradeDialog } from '../components/UpgradeDialog'
 import { PLAN_BRAND_LIMIT } from '../lib/pricing'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
@@ -665,7 +664,6 @@ function Identidad({ campaign }: { campaign: Campaign }) {
   const [draft, setDraft] = useState<{ brandId: string | null; value: string } | null>(null)
   const name = draft && draft.brandId === (active?.id ?? null) ? draft.value : active?.name ?? ''
   const setName = (v: string) => setDraft({ brandId: active?.id ?? null, value: v })
-  const [upgrade, setUpgrade] = useState(false)
   const [toDelete, setToDelete] = useState(false)
   // Una sola creación aunque lleguen dos ediciones seguidas (subir el logo y salir
   // del campo del nombre): la promesa se comparte.
@@ -725,7 +723,9 @@ function Identidad({ campaign }: { campaign: Campaign }) {
 
   const crearMarca = async () => {
     if (brands.length >= limit) {
-      setUpgrade(true)
+      // Con el pago por proceso solo la prueba tiene tope de marcas (una, la de
+      // la casa); quien paga crea las que su operación pida.
+      toast.show('Durante la prueba tienes una marca, la de tu casa. Añade tu método de pago para crear más.')
       return
     }
     const b = await createBrand({ name: '', accent: campaign.branding.accent, welcome: '', thanks: '', showLogo: true, logoPath: null, bannerPath: null })
@@ -831,7 +831,6 @@ function Identidad({ campaign }: { campaign: Campaign }) {
         )}
       </div>
 
-      {upgrade && <UpgradeDialog open feature="multiBrand" onClose={() => setUpgrade(false)} />}
       <ConfirmDialog
         open={toDelete}
         onClose={() => setToDelete(false)}

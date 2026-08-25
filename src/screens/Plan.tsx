@@ -1,36 +1,37 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Check, Loader2 } from 'lucide-react'
-import { TIERS, PLAN_LABEL, fmtEs } from '../lib/pricing'
-import { TierPrice } from '../components/TierPrice'
+import { ArrowLeft, CreditCard, Loader2, Receipt } from 'lucide-react'
+import {
+  PLAN_LABEL, PRECIO_PROCESO, PRUEBA_CANDIDATOS, PRUEBA_DIAS, diasDePruebaRestantes, procesoAbierto,
+} from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { useAuth } from '../lib/auth'
+import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { pollPlanAndReload } from '../lib/planSync'
 
-const PLAN_RANK: Record<string, number> = { trial: 0, esencial: 1, pro: 2, multi: 3 }
-const eur = (cents: number) => (cents / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
-
-type Dialog =
-  | { type: 'change'; planId: string; tierName: string; price: number; annual: boolean; amountDue: number; total: number }
-  | { type: 'cancel' }
+// Facturación del PAGO POR PROCESO (ago 2026). Sustituye al catálogo de tres
+// planes: aquí ya no se elige nada, se ve lo que hay abierto y lo que cuesta.
+//  - En prueba: cómo va (días y candidaturas) y el botón de activar el pago.
+//  - Pagando: los procesos abiertos, el total al mes y el portal de Stripe
+//    (método de pago, facturas). Dejar de pagar = cerrar procesos, cada uno
+//    desde su pantalla: aquí no hay "cancelar suscripción" porque no hace falta.
+//  - Tiers antiguos (Esencial/Pro/Multi): se conservan cancelar/reanudar.
 
 export function Plan() {
   const { company, refreshCompany, role, companyLoading } = useAuth()
+  const { campaigns, lockedInfo, candidates } = useStore()
   const toast = useToast()
   const [params, setParams] = useSearchParams()
   const [busy, setBusy] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<Dialog | null>(null)
+  const [confirmCancel, setConfirmCancel] = useState(false)
   const [dialogBusy, setDialogBusy] = useState(false)
-  const [annual, setAnnual] = useState(false)
 
-  const current = company?.plan ?? 'trial'
-  const subscribed = current !== 'trial'
-  const currentInterval = company?.billing_interval ?? null // 'month' | 'year' | null
-  const selectedInterval = annual ? 'year' : 'month'
-  const pendingCancel = subscribed && !!company?.cancel_at_period_end
+  const plan = company?.plan ?? 'trial'
+  const abiertos = campaigns.filter(procesoAbierto)
+  const totalMes = abiertos.length * PRECIO_PROCESO
 
   useEffect(() => {
     const c = params.get('checkout')
@@ -39,9 +40,9 @@ export function Plan() {
     params.delete('checkout')
     setParams(params, { replace: true })
     if (c === 'ok') {
-      toast.success('Suscripción activada. Aplicando tu plan...')
-      void pollPlanAndReload(refreshCompany, (c) => !!c && c.plan !== 'trial').then((ok) => {
-        if (!ok) toast.show('El plan puede tardar unos segundos en reflejarse. Recarga si no lo ves.')
+      toast.success('Pago activado. Aplicándolo a tu cuenta...')
+      void pollPlanAndReload(refreshCompany, (co) => !!co && co.plan === 'proceso' && co.paid_processes > 0).then((ok) => {
+        if (!ok) toast.show('El pago puede tardar unos segundos en reflejarse. Recarga si no lo ves.')
       })
     } else if (c === 'cancel') {
       toast.show('Pago cancelado, no se ha cobrado nada.')
@@ -49,7 +50,7 @@ export function Plan() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Solo el propietario gestiona el plan; miembros y encargados no entran aquí.
+  // Solo el propietario gestiona la facturación; miembros y encargados no entran aquí.
   if (companyLoading) {
     return (
       <div className="grid min-h-svh place-items-center bg-slate-50" role="status" aria-label="Cargando">
@@ -59,268 +60,222 @@ export function Plan() {
   }
   if (role !== 'owner') return <Navigate to="/app" replace />
 
-  // Alta nueva o cobro de cambio ya confirmado: llama a la función y actúa según la respuesta.
-  const runCheckout = async (planId: string): Promise<boolean> => {
+  // Alta del pago (desde la prueba, o tras quedarse sin suscripción).
+  const activarPago = async () => {
+    setBusy('checkout')
     const { data, error } = await supabase.functions.invoke('stripe-checkout', {
-      body: { plan: planId, returnUrl: `${window.location.origin}/app/plan`, annual, companyId: company?.id },
-    })
-    if (error) {
-      toast.error('No se pudo completar. Inténtalo de nuevo.')
-      return false
-    }
-    if (data?.url) {
-      window.location.href = data.url as string
-      return true
-    }
-    if (data?.changed) {
-      toast.success('Plan actualizado. Aplicando los cambios...')
-      // El plan/periodo real lo confirma el webhook de Stripe (no es instantáneo):
-      // sondeamos hasta que la empresa refleje plan Y periodo y recargamos. Esperar
-      // también al periodo evita recargar con el periodo viejo en un cambio de solo periodo.
-      void pollPlanAndReload(
-        refreshCompany,
-        (c) => c?.plan === planId && c?.billing_interval === selectedInterval,
-      ).then((ok) => {
-        if (!ok) toast.show('El cambio puede tardar unos segundos en reflejarse. Recarga si no lo ves.')
-      })
-      return true
-    }
-    toast.error('No se pudo completar. Inténtalo de nuevo.')
-    return false
-  }
-
-  const onPlanClick = async (planId: string) => {
-    // En Prueba: alta nueva -> la confirmación es la propia pantalla de pago de Stripe.
-    if (!subscribed) {
-      setBusy(planId)
-      await runCheckout(planId)
-      setBusy(null)
-      return
-    }
-    // Ya suscrito: previsualizamos el importe exacto y abrimos el modal.
-    const tier = TIERS.find((t) => t.id === planId)
-    if (!tier) return
-    setBusy(planId)
-    const { data: pv, error } = await supabase.functions.invoke('stripe-checkout', {
-      body: { plan: planId, preview: true, annual, companyId: company?.id },
+      body: { checkout: true, returnUrl: `${window.location.origin}/app/plan`, companyId: company?.id },
     })
     setBusy(null)
-    if (error) {
-      toast.error('No se pudo calcular el importe. Inténtalo de nuevo.')
+    if (!error && data?.url) {
+      window.location.href = data.url as string
       return
     }
-    if (pv?.notSubscribed) {
-      // La suscripción anterior ya no es válida (p.ej. datos de prueba tras pasar a real).
-      await refreshCompany()
-      setBusy(planId)
-      await runCheckout(planId)
-      setBusy(null)
+    if (!error && data?.changed) {
+      // Ya había una suscripción viva (carrera con el webhook): se adoptó.
+      toast.success('Pago activado. Aplicándolo a tu cuenta...')
+      void pollPlanAndReload(refreshCompany, (co) => !!co && co.plan === 'proceso' && co.paid_processes > 0)
       return
     }
-    setDialog({
-      type: 'change',
-      planId,
-      tierName: tier.name,
-      price: annual ? tier.annual : tier.monthly,
-      annual,
-      amountDue: typeof pv?.amountDue === 'number' ? pv.amountDue : 0,
-      total: typeof pv?.total === 'number' ? pv.total : 0,
+    toast.error('No se pudo abrir el pago. Inténtalo de nuevo.')
+  }
+
+  // Portal de Stripe: método de pago, facturas y datos fiscales.
+  const abrirPortal = async () => {
+    setBusy('portal')
+    const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+      body: { portal: true, returnUrl: window.location.href, companyId: company?.id },
     })
+    setBusy(null)
+    if (!error && data?.url) {
+      window.location.href = data.url as string
+      return
+    }
+    toast.error('No se pudo abrir el portal de facturación. Inténtalo de nuevo.')
   }
 
-  const confirmDialog = async () => {
-    if (!dialog) return
+  // Legacy: cancelar/reanudar la suscripción de un tier retirado.
+  const cancelarLegacy = async () => {
     setDialogBusy(true)
-    if (dialog.type === 'change') {
-      const ok = await runCheckout(dialog.planId)
-      setDialogBusy(false)
-      if (ok) setDialog(null)
-    } else {
-      const { data, error } = await supabase.functions.invoke('stripe-checkout', { body: { cancel: true, companyId: company?.id } })
-      setDialogBusy(false)
-      if (error || !data?.canceled) {
-        toast.error('No se pudo cancelar. Inténtalo de nuevo.')
-        return
-      }
-      toast.success('Suscripción cancelada. Mantienes el acceso hasta el final del periodo.')
-      setDialog(null)
-      // Mantenemos los botones bloqueados durante el sondeo para que no se pueda
-      // disparar un cambio de plan que pise la cancelación aún en vuelo.
-      setBusy('__cancel__')
-      const ok = await pollCancelState(true)
-      setBusy(null)
-      if (!ok) toast.show('El cambio puede tardar unos segundos en reflejarse. Recarga si no lo ves.')
+    const { data, error } = await supabase.functions.invoke('stripe-checkout', { body: { cancel: true, companyId: company?.id } })
+    setDialogBusy(false)
+    if (error || !data?.canceled) {
+      toast.error('No se pudo cancelar. Inténtalo de nuevo.')
+      return
     }
+    setConfirmCancel(false)
+    toast.success('Suscripción cancelada. Mantienes el acceso hasta el final del periodo.')
+    void refreshCompany()
   }
-
-  // Tras cancelar/reanudar, el flag real lo fija el webhook de Stripe (no es
-  // instantáneo): sondeamos la empresa hasta que el panel refleje el botón correcto.
-  // Devuelve true si convergió a tiempo, false si agotó los intentos.
-  const pollCancelState = async (expected: boolean): Promise<boolean> => {
-    for (let i = 0; i < 12; i++) {
-      const c = await refreshCompany()
-      if (!!c?.cancel_at_period_end === expected) return true
-      await new Promise((r) => setTimeout(r, 1000))
-    }
-    return false
-  }
-
-  const resumeSubscription = async () => {
-    setBusy('__resume__')
+  const reanudarLegacy = async () => {
+    setBusy('resume')
     const { data, error } = await supabase.functions.invoke('stripe-checkout', { body: { resume: true, companyId: company?.id } })
+    setBusy(null)
     if (error || !data?.resumed) {
-      setBusy(null)
       toast.error('No se pudo reanudar. Inténtalo de nuevo.')
       return
     }
-    toast.success('Suscripción reanudada. Seguirás con tu plan.')
-    if (!(await pollCancelState(false))) {
-      toast.show('El cambio puede tardar unos segundos en reflejarse. Recarga si no lo ves.')
-    }
-    setBusy(null)
+    toast.success('Suscripción reanudada.')
+    void refreshCompany()
   }
 
+  const dias = diasDePruebaRestantes(company?.trial_ends_at)
+  const bloqueadas = Object.values(lockedInfo).reduce((n, i) => n + i.count, 0)
+  const pastDue = company?.subscription_status === 'past_due'
+  const sinPago = plan === 'proceso'
+    && !['active', 'trialing', 'past_due'].includes(company?.subscription_status ?? '')
+  const esLegacy = plan === 'esencial' || plan === 'pro' || plan === 'multi'
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-8">
+    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8">
       <Link to="/app" className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
         <ArrowLeft className="size-4" aria-hidden /> Volver al panel
       </Link>
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900">Tu plan</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900">Facturación</h1>
       <p className="mt-1.5 text-slate-600">
-        Estás en el plan <strong className="font-semibold text-slate-900">{PLAN_LABEL[current] ?? 'Prueba'}</strong>. Candidatos ilimitados en todos; Equipo desde Pro. Precios sin IVA.
+        {PRECIO_PROCESO} € al mes + IVA por proceso abierto. Sin permanencia: cierras un proceso y deja de cobrarse.
       </p>
 
-      <div className="mt-6 flex justify-center sm:justify-start">
-        {/* El periodo se bloquea mientras hay un cambio en curso o el modal abierto:
-            así lo que se cobra coincide siempre con lo que muestra la confirmación. */}
-        <div role="group" aria-label="Periodicidad de facturación" className="inline-flex items-center gap-1 rounded-full filo bg-white p-1.5">
-          <button type="button" disabled={!!dialog || !!busy} onClick={() => setAnnual(false)} aria-pressed={!annual} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors disabled:opacity-60 ${!annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
-            Mensual
+      {/* ---- En prueba -------------------------------------------------- */}
+      {plan === 'trial' && (
+        <div className="mt-6 rounded-xl filo bg-white p-6 shadow-card">
+          <h2 className="text-lg font-semibold text-slate-900">Tu prueba</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Tu primer proceso es gratis {company?.trial_ends_at
+              ? <>hasta agotar los días o las candidaturas, lo que llegue antes.</>
+              : <>durante {PRUEBA_DIAS} días o {PRUEBA_CANDIDATOS} candidaturas: el reloj arranca al abrir tu primer puesto.</>}
+          </p>
+          {company?.trial_ends_at && (
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-xl bg-slate-50 p-3.5">
+                <dt className="text-[13px] text-slate-500">Días de prueba</dt>
+                <dd className="num mt-0.5 font-semibold text-slate-900">
+                  {dias === 0 ? 'Agotados' : `Quedan ${dias}`}
+                </dd>
+              </div>
+              <div className="rounded-xl bg-slate-50 p-3.5">
+                <dt className="text-[13px] text-slate-500">Candidaturas visibles</dt>
+                <dd className="num mt-0.5 font-semibold text-slate-900">
+                  {candidates.length} de {PRUEBA_CANDIDATOS}
+                </dd>
+              </div>
+            </dl>
+          )}
+          {bloqueadas > 0 && (
+            <p className="mt-3 text-[13px] leading-relaxed text-slate-600">
+              {bloqueadas === 1 ? 'Hay 1 candidatura esperando' : `Hay ${bloqueadas} candidaturas esperando`}:
+              se siguen recibiendo y las verás todas al activar el pago.
+            </p>
+          )}
+          <button onClick={activarPago} disabled={!!busy} className={`${BTN_PRIMARY} mt-5 w-full justify-center sm:w-auto disabled:opacity-60`}>
+            {busy === 'checkout' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <CreditCard className="size-4" aria-hidden />}
+            Añadir método de pago
           </button>
-          <button type="button" disabled={!!dialog || !!busy} onClick={() => setAnnual(true)} aria-pressed={annual} className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors disabled:opacity-60 ${annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
-            Anual
-            <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${annual ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'}`}>2 meses gratis</span>
+          <p className="mt-3 text-[13px] text-slate-500">
+            Tarjeta o domiciliación (SEPA), con el pago seguro de Stripe. Al activarlo pagas {PRECIO_PROCESO} € al mes + IVA
+            por cada proceso que tengas abierto, y tus candidaturas en espera se desbloquean al momento.
+          </p>
+        </div>
+      )}
+
+      {/* ---- Pagando por proceso ---------------------------------------- */}
+      {plan === 'proceso' && (
+        <div className="mt-6 rounded-xl filo bg-white p-6 shadow-card">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">Procesos abiertos</h2>
+            <p className="text-sm text-slate-600">
+              <span className="num font-semibold text-slate-900">{abiertos.length}</span>
+              {' '}× {PRECIO_PROCESO} € = <span className="num font-semibold text-slate-900">{totalMes} €</span>/mes + IVA
+            </p>
+          </div>
+
+          {pastDue && (
+            <p className="mt-3 rounded-xl bg-amber-50 p-3.5 text-[13px] leading-relaxed text-amber-800">
+              No pudimos cobrar tu última factura. Lo reintentamos automáticamente los próximos días;
+              revisa tu método de pago para no perder el acceso.
+            </p>
+          )}
+          {sinPago && (
+            <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-[13px] leading-relaxed text-slate-600">
+              No tienes ningún pago activo. Tus puestos cerrados se conservan enteros y exportables:
+              reabre uno desde su pantalla y pasarás por el pago seguro de Stripe.
+            </p>
+          )}
+
+          {abiertos.length > 0 ? (
+            <ul className="mt-4 divide-y divide-slate-100 rounded-xl filo">
+              {abiertos.map((c) => (
+                <li key={c.id} className="flex items-center gap-3 px-3.5 py-2.5 text-sm">
+                  <Link to={`/app/puestos/${c.id}`} className="min-w-0 flex-1 truncate font-medium text-slate-900 hover:text-indigo-600">
+                    {c.title}
+                  </Link>
+                  {c.status === 'pausada' && (
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
+                      Pausado
+                    </span>
+                  )}
+                  <span className="num shrink-0 text-slate-500">{PRECIO_PROCESO} €/mes</span>
+                </li>
+              ))}
+            </ul>
+          ) : !sinPago ? (
+            <p className="mt-4 text-sm text-slate-600">
+              No tienes procesos abiertos: no se te cobrará más. Tus puestos cerrados siguen enteros y exportables.
+            </p>
+          ) : null}
+
+          <p className="mt-4 text-[13px] leading-relaxed text-slate-500">
+            Un proceso pausado sigue abierto (no acepta candidaturas nuevas, pero se cobra). Para dejar de
+            pagar uno, ciérralo desde su pantalla: un clic, y conservas todos sus candidatos.
+          </p>
+
+          <button onClick={abrirPortal} disabled={!!busy} className={`${BTN_SECONDARY} mt-5 disabled:opacity-60`}>
+            {busy === 'portal' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Receipt className="size-4 text-slate-400" aria-hidden />}
+            Gestionar pago y facturas
           </button>
         </div>
-      </div>
+      )}
 
-      <div className="mt-8 grid grid-cols-1 items-stretch gap-5 lg:grid-cols-3">
-        {TIERS.map((t) => {
-          const samePlan = current === t.id
-          // Mismo plan + mismo periodo = el plan actual. Mismo plan + otro periodo =
-          // se puede cambiar solo el periodo. Si aún no sabemos el periodo (suscripción
-          // previa a esta función), tratamos el plan como actual para no ofrecer un
-          // cambio a ciegas hasta que el webhook lo registre.
-          const isCurrent = samePlan && (currentInterval == null || currentInterval === selectedInterval)
-          const switchInterval = samePlan && !isCurrent
-          const isDowngrade = PLAN_RANK[current] > PLAN_RANK[t.id]
-          return (
-            <div
-              key={t.id}
-              className={`relative flex flex-col rounded-2xl bg-white p-6 ${t.recommended ? 'border-2 border-indigo-600 shadow-card' : 'filo'}`}
-            >
-              {t.recommended && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-[12px] font-semibold text-white">
-                  Recomendado
-                </span>
-              )}
-              <h2 className="text-lg font-semibold text-slate-900">{t.name}</h2>
-              <p className="mt-1 text-[14px] text-slate-500">{t.tagline}</p>
-              <TierPrice tier={t} annual={annual} compact />
-              <ul className="mt-5 flex-1 space-y-2">
-                {t.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-slate-700">
-                    <Check className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden /> {f}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => onPlanClick(t.id)}
-                disabled={isCurrent || !!busy}
-                className={`mt-6 ${t.recommended ? BTN_PRIMARY : BTN_SECONDARY} w-full disabled:opacity-60`}
-              >
-                {busy === t.id ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-                {isCurrent
-                  ? 'Tu plan actual'
-                  : switchInterval
-                    ? annual ? 'Pasar a anual' : 'Pasar a mensual'
-                    : isDowngrade ? `Cambiar a ${t.name}` : `Mejorar a ${t.name}`}
+      {/* ---- Tiers antiguos --------------------------------------------- */}
+      {esLegacy && (
+        <div className="mt-6 rounded-xl filo bg-white p-6 shadow-card">
+          <h2 className="text-lg font-semibold text-slate-900">Plan {PLAN_LABEL[plan]}</h2>
+          <p className="mt-1 text-sm leading-relaxed text-slate-600">
+            Estás en un plan anterior, que ya no se ofrece. Lo conservas tal cual mientras quieras;
+            si lo cancelas, pasarás al pago por proceso ({PRECIO_PROCESO} € al mes + IVA por proceso abierto).
+          </p>
+          {company?.cancel_at_period_end ? (
+            <>
+              <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-[13px] text-slate-600">
+                Tu plan se cancelará al final del periodo ya pagado.
+              </p>
+              <button onClick={reanudarLegacy} disabled={!!busy} className={`${BTN_SECONDARY} mt-4 disabled:opacity-60`}>
+                {busy === 'resume' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+                Reanudar suscripción
+              </button>
+            </>
+          ) : (
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button onClick={abrirPortal} disabled={!!busy} className={`${BTN_SECONDARY} disabled:opacity-60`}>
+                {busy === 'portal' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Receipt className="size-4 text-slate-400" aria-hidden />}
+                Gestionar pago y facturas
+              </button>
+              <button onClick={() => setConfirmCancel(true)} disabled={!!busy} className="text-sm font-medium text-slate-500 hover:text-red-600 disabled:opacity-60">
+                Cancelar suscripción
               </button>
             </div>
-          )
-        })}
-      </div>
+          )}
+        </div>
+      )}
 
-      <div className="mt-6 flex flex-col items-center gap-3">
-        {subscribed && (pendingCancel ? (
-          <button
-            onClick={resumeSubscription}
-            disabled={!!busy}
-            className="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 disabled:opacity-60"
-          >
-            {busy === '__resume__' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-            Reanudar suscripción
-          </button>
-        ) : (
-          <button
-            onClick={() => setDialog({ type: 'cancel' })}
-            disabled={!!busy}
-            className="text-sm font-medium text-slate-500 hover:text-red-600 disabled:opacity-60"
-          >
-            Cancelar suscripción
-          </button>
-        ))}
-        <p className="text-center text-[13px] text-slate-500">
-          {pendingCancel
-            ? 'Tu plan se cancelará al final del periodo ya pagado. Reanúdalo cuando quieras para seguir.'
-            : subscribed
-              ? 'El pago se gestiona con Stripe. Al cambiar de plan, el cobro se ajusta de forma proporcional.'
-              : 'El pago se gestiona con Stripe. Puedes cancelar cuando quieras y exportar tus datos siempre.'}
-        </p>
-      </div>
+      <p className="mt-6 text-center text-[13px] text-slate-500">
+        El pago se gestiona con Stripe. Tus datos son tuyos: puedes exportarlos a Excel cuando quieras.
+      </p>
 
-      {/* Modal de confirmación de cambio de plan */}
       <ConfirmDialog
-        open={dialog?.type === 'change'}
-        onClose={() => setDialog(null)}
-        onConfirm={confirmDialog}
-        title={dialog?.type === 'change' ? `Cambiar al plan ${dialog.tierName}` : ''}
-        confirmLabel="Confirmar cambio"
-        loading={dialogBusy}
-      >
-        {dialog?.type === 'change' && (
-          <>
-            <p>
-              Tu plan pasará a <strong className="font-semibold text-slate-900">{dialog.tierName}</strong>, {fmtEs(dialog.price)} € {dialog.annual ? 'al año' : 'al mes'}.
-            </p>
-            <div className="mt-3 rounded-xl bg-slate-50 p-3.5 text-slate-700">
-              {dialog.amountDue > 0 ? (
-                <p>
-                  Se te cobrará ahora <strong className="font-semibold text-slate-900">{eur(dialog.amountDue)}</strong> a tu tarjeta guardada: la parte proporcional de lo que queda de tu periodo actual.
-                </p>
-              ) : dialog.total < 0 ? (
-                <p>
-                  No se te cobra nada ahora. Generas <strong className="font-semibold text-slate-900">{eur(-dialog.total)}</strong> de saldo a favor, que se descuenta de tus próximas facturas.
-                </p>
-              ) : (
-                <p>No se te cobra nada ahora.</p>
-              )}
-            </div>
-            {pendingCancel && (
-              <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[13px] text-amber-800">
-                Tenías programada la cancelación al final del periodo. Al cambiar de plan, tu suscripción se reactiva y seguirá renovándose.
-              </p>
-            )}
-            <p className="mt-3 text-[13px] text-slate-500">Después seguirás pagando {fmtEs(dialog.price)} € {dialog.annual ? 'al año' : 'al mes'} (IVA aparte). Puedes cancelar cuando quieras.</p>
-          </>
-        )}
-      </ConfirmDialog>
-
-      {/* Modal de confirmación de cancelación */}
-      <ConfirmDialog
-        open={dialog?.type === 'cancel'}
-        onClose={() => setDialog(null)}
-        onConfirm={confirmDialog}
+        open={confirmCancel}
+        onClose={() => setConfirmCancel(false)}
+        onConfirm={cancelarLegacy}
         title="Cancelar suscripción"
         confirmLabel="Sí, cancelar"
         cancelLabel="No, seguir"
@@ -328,9 +283,10 @@ export function Plan() {
         loading={dialogBusy}
       >
         <p>
-          Mantienes tu plan actual hasta el final del periodo ya pagado y, a partir de ahí, pasas al plan de <strong className="font-semibold text-slate-900">Prueba</strong>. No se te cobrará nada más.
+          Mantienes tu plan hasta el final del periodo ya pagado. Después no se te cobra más y tus puestos
+          abiertos se cierran: conservas todos los candidatos y puedes exportarlos, o reabrir un proceso
+          pagando {PRECIO_PROCESO} € al mes + IVA.
         </p>
-        <p className="mt-2 text-[13px] text-slate-500">Tus datos siguen siendo tuyos: puedes exportarlos a Excel cuando quieras.</p>
       </ConfirmDialog>
     </div>
   )

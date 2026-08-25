@@ -8,13 +8,18 @@ export interface Company {
   id: string
   name: string
   accent: string
-  plan: 'trial' | 'esencial' | 'pro' | 'multi'
+  // 'trial' = probando (sin método de pago aún); 'proceso' = pago por proceso
+  // abierto (el modelo vigente); esencial/pro/multi = tiers retirados que
+  // conservan sus suscripciones antiguas.
+  plan: 'trial' | 'proceso' | 'esencial' | 'pro' | 'multi'
   subscription_status: string | null
   billing_interval: string | null // 'month' | 'year' | null (sin suscripción)
   cancel_at_period_end: boolean // suscripción marcada para cancelarse al final del periodo
   onboarding_done_at: string | null // null = guía de primer uso activa (el progreso se deriva de los datos)
-  downgrade_reconcile_at: string | null // no null = bajaste de plan y debes elegir qué puestos mantener activos
+  downgrade_reconcile_at: string | null // no null = bajaste de plan (legacy) y debes elegir qué puestos mantener activos
   meridian_auto: boolean // analizar cada candidatura nueva al entrar (ajustes)
+  trial_ends_at: string | null // fin de la prueba; null = el reloj aún no arrancó (arranca al abrir el primer proceso)
+  paid_processes: number // procesos abiertos pagados en Stripe (el tope real del plan 'proceso')
 }
 
 /**
@@ -233,20 +238,22 @@ export function useAuth(): AuthApi {
 
 // Empresa de la DEMO pública (sin login). El id 'demo' hace que el store cargue
 // datos de ejemplo en memoria en vez de Supabase.
-// La demo es una ETT (persona Multi): plan 'multi' para mostrar el producto
-// completo (bandeja, vistas, sedes, marcas...). El pricing aclara qué da cada plan.
+// La demo es una ETT que ya paga por sus procesos: plan 'proceso' con huecos
+// de sobra, para mostrar el producto completo sin toparse con ningún límite.
 export const DEMO_COMPANY: Company = {
   id: 'demo',
   name: 'Tu empresa',
   accent: '#374cce',
-  plan: 'multi',
-  subscription_status: null,
-  billing_interval: null,
+  plan: 'proceso',
+  subscription_status: 'active',
+  billing_interval: 'month',
   cancel_at_period_end: false,
   // La demo nunca enseña la guía de primer uso (ya ES la visita guiada).
   onboarding_done_at: '2026-01-01T00:00:00Z',
   downgrade_reconcile_at: null,
   meridian_auto: true,
+  trial_ends_at: null,
+  paid_processes: 99,
 }
 
 export function DemoAuthProvider({ children }: { children: ReactNode }) {

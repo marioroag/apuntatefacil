@@ -4,10 +4,8 @@ import { CalendarDays, CheckCheck, ChevronLeft, ChevronRight, MapPin, Phone, Vid
 import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { useProfiles } from '../lib/profiles'
-import { planHas } from '../lib/pricing'
 import { WHATSAPP_LISTO, WHATSAPP_WIP } from '../lib/whatsapp'
 import { BTN_SECONDARY_SM } from '../lib/buttons'
-import { FeatureLocked } from '../components/FeatureLocked'
 import { Tabs, TabPanel } from '../components/ui/Tabs'
 import { Avatar } from '../components/ui/Avatar'
 import { useToast } from '../components/ui/Toast'
@@ -34,23 +32,14 @@ import {
 type Vista = 'semana' | 'dia' | 'lista'
 type Seccion = 'agenda' | 'enMarcha' | 'pasadas'
 
-// El corte por plan vive AQUÍ, en un componente sin un solo hook, y la agenda
-// entera vive en otro. Antes el corte era un `return` temprano en medio de la
-// agenda, con un comentario encima pidiendo que todos los hooks quedaran por
-// encima: no aguantó, y un `useMemo` acabó colándose por debajo. Con el corte
-// separado el fallo no es que sea improbable, es que no se puede escribir: la
-// agenda no tiene ningún camino que se salte sus hooks, porque solo se monta
-// cuando el plan ya da permiso.
-//
-// Lo que rompía: el número de hooks de un componente montado no puede cambiar
-// entre renders. `company.plan` sí cambia (Stripe puede subirlo o bajarlo por
-// detrás), y el día que algo refresque el plan con esta pantalla abierta, React
-// lanzaría "Rendered more hooks than during the previous render" y la agenda se
-// caería en blanco, con el error a kilómetros de la línea que lo causa.
+// El envoltorio sin hooks se conserva aunque el corte por plan haya muerto con
+// el pago por proceso (todo incluido, ago 2026): la agenda vive en un
+// componente aparte y cualquier corte futuro se escribiría aquí, donde no hay
+// un solo hook que pueda quedar por debajo de un `return` temprano (ver el
+// guardián de los hooks en src/lib/hooks.test.ts).
 export function Entrevistas() {
   const { company } = useAuth()
   const demo = company?.id === 'demo'
-  if (!demo && !planHas(company?.plan, 'entrevistas')) return <FeatureLocked feature="entrevistas" />
   // `demo` viaja como prop: es la misma decisión que abre la puerta, así que se
   // toma una vez y no se recalcula dentro.
   return <Agenda demo={demo} />

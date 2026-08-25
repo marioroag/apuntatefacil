@@ -15,7 +15,6 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { FUERTE, scoreEntrada } from './search'
 import { gruposVisibles, seccionesVisibles, type AjustesCtx } from './settings'
-import { planHas, type PlanFeature } from './pricing'
 import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME } from './meridian'
 
 /**
@@ -49,11 +48,11 @@ import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME } from './meridian'
  *     uno de sus sinónimos (>= FUERTE). La tolerancia a erratas se queda para
  *     las personas, que es para lo que se hizo: sacar "Ajustes" cada vez que
  *     tecleas algo parecido convertiría la lista en ruido.
- *   * **Lo que no existe no se pinta; lo que cuesta dinero, sí.** `disponible`
- *     (rol, staff, demo) es binario y silencioso. `feature` es otra cosa: el
- *     apartado existe y tu plan no lo incluye, así que se pinta con candado y
- *     lleva al plan. Es la excepción CONSCIENTE a la regla de los ajustes, y
- *     está acotada a que lo hayas buscado por su nombre.
+ *   * **Lo que no existe no se pinta.** `disponible` (rol, staff, demo,
+ *     banderas) es binario y silencioso. Los candados por plan murieron con el
+ *     pago por proceso (todo el producto incluido, ago 2026): si algún día
+ *     vuelve algo de pago, su sitio es un campo declarado aquí, no un if en el
+ *     buscador.
  */
 
 // --- Contexto -----------------------------------------------------------------
@@ -81,8 +80,6 @@ export interface Destino {
   claves?: string[]
   /** Si devuelve false, NO existe: ni en el buscador ni escribiendo la URL. */
   disponible?: (c: DestinosCtx) => boolean
-  /** Feature de pago que lo desbloquea. Sin ella el resultado sale con candado. */
-  feature?: PlanFeature
   to: (c: DestinosCtx) => string
 }
 
@@ -114,7 +111,6 @@ export const DESTINOS: Destino[] = [
     icon: Sparkles,
     claves: ['ia', 'inteligencia artificial', 'triaje', 'parte diario'],
     disponible: () => MERIDIAN_CHAT_ENABLED,
-    feature: 'meridian',
     to: (c) => `${c.base}/meridian`,
   },
   {
@@ -131,7 +127,6 @@ export const DESTINOS: Destino[] = [
     hint: 'El tablón de peticiones y quién tiene acceso.',
     icon: Users,
     claves: ['tablon', 'peticiones', 'miembros', 'invitar', 'companeros', 'usuarios'],
-    feature: 'teamBoard',
     to: (c) => `${c.base}/equipo`,
   },
   {
@@ -140,7 +135,6 @@ export const DESTINOS: Destino[] = [
     hint: 'Tus citas y las que faltan por confirmar.',
     icon: CalendarDays,
     claves: ['agenda', 'citas', 'calendario', 'whatsapp'],
-    feature: 'entrevistas',
     to: (c) => `${c.base}/entrevistas`,
   },
   {
@@ -153,10 +147,10 @@ export const DESTINOS: Destino[] = [
   },
   {
     id: 'plan',
-    label: 'Plan y facturación',
-    hint: 'Tu plan, lo que incluye y cómo cambiarlo.',
+    label: 'Facturación',
+    hint: 'Tus procesos abiertos, lo que pagas y tus facturas.',
     icon: CreditCard,
-    claves: ['precio', 'pagar', 'factura', 'facturacion', 'suscripcion', 'tarjeta', 'cobro'],
+    claves: ['plan', 'precio', 'pagar', 'factura', 'suscripcion', 'tarjeta', 'cobro', 'procesos'],
     // En la demo no hay nada que cobrar: la ruta ni siquiera existe.
     disponible: (c) => !c.demo,
     to: (c) => `${c.base}/plan`,
@@ -224,8 +218,6 @@ export interface Fila {
   iniciales?: string
   /** Puesto: candidaturas nuevas. */
   badge?: number
-  /** Con candado: el plan no lo incluye. Al pulsar, el diálogo de plan. */
-  bloqueado?: PlanFeature
   to?: string
   hacer?: () => void
 }
@@ -248,8 +240,8 @@ export function destinosVisibles(c: DestinosCtx): Destino[] {
  * Los ajustes del registro, uno por interruptor, con enlace directo a su fila.
  * No se declaran aquí: declarar un ajuste en `settings.tsx` ya lo hace buscable.
  *
- * Solo los que este plan tiene (`seccionesVisibles`). Un interruptor que no
- * puedes tocar no vende nada, y su feature ya aparece con candado ahí arriba.
+ * Solo los disponibles (`seccionesVisibles`): un interruptor que no puedes
+ * tocar no informa de nada.
  */
 export function ajustesComoDestinos(c: DestinosCtx): Fila[] {
   const out: Fila[] = []
@@ -292,15 +284,13 @@ export function buscarDestinos(c: DestinosCtx, acciones: Accion[], query: string
   for (const d of destinosVisibles(c)) {
     const score = scoreEntrada(d.label, d.claves, q)
     if (score < FUERTE) continue
-    const bloqueado = d.feature && !planHas(c.plan, d.feature) ? d.feature : undefined
     pantallas.push({
       key: `destino-${d.id}`,
       score,
       label: d.label,
       hint: d.hint,
       icon: d.icon,
-      bloqueado,
-      to: bloqueado ? undefined : d.to(c),
+      to: d.to(c),
     })
   }
 
@@ -328,11 +318,10 @@ export function buscarDestinos(c: DestinosCtx, acciones: Accion[], query: string
 /**
  * Con el campo vacío: unos cuantos atajos, en el orden en que están declarados.
  * Es la única forma de que alguien descubra que aquí dentro también están los
- * ajustes y las acciones. Nada bloqueado: un escaparate de candados no es un atajo.
+ * ajustes y las acciones.
  */
 export function atajos(c: DestinosCtx, acciones: Accion[], tope = 5): Fila[] {
   const pantallas = destinosVisibles(c)
-    .filter((d) => !d.feature || planHas(c.plan, d.feature))
     .map<Fila>((d) => ({
       key: `destino-${d.id}`,
       score: 0,

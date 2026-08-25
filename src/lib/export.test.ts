@@ -92,7 +92,7 @@ describe('buildSheet', () => {
     expect(bloqueada[0]).toBe('Candidatura bloqueada')
     expect(bloqueada[cab.indexOf('Estado')]).toBe('Bloqueada')
     expect(bloqueada[cab.indexOf('Recibida')]).toMatch(/30\/07\/2026/)
-    expect(bloqueada[cab.indexOf('Conversación')]).toMatch(/Mejora tu plan/)
+    expect(bloqueada[cab.indexOf('Conversación')]).toMatch(/Añade tu método de pago/)
     // Y nada de datos personales en las columnas del formulario.
     expect(bloqueada[1]).toBe('•••')
   })

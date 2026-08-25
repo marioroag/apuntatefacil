@@ -57,7 +57,7 @@ import { MeridianAvatar, FitLabel } from '../components/Meridian'
 import { candidateFit, hasMeridian } from '../lib/meridian'
 import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { Brand, Campaign, Candidate, CandidateInterestState, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
-import { planHas, PLAN_CANDIDATE_LIMIT, TAGS_ENABLED, type PlanFeature } from '../lib/pricing'
+import { PRECIO_PROCESO, PRUEBA_CANDIDATOS, PRUEBA_DIAS, TAGS_ENABLED } from '../lib/pricing'
 import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { OnboardingTestCard } from '../components/OnboardingGuide'
@@ -66,7 +66,6 @@ import { useOnboarding } from '../lib/onboarding'
 import { useAppBase } from '../lib/useAppBase'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
-import { UpgradeDialog } from '../components/UpgradeDialog'
 import { BTN_DANGER, BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
 import { supabase } from '../lib/supabase'
@@ -105,7 +104,7 @@ const SIN_FECHAS: string[] = []
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, createSite, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, lockedInfo, loadCommentsForMany } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, createSite, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany } = useStore()
   const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -119,7 +118,6 @@ export function Dashboard() {
   // El encargado aplica/quita etiquetas existentes pero no crea ni gestiona el
   // vocabulario (igual que en la RLS). owner/member sí.
   const canManageTags = !isEncargado
-  const canViews = planHas(company?.plan, 'savedViews')
 
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -174,8 +172,10 @@ export function Dashboard() {
   const [closing, setClosing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  // Feature avanzada que se intentó usar sin tenerla en el plan: abre el aviso.
-  const [upgrade, setUpgrade] = useState<PlanFeature | null>(null)
+  // Reapertura de un proceso cerrado (pago por proceso): antes de reabrir se
+  // enseña qué va a costar (gratis dentro del ciclo pagado, o la prorrata).
+  const [confirmReopen, setConfirmReopen] = useState<null | { free: boolean; amountDue: number | null; checkout: boolean }>(null)
+  const [reopening, setReopening] = useState(false)
 
   // Lo que le pasamos a `CandidateTable` se declara con identidad ESTABLE: esa tabla
   // está memoizada y una función nueva en cada render le rompe la comparación, o sea
@@ -205,30 +205,52 @@ export function Dashboard() {
     }
   }
 
-  // Pausar libera cupo; reactivar consume un hueco activo: si el plan ya está al
-  // máximo de activos, updateCampaign revierte y avisa (el toast lo explica).
+  // Pausar NO es cerrar: el enlace deja de aceptar candidaturas pero el proceso
+  // sigue abierto (y, en el pago por proceso, cobrándose). Por eso va directo,
+  // sin tocar la facturación.
   const togglePause = async () => {
     if (!campaign) return
     const next = campaign.status === 'activa' ? 'pausada' : 'activa'
     const ok = await updateCampaign(campaign.id, { status: next })
-    if (ok) toast.success(next === 'pausada' ? 'Puesto pausado. Deja de aceptar candidaturas.' : 'Puesto reactivado.')
+    if (ok) toast.success(next === 'pausada' ? 'Puesto pausado. Deja de aceptar candidaturas; sigue abierto.' : 'Puesto reactivado.')
   }
-  // Reabrir un puesto cerrado vuelve a contar como proceso activo: updateCampaign
-  // revierte y avisa solo si el plan no da para más.
+  // Reabrir un puesto cerrado: en el pago por proceso primero se enseña qué va
+  // a costar (previewReabrir) y se confirma; en prueba y tiers antiguos abre
+  // directo (el tope del plan lo aplica el servidor).
   const reopen = async () => {
     if (!campaign) return
-    const ok = await updateCampaign(campaign.id, { status: 'activa' })
+    if (company?.plan === 'proceso') {
+      setConfirmReopen(await previewReabrir(campaign.id))
+      return
+    }
+    const ok = await reabrirProceso(campaign.id)
     if (ok) toast.success('Puesto reabierto.')
   }
-  // Cerrar: deja de aceptar candidaturas y libera un cupo del plan (reversible).
+  const doReopen = async () => {
+    if (!campaign) return
+    setReopening(true)
+    const ok = await reabrirProceso(campaign.id)
+    setReopening(false)
+    setConfirmReopen(null)
+    setSettingsOpen(false)
+    if (ok) toast.success('Puesto reabierto.')
+  }
+  // Cerrar: un clic, sin fricción. Deja de aceptar candidaturas y de cobrarse;
+  // el puesto y sus candidatos se conservan enteros y exportables.
   const doClose = async () => {
     if (!campaign) return
     setClosing(true)
-    const ok = await updateCampaign(campaign.id, { status: 'cerrada' })
+    const ok = await cerrarProceso(campaign.id)
     setClosing(false)
     setConfirmClose(false)
     setSettingsOpen(false)
-    if (ok) toast.success('Puesto cerrado. Liberaste un proceso de tu plan.')
+    if (ok) {
+      toast.success(
+        company?.plan === 'proceso'
+          ? 'Puesto cerrado. Deja de cobrarse; tus candidatos siguen aquí.'
+          : 'Puesto cerrado. Tus candidatos siguen aquí.',
+      )
+    }
   }
   // Eliminar: borrado real del puesto y sus candidaturas. Tras borrar, salimos al
   // primer puesto disponible (la ruta índice redirige).
@@ -485,6 +507,9 @@ export function Dashboard() {
   // bloquean). Las filas difuminadas, solo en la vista sin filtrar.
   const lockedFor = campaign && company?.plan === 'trial' ? lockedInfo[campaign.id] : undefined
   const lockedCount = lockedFor?.count ?? 0
+  // La prueba se agota por días o por cupo; el aviso dice de cuál de las dos va.
+  const pruebaCaducada = company?.plan === 'trial'
+    && !!company.trial_ends_at && new Date(company.trial_ends_at).getTime() < Date.now()
   // Sin bloqueadas, SIN_FECHAS (constante del módulo) en vez de un `[]` recién
   // hecho: es una prop de la tabla memoizada y un array nuevo por render la
   // repintaría entera.
@@ -531,7 +556,7 @@ export function Dashboard() {
   const maskPhone = base === '/demo'
 
   // Vistas guardadas: las globales valen en todos los puestos; las de puesto, solo aquí.
-  const myViews = canViews ? savedViews.filter((v) => v.campaignId === null || v.campaignId === campaign.id) : []
+  const myViews = savedViews.filter((v) => v.campaignId === null || v.campaignId === campaign.id)
   const hasValueFilters = valueFilters.length > 0
   const canSaveView = activeFilterCount > 0 || search.trim().length > 0
 
@@ -752,19 +777,13 @@ export function Dashboard() {
             count={activeFilterCount}
           />
 
-          {canViews ? (
-            <SavedViewsMenu
-              views={myViews}
-              onApply={applyView}
-              onDelete={deleteSavedView}
-              onSave={() => setSaveViewOpen(true)}
-              canSave={canSaveView}
-            />
-          ) : (
-            <button onClick={() => setUpgrade('savedViews')} className={`${BTN_SECONDARY} w-full sm:w-auto`}>
-              <Bookmark className="size-4 text-slate-400" aria-hidden /> Vistas
-            </button>
-          )}
+          <SavedViewsMenu
+            views={myViews}
+            onApply={applyView}
+            onDelete={deleteSavedView}
+            onSave={() => setSaveViewOpen(true)}
+            canSave={canSaveView}
+          />
 
         </div>
       </div>
@@ -874,8 +893,9 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Aviso de candidaturas bloqueadas (plan gratuito): se siguen recibiendo,
-          pero solo se ven hasta el tope. Invita a mejorar el plan, sin urgencia falsa. */}
+      {/* Aviso de candidaturas bloqueadas (prueba agotada por cupo o por días):
+          se siguen recibiendo, pero solo se ven hasta el tope. Invita a añadir
+          el método de pago, sin urgencia falsa. */}
       {lockedCount > 0 && !loading && (
         <div className="mt-3 flex flex-col gap-3 rounded-xl filo bg-white px-4 py-3.5 shadow-card sm:flex-row sm:items-center">
           <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
@@ -886,11 +906,13 @@ export function Dashboard() {
               {lockedCount === 1 ? 'Tienes 1 candidatura esperando' : `Tienes ${lockedCount} candidaturas esperando`}
             </p>
             <p className="mt-0.5 text-[13px] leading-relaxed text-slate-500">
-              Las seguimos recibiendo, pero el plan gratuito solo te deja ver {PLAN_CANDIDATE_LIMIT.trial}. Mejora tu plan para verlas todas.
+              {pruebaCaducada
+                ? `Tu prueba de ${PRUEBA_DIAS} días terminó, pero las seguimos recibiendo. Añade tu método de pago y las ves todas al momento.`
+                : `Las seguimos recibiendo, pero la prueba te deja ver ${PRUEBA_CANDIDATOS}. Añade tu método de pago y las ves todas al momento.`}
             </p>
           </div>
           <button onClick={() => navigate(`${base}/plan`)} className={`${BTN_PRIMARY} shrink-0 max-sm:w-full max-sm:justify-center`}>
-            Mejorar plan
+            Añadir método de pago
           </button>
         </div>
       )}
@@ -957,14 +979,13 @@ export function Dashboard() {
         open={lockedDialogOpen}
         onClose={() => setLockedDialogOpen(false)}
         onConfirm={() => { setLockedDialogOpen(false); navigate(`${base}/plan`) }}
-        title="Mejora tu plan para verla"
-        confirmLabel="Ver planes"
+        title="Activa el pago para verla"
+        confirmLabel="Añadir método de pago"
         cancelLabel="Ahora no"
       >
         <p className="text-sm leading-relaxed text-slate-600">
-          Esta candidatura entró por encima del{' '}
-          <strong className="font-semibold text-slate-900">tope del plan gratuito</strong>. La guardamos por ti, pero para verla, y todas las que sigan llegando,{' '}
-          <strong className="font-semibold text-slate-900">necesitas mejorar tu plan</strong>.
+          Esta candidatura entró con tu{' '}
+          <strong className="font-semibold text-slate-900">prueba ya agotada</strong>. La guardamos por ti: al añadir tu método de pago la ves al momento, con todas las que sigan llegando.
         </p>
       </ConfirmDialog>
 
@@ -1006,10 +1027,6 @@ export function Dashboard() {
         campaignTitle={campaign.title}
       />
 
-      {upgrade && (
-        <UpgradeDialog open feature={upgrade} onClose={() => setUpgrade(null)} />
-      )}
-
       <PuestoSettingsSheet
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -1040,7 +1057,40 @@ export function Dashboard() {
         loading={closing}
         onConfirm={doClose}
       >
-        El formulario dejará de aceptar candidaturas y liberas un proceso de tu plan. Podrás reabrirlo cuando quieras.
+        {company?.plan === 'proceso'
+          ? 'El formulario dejará de aceptar candidaturas y este proceso deja de cobrarse (el mes ya empezado no se devuelve). Conservas todos los candidatos, puedes exportarlos y reabrirlo cuando quieras.'
+          : 'El formulario dejará de aceptar candidaturas. Conservas todos los candidatos, puedes exportarlos y reabrirlo cuando quieras.'}
+      </ConfirmDialog>
+
+      {/* Reabrir (pago por proceso): se enseña el importe ANTES de cobrar. */}
+      <ConfirmDialog
+        open={confirmReopen !== null}
+        onClose={() => setConfirmReopen(null)}
+        title="Reabrir puesto"
+        confirmLabel={confirmReopen?.checkout ? 'Ir al pago seguro' : 'Reabrir puesto'}
+        loading={reopening}
+        onConfirm={doReopen}
+      >
+        {confirmReopen?.free ? (
+          <p>
+            El ciclo de este proceso ya está pagado
+            {campaign.paidUntil ? ` hasta el ${new Date(campaign.paidUntil).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}` : ''}:
+            reabrirlo ahora no te cobra nada. Después sigue a {PRECIO_PROCESO} € al mes (IVA aparte) mientras esté abierto.
+          </p>
+        ) : confirmReopen?.checkout ? (
+          <p>
+            Reabrir este proceso son {PRECIO_PROCESO} € al mes (IVA aparte). Te llevamos al pago seguro de Stripe
+            (tarjeta o domiciliación) y el puesto se reabre al completarlo.
+          </p>
+        ) : (
+          <p>
+            {typeof confirmReopen?.amountDue === 'number' ? (
+              <>Se te cobrará ahora <strong className="font-semibold text-slate-900">{(confirmReopen.amountDue / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</strong>, la parte proporcional hasta tu próxima factura. Después, {PRECIO_PROCESO} € al mes (IVA aparte) mientras esté abierto.</>
+            ) : (
+              <>Reabrir este proceso son {PRECIO_PROCESO} € al mes (IVA aparte), que se añaden a tu factura.</>
+            )}
+          </p>
+        )}
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -1427,7 +1477,7 @@ const CandidateTable = memo(function CandidateTable({
             </div>
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <button type="button" onClick={onLockedClick} className={`${BTN_PRIMARY_SM} pointer-events-auto`}>
-                <Lock className="size-3.5" aria-hidden /> Mejorar plan
+                <Lock className="size-3.5" aria-hidden /> Añadir método de pago
               </button>
             </div>
             <time dateTime={date} className="num absolute right-3 top-2 text-[11px] text-slate-400">{relativeDate(date)}</time>
@@ -1723,7 +1773,7 @@ const CandidateTable = memo(function CandidateTable({
           style={{ top: lockedBox.top, height: lockedBox.height }}
         >
           <button type="button" onClick={onLockedClick} className={`${BTN_PRIMARY_SM} pointer-events-auto shadow-pop`}>
-            <Lock className="size-3.5" aria-hidden /> Mejorar plan
+            <Lock className="size-3.5" aria-hidden /> Añadir método de pago
           </button>
         </div>
       )}

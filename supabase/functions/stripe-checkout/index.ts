@@ -1,26 +1,44 @@
-// Punto de entrada de facturación. Acciones según el estado real de la empresa:
-//  - Sin suscripción válida + plan -> Stripe Checkout (alta nueva).
-//  - Con suscripción válida + plan -> actualiza la existente (cambio con prorrateo).
-//  - { cancel: true } -> cancela al final del periodo.
-//  - { preview: true } -> importe que se cobraría ahora al cambiar a `plan`.
-// Auto-reparación: si la suscripción/cliente guardados no existen en el modo actual
-// (p.ej. datos de prueba tras pasar a modo real, o borrados), se limpian y se trata
-// como alta nueva, en vez de dar error.
-// Precios mensual/anual por plan (anual = STRIPE_PRICE_*_ANNUAL).
+// Punto de entrada de facturación del PAGO POR PROCESO ABIERTO (ago 2026).
+// Una suscripción por empresa con el price STRIPE_PRICE_PROCESO y cantidad =
+// nº de procesos abiertos (49 €/mes + IVA cada uno). Acciones:
+//  - { checkout: true, activateCampaignId? } -> Stripe Checkout (alta nueva,
+//    tarjeta o SEPA). Cantidad = procesos abiertos (+1 si hay un puesto creado
+//    en espera de pago, que el webhook activará al completarse).
+//  - { previewAdd: true, campaignId? } -> qué costaría abrir un proceso más
+//    AHORA: gratis si es reabrir dentro de su ciclo ya pagado (paid_until),
+//    o la parte proporcional hasta la próxima factura.
+//  - { addProcess: true, campaignId? } -> un hueco más. Reabrir dentro del
+//    ciclo pagado no cobra (mes empezado, mes cobrado: ese hueco ya se pagó);
+//    si no, cobra la prorrata al momento (error_if_incomplete: sin cobro no
+//    hay hueco). Con campaignId además reabre ese puesto.
+//  - { closeProcess: campaignId } -> cierra el puesto (modo lectura), cantidad
+//    -1 SIN devolución (mes empezado, mes cobrado) y apunta en paid_until hasta
+//    cuándo queda pagado su ciclo (reabrir antes de esa fecha es gratis). Si no
+//    queda ningún proceso abierto, la suscripción se cancela a final de periodo.
+//  - { syncProcesses: true } -> reconcilia la cantidad con los procesos
+//    abiertos reales (la llama el cliente tras cerrar o borrar un puesto).
+//  - { portal: true } -> portal de facturación de Stripe (método de pago,
+//    facturas, datos fiscales).
+//  - { cancel: true } / { resume: true } -> solo para suscripciones legacy de
+//    los tiers retirados (Esencial/Pro/Multi).
+// Auto-reparación: si la suscripción/cliente guardados no existen en el modo
+// actual, se limpian y se trata como alta nueva, en vez de dar error.
 import Stripe from 'npm:stripe@18'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil' })
 
-// Cliente service_role SOLO para escribir el estado de facturación de la empresa
-// (stripe_customer_id, limpieza de sub). Las columnas de billing ya no son
-// escribibles por el rol authenticated (ver migración 20260706160000): el estado
-// de pago lo fija siempre el backend de confianza, nunca el JWT del usuario.
+// Cliente service_role SOLO para escribir el estado de facturación (empresa y
+// ciclo de los puestos). Las columnas de billing no son escribibles por el rol
+// authenticated (20260706160000 y 20260824120000): el estado de pago lo fija
+// siempre el backend de confianza, nunca el JWT del usuario.
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 )
+
+const PRICE_PROCESO = Deno.env.get('STRIPE_PRICE_PROCESO') ?? ''
 
 // El success/cancel de Stripe vuelve al navegador: solo aceptamos returnUrl de
 // nuestro propio dominio (APP_URL) o de localhost en desarrollo. Un returnUrl
@@ -38,12 +56,19 @@ function safeReturnBase(returnUrl: unknown, fallback: string): string {
   return fallback
 }
 
-// Cada plan tiene un price mensual y otro anual (dos meses gratis). Los IDs anuales
-// son STRIPE_PRICE_*_ANNUAL; si no están configurados, el alta anual avisa y no rompe.
-const PRICES: Record<string, { month?: string; year?: string }> = {
-  esencial: { month: Deno.env.get('STRIPE_PRICE_ESENCIAL'), year: Deno.env.get('STRIPE_PRICE_ESENCIAL_ANNUAL') },
-  pro: { month: Deno.env.get('STRIPE_PRICE_PRO'), year: Deno.env.get('STRIPE_PRICE_PRO_ANNUAL') },
-  multi: { month: Deno.env.get('STRIPE_PRICE_MULTI'), year: Deno.env.get('STRIPE_PRICE_MULTI_ANNUAL') },
+// Fin del periodo ya pagado. En la API 2025 (basil) el periodo vive en el item.
+function periodEnd(sub: Stripe.Subscription): number | null {
+  const item = sub.items?.data?.[0] as unknown as { current_period_end?: number } | undefined
+  return item?.current_period_end
+    ?? (sub as unknown as { current_period_end?: number }).current_period_end
+    ?? null
+}
+
+const esCobrable = (e: unknown): boolean => {
+  const err = e as { code?: string; message?: string }
+  return err?.code === 'card_declined'
+    || err?.code === 'payment_intent_authentication_failure'
+    || !!err?.message?.includes('payment')
 }
 
 Deno.serve(async (req) => {
@@ -57,15 +82,17 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return json({ error: 'No autenticado' }, 401)
 
-    const { plan, returnUrl, cancel, resume, preview, annual, companyId } = await req.json()
+    const {
+      checkout, activateCampaignId, previewAdd, addProcess, closeProcess,
+      syncProcesses, portal, cancel, resume, returnUrl, companyId, campaignId,
+    } = await req.json()
 
     // Con el JWT del usuario, la RLS solo deja ver SUS empresas. Si el cliente
-    // manda companyId (el usuario puede pertenecer a varias), facturamos ESA;
-    // sin él, caemos a la única (evita facturar/cancelar una empresa arbitraria
-    // que un .limit(1) sin filtro elegiría al azar en cuentas multi-empresa).
+    // manda companyId (puede pertenecer a varias), facturamos ESA; sin él,
+    // caemos a la única.
     let companyQuery = supabase
       .from('companies')
-      .select('id,name,stripe_customer_id,stripe_subscription_id,subscription_status')
+      .select('id,name,plan,paid_processes,stripe_customer_id,stripe_subscription_id,subscription_status')
     companyQuery = typeof companyId === 'string' && companyId
       ? companyQuery.eq('id', companyId)
       : companyQuery.limit(1)
@@ -73,7 +100,7 @@ Deno.serve(async (req) => {
     const company = companies?.[0]
     if (!company) return json({ error: 'Sin empresa' }, 400)
 
-    // Solo el PROPIETARIO gestiona el plan/facturación (no miembros ni encargados).
+    // Solo el PROPIETARIO gestiona la facturación (no miembros ni encargados).
     const { data: membership } = await supabase
       .from('memberships')
       .select('role')
@@ -81,26 +108,34 @@ Deno.serve(async (req) => {
       .eq('user_id', user.id)
       .maybeSingle()
     if (!membership || membership.role !== 'owner') {
-      return json({ error: 'Solo el propietario puede gestionar el plan' }, 403)
+      return json({ error: 'Solo el propietario puede gestionar la facturación' }, 403)
     }
 
-    // ¿Hay una suscripción en el modo actual? Consultamos SIEMPRE a Stripe (la fuente
-    // de verdad), no el estado guardado: así un cliente con sub real pero estado raro
-    // (p.ej. 'incomplete' por SCA) no acaba con una SEGUNDA suscripción.
+    // Los puestos, con service_role: el estado de facturación necesita verlos
+    // todos y escribir status/paid_until, que el JWT no puede tocar.
+    const { data: allCampaigns } = await admin
+      .from('campaigns')
+      .select('id,status,paid_until')
+      .eq('company_id', company.id)
+    const campañas = allCampaigns ?? []
+    const abiertas = campañas.filter((c) => c.status !== 'cerrada')
+    const laCampaña = typeof campaignId === 'string'
+      ? campañas.find((c) => c.id === campaignId) ?? null
+      : null
+    if (typeof campaignId === 'string' && !laCampaña) return json({ error: 'Puesto no encontrado' }, 404)
+
+    // ¿Hay una suscripción viva en el modo actual? Consultamos SIEMPRE a Stripe
+    // (la fuente de verdad), no el estado guardado.
     let subId = company.stripe_subscription_id as string | null
     let subObj: Stripe.Subscription | null = null
     let hasActiveSub = false
     if (subId) {
       try {
         subObj = await stripe.subscriptions.retrieve(subId)
-        // Sub usable (modificable/cancelable). 'incomplete' (SCA sin completar) NO
-        // cuenta: ese alta nunca se cobró, así que se recupera con un alta nueva.
         hasActiveSub = ['active', 'trialing', 'past_due', 'unpaid'].includes(subObj.status)
       } catch (e) {
-        // Solo auto-reparamos cuando la sub NO existe en este modo (datos de test en
-        // live, o borrada): limpiamos SOLO la sub (no el cliente ni el plan, para no
-        // degradar ni pausar puestos). Ante un error transitorio (red, rate limit, 5xx)
-        // NO tocamos nada y devolvemos error: el cliente reintenta sin riesgo.
+        // Solo auto-reparamos cuando la sub NO existe en este modo: limpiamos
+        // SOLO la sub. Ante un error transitorio no tocamos nada.
         if ((e as { code?: string })?.code === 'resource_missing') {
           await admin.from('companies').update({
             stripe_subscription_id: null,
@@ -114,71 +149,171 @@ Deno.serve(async (req) => {
         }
       }
     }
+    const item = subObj?.items?.data?.[0] ?? null
+    const esProceso = item?.price?.id === PRICE_PROCESO
+    const cantidad = item?.quantity ?? 0
 
-    // 1) Cancelar (al final del periodo ya pagado).
+    // ------------------------------------------------------------------
+    // Portal de facturación (método de pago, facturas).
+    // ------------------------------------------------------------------
+    if (portal) {
+      if (!company.stripe_customer_id) return json({ error: 'Aún no tienes datos de facturación' }, 400)
+      const base = safeReturnBase(returnUrl, Deno.env.get('APP_URL') || `${new URL(req.url).origin}`)
+      const session = await stripe.billingPortal.sessions.create({
+        customer: company.stripe_customer_id as string,
+        return_url: base,
+      })
+      return json({ url: session.url })
+    }
+
+    // ------------------------------------------------------------------
+    // Legacy: cancelar/reanudar una suscripción de los tiers retirados.
+    // ------------------------------------------------------------------
     if (cancel) {
       if (!hasActiveSub) return json({ error: 'No hay suscripción activa que cancelar' }, 400)
       await stripe.subscriptions.update(subId!, { cancel_at_period_end: true })
       return json({ canceled: true })
     }
-
-    // 1b) Reanudar una suscripción marcada para cancelarse al final del periodo.
     if (resume) {
       if (!hasActiveSub) return json({ error: 'No hay suscripción que reanudar' }, 400)
       await stripe.subscriptions.update(subId!, { cancel_at_period_end: false })
       return json({ resumed: true })
     }
 
-    const price = annual ? PRICES[plan]?.year : PRICES[plan]?.month
-    if (!price) {
-      return json({
-        error: annual ? 'El plan anual aún no está disponible.' : 'Plan no válido o sin price configurado',
-        annualUnavailable: !!annual,
-      }, 400)
+    // ------------------------------------------------------------------
+    // Cerrar un proceso: un clic, sin fricción. Se cierra SIEMPRE, haya o no
+    // suscripción; después se ajusta el cobro si la hay.
+    // ------------------------------------------------------------------
+    if (closeProcess) {
+      if (!laCampaña) return json({ error: 'Falta el puesto a cerrar' }, 400)
+      if (laCampaña.status !== 'cerrada') {
+        const { error } = await admin.from('campaigns')
+          .update({ status: 'cerrada' })
+          .eq('id', laCampaña.id)
+        if (error) return json({ error: 'No se pudo cerrar el puesto.' }, 500)
+      }
+      let paidUntil: string | null = null
+      if (hasActiveSub && subObj && esProceso && item) {
+        const abiertasAhora = abiertas.filter((c) => c.id !== laCampaña.id).length
+        const fin = periodEnd(subObj)
+        paidUntil = fin ? new Date(fin * 1000).toISOString() : null
+        // Mes empezado, mes cobrado: la cantidad baja SIN prorrata (nada que
+        // devolver) y el ciclo ya pagado queda apuntado para la reapertura gratis.
+        await stripe.subscriptions.update(subId!, {
+          items: [{ id: item.id, quantity: Math.max(abiertasAhora, 1) }],
+          proration_behavior: 'none',
+          // Sin procesos abiertos no hay nada que renovar: la suscripción muere
+          // al final del periodo ya pagado (la cantidad mínima de Stripe es 1).
+          cancel_at_period_end: abiertasAhora === 0,
+        })
+        if (paidUntil) {
+          await admin.from('campaigns').update({ paid_until: paidUntil }).eq('id', laCampaña.id)
+        }
+        await admin.from('companies').update({ paid_processes: abiertasAhora }).eq('id', company.id)
+      }
+      return json({ closed: true, paidUntil })
     }
 
-    // 2) Previsualizar el importe inmediato al cambiar a `plan`.
-    if (preview) {
-      if (!hasActiveSub || !subObj) return json({ amountDue: 0, notSubscribed: true })
-      const itemId = subObj.items.data[0]?.id
-      if (!itemId) return json({ amountDue: 0, notSubscribed: true })
+    // ------------------------------------------------------------------
+    // Reconciliar la cantidad con los procesos abiertos reales (tras borrar un
+    // puesto, o si un cierre se quedó sin sincronizar). Solo BAJA la cantidad:
+    // subirla siempre pasa por addProcess, que es donde se cobra.
+    // ------------------------------------------------------------------
+    if (syncProcesses) {
+      if (!hasActiveSub || !subObj || !esProceso || !item) return json({ synced: false })
+      const abiertasAhora = abiertas.length
+      if (abiertasAhora < cantidad) {
+        await stripe.subscriptions.update(subId!, {
+          items: [{ id: item.id, quantity: Math.max(abiertasAhora, 1) }],
+          proration_behavior: 'none',
+          cancel_at_period_end: abiertasAhora === 0,
+        })
+      }
+      await admin.from('companies')
+        .update({ paid_processes: Math.min(abiertasAhora, cantidad) })
+        .eq('id', company.id)
+      return json({ synced: true })
+    }
+
+    // ¿El hueco nuevo sale gratis? Dos casos: reabrir un puesto dentro de su
+    // ciclo ya pagado (paid_until), o que la suscripción tenga más cantidad
+    // pagada que procesos abiertos (un hueco comprado y sin estrenar).
+    const reaperturaGratis = !!(laCampaña && laCampaña.status === 'cerrada'
+      && laCampaña.paid_until && new Date(laCampaña.paid_until as string).getTime() > Date.now())
+    const abiertasDespues = abiertas.length + 1
+    const huecoGratis = reaperturaGratis || abiertasDespues <= cantidad
+
+    // ------------------------------------------------------------------
+    // Previsualizar qué costaría abrir un proceso más ahora.
+    // ------------------------------------------------------------------
+    if (previewAdd) {
+      if (!hasActiveSub || !subObj || !esProceso || !item) return json({ notSubscribed: true })
+      if (huecoGratis) {
+        return json({ free: true, paidUntil: laCampaña?.paid_until ?? null })
+      }
       const pv = await stripe.invoices.createPreview({
         customer: (company.stripe_customer_id as string) ?? undefined,
         subscription: subId!,
         subscription_details: {
-          items: [{ id: itemId, price }],
+          items: [{ id: item.id, quantity: abiertasDespues }],
           proration_behavior: 'always_invoice',
         },
       })
-      return json({ amountDue: pv.amount_due, total: pv.total, currency: pv.currency })
+      const fin = periodEnd(subObj)
+      return json({
+        amountDue: pv.amount_due,
+        currency: pv.currency,
+        renewsAt: fin ? new Date(fin * 1000).toISOString() : null,
+      })
     }
 
-    // 3) Cambiar de plan en la suscripción existente (sin crear otra).
-    if (hasActiveSub && subObj) {
-      const itemId = subObj.items.data[0]?.id
-      if (!itemId) return json({ error: 'Suscripción sin líneas' }, 400)
-      // payment_behavior 'error_if_incomplete': si la prorrata no se puede cobrar
-      // (tarjeta rechazada), Stripe devuelve 402 y NO aplica el cambio, en vez de
-      // dejar al cliente en el plan superior sin haber pagado (past_due).
+    // ------------------------------------------------------------------
+    // Un proceso más en la suscripción viva (y reabrir el puesto, si viene).
+    // ------------------------------------------------------------------
+    if (addProcess && hasActiveSub && subObj && esProceso && item) {
+      // La cantidad objetivo es "procesos abiertos tras abrir": nunca se baja
+      // desde aquí (bajar es cosa de closeProcess/syncProcesses).
+      const objetivo = Math.max(abiertasDespues, cantidad)
       try {
-        await stripe.subscriptions.update(subId!, {
-          items: [{ id: itemId, price }],
-          proration_behavior: 'always_invoice',
-          payment_behavior: 'error_if_incomplete',
-          cancel_at_period_end: false,
-          metadata: { company_id: company.id, plan },
-        })
+        if (objetivo > cantidad || subObj.cancel_at_period_end) {
+          await stripe.subscriptions.update(subId!, {
+            ...(objetivo > cantidad ? { items: [{ id: item.id, quantity: objetivo }] } : {}),
+            // Un hueco ya pagado no se cobra otra vez ("se retoma el ciclo
+            // donde estaba"). Si no, prorrata al momento.
+            proration_behavior: huecoGratis ? 'none' : 'always_invoice',
+            payment_behavior: 'error_if_incomplete',
+            cancel_at_period_end: false,
+            metadata: { company_id: company.id },
+          })
+        }
       } catch (e) {
-        const err = e as { code?: string; message?: string }
-        if (err?.code === 'card_declined' || err?.code === 'payment_intent_authentication_failure' || err?.message?.includes('payment')) {
-          return json({ error: 'No se pudo cobrar el cambio de plan. Revisa tu método de pago e inténtalo de nuevo.', paymentFailed: true }, 402)
+        if (esCobrable(e)) {
+          return json({ error: 'No se pudo cobrar el proceso nuevo. Revisa tu método de pago e inténtalo de nuevo.', paymentFailed: true }, 402)
         }
         throw e
       }
-      return json({ changed: true, plan })
+      // El hueco existe ANTES de abrir el puesto: el trigger de límite lo exige.
+      await admin.from('companies').update({ paid_processes: objetivo }).eq('id', company.id)
+      if (laCampaña && laCampaña.status === 'cerrada') {
+        const { error } = await admin.from('campaigns')
+          .update({ status: 'activa' })
+          .eq('id', laCampaña.id)
+        if (error) return json({ error: 'El cobro se hizo pero el puesto no se pudo reabrir. Reábrelo desde el panel.' }, 500)
+      }
+      return json({ added: true })
+    }
+    if (addProcess) {
+      // Sin suscripción viva: el alta pasa por Checkout.
+      return json({ notSubscribed: true })
     }
 
-    // 4) Alta nueva -> Stripe Checkout. Aseguramos un customer válido en este modo.
+    if (!checkout) return json({ error: 'Acción no reconocida' }, 400)
+    if (!PRICE_PROCESO) return json({ error: 'Falta configurar el price del proceso (STRIPE_PRICE_PROCESO)' }, 500)
+
+    // ------------------------------------------------------------------
+    // Alta nueva -> Stripe Checkout. Cantidad = procesos abiertos hoy, más el
+    // puesto en espera de pago si viene (creado cerrado; el webhook lo activa).
+    // ------------------------------------------------------------------
     let customerId = company.stripe_customer_id as string | null
     if (customerId) {
       try {
@@ -198,49 +333,66 @@ Deno.serve(async (req) => {
       await admin.from('companies').update({ stripe_customer_id: customerId }).eq('id', company.id)
     }
 
+    const pendiente = typeof activateCampaignId === 'string' && activateCampaignId
+      ? campañas.find((c) => c.id === activateCampaignId && c.status === 'cerrada') ?? null
+      : null
+    const cantidadAlta = Math.max(abiertas.length + (pendiente ? 1 : 0), 1)
+
     // Antes de crear un Checkout nuevo, comprobamos en Stripe (no solo en la BD)
-    // si este customer YA tiene una suscripción viva. Puede pasar si el webhook
-    // aún no escribió el stripe_subscription_id (ventana de carrera) o si quedó
-    // una sesión de un intento anterior. Si la hay, la ADOPTAMOS y cambiamos su
-    // plan, en vez de crear una segunda suscripción que facturaría en paralelo.
+    // si este customer YA tiene una suscripción viva (carrera con el webhook o
+    // sesión de un intento anterior). Si la hay, la ADOPTAMOS y ajustamos su
+    // cantidad, en vez de crear una segunda que facturaría en paralelo.
     const existing = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 })
     const live = existing.data.find((s) => ['active', 'trialing', 'past_due', 'unpaid'].includes(s.status))
     if (live) {
       await admin.from('companies').update({ stripe_subscription_id: live.id }).eq('id', company.id)
-      const itemId = live.items.data[0]?.id
-      if (itemId) {
-        try {
-          await stripe.subscriptions.update(live.id, {
-            items: [{ id: itemId, price }],
-            proration_behavior: 'always_invoice',
-            payment_behavior: 'error_if_incomplete',
-            cancel_at_period_end: false,
-            metadata: { company_id: company.id, plan },
-          })
-        } catch (e) {
-          const err = e as { code?: string; message?: string }
-          if (err?.code === 'card_declined' || err?.code === 'payment_intent_authentication_failure' || err?.message?.includes('payment')) {
-            return json({ error: 'No se pudo cobrar el cambio de plan. Revisa tu método de pago e inténtalo de nuevo.', paymentFailed: true }, 402)
+      const liveItem = live.items.data[0]
+      if (liveItem?.price?.id === PRICE_PROCESO) {
+        const liveQty = liveItem.quantity ?? 0
+        if (cantidadAlta > liveQty) {
+          try {
+            await stripe.subscriptions.update(live.id, {
+              items: [{ id: liveItem.id, quantity: cantidadAlta }],
+              proration_behavior: 'always_invoice',
+              payment_behavior: 'error_if_incomplete',
+              cancel_at_period_end: false,
+              metadata: { company_id: company.id },
+            })
+          } catch (e) {
+            if (esCobrable(e)) {
+              return json({ error: 'No se pudo cobrar. Revisa tu método de pago e inténtalo de nuevo.', paymentFailed: true }, 402)
+            }
+            throw e
           }
-          throw e
         }
-        return json({ changed: true, plan })
+        await admin.from('companies').update({
+          plan: 'proceso',
+          paid_processes: Math.max(cantidadAlta, liveQty),
+        }).eq('id', company.id)
+        if (pendiente) {
+          await admin.from('campaigns').update({ status: 'activa' }).eq('id', pendiente.id)
+        }
+        return json({ changed: true })
       }
+      // Suscripción legacy viva: no la pisamos desde aquí.
+      return json({ error: 'Ya tienes una suscripción activa de un plan anterior. Cancélala antes de pasar al pago por proceso.' }, 400)
     }
 
     const base = safeReturnBase(returnUrl, Deno.env.get('APP_URL') || `${new URL(req.url).origin}`)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
-      line_items: [{ price, quantity: 1 }],
+      line_items: [{ price: PRICE_PROCESO, quantity: cantidadAlta }],
+      // En pymes españolas el recibo domiciliado convierte mejor que la tarjeta.
+      payment_method_types: ['card', 'sepa_debit'],
       success_url: `${base}?checkout=ok`,
       cancel_url: `${base}?checkout=cancel`,
-      metadata: { company_id: company.id, plan },
-      subscription_data: { metadata: { company_id: company.id, plan } },
+      metadata: { company_id: company.id, ...(pendiente ? { activate_campaign_id: pendiente.id } : {}) },
+      subscription_data: { metadata: { company_id: company.id } },
       allow_promotion_codes: true,
       // Sesión de vida corta: reduce las sesiones "zombie" completables horas
-      // después (otra vía a la doble suscripción). 31 min: el mínimo de Stripe es
-      // 30, dejamos margen para que el tiempo de proceso no lo tire bajo el límite.
+      // después (otra vía a la doble suscripción). 31 min: el mínimo de Stripe
+      // es 30, con margen para que el tiempo de proceso no lo tire bajo el límite.
       expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
     })
     return json({ url: session.url })

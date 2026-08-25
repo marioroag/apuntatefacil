@@ -1,12 +1,10 @@
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { planHas } from '../lib/pricing'
-import { FeatureLocked } from '../components/FeatureLocked'
 import { EquipoTablon } from './EquipoTablon'
 import { EquipoMiembros } from './EquipoMiembros'
 import { Tabs, TabPanel } from '../components/ui/Tabs'
 
-// Página de equipo (Pro+), en dos pestañas:
+// Página de equipo, en dos pestañas:
 //   * Tablón (por defecto, TODO el equipo): peticiones internas con respuestas
 //     y candidatos propuestos.
 //   * Miembros (owner; en demo también, con datos de ejemplo): invitar y
@@ -17,9 +15,6 @@ export function Equipo() {
   const [params, setParams] = useSearchParams()
 
   const demo = company?.id === 'demo'
-  if (!demo && !planHas(company?.plan, 'teamBoard')) {
-    return <FeatureLocked feature="teamBoard" />
-  }
 
   // En demo el visitante actúa como propietario de "Tu empresa".
   const showMiembros = demo || role === 'owner'

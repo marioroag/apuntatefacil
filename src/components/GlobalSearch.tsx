@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Briefcase, Lock, Search, X } from 'lucide-react'
+import { Briefcase, Search, X } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
@@ -19,7 +19,6 @@ import {
   type Fila,
   type GrupoResultados,
 } from '../lib/destinos'
-import { FEATURE_COPY, PLAN_LABEL, type PlanFeature } from '../lib/pricing'
 import { candidateName, initials, miles } from '../lib/format'
 import type { Candidate } from '../lib/types'
 
@@ -118,13 +117,9 @@ function useGruposDelStore(query: string, ctx: DestinosCtx): GrupoResultados[] {
 export function GlobalSearch({
   variant,
   onClose,
-  onUpgrade,
 }: {
   variant: 'inline' | 'sheet'
   onClose?: () => void
-  /** El diálogo de plan lo pinta la barra, no esto: en el móvil la capa se cierra
-   *  al elegir y se llevaría el diálogo por delante. */
-  onUpgrade: (feature: PlanFeature) => void
 }) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
@@ -212,8 +207,6 @@ export function GlobalSearch({
     // queda, su Escape (que corta la propagación para no cerrar diálogos padre) se
     // tragaría el Escape de lo que acabas de abrir con una acción.
     inputRef.current?.blur()
-    // Con candado no se navega: se cuenta qué falta. El diálogo lo pinta la barra.
-    if (fila.bloqueado) return onUpgrade(fila.bloqueado)
     if (fila.hacer) return fila.hacer()
     if (fila.to) navigate(fila.to)
   }
@@ -378,7 +371,6 @@ function FilaResultado({
   onClick: () => void
 }) {
   const Icon = fila.icon
-  const plan = fila.bloqueado ? PLAN_LABEL[FEATURE_COPY[fila.bloqueado].minPlan] : null
   return (
     <button
       id={id}
@@ -406,14 +398,7 @@ function FilaResultado({
         <span className="block truncate text-[13px] font-medium text-slate-900">{fila.label}</span>
         {fila.hint && <span className="block truncate text-[12px] text-slate-500">{fila.hint}</span>}
       </span>
-      {plan && (
-        // El plan se dice con palabras, no solo con el candado.
-        <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-slate-500">
-          <Lock className="size-3" aria-hidden />
-          Plan {plan}
-        </span>
-      )}
-      {!plan && fila.badge != null && fila.badge > 0 && (
+      {fila.badge != null && fila.badge > 0 && (
         <span className="num shrink-0 rounded-full bg-slate-200 px-1.5 text-[11px] font-bold text-slate-700">
           {miles(fila.badge)}
         </span>

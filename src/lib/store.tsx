@@ -7,6 +7,7 @@ import { useToast } from '../components/ui/Toast'
 import { SEED, SEED_BRANDS, SEED_CANDIDATE_COMMENTS, SEED_CANDIDATE_EVENTS, SEED_MEMBERS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, demoInterviews, freshenDemoData } from './seed'
 import { interestEligibility, interestRecipient, type InterestSendResult } from './interest'
 import { WHATSAPP_LISTO, WHATSAPP_WIP } from './whatsapp'
+import { PRECIO_PROCESO } from './pricing'
 
 // Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
 // quita espacios de los extremos y colapsa los interiores. La comparación de
@@ -30,6 +31,7 @@ type CampaignRow = {
   brand_id: string | null
   notify_new: boolean
   share_reply: string | null
+  paid_until: string | null
   created_at: string
 }
 type CandidateRow = {
@@ -61,6 +63,7 @@ const toCampaign = (r: CampaignRow): Campaign => ({
   brandId: r.brand_id ?? null,
   notifyNew: r.notify_new ?? true,
   shareReply: r.share_reply ?? undefined,
+  paidUntil: r.paid_until ?? undefined,
 })
 
 type SiteRow = { id: string; name: string; city: string }
@@ -368,6 +371,9 @@ export interface NewCampaignInput {
   fields: FormField[]
   branding: Branding
   milanunciosUrl?: string
+  /** 'cerrada' = creado A LA ESPERA DE PAGO (el asistente lo crea así cuando
+   *  falta el método de pago; el webhook de Stripe lo abre al completarse). */
+  status?: 'activa' | 'cerrada'
 }
 
 interface Store {
@@ -406,6 +412,23 @@ interface Store {
   // propio, sin candidatos). Devuelve el puesto nuevo o null si falla.
   duplicateCampaign: (campaignId: string) => Promise<Campaign | null>
   deleteCampaign: (campaignId: string) => Promise<boolean>
+  // ---- La puerta de facturación del pago por proceso (ago 2026) ----
+  // Cerrar y reabrir un proceso NUNCA van por updateCampaign: además del estado
+  // ajustan la suscripción de Stripe (cantidad = procesos abiertos). La puerta
+  // se cierra AQUÍ, no en la pantalla, igual que con WhatsApp: la interfaz
+  // decide qué se ofrece; estas funciones deciden qué se cobra.
+  /** Cierra el proceso: deja de aceptar candidaturas y de cobrarse (sin
+   *  devolución del mes empezado). El puesto se conserva entero y exportable. */
+  cerrarProceso: (campaignId: string) => Promise<boolean>
+  /** Qué costaría reabrir/abrir un hueco AHORA: gratis (ciclo ya pagado o hueco
+   *  libre), un importe en céntimos, o `checkout` (hay que dar el método de pago). */
+  previewReabrir: (campaignId: string | null) => Promise<{ free: boolean; amountDue: number | null; checkout: boolean }>
+  /** Reabre un proceso cerrado cobrando lo que toque; si falta el método de
+   *  pago, redirige a Stripe Checkout (el webhook lo abrirá al completarse). */
+  reabrirProceso: (campaignId: string) => Promise<boolean>
+  /** Compra un hueco más en la suscripción (para crear un proceso nuevo cuando
+   *  los pagados están todos ocupados). Cobra la prorrata al momento. */
+  contratarHueco: () => Promise<boolean>
   // Vistas guardadas (Pro/Multi)
   savedViews: SavedView[]
   createSavedView: (input: { name: string; campaignId: string | null; payload: SavedViewPayload }) => Promise<SavedView | null>
@@ -594,10 +617,19 @@ function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; save
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const { company, user } = useAuth()
+  const { company, user, refreshCompany } = useAuth()
   const toast = useToast()
   const companyId = company?.id
   const userId = user?.id ?? null
+
+  // El aviso del tope de procesos, según de qué límite viene: la prueba (1
+  // proceso), el pago por proceso (cada uno son 49 €/mes) o un tier antiguo.
+  const limiteProcesosMsg = () =>
+    company?.plan === 'trial'
+      ? 'La prueba incluye 1 proceso abierto. Añade tu método de pago para abrir otro.'
+      : company?.plan === 'proceso'
+        ? `Abrir otro proceso son ${PRECIO_PROCESO} €/mes + IVA: hazlo desde "Nuevo puesto", o cierra uno que ya no uses.`
+        : 'Ya tienes el máximo de puestos activos de tu plan. Pausa o cierra otro para abrir este.'
 
   const [loading, setLoading] = useState(false)
   // Empresa cuyos datos hay AHORA en memoria. Si difiere de la empresa activa, estamos en
@@ -1272,7 +1304,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setCandidates((cs) => cs.filter((c) => c.id !== candidate.id))
         toast.error(
           error.message?.includes('CANDIDATE_LIMIT_REACHED')
-            ? 'Has llegado al límite de candidatos de tu plan. Sube de plan para recuperarlo.'
+            ? 'Has llegado al tope de candidaturas de la prueba. Añade tu método de pago para recuperarlo.'
             : 'No se pudo deshacer.',
         )
         return
@@ -1330,7 +1362,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (prev) setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? prev : c)))
           toast.error(
             error.message?.includes('PLAN_LIMIT_REACHED')
-              ? 'Ya tienes el máximo de puestos activos de tu plan. Pausa otro o sube de plan para activar este.'
+              ? limiteProcesosMsg()
               : 'No se pudo guardar el puesto.',
           )
           return false
@@ -1347,7 +1379,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           title: input.title,
           sector: input.sector,
           location: input.location,
-          status: 'activa',
+          status: input.status ?? 'activa',
           createdAt: new Date().toISOString(),
           milanunciosUrl: input.milanunciosUrl,
           fields: input.fields,
@@ -1374,7 +1406,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             title: input.title,
             sector: input.sector,
             location: input.location,
-            status: 'activa',
+            status: input.status ?? 'activa',
             milanuncios_url: input.milanunciosUrl ?? null,
             fields: input.fields,
             branding: input.branding,
@@ -1393,7 +1425,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (error || !data) {
         toast.error(
           error?.message?.includes('PLAN_LIMIT_REACHED')
-            ? 'Has llegado al límite de procesos de tu plan. Sube de plan para abrir otro.'
+            ? limiteProcesosMsg()
             : 'No se pudo crear el puesto.',
         )
         return null
@@ -1450,7 +1482,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (error || !data) {
         toast.error(
           error?.message?.includes('PLAN_LIMIT_REACHED')
-            ? 'Has llegado al límite de procesos de tu plan. Sube de plan para abrir otro.'
+            ? limiteProcesosMsg()
             : 'No se pudo duplicar el puesto.',
         )
         return null
@@ -1462,6 +1494,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deleteCampaign: async (campaignId) => {
       const prev = campaigns
       const prevCands = candidates
+      const eraAbierto = prev.find((c) => c.id === campaignId)?.status !== 'cerrada'
       setCampaigns((cs) => cs.filter((c) => c.id !== campaignId))
       setCandidates((cs) => cs.filter((c) => c.campaignId !== campaignId))
       if (companyId === 'demo') return true
@@ -1472,6 +1505,139 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         toast.error('No se pudo eliminar el puesto.')
         return false
       }
+      // Borrar un proceso abierto también deja de cobrarlo: reconciliamos la
+      // cantidad de la suscripción con los abiertos que quedan (best-effort:
+      // syncProcesses vuelve a intentarlo en el siguiente cierre si esto falla).
+      if (eraAbierto && company?.plan === 'proceso') {
+        supabase.functions.invoke('stripe-checkout', { body: { syncProcesses: true, companyId } })
+          .then(() => refreshCompany())
+          .catch(() => {})
+      }
+      return true
+    },
+
+    cerrarProceso: async (campaignId) => {
+      const prev = campaigns.find((c) => c.id === campaignId)
+      if (!prev || prev.status === 'cerrada') return false
+      setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, status: 'cerrada' } : c)))
+      if (companyId === 'demo') return true
+      if (company?.plan === 'proceso') {
+        // La edge function cierra Y ajusta el cobro en el mismo viaje (cantidad
+        // -1 sin devolución, y apunta hasta cuándo queda pagado el ciclo).
+        const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+          body: { closeProcess: true, campaignId, companyId },
+        })
+        if (error || !data?.closed) {
+          setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? prev : c)))
+          toast.error('No se pudo cerrar el puesto. Inténtalo de nuevo.')
+          return false
+        }
+        if (data.paidUntil) {
+          setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, paidUntil: data.paidUntil as string } : c)))
+        }
+        void refreshCompany()
+        return true
+      }
+      // Prueba y tiers antiguos: no hay cobro por proceso que ajustar.
+      const { error } = await supabase.from('campaigns').update({ status: 'cerrada' }).eq('id', campaignId)
+      if (error) {
+        setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? prev : c)))
+        toast.error('No se pudo cerrar el puesto.')
+        return false
+      }
+      return true
+    },
+
+    previewReabrir: async (campaignId) => {
+      if (companyId === 'demo' || company?.plan !== 'proceso') {
+        return { free: true, amountDue: null, checkout: false }
+      }
+      const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+        body: { previewAdd: true, campaignId: campaignId ?? undefined, companyId },
+      })
+      if (error) return { free: false, amountDue: null, checkout: false }
+      if (data?.notSubscribed) return { free: false, amountDue: null, checkout: true }
+      if (data?.free) return { free: true, amountDue: null, checkout: false }
+      return { free: false, amountDue: typeof data?.amountDue === 'number' ? data.amountDue : null, checkout: false }
+    },
+
+    reabrirProceso: async (campaignId) => {
+      const prev = campaigns.find((c) => c.id === campaignId)
+      if (!prev || prev.status !== 'cerrada') return false
+      if (companyId === 'demo') {
+        setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, status: 'activa' } : c)))
+        return true
+      }
+      if (company?.plan === 'proceso') {
+        const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+          body: { addProcess: true, campaignId, companyId },
+        })
+        if (!error && data?.added) {
+          setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, status: 'activa' } : c)))
+          void refreshCompany()
+          return true
+        }
+        if (data?.notSubscribed) {
+          // Sin método de pago: a Stripe Checkout. El webhook reabre el puesto
+          // al completarse el pago y la vuelta cae en /plan, que ya sondea.
+          const { data: co, error: e2 } = await supabase.functions.invoke('stripe-checkout', {
+            body: { checkout: true, activateCampaignId: campaignId, companyId, returnUrl: `${window.location.origin}/app/plan` },
+          })
+          if (!e2 && co?.url) {
+            window.location.href = co.url as string
+            return true
+          }
+        }
+        toast.error(
+          data?.paymentFailed
+            ? 'No se pudo cobrar el proceso. Revisa tu método de pago e inténtalo de nuevo.'
+            : 'No se pudo reabrir el puesto. Inténtalo de nuevo.',
+        )
+        return false
+      }
+      // Prueba y tiers antiguos: apertura directa; el tope del plan lo aplica el
+      // servidor y aquí solo se traduce el error.
+      const { error } = await supabase.from('campaigns').update({ status: 'activa' }).eq('id', campaignId)
+      if (error) {
+        if (error.message?.includes('PLAN_LIMIT_REACHED') && company?.plan === 'trial') {
+          // La prueba se quedó sin hueco: el camino es dar el método de pago.
+          // Checkout cuenta este puesto (activateCampaignId) además de los
+          // abiertos, y el webhook lo abre al completarse el pago.
+          const { data: co, error: e2 } = await supabase.functions.invoke('stripe-checkout', {
+            body: { checkout: true, activateCampaignId: campaignId, companyId, returnUrl: `${window.location.origin}/app/plan` },
+          })
+          if (!e2 && co?.url) {
+            window.location.href = co.url as string
+            return true
+          }
+          toast.error('No se pudo abrir el pago. Inténtalo de nuevo.')
+          return false
+        }
+        toast.error(
+          error.message?.includes('PLAN_LIMIT_REACHED')
+            ? 'Ya tienes el máximo de puestos activos de tu plan. Pausa o cierra otro para reabrir este.'
+            : 'No se pudo reabrir el puesto.',
+        )
+        return false
+      }
+      setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, status: 'activa' } : c)))
+      return true
+    },
+
+    contratarHueco: async () => {
+      if (companyId === 'demo') return true
+      const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+        body: { addProcess: true, companyId },
+      })
+      if (error || !data?.added) {
+        toast.error(
+          data?.paymentFailed
+            ? 'No se pudo cobrar el proceso nuevo. Revisa tu método de pago e inténtalo de nuevo.'
+            : 'No se pudo añadir el proceso. Inténtalo de nuevo.',
+        )
+        return false
+      }
+      void refreshCompany()
       return true
     },
 
@@ -1587,7 +1753,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // Backstop del tope de marcas del servidor (trigger enforce_brand_limit):
         // el cliente ya avisa antes, pero si llega aquí damos un mensaje claro.
         if (error?.message?.includes('BRAND_LIMIT_REACHED')) {
-          toast.error('Has llegado al límite de marcas de tu plan. Sube a Multi para crear más.')
+          toast.error(
+            company?.plan === 'trial'
+              ? 'Durante la prueba tienes una marca, la de tu casa. Añade tu método de pago para crear más.'
+              : 'Has llegado al límite de marcas de tu plan.',
+          )
         } else {
           toast.error('No se pudo crear la marca.')
         }
@@ -2287,7 +2457,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // enseña que el chat avisa a un compañero.
       setMembers(SEED_MEMBERS.map((m) => ({ userId: m.user_id, email: m.email, role: m.role as CompanyMember['role'], isSelf: m.is_self })))
     },
-  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, teamRequests, demoTeamComments, demoCandidateComments, demoCandidateEvents, commentCounts, chatVersion, members, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, sendInterestCheck, toast, interviews, interviewUpcomingCount, conversations, conversationVersion, refreshInterviews, refreshConversations])
+  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, teamRequests, demoTeamComments, demoCandidateComments, demoCandidateEvents, commentCounts, chatVersion, members, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, sendInterestCheck, toast, interviews, interviewUpcomingCount, conversations, conversationVersion, refreshInterviews, refreshConversations, company, refreshCompany])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

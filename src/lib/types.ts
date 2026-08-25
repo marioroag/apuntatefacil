@@ -55,6 +55,9 @@ export interface Campaign {
   notifyNew?: boolean // avisar por email al entrar un candidato (por defecto sí)
   /** Respuesta personalizada y reutilizable al compartir el enlace del puesto. */
   shareReply?: string | null
+  /** Pago por proceso: hasta cuándo está pagado el ciclo de un puesto CERRADO.
+   *  En el futuro = reabrirlo es gratis hasta esa fecha. Lo escribe el servidor. */
+  paidUntil?: string
 }
 
 // Sede (Multi): agrupa puestos de un mismo local. Entidad propia, separada de marca.
@@ -410,7 +413,9 @@ export interface Tag {
 
 export interface Company {
   name: string
-  plan: 'trial' | 'esencial' | 'pro' | 'multi'
+  // 'proceso' = pago por proceso abierto (el modelo vigente); los tiers
+  // esencial/pro/multi ya no se venden (suscripciones antiguas).
+  plan: 'trial' | 'proceso' | 'esencial' | 'pro' | 'multi'
   accent: string // hex de marca de la empresa
 }
 

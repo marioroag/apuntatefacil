@@ -14,22 +14,9 @@ import { Logo } from '../components/Logo'
 import { BetaBadge } from '../components/BetaBadge'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { SupportDialog } from '../components/SupportDialog'
-import {
-  TIERS,
-  TRIAL_REASSURANCE,
-  PLAN_PROCESS_LIMIT,
-  type Tier,
-} from '../lib/pricing'
-import { TierPrice } from '../components/TierPrice'
+import { PRECIO_PROCESO, PRUEBA_CANDIDATOS, PRUEBA_DIAS, TRIAL_REASSURANCE } from '../lib/pricing'
+import { PrecioProceso } from '../components/PrecioProceso'
 import { BTN_INVERTED_LG, BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
-
-const DEFAULT_PRICING_TIER = 'pro'
-
-const TIER_TAB_HINT: Record<string, string> = {
-  esencial: '2 procesos',
-  pro: '10 procesos',
-  multi: 'Ilimitado',
-}
 
 const SECTORS = ['Construcción', 'Logística', 'Limpieza', 'Reformas', 'Comercio', 'Cuidados']
 
@@ -770,100 +757,6 @@ function Team() {
   )
 }
 
-// Señuelo explícito de la tarjeta Pro: la comparación de capacidad frente a
-// Esencial (p. ej. "5× la capacidad de Esencial"), calculada de los datos reales.
-function proDecoyLine(): string | null {
-  const esencial = TIERS.find((x) => x.id === 'esencial')
-  const pro = TIERS.find((x) => x.id === 'pro')
-  if (!esencial || !pro) return null
-  const times = PLAN_PROCESS_LIMIT.pro / PLAN_PROCESS_LIMIT.esencial
-  return `${times}× la capacidad de Esencial`
-}
-
-function PricingTierCard({ tier: t, annual, gridEmphasis = false }: { tier: Tier; annual: boolean; gridEmphasis?: boolean }) {
-  const recommended = !!t.recommended
-  // En la landing, el bullet de capacidad de Pro es redundante con el badge
-  // "10 procesos a la vez" de justo encima. Se filtra SOLO aquí: en /app/plan
-  // no hay badge y ese bullet sigue siendo la única mención a la capacidad.
-  const features = t.id === 'pro' ? t.features.filter((f) => !f.includes('10 procesos')) : t.features
-  return (
-    <div
-      className={`relative flex h-full flex-col rounded-2xl card-pad ${
-        t.available === false
-          ? 'filo bg-slate-50'
-          : recommended
-            ? `border-2 border-indigo-600 bg-white shadow-card${gridEmphasis ? ' lg:scale-[1.02] lg:z-10' : ''}`
-            : 'filo bg-white shadow-card'
-      }`}
-    >
-      {t.available === false ? (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-200 px-3 py-1 text-caption font-semibold text-slate-500">
-          Próximamente
-        </span>
-      ) : recommended ? (
-        <span className="hidden rounded-full bg-indigo-600 px-3 py-1 text-caption font-semibold text-white ring-1 ring-inset ring-indigo-800/60 lg:absolute lg:-top-3 lg:left-1/2 lg:inline-flex lg:-translate-x-1/2">
-          Recomendado
-        </span>
-      ) : null}
-      <h3 className="text-lg font-semibold text-slate-900">{t.name}</h3>
-      <p className="mt-1 text-copy text-slate-500">{t.tagline}</p>
-      <TierPrice tier={t} annual={annual} />
-      <p className="mt-4 inline-flex w-fit rounded-lg bg-slate-100 px-2.5 py-1 text-label font-medium text-slate-600">{t.processes}</p>
-      {t.id === 'pro' && <p className="mt-1.5 text-copy text-slate-700">{proDecoyLine()}</p>}
-      <ul className="mt-5 flex-1 space-y-2.5">
-        {features.map((feat) => (
-          <li key={feat} className="flex items-start gap-2.5 text-copy-md text-slate-700">
-            <Check className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden /> {feat}
-          </li>
-        ))}
-      </ul>
-      {t.available === false ? (
-        <div className="mt-7 flex h-12 w-full items-center justify-center rounded-lg bg-slate-100 text-base font-semibold text-slate-500">
-          Próximamente
-        </div>
-      ) : (
-        <Link to="/login" className={`${BTN_PRIMARY_LG} group mt-7 w-full`}>
-          {t.cta} <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
-        </Link>
-      )}
-    </div>
-  )
-}
-
-const TIER_IDS = TIERS.map((t) => t.id)
-
-function focusTierTab(tierId: string) {
-  requestAnimationFrame(() => document.getElementById(`tier-tab-${tierId}`)?.focus())
-}
-
-function onTierTabKeyDown(
-  e: React.KeyboardEvent,
-  selectedTier: string,
-  setSelectedTier: (id: string) => void,
-) {
-  const idx = TIER_IDS.indexOf(selectedTier)
-  if (idx < 0) return
-  let next = idx
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-    e.preventDefault()
-    next = (idx + 1) % TIER_IDS.length
-  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-    e.preventDefault()
-    next = (idx - 1 + TIER_IDS.length) % TIER_IDS.length
-  } else if (e.key === 'Home') {
-    e.preventDefault()
-    next = 0
-  } else if (e.key === 'End') {
-    e.preventDefault()
-    next = TIER_IDS.length - 1
-  } else {
-    return
-  }
-  const tierId = TIER_IDS[next]
-  setSelectedTier(tierId)
-  focusTierTab(tierId)
-}
-
 function CompactCostComparison() {
   return (
     <div className="overflow-hidden rounded-2xl filo bg-slate-50">
@@ -946,7 +839,7 @@ function CostAnchor() {
     <section className="bg-white" aria-labelledby="coste-contratar-heading">
       <div className="mx-auto max-w-6xl section-x section-y">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold text-slate-500">Antes de comparar planes</p>
+          <p className="text-sm font-semibold text-slate-500">Antes de mirar el precio</p>
           <h2 id="coste-contratar-heading" className="mt-3 text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             Contratar desordenado también tiene un coste
           </h2>
@@ -966,108 +859,51 @@ function CostAnchor() {
 }
 
 function Pricing() {
-  const [annual, setAnnual] = useState(false)
-  const [selectedTier, setSelectedTier] = useState(DEFAULT_PRICING_TIER)
-  const activeTier = TIERS.find((t) => t.id === selectedTier) ?? TIERS[1]
-
   return (
     <section id="precio" className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl section-x section-y">
-      <div className="text-center">
-        <h2 className="mx-auto max-w-3xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-          Un precio claro, sin “desde” ni letra pequeña
-        </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
-          Empieza gratis y sube de plan cuando lo necesites. Candidatos sin límite en los planes de pago; Equipo desde Pro.
-        </p>
-      </div>
-
-      {/* Toggle mensual / anual */}
-      <div className="mt-10 flex justify-center">
-        <div
-          role="group"
-          aria-label="Periodicidad de facturación"
-          className="inline-flex items-center gap-1 rounded-full filo bg-white p-1.5"
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-              e.preventDefault()
-              setAnnual(true)
-            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-              e.preventDefault()
-              setAnnual(false)
-            }
-          }}
-        >
-          <button type="button" onClick={() => setAnnual(false)} aria-pressed={!annual} className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${!annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
-            Mensual
-          </button>
-          <button type="button" onClick={() => setAnnual(true)} aria-pressed={annual} className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${annual ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
-            Anual
-            <span className={`rounded-full px-1.5 py-0.5 text-micro font-semibold ${annual ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700'}`}>2 meses gratis</span>
-          </button>
+        <div className="text-center">
+          <h2 className="mx-auto max-w-3xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            Un precio, sin planes que comparar
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600">
+            Pagas por lo que tienes en marcha: cada proceso de selección abierto. Todo el producto incluido, siempre.
+          </p>
         </div>
-      </div>
 
-      {/* Móvil: selector de plan + una tarjeta */}
-      <div className="mt-8 lg:hidden">
-        <div
-          role="tablist"
-          aria-label="Planes de suscripción"
-          className="mx-auto flex w-full max-w-md gap-1 rounded-full filo bg-white p-1.5"
-          onKeyDown={(e) => onTierTabKeyDown(e, selectedTier, setSelectedTier)}
-        >
-          {TIERS.map((t) => {
-            const selected = selectedTier === t.id
-            return (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                id={`tier-tab-${t.id}`}
-                tabIndex={selected ? 0 : -1}
-                aria-selected={selected}
-                aria-controls="tier-panel"
-                onClick={() => setSelectedTier(t.id)}
-                className={`flex min-h-11 flex-1 flex-col items-center justify-center rounded-full px-2 py-2 transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] ${
-                  selected ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'
-                }`}
-              >
-                <span className="text-sm font-semibold leading-tight">{t.name}</span>
-                <span className={`mt-0.5 text-micro font-medium leading-tight ${selected ? 'text-white/75' : 'text-slate-400'}`}>
-                  {t.recommended ? 'Recomendado' : TIER_TAB_HINT[t.id]}
-                </span>
-              </button>
-            )
-          })}
+        <div className="mx-auto mt-10 max-w-lg rounded-2xl filo bg-white card-pad shadow-card">
+          <PrecioProceso />
+          {/* "Sin permanencia" va pegado al precio (doctrina del modelo): es la
+              mitad de la promesa. El IVA ya se dice en el propio precio. */}
+          <p className="mt-2 text-copy text-slate-600">
+            Sin permanencia: cierras un proceso con un clic, deja de cobrarse y sus candidatos siguen siendo tuyos.
+          </p>
+          <ul className="mt-6 space-y-2.5 border-t border-slate-200 pt-5">
+            {[
+              'Candidaturas sin límite y usuarios sin límite',
+              'Formulario a tu medida, con tu nombre, tu logo y tus colores',
+              'Meridian: resume cada candidatura y calcula su ajuste al puesto',
+              'Equipo: chat en cada candidato y tablón de peticiones',
+              'Filtros, favoritos, etiquetas y exportar a Excel cuando quieras',
+              'Soporte humano, te responde una persona',
+            ].map((feat) => (
+              <li key={feat} className="flex items-start gap-2.5 text-copy-md text-slate-700">
+                <Check className="mt-0.5 size-4 shrink-0 text-slate-500" aria-hidden /> {feat}
+              </li>
+            ))}
+          </ul>
+          <Link to="/login" className={`${BTN_PRIMARY_LG} group mt-7 w-full`}>
+            Empezar gratis <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
+          </Link>
+          <p className="mt-3 text-center text-sm text-slate-500">{TRIAL_REASSURANCE}</p>
         </div>
-        <div
-          key={activeTier.id}
-          role="tabpanel"
-          id="tier-panel"
-          aria-labelledby={`tier-tab-${activeTier.id}`}
-          className="mt-6 motion-reduce:animate-none"
-          style={{ animation: 'reveal-up .18s var(--ease-out) both' }}
-        >
-          <PricingTierCard tier={activeTier} annual={annual} />
+
+        <div className="mx-auto mt-10 max-w-2xl text-center">
+          <p className="text-copy leading-relaxed text-slate-500">
+            Por menos de lo que cuesta publicar un solo anuncio en InfoJobs (69 € + IVA, agosto 2026),
+            tienes todas tus candidaturas ordenadas y filtradas todo el mes.
+          </p>
         </div>
-      </div>
-
-      {/* Escritorio: tres columnas */}
-      <div className="mt-8 hidden items-stretch gap-6 lg:grid lg:grid-cols-3">
-        {TIERS.map((t) => (
-          <PricingTierCard key={t.id} tier={t} annual={annual} gridEmphasis={!!t.recommended} />
-        ))}
-      </div>
-
-      {/* El aviso del IVA va aparte y en letra pequeña: es información necesaria,
-          no un mensaje, y no debe compartir línea con "Sin permanencia" (el
-          positivo arrastra al negativo). */}
-      <div className="mx-auto mt-10 max-w-2xl text-center">
-        <p className="text-copy leading-relaxed text-slate-500">
-          En los planes de pago: candidatos <strong className="font-semibold text-slate-700">sin límite</strong>. Equipo desde Pro. Lo que ves es lo que pagas.
-        </p>
-        <p className="mt-2 text-sm text-slate-500">Precios sin IVA.</p>
-      </div>
       </div>
     </section>
   )
@@ -1116,10 +952,10 @@ function Faq() {
     ['¿Tengo que cambiar cómo publico mis anuncios?', 'No. Sigue publicando donde lo haces normalmente: Milanuncios, Instagram, WhatsApp, un QR, tu web o cualquier otro canal. Cuando alguien quiera apuntarse, solo tienes que enviarle tu enlace.'],
     ['¿La gente realmente completa el formulario?', 'En la práctica suele completarse más gente, no menos. Son pocas preguntas, adaptadas al móvil, y tardan menos que escribir por el chat.'],
     ['¿Es difícil empezar?', 'No. En menos de cinco minutos tendrás tu primer formulario listo para recibir candidatos. Después solo tienes que compartir el enlace y empezar a recibir las candidaturas ordenadas.'],
-    ['¿Hay permanencia?', 'No. Pagas mes a mes y puedes darte de baja cuando quieras, desde tu cuenta. Sin llamadas de retención ni trámites adicionales.'],
-    ['¿Los candidatos son míos si cancelo?', 'Sí. Toda la lista es tuya: puedes exportarla a Excel en cualquier momento y llevártela contigo si dejas el servicio.'],
-    ['¿Hay costes ocultos o precios “desde”?', 'No. Son 185, 237 o 533 € al mes según el plan, con candidatos sin límite. El Equipo (tablón e invitaciones) entra en Pro. Lo que ves aquí es lo que pagas. IVA aparte.'],
-    ['¿Puedo probarlo sin registrarme ni tarjeta?', 'Sí. La demo funciona con datos de ejemplo, sin cuenta ni tarjeta. Si creas una cuenta, el plan de Prueba es gratuito: 1 puesto y hasta 15 candidatos, también sin tarjeta.'],
+    ['¿Hay permanencia?', 'No. Cierras un proceso con un clic y deja de cobrarse en ese momento. Sin llamadas de retención ni trámites adicionales.'],
+    ['¿Los candidatos son míos si cierro un proceso?', 'Sí. El proceso cerrado se conserva entero: puedes consultarlo y exportarlo a Excel en cualquier momento, aunque ya no pagues por él.'],
+    ['¿Hay costes ocultos o precios “desde”?', `No. Son ${PRECIO_PROCESO} € al mes + IVA por cada proceso de selección que tengas abierto, con candidaturas sin límite y todo el producto incluido. Lo que ves aquí es lo que pagas.`],
+    ['¿Puedo probarlo sin registrarme ni tarjeta?', `Sí. La demo funciona con datos de ejemplo, sin cuenta ni tarjeta. Y al crear tu cuenta, tu primer proceso es gratis durante ${PRUEBA_DIAS} días o hasta ${PRUEBA_CANDIDATOS} candidaturas, también sin tarjeta: se pide al final de la prueba.`],
   ]
   return (
     <section id="faq" className="bg-white">

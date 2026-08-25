@@ -3,7 +3,6 @@ import { useAuth } from './auth'
 import { useStore } from './store'
 import { useAppBase } from './useAppBase'
 import { candidateName } from './format'
-import { planHas } from './pricing'
 import type { CandidateComment, TeamRequestComment } from './types'
 
 /**
@@ -66,8 +65,9 @@ export function useAvisos(): AvisosState {
   const base = useAppBase()
   const userId = user?.id ?? null
   const companyId = company?.id ?? null
-  const demo = base === '/demo'
-  const disponible = demo || planHas(company?.plan, 'teamBoard')
+  // Con el pago por proceso el equipo está incluido siempre: cualquier empresa
+  // puede generar avisos, así que el timbre se pinta para todas.
+  const disponible = true
 
   const [menciones, setMenciones] = useState<CandidateComment[]>([])
   const [mencionesTablon, setMencionesTablon] = useState<TeamRequestComment[]>([])

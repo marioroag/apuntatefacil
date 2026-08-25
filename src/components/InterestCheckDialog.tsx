@@ -4,7 +4,6 @@ import { CircleAlert, Info, Loader2, MailCheck, MessageCircle, X } from 'lucide-
 import { Link } from 'react-router-dom'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { planHas } from '../lib/pricing'
 import { WHATSAPP_ASSISTANT_ENABLED } from '../lib/settings'
 import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import { AvisoWhatsappPendiente } from './WhatsappPendiente'
@@ -110,12 +109,10 @@ export function InterestCheckDialog({
   const hasEmailField = campaign.fields.some((field) => field.type === 'email')
   const hasPhoneField = campaign.fields.some((field) => field.type === 'phone')
 
-  // WhatsApp solo se ofrece si se puede usar de verdad: está en el plan y el
-  // formulario pide teléfono. Quien no lo tenga no ve el concepto, en vez de
-  // ver una pestaña bloqueada que solo sirve para recordarle lo que no tiene.
-  const puedeWhatsapp = WHATSAPP_ASSISTANT_ENABLED
-    && (demo || planHas(company?.plan, 'entrevistas'))
-    && hasPhoneField
+  // WhatsApp solo se ofrece si se puede usar de verdad: el asistente está
+  // encendido y el formulario pide teléfono. Quien no lo tenga no ve el
+  // concepto, en vez de una pestaña bloqueada que recuerda lo que no tiene.
+  const puedeWhatsapp = WHATSAPP_ASSISTANT_ENABLED && hasPhoneField
   // Aquí el WhatsApp no se esconde mientras se da de alta el número, se enseña
   // apagado: es una empresa que YA tiene el canal en su plan y con teléfono en
   // su formulario, así que quitarlo de la vista sin decir nada solo consigue que

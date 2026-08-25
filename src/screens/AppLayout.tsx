@@ -19,7 +19,6 @@ import { useOnboarding } from '../lib/onboarding'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
 import { AccionesProvider, RegistrarAccion } from '../lib/acciones'
-import { PLAN_LABEL } from '../lib/pricing'
 import { MERIDIAN_CHAT_ENABLED, hasMeridian, candidateFit } from '../lib/meridian'
 import { navGroups, PUESTO_ICON } from '../lib/nav'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
@@ -592,7 +591,7 @@ export function AppLayout() {
         <div className="flex min-w-0 flex-1 flex-col">
         {demo && (
           <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 border-b border-indigo-100 bg-indigo-50 px-4 py-2 text-center text-[13px] text-indigo-800">
-            <span>Demo de empresario en Plan {PLAN_LABEL[company.plan]}.</span>
+            <span>Demo de empresario con el producto completo.</span>
             {/* Los dos accionables van juntos: saltan de línea como un bloque, sin
                 que "Crear mi cuenta" se quede solo en la línea de abajo. */}
             <span className="inline-flex items-center gap-2">

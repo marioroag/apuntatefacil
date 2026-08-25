@@ -19,7 +19,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!session) return <Navigate to="/login" replace />
   if (companyLoading && !company) return <FullSpinner />
   if (!company) return <Onboarding />
-  // El plan "Prueba" SÍ da acceso al panel, con topes (1 puesto, 15 candidatos).
-  // El puesto se pausa al llegar al tope y se avisa para subir de plan.
+  // La prueba SÍ da acceso al panel, con topes (1 proceso, 25 candidaturas o
+  // 15 días). Al agotarse se sigue recopilando: las candidaturas nuevas entran
+  // bloqueadas hasta añadir el método de pago.
   return <>{children}</>
 }

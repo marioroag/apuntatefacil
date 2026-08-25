@@ -8,7 +8,7 @@ import { useAppBase } from '../lib/useAppBase'
 import { useToast } from './ui/Toast'
 import { TemplateGrid, useCreateFromTemplate } from './NewCampaignWizard'
 import type { SectorTemplate } from '../lib/templates'
-import { PLAN_CANDIDATE_LIMIT } from '../lib/pricing'
+import { PRUEBA_CANDIDATOS } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import type { Campaign } from '../lib/types'
 
@@ -195,7 +195,7 @@ export function OnboardingGuide() {
               </p>
               {testCandidate && company?.plan === 'trial' && (
                 <p className="mt-2 text-[12px] leading-relaxed text-slate-500">
-                  La candidatura de prueba cuenta para el límite de {PLAN_CANDIDATE_LIMIT.trial} de tu plan.
+                  La candidatura de prueba cuenta para las {PRUEBA_CANDIDATOS} de tu prueba.
                   Bórrala cuando ya no la necesites.
                 </p>
               )}
