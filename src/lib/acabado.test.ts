@@ -76,9 +76,11 @@ const SOMBRAS_SIN_TOKEN: Record<string, string> = {
 
 /** SVG propios con trazo a mano, y por qué no siguen a `--stroke-icon`. */
 const TRAZOS_A_MANO: Record<string, string> = {
-  'components/TopBar.tsx':
+  'components/CuentaMenu.tsx':
     'Anillo de progreso del onboarding: es un MEDIDOR, no line art. Su grosor ' +
-    'codifica el ancho de la pista, así que no se empareja con los iconos vecinos.',
+    'codifica el ancho de la pista, así que no se empareja con los iconos vecinos. ' +
+    '(Venía de components/TopBar.tsx, retirada con el reskin de ago 2026, y viaja ' +
+    'con el menú de cuenta, que es donde vive el aviso de la guía.)',
   'components/Meridian.tsx':
     'Anillo de ajuste alrededor del avatar: mismo caso, es un medidor y además su ' +
     'grosor es variable según el tamaño que le pida quien lo usa.',

@@ -53,6 +53,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { AssetBox } from '../components/BrandAssets'
 import { useBrandAssetUpload, type BrandAssetPatch } from '../lib/brandUpload'
 import { PLAN_BRAND_LIMIT } from '../lib/pricing'
+import { ACENTO_MARCA } from '../lib/colors'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
 
@@ -999,7 +1000,7 @@ function Branding({ campaign }: { campaign: Campaign }) {
               <Plus className="relative size-3.5 text-white drop-shadow" aria-hidden />
               <input
                 type="color"
-                value={/^#[0-9a-fA-F]{6}$/.test(b.accent) ? b.accent : '#374cce'}
+                value={/^#[0-9a-fA-F]{6}$/.test(b.accent) ? b.accent : ACENTO_MARCA}
                 onChange={(e) => updateBranding(campaign.id, { accent: e.target.value })}
                 aria-label="Elegir un color personalizado"
                 className="absolute inset-0 size-full cursor-pointer opacity-0"

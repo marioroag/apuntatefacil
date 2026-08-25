@@ -8,6 +8,7 @@ import { miles } from '../lib/format'
 import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
 import { useToast } from '../components/ui/Toast'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { PageHeader } from '../components/ui/PageHeader'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import type { Candidate, Site } from '../lib/types'
 
@@ -91,11 +92,8 @@ export function Resumen() {
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-5">
-        {/* El mismo nombre que su entrada en el menú: un destino, un nombre. */}
-        <h1 className="text-xl font-semibold text-slate-900">Vista general</h1>
-        <p className="mt-0.5 text-sm text-slate-500">Cómo van todos tus puestos de un vistazo.</p>
-      </header>
+      {/* El mismo nombre que su entrada en el menú: un destino, un nombre. */}
+      <PageHeader titulo="Vista general" sub="Cómo van todos tus puestos de un vistazo." />
 
       {campaigns.length === 0 ? (
         <Empty text="Aún no tienes puestos. Crea el primero para ver aquí cómo van tus puestos." />

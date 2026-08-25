@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { useIsSupportStaff } from '../lib/useSupportStaff'
 import { useAjustesCtx } from '../lib/settings'
+import { Tecla } from './ui/Tecla'
 import { useAcciones } from '../lib/acciones'
 import { scoreEntrada, searchScore } from '../lib/search'
 import {
@@ -114,19 +115,28 @@ function useGruposDelStore(query: string, ctx: DestinosCtx): GrupoResultados[] {
   }, [query, candidates, campaigns, sites, newCountFor, ctx.base])
 }
 
-export function GlobalSearch({
-  variant,
-  onClose,
-}: {
-  variant: 'inline' | 'sheet'
-  onClose?: () => void
-}) {
+/**
+ * El buscador. UNA sola forma desde el reskin (ago 2026): una capa que se abre
+ * encima, se monta al pedirla y se va al elegir.
+ *
+ * Tenía dos, `inline` (el campo del centro de la barra superior) y `sheet` (la
+ * capa del móvil). Retirada la barra, el campo permanente se quedó sin sitio y
+ * con él su variante: mantenerla habría sido dejar en el fichero media pieza que
+ * nadie monta, que es como empieza la deriva. El atajo ⌘K, que vivía dentro del
+ * campo porque era lo que estaba siempre montado, se mudó al shell por el mismo
+ * motivo (`AppLayout`).
+ *
+ * Se coloca distinto según el ancho y es la misma capa: paleta centrada a partir
+ * de `sm` (con su telón, porque detrás se sigue viendo el trabajo) y hoja a
+ * pantalla completa por debajo, donde una paleta flotante sería un recorte de
+ * pantalla con bordes.
+ */
+export function GlobalSearch({ onClose }: { onClose?: () => void }) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
-  const [abierto, setAbierto] = useState(variant === 'sheet')
+  const [abierto, setAbierto] = useState(true)
   const [activo, setActivo] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
-  const wrapRef = useRef<HTMLDivElement>(null)
   const listId = useId()
 
   const ctx = useDestinosCtx()
@@ -158,41 +168,10 @@ export function GlobalSearch({
 
   useEffect(() => setActivo(0), [diferida])
 
-  // La capa del móvil entra con el foco puesto: se abre para escribir.
+  // La capa entra con el foco puesto: se abre para escribir.
   useEffect(() => {
-    if (variant === 'sheet') inputRef.current?.focus()
-  }, [variant])
-
-  // Atajo del sistema. Solo donde el campo existe de verdad: por debajo de md
-  // hay un botón que abre la capa, y robar el foco a un input oculto sería un
-  // atajo que no lleva a ninguna parte.
-  useEffect(() => {
-    if (variant !== 'inline') return
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        if (!window.matchMedia('(min-width: 768px)').matches) return
-        e.preventDefault()
-        inputRef.current?.focus()
-        inputRef.current?.select()
-        // Abrir a mano y no fiarse del foco: si el campo YA estaba enfocado (acabas
-        // de cerrar la lista con Escape), el evento de foco no se repite y el atajo
-        // no haría nada.
-        setAbierto(true)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [variant])
-
-  // Clic fuera: cerrar la lista sin perder lo escrito.
-  useEffect(() => {
-    if (variant !== 'inline' || !mostrar) return
-    const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setAbierto(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [variant, mostrar])
+    inputRef.current?.focus()
+  }, [])
 
   const cerrar = () => {
     setAbierto(false)
@@ -216,7 +195,7 @@ export function GlobalSearch({
       e.stopPropagation()
       if (query) {
         setQuery('')
-        setAbierto(variant === 'sheet')
+        setAbierto(true)
       } else cerrar()
       return
     }
@@ -234,9 +213,14 @@ export function GlobalSearch({
     }
   }
 
+  // El campo NO es un input dentro de una caja: es la boca del modal. Sin borde,
+  // sin fondo y sin anillo de foco, porque la capa entera ya tiene el foco y
+  // dibujarle una caja dentro de otra caja es un marco de más. Grande (20px) por
+  // el mismo motivo por el que un buscador de escritorio lo es: es lo único que
+  // se hace aquí, y lo que escribes tiene que leerse mientras lo escribes.
   const campo = (
-    <div className="relative w-full">
-      <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+    <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
+      <Search className="size-5 shrink-0 text-slate-400" aria-hidden />
       <input
         ref={inputRef}
         type="search"
@@ -246,41 +230,31 @@ export function GlobalSearch({
         aria-activedescendant={mostrar && filas[activo] ? `${listId}-${activo}` : undefined}
         aria-autocomplete="list"
         aria-label="Busca personas, puestos y ajustes"
-        // En la capa del móvil no cabe la frase entera y se cortaba a media palabra.
-        // El nombre accesible sigue siendo el mismo, y debajo están los atajos.
-        placeholder={variant === 'sheet' ? 'Personas, puestos, ajustes' : 'Busca personas, puestos y ajustes'}
+        placeholder="Busca personas, puestos, ajustes"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value)
           setAbierto(true)
         }}
         onFocus={() => setAbierto(true)}
-        // Mismo motivo: volver a pulsar en un campo que ya tiene el foco no dispara
-        // `focus`, y quien acaba de cerrar la lista espera que vuelva al pulsar.
+        // Volver a pulsar en un campo que ya tiene el foco no dispara `focus`, y
+        // quien acaba de cerrar la lista espera que vuelva al pulsar.
         onClick={() => setAbierto(true)}
         onKeyDown={onKeyDown}
         // `search` pinta una X propia en WebKit que se solapa con la nuestra.
-        className={`h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 text-sm text-slate-900 outline-none transition-[background-color,border-color,box-shadow] placeholder:text-slate-500 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/15 [&::-webkit-search-cancel-button]:appearance-none ${
-          variant === 'sheet' ? 'pr-9' : 'pr-14'
-        }`}
+        className="h-16 min-w-0 flex-1 bg-transparent text-[20px] text-slate-900 outline-none placeholder:text-slate-400 [&::-webkit-search-cancel-button]:appearance-none"
       />
-      {query ? (
+      {query && (
         <button
           onClick={() => {
             setQuery('')
             inputRef.current?.focus()
           }}
           aria-label="Borrar la búsqueda"
-          className="absolute right-1.5 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700"
+          className="grid size-7 shrink-0 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
         >
-          <X className="size-3.5" aria-hidden />
+          <X className="size-4" aria-hidden />
         </button>
-      ) : (
-        variant === 'inline' && (
-          <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded filo bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-500">
-            ⌘K
-          </kbd>
-        )
       )}
     </div>
   )
@@ -323,34 +297,47 @@ export function GlobalSearch({
     </>
   )
 
-  if (variant === 'sheet') {
-    return (
-      <div role="dialog" aria-modal="true" aria-label="Buscar" className="fixed inset-0 z-50 flex flex-col bg-white">
-        <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 p-2">
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Buscar" className="fixed inset-0 z-50">
+      {/* Telón solo donde el panel NO ocupa la pantalla entera: a pantalla
+          completa no hay nada detrás que atenuar, y un telón bajo una hoja opaca
+          es una capa que no se ve y sí se paga. */}
+      <div className="absolute inset-0 hidden bg-slate-900/40 sm:block" onClick={cerrar} aria-hidden />
+
+      {/* ALTO FIJO, no "lo que midan los resultados". Una paleta que crece y
+          encoge con cada tecla obliga a reencontrar la primera fila en cada
+          pulsación; con el alto quieto, lo único que se mueve es la lista. Y
+          arriba (10% de la ventana) porque se lee de arriba abajo: centrada de
+          verdad, el campo bailaría en vertical al cambiar la lista. */}
+      <div className="relative mx-auto flex h-full max-h-full flex-col overflow-clip bg-white sm:mt-[10vh] sm:h-[min(32rem,72vh)] sm:w-[min(40rem,calc(100vw-2rem))] sm:rounded-xl sm:filo sm:shadow-pop">
+        <div className="flex shrink-0 items-center border-b border-slate-200">
           {campo}
+          {/* En móvil no hay tecla Escape ni pie que la anuncie: hace falta una
+              salida visible. En escritorio la dice el pie, y repetirla aquí
+              sería la misma puerta dos veces. */}
           <button
             onClick={cerrar}
-            className="shrink-0 rounded-lg px-2 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            className="mr-2 shrink-0 rounded-lg px-2 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 sm:hidden"
           >
             Cancelar
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-1.5">{resultados}</div>
-      </div>
-    )
-  }
 
-  return (
-    <div ref={wrapRef} className="relative flex h-full w-full max-w-[420px] items-center">
-      {campo}
-      {mostrar && (
-        <div className="absolute left-0 top-full z-40 mt-1.5 w-full rounded-xl filo bg-white p-1.5 shadow-pop">
-          {resultados}
+        <div className="min-h-0 flex-1 overflow-y-auto p-1.5">{resultados}</div>
+
+        {/* El pie enseña el teclado: es lo que convierte esto en una herramienta
+            de teclado en vez de una lista que además se puede recorrer. Solo en
+            escritorio, que es donde hay teclado. */}
+        <div className="hidden shrink-0 items-center gap-4 border-t border-slate-200 bg-slate-50 px-4 py-2.5 text-[12px] text-slate-500 sm:flex" aria-hidden>
+          <span className="flex items-center gap-1.5"><Tecla>Esc</Tecla> para cerrar</span>
+          <span className="flex items-center gap-1.5"><Tecla>↓</Tecla><Tecla>↑</Tecla> para moverte</span>
+          <span className="flex items-center gap-1.5"><Tecla>↵</Tecla> para abrir</span>
         </div>
-      )}
+      </div>
     </div>
   )
 }
+
 
 /**
  * Una fila, sea persona, apartado, ajuste o acción. Una sola: lo que cambia entre

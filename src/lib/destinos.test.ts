@@ -98,11 +98,15 @@ function alcanzada(ruta: string, destinos: string[]): boolean {
 function entradasDelMenu(): string[] {
   const grupos = navGroups({
     plan: 'multi',
+    empresa: 'Construcciones Teide',
     isStaff: true,
     demo: false,
-    counts: { bandeja: 0, entrevistas: 0, equipo: 0, meridian: 0 },
+    counts: { bandeja: 0, equipo: 0, meridian: 0 },
   })
-  return [...new Set(grupos.flatMap((g) => g.items.map((i) => i.label)))]
+  // Solo las filas que LLEVAN a un sitio. Las que abren una capa (Buscar,
+  // Notificaciones) no son destinos: buscar "Buscar" desde el buscador es una
+  // pescadilla, y los avisos no tienen pantalla propia a la que ir.
+  return [...new Set(grupos.flatMap((g) => g.items.filter((i) => i.to).map((i) => i.label)))]
 }
 
 /** Lo que de verdad hace el buscador: ¿escribiendo esto sale algo? */

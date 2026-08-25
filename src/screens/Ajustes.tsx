@@ -3,6 +3,7 @@ import { NavLink, Navigate, useLocation, useParams, useSearchParams } from 'reac
 import { useAppBase } from '../lib/useAppBase'
 import { useToast } from '../components/ui/Toast'
 import { SwitchTrack } from '../components/ui/Switch'
+import { PageHeader } from '../components/ui/PageHeader'
 import {
   gruposVisibles,
   seccionesVisibles,
@@ -52,9 +53,9 @@ export function Ajustes() {
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-5">
-        <h1 className="text-xl font-semibold text-slate-900">Ajustes</h1>
-      </header>
+      {/* Sin subtítulo: "Ajustes" ya se explica solo, y una línea gris debajo
+          repitiéndolo sería la segunda cosa que se lee en la pantalla. */}
+      <PageHeader titulo="Ajustes" />
 
       <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
         <Menu secciones={secciones} base={base} />
@@ -230,8 +231,7 @@ function Nota({ children }: { children: React.ReactNode }) {
 function SinAjustes() {
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
-      <h1 className="text-xl font-semibold text-slate-900">Ajustes</h1>
-      <p className="mt-1 text-sm text-slate-500">Tu plan todavía no tiene nada que ajustar aquí.</p>
+      <PageHeader titulo="Ajustes" sub="Tu plan todavía no tiene nada que ajustar aquí." />
     </div>
   )
 }

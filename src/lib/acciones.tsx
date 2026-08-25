@@ -4,7 +4,7 @@ import type { Accion } from './destinos'
 
 /**
  * Las acciones del buscador. Un sitio es una URL y lo puede declarar un registro
- * (`destinos.ts`); una acción no: la ejecuta quien la tiene a mano. "Nuevo puesto"
+ * (`destinos.ts`); una acción no: la ejecuta quien la tiene a mano. "Crear puesto"
  * abre un asistente cuyo estado vive en el shell, y "Exportar a Excel" necesita los
  * filtros que hay puestos AHORA en el panel.
  *

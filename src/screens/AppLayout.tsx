@@ -1,128 +1,30 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Navigate, Outlet, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronDown, Inbox, Loader2, Plus, Sparkles, X } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { Inbox, Loader2, Menu, Plus, Sparkles, X } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { BetaBadge } from '../components/BetaBadge'
 import { seedDemoData } from '../lib/seedDemo'
-import { TopBar } from '../components/TopBar'
+import { Sidebar } from '../components/Sidebar'
+import { GlobalSearch } from '../components/GlobalSearch'
+import { Logo } from '../components/Logo'
+import { BRAND } from '../lib/brand'
 import { ProfileDialog } from '../components/ProfileDialog'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
 import { SupportDialog } from '../components/SupportDialog'
-import { useIsSupportStaff } from '../lib/useSupportStaff'
 import { DowngradeReconcileDialog } from '../components/DowngradeReconcileDialog'
 import { OnboardingGuide, OnboardingCreatePuesto } from '../components/OnboardingGuide'
 import { useOnboarding } from '../lib/onboarding'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
 import { AccionesProvider, RegistrarAccion } from '../lib/acciones'
-import { MERIDIAN_CHAT_ENABLED, hasMeridian, candidateFit } from '../lib/meridian'
-import { navGroups, PUESTO_ICON } from '../lib/nav'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 
-// Cabecera de una sección del menú. Misma pieza para los grupos declarados
-// ("Candidatos", "Empresa") y para las sedes; la única diferencia es que la sede
-// pliega y por eso es un <button>. En slate-500 y no slate-400: es texto con
-// significado, y slate-400 (#9c9fa9) se queda en 2,6:1 sobre blanco.
-const GROUP_LABEL = 'text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500'
-
-function GroupHeader({ children, count }: { children: React.ReactNode; count?: number }) {
-  return (
-    <div className={`flex h-7 items-center gap-1.5 px-2.5 ${GROUP_LABEL}`}>
-      <span className="min-w-0 flex-1 truncate">{children}</span>
-      {count !== undefined && <span className="num text-slate-400" aria-hidden>{count}</span>}
-    </div>
-  )
-}
-
-// Cabecera de un grupo de sede: SOLO un separador plegable, cero botones de
-// administración. El menú navega; renombrar y eliminar una sede viven en el
-// bloque "Por sede" de Vista general, que ya las lista.
-//
-// NO comparte tipografía con GroupHeader a propósito: la sede cuelga de
-// "Puestos", y con las dos en versalita tracked se leían como hermanas. Aquí va
-// en caja normal a 12px, que es el nivel de abajo, y el chevron remata que esto
-// se pliega. Se pega arriba al hacer scroll para no perder de vista qué sede
-// estás mirando.
-function SiteGroupHeader({
-  name,
-  count,
-  collapsed,
-  onToggle,
-}: {
-  name: string
-  count: number
-  collapsed: boolean
-  onToggle: () => void
-}) {
-  return (
-    <button
-      onClick={onToggle}
-      aria-expanded={!collapsed}
-      className="sticky top-0 z-10 flex h-7 w-full items-center gap-1.5 rounded-lg bg-white px-2.5 text-[12px] font-medium text-slate-500 outline-none transition-colors hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-indigo-600"
-    >
-      <ChevronDown className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none ${collapsed ? '-rotate-90' : ''}`} aria-hidden />
-      <span className="min-w-0 flex-1 truncate text-left">{name}</span>
-      <span className="num text-slate-400" aria-hidden>{count}</span>
-      <span className="sr-only">{count === 1 ? '1 puesto' : `${count} puestos`}</span>
-    </button>
-  )
-}
-
-// Chapa de contador. El número solo no dice nada: `label` es lo que oye quien no
-// lo ve ("272 candidaturas nuevas"), y viaja dentro del nombre accesible del
-// enlace en vez de en un `title=`, que los lectores de pantalla no anuncian.
-function CountBadge({ count, label }: { count: number; label?: string }) {
-  return (
-    <span className="num shrink-0 rounded-full bg-slate-200 px-1.5 py-px text-[11px] font-bold text-slate-700">
-      {count}
-      {label && <span className="sr-only"> {label}</span>}
-    </span>
-  )
-}
-
-// Item del menú lateral. Solo se muestra si el plan incluye la feature (lo
-// decide el registro de `lib/nav.ts`); el límite se descubre al intentar usar
-// las cosas en su contexto (crear puesto, vistas guardadas), no con tabs
-// bloqueadas en el menú.
-function SideNavItem({
-  to,
-  Icon,
-  label,
-  count = 0,
-  countLabel,
-  onNavigate,
-}: {
-  to: string
-  Icon: LucideIcon
-  label: string
-  count?: number
-  countLabel?: string
-  onNavigate: () => void
-}) {
-  return (
-    <NavLink
-      to={to}
-      onClick={onNavigate}
-      className={({ isActive }) =>
-        `flex min-h-11 w-full items-center gap-2.5 rounded-xl px-2.5 text-sm outline-none transition-[background-color,color] duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 lg:min-h-10 ${
-          isActive ? 'bg-indigo-50 font-semibold text-slate-900' : 'font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-        }`
-      }
-    >
-      {({ isActive }) => (
-        <>
-          <Icon className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
-          <span className="min-w-0 flex-1 truncate">{label}</span>
-          {count > 0 && <CountBadge count={count} label={countLabel} />}
-        </>
-      )}
-    </NavLink>
-  )
-}
+// El menú lateral entero (marca, destinos, puestos, acción y cuenta) vive ahora
+// en `components/Sidebar.tsx`. Aquí solo queda el SHELL: qué superficies hay y
+// cómo se reparten la pantalla.
 
 export function FirstCampaignRedirect() {
   const { campaigns, loading } = useStore()
@@ -205,23 +107,21 @@ function EmptyCompany() {
 }
 
 export function AppLayout() {
-  // `companies`, `setActiveCompany` y `signOut` ya no salen de aquí: el cambio
-  // de equipo y la sesión viven en el menú de la barra superior (ago 2026). El
-  // lateral navega y nada más.
-  const { campaigns, candidates, newCountFor, newSinceFor, resetDemo, sites, loading, boardNewCount, interviewUpcomingCount } = useStore()
+  // Del store aquí no se lee casi nada: los contadores, los puestos y las
+  // empresas los pide el propio lateral, que es quien los pinta. Este shell solo
+  // reparte superficies y monta los diálogos.
+  const { resetDemo } = useStore()
   const { company, role, user, setOnboardingDone } = useAuth()
   const onboarding = useOnboarding()
-  const { campaignId } = useParams()
   const base = useAppBase()
   const navigate = useNavigate()
   const demo = base === '/demo'
-  const isStaff = useIsSupportStaff()
   const [open, setOpen] = useState(false)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [supportOpen, setSupportOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [confirmReset, setConfirmReset] = useState(false)
+  const [buscarOpen, setBuscarOpen] = useState(false)
   const [betaBannerOpen, setBetaBannerOpen] = useState(
     () => typeof localStorage !== 'undefined' && !localStorage.getItem('apuntatefacil.beta-banner-dismissed')
   )
@@ -245,6 +145,22 @@ export function AppLayout() {
     if (!c) return navigate(base)
     navigate(onboarding.phase === 'formulario' ? `${base}/puestos/${c.id}/formulario` : `${base}/puestos/${c.id}`)
   }
+
+  // ⌘K abre el buscador. El atajo vivía DENTRO del campo de la barra, que era
+  // donde estaba montado siempre; retirada la barra ya no hay campo permanente,
+  // así que lo registra el shell, que es lo único que nunca se desmonta. Se
+  // ignora mientras el foco esté en un campo de texto sin que sea el atajo (el
+  // navegador ya lo reserva) y se traga el ⌘K del navegador a propósito.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setBuscarOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // Gesto de navegación en móvil: deslizar hacia la derecha desde los primeros ~70%
   // del ancho abre el menú (zona generosa, acorde a la memoria muscular); deslizar
@@ -311,219 +227,30 @@ export function AppLayout() {
 
   if (!company) return null // AuthGate garantiza empresa; guard de tipos
 
-  const isEncargado = role === 'encargado'
+  // Todo lo que el menú necesita saber lo saca él del store: aquí solo quedan la
+  // guía de primer uso, el gesto del cajón y qué diálogos hay abiertos. Las
+  // sedes salieron del lateral con el reskin (los puestos van en una sola lista
+  // plegable), y con ellas el estado de grupos plegados.
   const isOwner = role === 'owner'
-  // Las features avanzadas NO se muestran en el menú si el plan no las incluye:
-  // el cliente descubre el límite al intentar usar las cosas en su contexto (crear
-  // puesto, vistas guardadas), no con tabs bloqueadas. El encargado ve sus datos
-  // (acotados por RLS) pero no gestiona estructura.
-  // Sedes y marcas NO tienen entrada aquí (ago 2026): no son destinos, son
-  // atributos del puesto. La sede se crea y se asigna en los ajustes del puesto y
-  // se renombra/borra en la cabecera de su grupo, aquí abajo; la marca vive en el
-  // panel Apariencia del constructor del formulario.
-  // Equipo (tablón + miembros) es Pro+: lo ven todos los roles del plan; dentro,
-  // la pestaña Miembros solo se pinta al owner (y los RPCs son owner-only).
-  // Ajustes NO tiene entrada aquí: vive en el engranaje de la barra, a todos los
-  // anchos y pegado al timbre. Estuvo duplicado, y además colgando del
-  // `showEntrevistas` de su vecino, así que en Esencial desaparecía del todo.
-  const canCreate = !isEncargado // crear puestos
-  // Agrupamos solo si la agrupación SEPARA algo: con una única sede (o con todos
-  // los puestos en la misma) la cabecera no informa de nada y solo mete ruido.
-  const gruposConPuestos =
-    sites.filter((s) => campaigns.some((c) => c.siteId === s.id)).length +
-    (campaigns.some((c) => !c.siteId || !sites.some((s) => s.id === c.siteId)) ? 1 : 0)
-  const groupBySite = gruposConPuestos > 1
-  const totalNuevos = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
-  // Meridian (Pro/Multi): entrada al Parte diario. Badge = candidaturas nuevas que
-  // Meridian destaca (encajan bien) y aún no has revisado. Apagado mientras el hilo
-  // esté fuera (MERIDIAN_CHAT_ENABLED): el triaje sigue vivo en cada candidatura.
-  const meridianDestacados =
-    MERIDIAN_CHAT_ENABLED && hasMeridian(company.plan)
-      ? candidates.filter((c) => c.status === 'nuevo' && (candidateFit(c.ai) ?? -1) >= 70).length
-      : 0
+  // Crear puestos: el encargado ve sus datos (acotados por RLS) pero no gestiona
+  // estructura. El límite de plan NO se descubre aquí, se descubre al crear.
+  const canCreate = role !== 'encargado'
 
-  // Los destinos del menú los declara el registro (`lib/nav.ts`), no esta
-  // pantalla: aquí solo se le pasan el plan, el rol y los contadores. Añadir una
-  // tab es una entrada en ese array; este fichero no se toca.
-  const grupos = navGroups({
-    plan: company.plan,
-    isStaff,
-    demo,
-    counts: {
-      bandeja: totalNuevos,
-      // Las entrevistas cuentan las CONFIRMADAS por venir, no "novedades sin
-      // ver": aquí el número útil es cuántas citas tienes por delante.
-      entrevistas: interviewUpcomingCount,
-      equipo: boardNewCount,
-      meridian: meridianDestacados,
-    },
-  })
-
-  const toggleGroup = (id: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-
-  // Render de un puesto (reutilizado en lista plana y agrupada por sede).
-  const renderPuesto = (c: (typeof campaigns)[number]) => {
-    const count = newSinceFor(c.id)
-    return (
-      <li key={c.id}>
-        <NavLink
-          to={`${base}/puestos/${c.id}`}
-          onClick={() => setOpen(false)}
-          // El `shadow-[inset...]` del estado activo NO es una elevación y por eso no
-          // sale del vocabulario de sombras: es un FILO DE LUZ sobre una superficie
-          // teñida, la misma idea que el borde superior del botón primario. Va al 72%
-          // porque el fondo es indigo-50: el 16% del botón se pierde sobre un tinte
-          // tan claro. Es una excepción declarada en el guardián del acabado.
-          className={({ isActive }) =>
-            `group flex min-h-11 items-center gap-2.5 rounded-xl border px-2.5 py-2 text-sm outline-none transition-[background-color,border-color,box-shadow,color] duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 lg:min-h-10 ${
-              isActive
-                ? 'border-indigo-200/80 bg-indigo-50 font-semibold text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]'
-                : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`
-          }
-        >
-          {({ isActive }) => (
-            <>
-              <PUESTO_ICON className={`size-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} aria-hidden />
-              {/* El nombre completo en `title` para quien usa ratón: un puesto
-                  pausado y con chapa deja poco sitio y se sigue cortando. El
-                  lector de pantalla ya lo lee entero (truncate es solo CSS). */}
-              <span className="min-w-0 flex-1 truncate" title={c.title}>{c.title}</span>
-              {c.status !== 'activa' && <span className="shrink-0 text-[11px] font-medium text-slate-500">{c.status === 'pausada' ? 'Pausado' : 'Cerrado'}</span>}
-              {count > 0 && <CountBadge count={count} label={count === 1 ? 'candidatura nueva' : 'candidaturas nuevas'} />}
-            </>
-          )}
-        </NavLink>
-      </li>
-    )
-  }
-
-  // El menú lateral ya no lleva cabecera de marca: el logo salió del shell y la
-  // esquina superior izquierda es ahora la persona (barra superior). Lo primero
-  // que ves aquí es la acción, no la valla.
-  const nav = (
-    // `overflow-y-auto` en el propio menú es la red de seguridad del registro: si
-    // algún día se declaran tantos grupos que ni con el suelo de la zona de
-    // puestos cabe todo, el menú entero se desplaza en vez de dejar destinos
-    // inalcanzables. En la ventana normal no se activa: el único scroll es el de
-    // los puestos.
-    <nav className="flex h-full flex-col overflow-y-auto overscroll-contain" aria-label="Menú principal">
-      {/* Sin fila de cierre propia (ago 2026): el cajón móvil ya no tapa la barra,
-          así que el que cierra es el mismo botón que abrió, arriba a la derecha.
-          Esa fila era además el resto de la cabecera de marca que se retiró: 240px
-          de nada con una equis suelta al final. Aquí arriba manda la acción. */}
-      {canCreate && (
-        <div className="px-3 pt-4">
-          <button
-            onClick={() => { setWizardOpen(true); setOpen(false) }}
-            className={`${BTN_PRIMARY} w-full`}
-          >
-            <Plus className="size-4" aria-hidden /> Nuevo puesto
-          </button>
-        </div>
-      )}
-
-      {/* Destinos declarados (`lib/nav.ts`). El menú NO conoce ninguno: pinta lo
-          que diga el registro, y añadir uno nuevo es una entrada en ese array.
-          `shrink-0` porque lo único que crece sin techo son los puestos, y es a
-          ellos a quien se le da el hueco elástico de abajo. */}
-      <div className="shrink-0 space-y-5 px-3 pt-4">
-        {grupos.map((g) => (
-          <div key={g.id}>
-            {g.label && <GroupHeader>{g.label}</GroupHeader>}
-            <ul className="space-y-0.5" aria-label={g.label}>
-              {g.items.map((it) => (
-                <li key={it.id}>
-                  <SideNavItem
-                    to={`${base}${it.to}`}
-                    Icon={it.Icon}
-                    label={it.label}
-                    count={it.count}
-                    countLabel={it.count && it.contarLabel ? it.contarLabel(it.count) : undefined}
-                    onNavigate={() => setOpen(false)}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-
-      {/* Los puestos son datos, no destinos declarados: son la única lista que
-          crece sin límite, así que se quedan con todo el alto que sobre y con su
-          propio scroll. Las cabeceras de sede se pegan arriba al bajar, para no
-          perder de vista en qué sede estás mirando. */}
-      <div className="mt-6 flex min-h-36 flex-1 flex-col px-3">
-        <div className="shrink-0">
-          <GroupHeader count={loading ? undefined : campaigns.length}>Puestos</GroupHeader>
-        </div>
-
-        {loading ? (
-          // Transición (carga inicial o cambio de equipo): skeleton en lugar de los puestos del
-          // equipo anterior, para que header, lista y contenido se revelen a la vez al terminar.
-          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pb-3" role="status" aria-label="Cargando puestos">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-10 rounded-xl skeleton" />
-            ))}
-          </div>
-        ) : campaigns.length === 0 ? (
-          <p className="px-2.5 py-2 text-[13px] leading-snug text-slate-500">
-            Aún no tienes ningún puesto. Crea el primero y sus candidaturas entran aquí solas.
-          </p>
-        ) : groupBySite ? (
-          <div className="min-h-0 flex-1 overflow-y-auto pb-3">
-            {sites.map((s) => {
-              const items = campaigns.filter((c) => c.siteId === s.id)
-              if (items.length === 0) return null
-              const isCollapsed = collapsed.has(s.id)
-              return (
-                <div key={s.id} className="mb-2">
-                  <SiteGroupHeader
-                    name={s.name}
-                    count={items.length}
-                    collapsed={isCollapsed}
-                    onToggle={() => toggleGroup(s.id)}
-                  />
-                  {!isCollapsed && <ul className="mt-0.5 space-y-0.5">{items.map(renderPuesto)}</ul>}
-                </div>
-              )
-            })}
-            {(() => {
-              const sinSede = campaigns.filter((c) => !c.siteId || !sites.some((s) => s.id === c.siteId))
-              if (sinSede.length === 0) return null
-              const isCollapsed = collapsed.has('__none__')
-              return (
-                <div className="mb-2">
-                  <SiteGroupHeader
-                    name="Sin sede"
-                    count={sinSede.length}
-                    collapsed={isCollapsed}
-                    onToggle={() => toggleGroup('__none__')}
-                  />
-                  {!isCollapsed && <ul className="mt-0.5 space-y-0.5">{sinSede.map(renderPuesto)}</ul>}
-                </div>
-              )
-            })()}
-          </div>
-        ) : (
-          <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-3" aria-label="Puestos">
-            {campaigns.map(renderPuesto)}
-          </ul>
-        )}
-      </div>
-
-      {/* El pie del lateral se vació: la empresa, el plan, la ayuda y salir viven
-          ahora en el menú de perfil de la barra superior. El lateral navega y
-          nada más. */}
-    </nav>
+  // El lateral es la MISMA pieza en escritorio y en el cajón móvil: una sola
+  // navegación, dos sitios donde ponerla. `onNavigate` es lo único que cambia de
+  // sentido (en escritorio no hay cajón que cerrar, y cerrarlo es un no-op).
+  const lateral = (
+    <Sidebar
+      onNavigate={() => setOpen(false)}
+      onNewCampaign={() => { setWizardOpen(true); setOpen(false) }}
+      onBuscar={() => { setBuscarOpen(true); setOpen(false) }}
+      onOpenSupport={() => setSupportOpen(true)}
+      onOpenProfile={() => setProfileOpen(true)}
+      onOpenOnboarding={abrirGuia}
+      onboardingPaso={pasoGuia}
+      onReiniciarDemo={() => setConfirmReset(true)}
+    />
   )
-
-  void campaignId
 
   return (
     <AccionesProvider>
@@ -534,35 +261,37 @@ export function AppLayout() {
       <RegistrarAccion
         activa={canCreate}
         id="nuevo-puesto"
-        label="Nuevo puesto"
+        label="Crear puesto"
         hint="Publica un puesto y su formulario."
         icon={Plus}
-        claves={['crear puesto', 'anuncio', 'oferta', 'vacante', 'publicar']}
+        claves={['nuevo puesto', 'anuncio', 'oferta', 'vacante', 'publicar']}
         hacer={() => setWizardOpen(true)}
       />
-      <TopBar
-        menuOpen={open}
-        onToggleMenu={() => setOpen((o) => !o)}
-        onOpenSupport={() => setSupportOpen(true)}
-        onOpenProfile={() => setProfileOpen(true)}
-        onOpenOnboarding={abrirGuia}
-        onboardingPaso={pasoGuia}
-        betaBannerOpen={!demo && betaBannerOpen}
-      />
+      {/* La barra superior se retiró con el reskin (ago 2026): el lateral es la
+          única capa de navegación y absorbió a sus tres inquilinos (Buscar,
+          Notificaciones, Ajustes) y a tu cuenta. Aquí abajo solo queda el
+          reparto: el menú a la izquierda, el trabajo a la derecha.
 
+          Se probó devolverla (ago 2026): las dos formas convivieron tras un
+          interruptor para poder compararlas en vivo, y Mario se quedó con esta.
+          Si vuelve a plantearse, que sea con un argumento nuevo, no por nostalgia. */}
       <div className="flex min-h-0 flex-1">
-        {/* 256px (w-64), no 240: con 240 los títulos largos de puesto
-            ("Preparador/a de pedidos") se cortaban a media palabra. La celda de
-            empresa de la barra usa el mismo ancho para que el filo siga siendo
-            continuo; si se cambia aquí, se cambia allí. */}
-        <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white lg:block">{nav}</aside>
+        {/* 256px (`w-64`). El mockup traía 264; se bajó a 256 para darle esos
+            píxeles al trabajo, que es lo que se mira, y se probó a seguir hasta
+            240: ahí se parte, porque "Mozo/a de almacén" y "Preparador/a de
+            pedidos" empiezan a cortarse a media palabra y la lista de puestos
+            deja de ser legible de un vistazo. 256 es el suelo. (El nombre entero
+            sigue en el `title` y el lector de pantalla lo lee completo: `truncate`
+            es solo CSS.) El filo lo pinta el LATERAL y no el contenido, para que
+            el borde sea siempre el mismo aunque debajo cambie la pantalla. */}
+        <aside className="hidden w-64 shrink-0 border-r border-[var(--color-lateral-filo)] lg:block">
+          {lateral}
+        </aside>
 
-        {/* El cajón móvil arranca DEBAJO de la barra (top-14 = su h-14), no sobre
-            ella. Antes iba a `inset-0` y tapaba la esquina de la empresa, que es
-            donde vive tu cuenta: con el menú abierto no había forma de llegar a
-            ella, y encima el cajón tenía que pintar su propia equis. Así el
-            mismo botón que lo abre lo cierra y la identidad nunca se va.
-            Si cambia la altura de la barra, cambia este `top-14`. */}
+        {/* En móvil el mismo menú entra en un cajón, POR DEBAJO de la barrita de
+            arriba (top-14 = su h-14): así el botón que lo abrió sigue a la vista
+            y es el mismo que lo cierra, sin necesidad de una equis dentro.
+            Si cambia la altura de esa barra, cambia este `top-14`. */}
         <AnimatePresence>
           {open && (
             <div className="fixed inset-x-0 bottom-0 top-14 z-40 lg:hidden">
@@ -576,35 +305,49 @@ export function AppLayout() {
               />
               <motion.div
                 id="menu-lateral"
-                className="absolute left-0 top-0 h-full w-72 bg-white shadow-pop"
+                data-cajon
+                className="absolute left-0 top-0 h-full w-72 shadow-pop"
                 initial={{ x: '-100%' }}
                 animate={{ x: 0 }}
                 exit={{ x: '-100%' }}
                 transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
               >
-                {nav}
+                {lateral}
               </motion.div>
             </div>
           )}
         </AnimatePresence>
 
         <div className="flex min-w-0 flex-1 flex-col">
-        {demo && (
-          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 border-b border-indigo-100 bg-indigo-50 px-4 py-2 text-center text-[13px] text-indigo-800">
-            <span>Demo de empresario con el producto completo.</span>
-            {/* Los dos accionables van juntos: saltan de línea como un bloque, sin
-                que "Crear mi cuenta" se quede solo en la línea de abajo. */}
-            <span className="inline-flex items-center gap-2">
-              <button onClick={() => setConfirmReset(true)} className="font-semibold underline underline-offset-2 hover:text-indigo-900">
-                Reiniciar demo
-              </button>
-              <span aria-hidden className="h-3 w-px bg-indigo-200" />
-              <Link to="/login" className="font-semibold underline underline-offset-2 hover:text-indigo-900">
-                Crear mi cuenta
-              </Link>
+        {/* La única barra que queda, y SOLO por debajo de lg: sin lateral a la
+            vista hace falta algo que lo abra, y la marca acompaña porque en móvil
+            es lo único que dice dónde estás. Todo lo demás (buscar, avisos,
+            ajustes, tu cuenta) está dentro del cajón: cada cosa existe una sola
+            vez en cada ancho, nunca las dos. */}
+        <header className="z-50 flex h-14 shrink-0 items-center gap-1 border-b border-[var(--color-lateral-filo)] bg-[var(--color-lateral)] px-2 lg:hidden">
+          <button
+            data-cajon
+            onClick={() => setOpen((o) => !o)}
+            aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
+            aria-expanded={open}
+            aria-controls={open ? 'menu-lateral' : undefined}
+            className={`grid size-10 shrink-0 place-items-center rounded-xl text-slate-600 transition-colors hover:bg-[var(--color-lateral-hover)] hover:text-slate-900 ${open ? 'bg-[var(--color-lateral-activo)] text-slate-900' : ''}`}
+          >
+            {open ? <X className="size-5" aria-hidden /> : <Menu className="size-5" aria-hidden />}
+          </button>
+          <Link to={base} className="flex min-w-0 items-center gap-2 rounded-xl px-1 py-1">
+            <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-lg bg-slate-900">
+              <Logo className="size-[15px]" tone="oscuro" />
             </span>
-          </div>
-        )}
+            <span className="min-w-0 truncate text-[15px] font-bold tracking-[-0.02em] text-slate-900">{BRAND}</span>
+          </Link>
+        </header>
+        {/* El aviso de la demo se retiró (Mario, ago 2026): con el shell nuevo era
+            una franja permanente entre la barra y el trabajo para decir algo que
+            ya dicen el menú de cuenta ("Salir de la demo") y la propia URL. Sus
+            dos accionables no se perdieron: "Crear mi cuenta" y "Reiniciar demo"
+            viven en ese menú, que es donde se va a buscar lo que tiene que ver
+            con en qué cuenta estás. */}
         {!demo && betaBannerOpen && (
           <div className="flex items-center justify-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-1.5 text-center text-[12px] text-slate-500">
             <BetaBadge />
@@ -636,6 +379,10 @@ export function AppLayout() {
         </main>
         </div>
       </div>
+
+      {/* Fuera del reparto de superficies a propósito: va a pantalla completa y
+          dentro del `flex` se quedaría atrapado en su contexto de apilamiento. */}
+      {buscarOpen && <GlobalSearch onClose={() => setBuscarOpen(false)} />}
 
       <OnboardingGuide />
       <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />

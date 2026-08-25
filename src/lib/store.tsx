@@ -628,7 +628,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     company?.plan === 'trial'
       ? 'La prueba incluye 1 proceso abierto. Añade tu método de pago para abrir otro.'
       : company?.plan === 'proceso'
-        ? `Abrir otro proceso son ${PRECIO_PROCESO} €/mes + IVA: hazlo desde "Nuevo puesto", o cierra uno que ya no uses.`
+        ? `Abrir otro proceso son ${PRECIO_PROCESO} €/mes + IVA: hazlo desde "Crear puesto", o cierra uno que ya no uses.`
         : 'Ya tienes el máximo de puestos activos de tu plan. Pausa o cierra otro para abrir este.'
 
   const [loading, setLoading] = useState(false)

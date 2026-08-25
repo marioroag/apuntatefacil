@@ -24,6 +24,9 @@ export function defaultBranding(accent: string): Branding {
   }
 }
 
+// Ojo: este 'Nuevo puesto' es el TÍTULO por defecto del puesto recién creado (lo
+// que se lee en la lista hasta que le pones nombre), no la etiqueta del botón,
+// que desde ago 2026 es "Crear puesto". Son dos cosas distintas y no se sincronizan.
 export function blankCampaignInput(accent: string, title = 'Nuevo puesto'): NewCampaignInput {
   return {
     title,

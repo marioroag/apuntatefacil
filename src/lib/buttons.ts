@@ -175,3 +175,19 @@ export function botonBloque(variant: BtnVariant = 'primary', extra = '') {
 
 export const BTN_PRIMARY_BLOCK = botonBloque('primary')
 export const BTN_SECONDARY_BLOCK = botonBloque('secondary')
+
+/**
+ * BLOQUE DE RAÍL: el bloque, pero a 36px en escritorio.
+ *
+ * Existe porque el bloque tiene DOS contextos y no una talla. En un formulario
+ * vive debajo de una pila de inputs y sus 44px son el objetivo de toque, que ahí
+ * manda sobre la densidad. En el raíl del lateral vive rodeado de filas de 34px,
+ * y a 44 se veía descolgado del sistema, como si fuera de otra pantalla: un
+ * botón no puede ser un 30% más alto que todo lo que tiene alrededor.
+ *
+ * Baja SOLO a partir de `lg`: por debajo el lateral es un cajón que se toca con
+ * el dedo y vuelve a sus 44. Se declara aquí y no con un `lg:h-9` pegado en el
+ * `className` del lateral, que es exactamente como el botón de esta app llegó a
+ * tener nueve clones.
+ */
+export const BTN_PRIMARY_LATERAL = botonBloque('primary', 'lg:h-9')

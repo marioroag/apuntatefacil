@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth'
 import { EquipoTablon } from './EquipoTablon'
 import { EquipoMiembros } from './EquipoMiembros'
 import { Tabs, TabPanel } from '../components/ui/Tabs'
+import { PageHeader } from '../components/ui/PageHeader'
 
 // Página de equipo, en dos pestañas:
 //   * Tablón (por defecto, TODO el equipo): peticiones internas con respuestas
@@ -32,14 +33,14 @@ export function Equipo() {
 
   return (
     <div className="mx-auto max-w-[820px] px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-4">
-        <h1 className="text-xl font-semibold text-slate-900">Equipo</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
-          {tab === 'tablon'
+      <PageHeader
+        titulo="Equipo"
+        sub={
+          tab === 'tablon'
             ? 'Pide lo que necesitas cubrir: tu equipo responde y propone candidatos de la base.'
-            : 'Invita a tu equipo a gestionar candidatos contigo. Usuarios ilimitados.'}
-        </p>
-      </header>
+            : 'Invita a tu equipo a gestionar candidatos contigo. Usuarios ilimitados.'
+        }
+      />
 
       {showMiembros && (
         <Tabs

@@ -5,11 +5,22 @@ import { useAvisos } from '../lib/avisos'
 import { useProfiles } from '../lib/profiles'
 import { relativeDate } from '../lib/format'
 import { Avatar } from './ui/Avatar'
+import { FILA, FILA_ABIERTA, FILA_QUIETA } from './filaLateral'
 
 /**
- * El timbre de la barra y su panel. Lo que enseña sale entero de datos que ya
- * existen (ver `lib/avisos.ts`): menciones en el chat (de un candidato o del
- * tablón) y movimiento del tablón.
+ * Notificaciones: la fila del LATERAL y su panel. Lo que enseña sale entero de
+ * datos que ya existen (ver `lib/avisos.ts`): menciones en el chat (de un
+ * candidato o del tablón) y movimiento del tablón.
+ *
+ * Era un timbre de la barra superior; con el reskin (ago 2026) bajó al lateral y
+ * pasó a ser una fila como las demás, con su nombre escrito. Un icono suelto en
+ * una barra necesita que aprendas qué es; una fila que pone "Notificaciones", no.
+ * El contador sigue siendo el mismo dato y sigue yendo a la derecha de la fila.
+ *
+ * La fila la declara el registro del menú (`nav.ts`, `capa: 'avisos'`) pero la
+ * pinta este componente, porque el número y el `disponible` (sin equipo no hay
+ * nada que pueda generar un aviso) los sabe él: llevarlos por el registro sería
+ * llevar la misma cuenta en dos sitios.
  *
  * El contador va en TINTA, no en el acento ni en rojo. Un aviso no es una
  * acción (el acento es para actuar) ni un error (el rojo es para eso). Y no se
@@ -19,7 +30,7 @@ import { Avatar } from './ui/Avatar'
  * Lo pendiente se marca como visto AL CERRAR, no al abrir: si se marcase al
  * abrir, lo nuevo perdería su marca justo en el momento de mirarlo.
  */
-export function Avisos() {
+export function Avisos({ label }: { label: string }) {
   const { disponible, items, sinVer, marcarVisto } = useAvisos()
   const profiles = useProfiles()
   const [open, setOpen] = useState(false)
@@ -37,14 +48,26 @@ export function Avisos() {
     marcarRef.current()
   }, [])
 
-  // El panel se ancla al borde derecho de la VENTANA, no al timbre: colgándolo
-  // del timbre, en móvil el ancho se salía por la izquierda (detrás quedan la
-  // hamburguesa y su margen). El alto se mide, no se escribe a mano, para que
-  // siga a la barra si algún día cambia de altura.
-  const [top, setTop] = useState(0)
+  // El panel sale AL LADO de su fila, fuera del lateral, y se coloca contra la
+  // VENTANA: `fixed`, así ningún `overflow` del menú (que se desplaza) lo
+  // recorta. Se mide en vez de escribirse a mano porque la fila cambia de altura
+  // según el bloque en el que caiga, y porque en una ventana baja el panel tiene
+  // que subir hasta caber en lugar de salirse por abajo.
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   useLayoutEffect(() => {
     if (!open) return
-    const medir = () => setTop((wrapRef.current?.getBoundingClientRect().bottom ?? 56) + 6)
+    const medir = () => {
+      const fila = wrapRef.current?.getBoundingClientRect()
+      if (!fila) return
+      const ancho = panelRef.current?.offsetWidth ?? 352
+      const alto = panelRef.current?.offsetHeight ?? 320
+      setPos({
+        // Al lado de su fila, y apretado contra el filo si no cabe a la derecha:
+        // nunca fuera de la pantalla.
+        left: Math.max(8, Math.min(fila.right + 8, window.innerWidth - ancho - 8)),
+        top: Math.max(8, Math.min(fila.top, window.innerHeight - alto - 8)),
+      })
+    }
     medir()
     window.addEventListener('resize', medir)
     return () => window.removeEventListener('resize', medir)
@@ -79,29 +102,34 @@ export function Avisos() {
     els[i < 0 ? 0 : (i + dir + els.length) % els.length]?.focus()
   }
 
+  // La cifra: la ÚNICA del lateral, y por eso puede permitirse peso. La doctrina
+  // dice que la negrita es para cuando hay una sola chapa; aquí la hay. Fondo
+  // `slate-100` para no gritar sobre el blanco.
+  const cifra = sinVer > 0 && (
+    <span className="num shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">
+      {sinVer > 9 ? '9+' : sinVer}
+      <span className="sr-only"> {sinVer === 1 ? 'aviso sin ver' : 'avisos sin ver'}</span>
+    </span>
+  )
+
+  const filaAvisos = (
+    <button
+      ref={triggerRef}
+      onClick={() => (open ? cerrar() : setOpen(true))}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      aria-controls={open ? panelId : undefined}
+      className={`${FILA} ${open ? FILA_ABIERTA : FILA_QUIETA}`}
+    >
+      <Bell className={`size-5 shrink-0 ${open ? 'text-slate-900' : 'text-slate-700'}`} aria-hidden />
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      {cifra}
+    </button>
+  )
+
   return (
-    <div ref={wrapRef} className="relative flex h-full items-center">
-      <button
-        ref={triggerRef}
-        onClick={() => (open ? cerrar() : setOpen(true))}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        aria-label={sinVer > 0 ? `Avisos, ${sinVer} sin ver` : 'Avisos'}
-        className={`relative grid size-9 place-items-center rounded-lg transition-colors ${
-          open ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
-        }`}
-      >
-        <Bell className="size-[18px]" aria-hidden />
-        {sinVer > 0 && (
-          <span
-            aria-hidden
-            className="num absolute right-0.5 top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-slate-900 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white"
-          >
-            {sinVer > 9 ? '9+' : sinVer}
-          </span>
-        )}
-      </button>
+    <div ref={wrapRef}>
+      {filaAvisos}
 
       {open && (
         <div
@@ -113,8 +141,11 @@ export function Avisos() {
             if (e.key === 'ArrowDown') { e.preventDefault(); move(1) }
             else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1) }
           }}
-          style={{ top }}
-          className="fixed right-2 z-40 w-[min(22rem,calc(100vw-1rem))] rounded-xl filo bg-white shadow-pop"
+          // `visibility` y no montaje condicional: el panel tiene que estar en
+          // el DOM para poder medirlo, y `useLayoutEffect` corre antes de pintar,
+          // así que nadie llega a ver el fotograma sin colocar.
+          style={pos ? { top: pos.top, left: pos.left } : { top: 0, left: 0, visibility: 'hidden' }}
+          className="fixed z-40 w-[min(22rem,calc(100vw-1rem))] rounded-xl filo bg-white shadow-pop"
         >
           <div className="flex items-baseline justify-between px-3 py-2.5">
             <h2 className="text-sm font-semibold text-slate-900">Avisos</h2>

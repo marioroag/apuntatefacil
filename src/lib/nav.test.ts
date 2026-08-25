@@ -18,9 +18,10 @@ import { MERIDIAN_CHAT_ENABLED } from './meridian'
 
 const CONTEXTO_BASE: NavContext = {
   plan: 'multi',
+  empresa: 'Construcciones Teide',
   isStaff: false,
   demo: false,
-  counts: { bandeja: 0, entrevistas: 0, equipo: 0, meridian: 0 },
+  counts: { bandeja: 0, equipo: 0, meridian: 0 },
 }
 
 const ctx = (parcial: Partial<NavContext>): NavContext => ({ ...CONTEXTO_BASE, ...parcial })
@@ -42,17 +43,25 @@ describe('el menú se declara, no se improvisa', () => {
     }
   })
 
-  it('todo contador dice qué cuenta', () => {
-    // "272" a secas no informa a quien no ve la pantalla. Si un ítem admite
-    // contador, tiene que traer el texto que lo explica.
-    for (const it of items(ctx({ counts: { bandeja: 3, entrevistas: 3, equipo: 3, meridian: 3 } }))) {
-      if (it.count !== undefined) {
-        expect(it.contarLabel, `"${it.label}" lleva contador y no dice qué cuenta: añádele contarLabel.`).toBeTypeOf('function')
-        // La chapa ya enseña el número: repetirlo en el texto accesible haría
-        // que se leyera dos veces ("Bandeja 272 272 candidaturas nuevas").
-        expect(it.contarLabel!(3), `El contarLabel de "${it.label}" repite el número; deja solo lo que cuenta.`).not.toMatch(/\d/)
-        expect(it.contarLabel!(1), `El contarLabel de "${it.label}" no distingue singular de plural.`).not.toBe(it.contarLabel!(2))
+  it('toda señal de novedad dice de qué es', () => {
+    // El menú pinta un PUNTO, no una cifra: el número entero solo existe para
+    // quien usa lector de pantalla. Sin ese texto, la señal es un punto mudo.
+    for (const it of items(ctx({ counts: { bandeja: 3, equipo: 3, meridian: 3 } }))) {
+      if (it.novedades !== undefined) {
+        expect(it.novedadesLabel, `"${it.label}" lleva señal de novedad y no dice de qué: añádele novedadesLabel.`).toBeTypeOf('function')
+        // Aquí el número SÍ va en el texto (es lo único que lo lleva), pero el
+        // singular y el plural tienen que distinguirse.
+        expect(it.novedadesLabel!(1), `El novedadesLabel de "${it.label}" no distingue singular de plural.`).not.toBe(it.novedadesLabel!(2))
       }
+    }
+  })
+
+  it('el menú no pinta ninguna cifra por su cuenta', () => {
+    // La única cifra del lateral es la de Notificaciones, y la pinta ella misma
+    // (`Avisos.tsx`), no el registro. Si vuelve a aparecer un `count` aquí, es
+    // que alguien ha vuelto a colar un número en el menú.
+    for (const it of items(ctx({ isStaff: true }))) {
+      expect('count' in it, `"${it.label}" declara un contador: en el lateral las novedades se dicen con un punto (novedades/novedadesLabel).`).toBe(false)
     }
   })
 
@@ -61,9 +70,34 @@ describe('el menú se declara, no se improvisa', () => {
     // pegaría al base y llevaría a ninguna parte.
     const vistos = new Set<string>()
     for (const it of items(ctx({ isStaff: true }))) {
-      expect(it.to.startsWith('/'), `La ruta de "${it.label}" tiene que empezar por "/": es relativa a /app o /demo.`).toBe(true)
+      if (it.to !== undefined) {
+        expect(it.to.startsWith('/'), `La ruta de "${it.label}" tiene que empezar por "/": es relativa a /app o /demo.`).toBe(true)
+      }
       expect(vistos.has(it.id), `El id "${it.id}" está declarado dos veces.`).toBe(false)
       vistos.add(it.id)
+    }
+  })
+
+  it('un ítem lleva a un sitio o abre una capa, nunca las dos ni ninguna', () => {
+    // Desde el reskin hay dos clases de fila: las que navegan (`to`) y las que
+    // abren algo encima (`capa`: Buscar, Notificaciones). Un ítem con las dos no
+    // se sabe qué hace al pulsarlo, y uno sin ninguna es una fila muerta que se
+    // pinta igual que las vivas. El lateral se fía de esto para elegir si pinta
+    // un <NavLink> o un <button>.
+    for (const it of items(ctx({ isStaff: true }))) {
+      const declara = [it.to, it.capa].filter((x) => x !== undefined).length
+      expect(declara, `"${it.label}" declara ${declara === 0 ? 'ni ruta ni capa' : 'ruta Y capa'}: tiene que ser una de las dos.`).toBe(1)
+    }
+  })
+
+  it('lo que abre una capa no lleva señal propia', () => {
+    // Notificaciones tiene número, pero se lo pinta el propio timbre, que es
+    // quien lo sabe. Declararlo aquí sería llevar la misma cuenta en dos sitios
+    // y verlos discrepar el día que una se quede atrás.
+    for (const it of items(ctx({ counts: { bandeja: 3, equipo: 3, meridian: 3 } }))) {
+      if (it.capa) {
+        expect(it.novedades, `"${it.label}" abre una capa y además declara señal: que la lleve quien pinta la capa.`).toBeUndefined()
+      }
     }
   })
 
@@ -116,13 +150,39 @@ describe('la zona de admin es del equipo de Apúntate Fácil', () => {
   })
 })
 
-describe('Ajustes no vuelve al lateral', () => {
-  it('no hay ninguna entrada a /ajustes en el menú', () => {
-    // Vive en el engranaje de la barra superior, a todos los anchos. Estuvo
-    // duplicado aquí y encima colgando del plan del vecino: si vuelve, que sea
-    // una decisión y no un descuido, y entonces quítese de la barra.
-    for (const plan of ['trial', 'esencial', 'pro', 'multi']) {
-      expect(items(ctx({ plan, isStaff: true })).map((i) => i.to)).not.toContain('/ajustes')
+describe('lo que bajó de la barra al lateral está y está una sola vez', () => {
+  // La regla de antes era la contraria ("Ajustes no vuelve al lateral") porque
+  // Ajustes vivía en el engranaje de la barra superior y llegó a estar en los dos
+  // sitios. Con el reskin (ago 2026) la barra se retiró entera, así que Ajustes,
+  // Buscar y Notificaciones bajaron aquí. Es una DECISIÓN, y lo que hay que
+  // vigilar ahora es que estén, en todos los planes, y que no se dupliquen.
+  it('Ajustes, Buscar y Notificaciones están en el menú, en cualquier plan', () => {
+    for (const plan of ['trial', 'proceso', 'esencial', 'pro', 'multi']) {
+      const del = items(ctx({ plan, isStaff: true }))
+      expect(del.map((i) => i.to), `Ajustes falta en ${plan}: se quedó sin barra donde vivir.`).toContain('/ajustes')
+      expect(del.map((i) => i.capa), `Buscar falta en ${plan}.`).toContain('buscar')
+      expect(del.map((i) => i.capa), `Notificaciones falta en ${plan}.`).toContain('avisos')
     }
+  })
+
+  it('cada capa se abre desde un solo sitio', () => {
+    const capas = items(ctx({ isStaff: true })).map((i) => i.capa).filter(Boolean)
+    expect(new Set(capas).size, 'Hay dos filas que abren la misma capa: déjala en una.').toBe(capas.length)
+  })
+})
+
+describe('el bloque de la empresa se llama como la empresa', () => {
+  it('la cabecera es su nombre, no una etiqueta fija', () => {
+    // Es lo que sustituyó a la esquina de empresa de la barra: el segundo bloque
+    // del menú no se presenta como "Empresa", se presenta diciendo de quién es.
+    const g = navGroups(ctx({ empresa: 'Logística Anaga' })).find((x) => x.id === 'empresa')
+    expect(g?.label).toBe('Logística Anaga')
+  })
+
+  it('los puestos entran en ese bloque y no en otro', () => {
+    // `conPuestos` es lo único que el registro dice de los puestos: en qué bloque
+    // caen y con qué vecinos. Su contenido son datos y lo pinta el lateral.
+    const conPuestos = navGroups(ctx({})).filter((g) => g.conPuestos)
+    expect(conPuestos.map((g) => g.id), 'Los puestos tienen que colgar de un bloque y de uno solo.').toEqual(['empresa'])
   })
 })

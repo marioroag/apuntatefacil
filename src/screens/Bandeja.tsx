@@ -17,6 +17,7 @@ import { TAGS_ENABLED } from '../lib/pricing'
 import { ManageTagsModal } from '../components/Tags'
 import { STATUS_META } from '../lib/types'
 import type { Campaign, Candidate, CandidateStatus } from '../lib/types'
+import { PageHeader } from '../components/ui/PageHeader'
 
 function answer(c: Candidate, id: string): string {
   const v = c.answers[id]
@@ -216,12 +217,14 @@ export function Bandeja() {
 
   return (
     <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-5">
-        <h1 className="text-xl font-semibold text-slate-900">Bandeja</h1>
-        <p className="mt-0.5 text-sm text-slate-500">
-          Candidatos nuevos de todos tus puestos, en una sola cola.
-        </p>
-      </header>
+      {/* El contador va en la línea del título: es el tamaño de la cola, y en la
+          chapa del menú ya se ve el mismo número. */}
+      <PageHeader
+        titulo="Bandeja"
+        cuenta={nuevos.length}
+        cuentaLabel={nuevos.length === 1 ? 'candidatura nueva' : 'candidaturas nuevas'}
+        sub="Candidatos nuevos de todos tus puestos, en una sola cola."
+      />
 
       {nuevos.length === 0 ? (
         <EmptyInbox />

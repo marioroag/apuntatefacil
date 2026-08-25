@@ -22,6 +22,7 @@ import { WHATSAPP_LISTO } from './whatsapp'
 // La agregación REAL del triaje (la de la edge function): la demo no puede
 // tener otra vara, o el anillo contradiría al desglose que pinta la ficha.
 import { agregarJuicios } from '../../supabase/functions/_shared/triaje'
+import { ACENTO_MARCA } from './colors'
 
 // PRNG determinista (mulberry32) para que los datos de ejemplo sean estables.
 function rng(seed: number) {
@@ -732,7 +733,7 @@ for (const c of candidates) {
 
 export const SEED: AppData = {
   // La demo paga por proceso (el modelo vigente): producto completo sin topes.
-  company: { name: 'Tu empresa', plan: 'proceso', accent: '#374cce' },
+  company: { name: 'Tu empresa', plan: 'proceso', accent: ACENTO_MARCA },
   sites,
   campaigns,
   candidates,

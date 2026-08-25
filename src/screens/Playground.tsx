@@ -79,7 +79,7 @@ function FilasReales() {
       </div>
       {/* Botones con icono */}
       <div className="flex flex-wrap gap-2">
-        <button className={BTN_PRIMARY}><Plus className="size-4" aria-hidden />Nuevo puesto</button>
+        <button className={BTN_PRIMARY}><Plus className="size-4" aria-hidden />Crear puesto</button>
         <button className={BTN_SECONDARY}><Download className="size-4" aria-hidden />Exportar</button>
       </div>
     </div>
@@ -229,7 +229,7 @@ export function Playground() {
               { c: 'bg-[#50545e]', l: 'texto secundario', ring: false },
               { c: 'bg-[#6f727c]', l: 'texto terciario', ring: false },
               { c: 'bg-[#e5e7eb]', l: 'borde', ring: true },
-              { c: 'bg-[#374cce]', l: 'acento', ring: false },
+              { c: 'bg-indigo-600', l: 'acento', ring: false },
               { c: 'bg-[#DC2626]', l: 'error', ring: false },
             ].map((s) => (
               <div key={s.l} className="flex flex-col gap-1.5">

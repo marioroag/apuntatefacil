@@ -20,7 +20,7 @@ const ICONS: Record<string, LucideIcon> = {
 }
 
 // Crea un puesto desde una plantilla (o desde cero). Lo comparten el modal
-// "Nuevo puesto" y el paso 2 del onboarding: una sola lógica de creación.
+// "Crear puesto" y el paso 2 del onboarding: una sola lógica de creación.
 // `status: 'cerrada'` lo usa el flujo de pago: el puesto se crea a la espera y
 // el webhook de Stripe lo abre al completarse el cobro.
 export function useCreateFromTemplate() {
@@ -243,7 +243,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
               <>
                 <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
                   <div>
-                    <h2 id="wizard-title" className="text-lg font-semibold text-slate-900">Nuevo puesto</h2>
+                    <h2 id="wizard-title" className="text-lg font-semibold text-slate-900">Crear puesto</h2>
                     <p className="mt-0.5 text-[13px] text-slate-500">Elige un punto de partida. Podrás cambiarlo todo después.</p>
                   </div>
                   <button onClick={onClose} aria-label="Cerrar" className="-mr-1 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700">

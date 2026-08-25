@@ -20,7 +20,7 @@ const now = Date.UTC(2026, 6, 25, 12)
 function campaign(id: string, title: string): Campaign {
   return {
     id, slug: id, title, sector: 'construccion', location: 'Las Palmas',
-    status: 'activa', milanunciosUrl: '', fields, branding: { accent: '#374cce' },
+    status: 'activa', milanunciosUrl: '', fields, branding: { accent: '#3b4fe4' },
     createdAt: iso(1), brandId: null, siteId: null,
   } as Campaign
 }

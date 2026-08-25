@@ -46,8 +46,23 @@ export function accentPassesWhite(accent: string): boolean {
   return contrastRatio('#ffffff', accent) >= 4.5
 }
 
+/**
+ * EL ACENTO DE MARCA. Fuente única en TypeScript.
+ *
+ * Estaba escrito a mano en ocho sitios (dos en `index.css`, el logo, el swatch,
+ * el alta de empresa, el fallback del builder, la demo y el playground), o sea
+ * que cambiarlo era una cacería y bastaba olvidarse de uno para que la app
+ * conviviera con dos azules de marca casi iguales. Ahora TS sale de aquí.
+ *
+ * **Su gemelo en CSS es `--color-indigo-600` (y `--accent`) en `index.css`, y
+ * los dos valores tienen que ser el mismo.** No se puede leer una variable CSS
+ * desde un módulo sin tocar el DOM, así que la sincronía es a mano: si cambias
+ * uno, cambias el otro. Lo dice también el comentario de `index.css`.
+ */
+export const ACENTO_MARCA = '#3b4fe4'
+
 export const SWATCHES = [
-  '#374cce', // ultramarine (marca)
+  ACENTO_MARCA, // ultramarine (marca)
   '#0f766e', // teal
   '#b91c1c', // rojo
   '#c2410c', // naranja

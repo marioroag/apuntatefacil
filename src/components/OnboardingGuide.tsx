@@ -15,7 +15,7 @@ import type { Campaign } from '../lib/types'
 // ----------------------------------------------------------------------------
 // Guía de primer uso, "wizard en dos actos" sobre el producto REAL:
 //  - Paso 2 (OnboardingCreatePuesto): pantalla completa en /app mientras no hay
-//    puestos, con la misma rejilla de plantillas del modal "Nuevo puesto".
+//    puestos, con la misma rejilla de plantillas del modal "Crear puesto".
 //  - Pasos 3-4 (OnboardingGuide): tarjeta acoplada que muestra UN paso con UNA
 //    acción, encima del Builder y del panel reales. El paso 4 vive incrustado en
 //    el hueco de la lista vacía (OnboardingTestCard): la candidatura de prueba

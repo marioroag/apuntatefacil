@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { ACENTO_MARCA } from './colors'
 
 export interface Company {
   id: string
@@ -196,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     createCompany: async (name, accent) => {
       const { error } = await supabase.rpc('create_company', {
         p_name: name,
-        p_accent: accent ?? '#374cce',
+        p_accent: accent ?? ACENTO_MARCA,
       })
       if (error) return { error: error.message }
       await loadCompanies(session?.user?.id)
@@ -243,7 +244,7 @@ export function useAuth(): AuthApi {
 export const DEMO_COMPANY: Company = {
   id: 'demo',
   name: 'Tu empresa',
-  accent: '#374cce',
+  accent: ACENTO_MARCA,
   plan: 'proceso',
   subscription_status: 'active',
   billing_interval: 'month',

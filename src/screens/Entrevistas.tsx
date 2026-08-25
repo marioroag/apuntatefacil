@@ -14,6 +14,7 @@ import { CandidateModal } from './CandidateModal'
 import { groupByDay, splitInterviews } from '../lib/interviews'
 import { claveDeHoy, rotuloRango, semanaDe, sumarDias } from '../lib/agenda'
 import { INTERVIEW_STATUS_META, type Interview } from '../lib/types'
+import { PageHeader } from '../components/ui/PageHeader'
 import {
   candidateName, clockTimeInZone, dayKeyInZone, fullDateTimeInZone, minutesInZone, personLabel, plural,
 } from '../lib/format'
@@ -167,17 +168,11 @@ function Agenda({ demo }: { demo: boolean }) {
 
   return (
     <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Entrevistas</h1>
-          <p className="mt-0.5 text-sm text-slate-500">
-            Todas tus citas con candidatos, del puesto que sean.
-          </p>
-        </div>
-        {anfitriones.length > 1 && (
-          <FiltroAnfitrion lista={anfitriones} valor={soloDe} onChange={setSoloDe} />
-        )}
-      </header>
+      <PageHeader
+        titulo="Entrevistas"
+        sub="Todas tus citas con candidatos, del puesto que sean."
+        acciones={anfitriones.length > 1 ? <FiltroAnfitrion lista={anfitriones} valor={soloDe} onChange={setSoloDe} /> : undefined}
+      />
 
       <Tabs
         items={[
