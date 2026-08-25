@@ -383,8 +383,13 @@ Deno.serve(async (req) => {
       mode: 'subscription',
       customer: customerId,
       line_items: [{ price: PRICE_PROCESO, quantity: cantidadAlta }],
-      // En pymes españolas el recibo domiciliado convierte mejor que la tarjeta.
-      payment_method_types: ['card', 'sepa_debit'],
+      // SIN payment_method_types a propósito: Checkout enseña los métodos que la
+      // cuenta tenga ACTIVOS en el dashboard de Stripe. Fijarlos aquí rompía el
+      // alta entera cuando uno no estaba activado (se lanzó con tarjeta + SEPA en
+      // duro y SEPA estaba apagado en la cuenta: ninguna sesión se podía crear).
+      // Para ofrecer el recibo domiciliado (SEPA), que en pymes españolas
+      // convierte mejor que la tarjeta, se activa en Configuración -> Métodos de
+      // pago y aparece aquí solo, sin tocar código.
       success_url: `${base}?checkout=ok`,
       cancel_url: `${base}?checkout=cancel`,
       metadata: { company_id: company.id, ...(pendiente ? { activate_campaign_id: pendiente.id } : {}) },
