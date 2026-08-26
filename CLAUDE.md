@@ -239,6 +239,21 @@ sobre el DOM propio contesta en un minuto lo que una tarde de retoques no.
     candidaturas nuevas"), que es lo que la doctrina quiso decir siempre con "un
     contador se DICE, no se enseña". Quien no ve la pantalla se lleva MÁS
     precisión que quien la ve, y está bien: ahí el número sí ahorra abrir.
+    - **Y sale de UN solo sitio, `contarNuevas` en `nav.ts`** (ago 2026). La
+      frase estaba escrita a mano en tres (el registro, la fila de un puesto y
+      el padre plegado que hereda la señal), y al cambiar la chapa por el punto
+      se reescribieron dos: la tercera se quedó sin número y la **Bandeja estuvo
+      en producción leyéndose "candidaturas nuevas", sin cuántas**, con un
+      "142 candidaturas nuevas" tres filas más arriba. Es el mismo mecanismo que
+      ya avisó en los chips de filtro: dos copias de la misma verdad se
+      desincronizan siempre.
+    - **Y su guardián tiene que exigir la CIFRA, no solo el plural.** El que
+      había pasaba en verde con el fallo puesto, porque "candidatura nueva"
+      contra "candidaturas nuevas" distingue singular de plural sin contar nada.
+      Misma lección que los tonos de etiqueta: un guardián que no ve el fallo que
+      vino a vigilar es peor que ninguno, porque da permiso.
+    - **Corolario general: cuando quites un dato de la PANTALLA, comprueba a
+      dónde VA, no si desaparece.**
   - **La marca va en ROJO** (`--color-novedad`, Mario ago 2026). Estuvo en tinta,
     con el argumento de que algo nuevo no es una acción (para eso está el acento)
     ni un error (para eso está el rojo). El argumento era bueno sobre el papel y
