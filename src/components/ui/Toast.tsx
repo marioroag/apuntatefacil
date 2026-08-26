@@ -68,7 +68,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={api}>
       {children}
       <div
-        className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(92vw,380px)] flex-col gap-2"
+        // Se aparta de la barra de selección, que flota sobre el mismo filo y la
+        // declara mientras está puesta (`--alto-barra-flotante`, en Dashboard).
+        // Sin esto, el aviso de "Excel listo" aterrizaba encima de la barra que
+        // acababas de usar, tapándole la equis.
+        className="pointer-events-none fixed bottom-[calc(1rem+var(--alto-barra-flotante,0px))] right-4 z-[60] flex w-[min(92vw,380px)] flex-col gap-2"
         aria-live="polite"
       >
         <AnimatePresence initial={false}>

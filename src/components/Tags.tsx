@@ -5,6 +5,7 @@ import { useStore, normalizeTagName } from '../lib/store'
 import { tagTone } from '../lib/format'
 import { useToast } from './ui/Toast'
 import { ConfirmDialog } from './ui/ConfirmDialog'
+import { Checkbox } from './ui/Checkbox'
 import { InfoTooltip } from './ui/Tooltip'
 import { limitesVisibles } from '../lib/flotante'
 import { BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
@@ -563,18 +564,40 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
   )
 }
 
-// Menú de acción masiva: aplica o quita una etiqueta a la selección. mode:
-//  'add'    -> lista todo el vocabulario (+ crear, si canManage).
-//  'remove' -> solo las etiquetas presentes en la selección.
+/* ---------------------------------------------------------------------------
+   ETIQUETAR UNA SELECCIÓN: UN SOLO BOTÓN (Mario, ago 2026)
+   ---------------------------------------------------------------------------
+   Eran DOS, "Añadir etiqueta" y "Quitar etiqueta", cada uno con su desplegable.
+   Y no era solo un botón de más en la barra: eran dos listas distintas de lo
+   mismo (una con el vocabulario entero, otra solo con lo que la selección ya
+   tenía), así que para saber cómo está etiquetada la gente que has marcado había
+   que abrir el segundo, y para corregirte, cerrar uno y abrir el otro.
+
+   Ahora es UN botón y una sola lista: el vocabulario entero con una casilla por
+   etiqueta que dice cómo está la selección respecto a ella. Marcada, la tienen
+   todos; en indeterminado, la tienen algunos; vacía, ninguno. Pulsarla lleva a
+   todos al mismo sitio.
+
+   DOS CONSECUENCIAS QUE NO SON DETALLES:
+
+   1. **Deja de ser un menú de VERBOS y pasa a ser un editor de ESTADO**, así que
+      al pulsar NO se cierra. Es el mismo desempate que separa el `···` del puesto
+      (verbos, se cierra) de su menú de estado (eliges y te quedas). Antes había
+      que reabrir el menú por cada etiqueta.
+   2. **El estado se lee ANTES de tocar nada.** Es lo que la lista de "quitar" no
+      podía dar: enseñaba lo que había, pero solo si ibas a quitarlo.
+
+   Se declara con `Checkbox`, que es lo que la doctrina pide para elegir de una
+   lista (el interruptor es para lo que está funcionando), y va dentro de un
+   `<label>`: un `<input>` no puede vivir dentro de un `<button>`.
+--------------------------------------------------------------------------- */
 export function BulkTagMenu({
-  mode,
   selectedIds,
   canManage,
   triggerClass,
   placement = 'down',
   onDone,
 }: {
-  mode: 'add' | 'remove'
   selectedIds: string[]
   canManage: boolean
   triggerClass?: string
@@ -598,31 +621,36 @@ export function BulkTagMenu({
     }
   }, [open])
 
-  // En 'remove' solo tienen sentido las etiquetas que alguna fila seleccionada tiene.
-  const present = useMemo(() => {
-    if (mode === 'add') return null
-    const ids = new Set<string>()
-    for (const c of candidates) if (selectedIds.includes(c.id)) c.tagIds.forEach((t) => ids.add(t))
-    return ids
-  }, [mode, candidates, selectedIds])
+  // Cuántos de los marcados tiene cada etiqueta. De aquí salen los tres estados
+  // de la casilla, y se cuenta una sola vez para todo el vocabulario en vez de
+  // recorrer la selección por fila.
+  const cuantos = useMemo(() => {
+    const marcados = new Set(selectedIds)
+    const m = new Map<string, number>()
+    for (const c of candidates) {
+      if (!marcados.has(c.id)) continue
+      for (const t of c.tagIds) m.set(t, (m.get(t) ?? 0) + 1)
+    }
+    return m
+  }, [candidates, selectedIds])
 
   const q = normalizeTagName(query).toLowerCase()
   const list = useMemo(
     () =>
       tags
-        .filter((t) => (present ? present.has(t.id) : true))
         .filter((t) => !q || t.name.toLowerCase().includes(q))
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [tags, present, q],
+    [tags, q],
   )
   const exactExists = q.length > 0 && tags.some((t) => t.name.toLowerCase() === q)
-  const showCreate = mode === 'add' && canManage && q.length > 0 && q.length <= 40 && !exactExists
+  const showCreate = canManage && q.length > 0 && q.length <= 40 && !exactExists
 
-  const apply = (tagId: string) => {
-    if (mode === 'add') applyTagToMany(selectedIds, tagId)
-    else removeTagFromMany(selectedIds, tagId)
-    setOpen(false)
-    setQuery('')
+  // La tienen TODOS -> se la quitamos a todos. Si no (ninguno o algunos), se la
+  // ponemos a todos: desde "algunos", lo que se espera de una casilla a medias es
+  // que al pulsarla se llene, no que se vacíe.
+  const alternar = (tagId: string) => {
+    if ((cuantos.get(tagId) ?? 0) === selectedIds.length) removeTagFromMany(selectedIds, tagId)
+    else applyTagToMany(selectedIds, tagId)
     onDone?.()
   }
 
@@ -634,15 +662,15 @@ export function BulkTagMenu({
         aria-expanded={open}
         className={triggerClass ?? `${BTN_SECONDARY}`}
       >
-        {mode === 'add' ? <Plus className="size-4" aria-hidden /> : <X className="size-4" aria-hidden />}
-        {mode === 'add' ? COPY.addToSel : COPY.removeFromSel}
+        <TagIcon className="size-4" aria-hidden />
+        {COPY.title}
       </button>
       {open && (
         <div className={`absolute left-0 z-50 w-60 overflow-hidden rounded-xl filo bg-white p-1.5 shadow-pop ${placement === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={mode === 'add' ? 'Buscar o crear...' : 'Buscar etiqueta...'}
+            placeholder={canManage ? 'Buscar o crear...' : 'Buscar etiqueta...'}
             autoFocus
             maxLength={40}
             className="mb-1 h-9 w-full rounded-lg border border-slate-300 px-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
@@ -650,32 +678,40 @@ export function BulkTagMenu({
           <ul className="max-h-52 overflow-y-auto">
             {list.length === 0 && !showCreate && (
               <li className="px-2.5 py-2 text-[13px] text-slate-500">
-                {mode === 'remove' ? 'La selección no tiene etiquetas.' : 'Ninguna etiqueta coincide.'}
+                {tags.length === 0 ? 'Todavía no tienes etiquetas.' : 'Ninguna etiqueta coincide.'}
               </li>
             )}
-            {list.map((t) => (
-              <li key={t.id}>
-                <button
-                  type="button"
-                  onClick={() => apply(t.id)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
-                >
-                  {mode === 'add' ? (
-                    <TagIcon className="size-3.5 shrink-0 text-slate-500" aria-hidden />
-                  ) : (
-                    <X className="size-3.5 shrink-0 text-slate-500" aria-hidden />
-                  )}
-                  <span className="truncate">{t.name}</span>
-                </button>
-              </li>
-            ))}
+            {list.map((t) => {
+              const n = cuantos.get(t.id) ?? 0
+              const todos = n === selectedIds.length
+              return (
+                <li key={t.id}>
+                  {/* Fila entera pulsable, y el nombre va como CHIP: es como se ve
+                      esta etiqueta en la tabla y en la ficha, así que aquí se
+                      reconoce por lo mismo, el color, en vez de leerse. */}
+                  <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 hover:bg-slate-100">
+                    <Checkbox
+                      checked={todos}
+                      indeterminate={!todos && n > 0}
+                      onChange={() => alternar(t.id)}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <TagChip id={t.id} name={t.name} vocabulario={tags} />
+                    </span>
+                  </label>
+                </li>
+              )
+            })}
             {showCreate && (
               <li>
                 <button
                   type="button"
                   onClick={async () => {
                     const tag = await createTag(query)
-                    if (tag) apply(tag.id)
+                    if (!tag) return
+                    applyTagToMany(selectedIds, tag.id)
+                    setQuery('')
+                    onDone?.()
                   }}
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-indigo-700 hover:bg-indigo-50"
                 >

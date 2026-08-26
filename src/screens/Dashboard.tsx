@@ -43,6 +43,7 @@ import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
 import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, HEAD_CELL_FLUSH_FIJA, FIJA, TRANSICION_FILA } from '../components/ui/DataTable'
 import { useColumnasAjustables } from '../lib/columnas'
+import { DUR, EASE } from '../lib/motion'
 import { Avatar } from '../components/ui/Avatar'
 import { useProfiles } from '../lib/profiles'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
@@ -73,7 +74,7 @@ import { useEsMovil } from '../lib/media'
 import { ChipDimension, MenuAnadirFiltro, type DimensionFiltro } from '../components/FiltroChip'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
-import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, botonIcono } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SOBRE_OSCURO_SM, botonIcono } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
 import { supabase } from '../lib/supabase'
 import { searchScore } from '../lib/search'
@@ -233,6 +234,32 @@ export function Dashboard() {
     else if (!sel.has('descartado')) setVista('activos')
   }, [])
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  // La barra de selección flota sobre el filo de abajo, y ahí ya vivían los
+  // avisos. Mientras está puesta declara su alto en la raíz para que el `Toast`
+  // se aparte: exportar la selección SIEMPRE saca un aviso, así que el choque no
+  // era hipotético, era el caso normal. Se mide en vez de escribirse a mano
+  // porque la barra envuelve en una ventana estrecha y entonces mide el doble.
+  //
+  // Va en un CALLBACK REF y no en un efecto, y esa es la parte que hay que
+  // respetar: la barra sale con una animación de salida, así que sigue en el DOM
+  // después de que la selección esté vacía. Un efecto que mirase `selected.size`
+  // se ejecutaría con el nodo todavía puesto y luego NO se volvería a ejecutar al
+  // desmontarse de verdad, así que la variable se quedaba clavada y los avisos
+  // seguían apartándose de una barra que ya no está. El callback ref se llama con
+  // `null` justo cuando el nodo se va, que es el único momento fiable.
+  const observadorBarra = useRef<ResizeObserver | null>(null)
+  const barraSelRef = useCallback((el: HTMLDivElement | null) => {
+    const raiz = document.documentElement
+    observadorBarra.current?.disconnect()
+    if (!el) {
+      raiz.style.removeProperty('--alto-barra-flotante')
+      return
+    }
+    const medir = () => raiz.style.setProperty('--alto-barra-flotante', `${Math.round(el.getBoundingClientRect().height)}px`)
+    medir()
+    observadorBarra.current = new ResizeObserver(medir)
+    observadorBarra.current.observe(el)
+  }, [])
   const [interestDialogOpen, setInterestDialogOpen] = useState(false)
   const [lockedDialogOpen, setLockedDialogOpen] = useState(false) // aviso al pulsar una candidatura bloqueada
   // Aquí vivía una cabecera adaptativa: medía el título con un ResizeObserver y,
@@ -847,13 +874,20 @@ export function Dashboard() {
   const allFilteredSelected = filtered.length > 0 && filtered.every((c) => selected.has(c.id))
   const toggleSelectAll = () =>
     setSelected(allFilteredSelected ? new Set() : new Set(filtered.map((c) => c.id)))
-  // Exporta solo la selección (misma lógica que la barra de escritorio) y sale.
+  // Exporta solo la selección. La usan las DOS barras: era la misma función escrita
+  // dos veces, y la copia de escritorio ya se había separado (exportaba sin vaciar).
+  //
+  // Y NO vacía la selección al terminar, que es lo que hacía esta: era un resto del
+  // "modo selección" del móvil, del que se salía al actuar, y ese modo se retiró en
+  // ago 2026. Exportar no es acabar con esa gente; puedes querer etiquetarlos justo
+  // después, y para soltarlos está la equis. De regalo quita un salto: vaciando, la
+  // barra desaparecía en mitad del aviso que ella misma acababa de sacar, y el aviso
+  // se caía 66px al suelo.
   const exportSelected = async () => {
     const subset = all.filter((c) => selected.has(c.id))
     if (subset.length === 0) return
     const name = await exportCandidatesToExcel(campaign, subset, tags, [], await loadCommentsForMany(subset.map((c) => c.id)))
     toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
-    exitSelect()
   }
 
   const copyLink = async () => {
@@ -1117,51 +1151,6 @@ export function Dashboard() {
           ) : null}
         </p>
 
-        {/* Barra de selección (escritorio): aparece al marcar filas con los checks. */}
-        {selected.size > 0 && !loading && (
-          <div className="mt-3 hidden flex-wrap items-center gap-2.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm text-white shadow-card sm:flex">
-            <span className="font-semibold">{selected.size} {selected.size === 1 ? 'seleccionado' : 'seleccionados'}</span>
-            <button
-              type="button"
-              onClick={() => setInterestDialogOpen(true)}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1 font-semibold text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100"
-            >
-              <MailCheck className="size-4" aria-hidden /> Comprobar interés
-            </button>
-            {TAGS_ENABLED && (
-              <div className="flex items-center gap-2">
-                <BulkTagMenu
-                  mode="add"
-                  selectedIds={[...selected]}
-                  canManage={canManageTags}
-                  triggerClass="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
-                />
-                <BulkTagMenu
-                  mode="remove"
-                  selectedIds={[...selected]}
-                  canManage={canManageTags}
-                  triggerClass="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
-                />
-              </div>
-            )}
-            <button
-              onClick={async () => {
-                // Exporta TODA la selección, también filas que un filtro posterior
-                // haya ocultado (si no, exportaría menos de lo que dice la barra).
-                const subset = all.filter((c) => selected.has(c.id))
-                const name = await exportCandidatesToExcel(campaign, subset, tags, [], await loadCommentsForMany(subset.map((c) => c.id)))
-                toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
-            >
-              <Download className="size-4" aria-hidden /> Exportar selección
-            </button>
-            <button onClick={() => setSelected(new Set())} className="rounded-lg p-1 hover:bg-white/15" aria-label="Quitar selección">
-              <X className="size-4" aria-hidden />
-            </button>
-          </div>
-        )}
-
         {/* Aviso de candidaturas bloqueadas (prueba agotada por cupo o por días):
             se siguen recibiendo, pero solo se ven hasta el tope. Invita a añadir
             el método de pago, sin urgencia falsa. */}
@@ -1357,6 +1346,100 @@ export function Dashboard() {
         Se eliminará «{campaign.title}»{all.length > 0 ? ` y sus ${all.length} ${all.length === 1 ? 'candidatura' : 'candidaturas'}` : ''}. Esta acción no se puede deshacer.
       </ConfirmDialog>
 
+      {/* LA BARRA DE SELECCIÓN FLOTA ABAJO (Mario, ago 2026; referencia suya de una
+          barra flotante). Estaba EN EL FLUJO, entre la cabecera y la tabla, así que
+          marcar la primera casilla empujaba la lista entera 60px hacia abajo: la
+          fila que acababas de marcar se movía justo al marcarla, y al desmarcar la
+          última volvía a saltar. Y al bajar por una lista de 142 se quedaba arriba,
+          fuera de la pantalla, o sea que las acciones de la selección solo existían
+          mientras no la estuvieras usando.
+
+          Flotando no mueve nada y está siempre donde el ratón acaba de soltar la
+          casilla. Lo que se paga: tapa la última fila de la tabla, que se resuelve
+          desplazando; es lo mismo que hace su gemela de móvil desde siempre.
+
+          NO es la pastilla blanca de la referencia con las esquinas redondas del
+          todo: es una capa flotante, y nuestro vocabulario para eso ya está escrito
+          (blanco, `filo`, `shadow-pop` y radio 10, igual que un aviso o un
+          desplegable). Del ejemplo se coge la IDEA (flotar abajo, compacta, con los
+          grupos separados por una divisoria), no el radio, que aquí lo manda el rol.
+
+          Y al salir del fondo de acento, sus botones dejan de estar dibujados a mano
+          (`bg-white/15 px-3 py-1`) y pasan a ser los del sistema: uno de acción y el
+          resto de línea. */}
+      <AnimatePresence>
+        {selected.size > 0 && !loading && (
+          <motion.div
+            key="barra-seleccion"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: DUR.enter, ease: EASE.out }}
+            ref={barraSelRef}
+            // `pointer-events-none` en la banda y `auto` en la barra: si no, una
+            // tira invisible de lado a lado se comería los clicks de la tabla que
+            // hay debajo. Y `lg:left-64` porque a partir de ahí está el lateral:
+            // centrada contra la ventana, quedaría descentrada contra la lista.
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-40 hidden justify-center px-4 pb-4 sm:flex lg:left-64"
+          >
+            {/* NEGRA, y solo en escritorio (Mario, ago 2026). Blanca era otra tarjeta
+                blanca flotando sobre una tabla blanca: se apoyaba entera en la
+                sombra para separarse, y encima competía con las filas que tenía
+                debajo. En tinta se lee como lo que es, una capa POR ENCIMA de la
+                pantalla, y se encuentra sin buscarla.
+
+                Y por eso se va el `filo`: un hairline claro alrededor de una caja
+                negra sería un contorno, no un canto. La regla de "el filo hace la
+                profundidad y la sombra la confirma" es para una superficie clara
+                sobre fondo claro, que es donde hace falta ayudar al ojo; aquí el
+                borde ES el salto de color, que es todo el contraste que hay. */}
+            <div className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-xl bg-slate-900 p-2 pl-3.5 shadow-pop">
+              <span className="num text-[13px] font-semibold text-white">
+                {selected.size} {selected.size === 1 ? 'seleccionado' : 'seleccionados'}
+              </span>
+              <span aria-hidden className="h-5 w-px shrink-0 bg-white/15" />
+              {/* LAS TRES SON DE LÍNEA, NINGUNA DE ACENTO (Mario, ago 2026).
+                  "Comprobar interés" era la destacada, y lo era por herencia: en la
+                  barra índigo alguna tenía que ir en blanco para leerse como la
+                  principal, y al pasar la barra a blanca se arrastró la jerarquía
+                  sin volver a preguntarse si existía. No existe: las tres son
+                  HERMANAS, tres cosas que le puedes hacer a una selección, y cuál
+                  quieres depende de por qué has marcado. Peor todavía, la que
+                  llevaba el acento es la única que SALE de la empresa (le escribe a
+                  gente, de una en una no, a todas a la vez): el acento estaba
+                  apuntando el ojo y el clic despistado justo a lo irreversible. */}
+              {/* "Comprobar" a secas (Mario, ago 2026). Lo que se pierde es el
+                  objeto, así que no se pierde: viaja al `title` y al nombre
+                  accesible, que siguen diciendo "Comprobar interés" (la etiqueta
+                  visible está contenida en él, que es lo que pide la norma). */}
+              <button
+                type="button"
+                onClick={() => setInterestDialogOpen(true)}
+                title="Comprobar interés"
+                aria-label="Comprobar interés"
+                className={BTN_SOBRE_OSCURO_SM}
+              >
+                <MailCheck className="size-4" aria-hidden /> Comprobar
+              </button>
+              {/* Hacia ARRIBA: la barra vive pegada al filo de abajo, y un
+                  desplegable que se abra hacia abajo se sale de la pantalla. */}
+              {TAGS_ENABLED && (
+                <BulkTagMenu selectedIds={[...selected]} canManage={canManageTags} placement="up" triggerClass={BTN_SOBRE_OSCURO_SM} />
+              )}
+              {/* "Exportar", no "Exportar selección": la barra empieza diciendo
+                  cuántos hay marcados, así que la segunda palabra lo repetía. */}
+              <button type="button" onClick={exportSelected} className={BTN_SOBRE_OSCURO_SM}>
+                <Download className="size-4" aria-hidden /> Exportar
+              </button>
+              <span aria-hidden className="h-5 w-px shrink-0 bg-white/15" />
+              <button type="button" onClick={exitSelect} aria-label="Quitar selección" className={botonIcono('sobreOscuro', 'sm')}>
+                <X className="size-4" aria-hidden />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Barra de acción de selección (móvil): fija abajo, al alcance del pulgar.
           La dispara la SELECCIÓN, no un modo: aparece al marcar la primera casilla
           y se va al desmarcar la última, igual que su gemela de escritorio. */}
@@ -1386,36 +1469,34 @@ export function Dashboard() {
             </div>
             <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0 [&>*>button]:w-full">
               {TAGS_ENABLED && (
-                <>
-                  <BulkTagMenu
-                    mode="add"
-                    selectedIds={[...selected]}
-                    canManage={canManageTags}
-                    placement="up"
-                    triggerClass={`${BTN_SECONDARY} justify-center disabled:opacity-50`}
-                  />
-                  <BulkTagMenu
-                    mode="remove"
-                    selectedIds={[...selected]}
-                    canManage={canManageTags}
-                    placement="up"
-                    triggerClass={`${BTN_SECONDARY} justify-center disabled:opacity-50`}
-                  />
-                </>
+                <BulkTagMenu
+                  selectedIds={[...selected]}
+                  canManage={canManageTags}
+                  placement="up"
+                  triggerClass={`${BTN_SECONDARY} justify-center disabled:opacity-50`}
+                />
               )}
+              {/* De línea como sus hermanas, por lo mismo que en escritorio: no
+                  hay una acción principal entre las tres, y la que llevaba el
+                  acento era la única que le escribe a gente. */}
               <button
                 type="button"
                 onClick={() => setInterestDialogOpen(true)}
                 disabled={selected.size === 0}
-                className={`${BTN_PRIMARY} justify-center disabled:opacity-50`}
+                aria-label="Comprobar interés"
+                className={`${BTN_SECONDARY} justify-center disabled:opacity-50`}
               >
-                <MailCheck className="size-4 text-indigo-200" aria-hidden /> Interés
+                <MailCheck className="size-4 text-slate-400" aria-hidden /> Comprobar
               </button>
+              {/* A dos columnas: fusionar los dos botones de etiqueta dejó tres
+                  piezas en una rejilla de dos, y la última colgando a media fila.
+                  Es lo único que se toca de esta barra (Mario: en móvil, como
+                  estaba), porque el hueco lo abrió el cambio de al lado. */}
               <button
                 type="button"
                 onClick={exportSelected}
                 disabled={selected.size === 0}
-                className={`${BTN_SECONDARY} justify-center disabled:opacity-50`}
+                className={`${BTN_SECONDARY} col-span-2 justify-center disabled:opacity-50`}
               >
                 <Download className="size-4 text-slate-400" aria-hidden /> Exportar
               </button>

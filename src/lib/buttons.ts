@@ -80,6 +80,18 @@ export const BTN_SUPERFICIE = {
     'bg-white text-red-600 ring-1 ring-inset ring-red-200 hover:bg-red-50 hover:ring-red-300 active:bg-red-100',
   inverted: 'bg-white text-slate-900 hover:bg-slate-100 active:bg-slate-200',
   ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200',
+  /**
+   * El gemelo de `ghost` para vivir SOBRE una superficie oscura (hoy, la barra
+   * flotante de selección). Sin caja y sin anillo: en una barra negra, un botón
+   * de línea blanco por cada acción devuelve el problema que la barra oscura vino
+   * a quitar, que es una fila de objetos compitiendo. Manda la etiqueta, y la
+   * caja aparece al pasar por encima.
+   *
+   * Los tres peldaños son de opacidad y no de la rampa, porque aquí no hay rampa:
+   * el fondo es uno solo. Y siguen distinguiéndose ENTRE SÍ, que es la regla que
+   * ya aprendió el riel del lateral, no solo del reposo.
+   */
+  sobreOscuro: 'text-white hover:bg-white/12 active:bg-white/20',
 } as const
 
 export type BtnVariant = keyof typeof BTN_SUPERFICIE
@@ -130,6 +142,8 @@ export const BTN_DANGER = botonClase('danger', 'md')
 /** Compacta (h-8) para botones inline en pills o grupos estrechos. */
 export const BTN_PRIMARY_SM = botonClase('primary', 'sm')
 export const BTN_SECONDARY_SM = botonClase('secondary', 'sm')
+/** La de la barra flotante de selección, que es negra. */
+export const BTN_SOBRE_OSCURO_SM = botonClase('sobreOscuro', 'sm')
 
 /** CTA grandes de la landing: mismo lenguaje, más cuerpo. */
 export const BTN_PRIMARY_LG = botonClase('primary', 'lg')

@@ -266,10 +266,21 @@ export function ColHead({
   const base = `${fija ?? 'relative'} ${flush ? HEAD_BASE_FLUSH : HEAD_BASE}`
   const active = sort?.active ?? false
   const inner = `flex w-full min-w-0 items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`
+  // LA CABECERA ES EL NOMBRE DE UN CAMPO, NO UN PIE DE FOTO (Mario, ago 2026).
+  //
+  // Estaba en `slate-500` a peso medio con el icono en `slate-400`, o sea la
+  // pintura de lo que ACOMPAÑA. Pero una cabecera de rejilla es lo que te dice
+  // qué estás mirando en cada columna, y la mitad de ellas son además controles
+  // (ordenan). Es literalmente la regla de nitidez que ya se aplicó al lateral:
+  // lo que se pulsa va en tinta, y el gris de apoyo se queda para lo secundario.
+  //
+  // El icono se queda medio peldaño por debajo de la etiqueta, como en el menú:
+  // identifica el tipo de campo antes de que se lea la palabra, pero no compite
+  // con ella.
   const label = (
     <>
-      {Icon && <Icon className="size-3.5 shrink-0 text-slate-400" aria-hidden />}
-      <span className="truncate text-[13px] font-medium">{children}</span>
+      {Icon && <Icon className="size-3.5 shrink-0 text-slate-500" aria-hidden />}
+      <span className="truncate text-[13px] font-semibold">{children}</span>
     </>
   )
 
@@ -278,7 +289,7 @@ export function ColHead({
   if (!sort) {
     return (
       <th scope="col" data-columna={columna} className={`${base} ${toneClass} ${className}`} style={estilo}>
-        <span className={`${inner} text-slate-500`}>{label}</span>
+        <span className={`${inner} text-slate-700`}>{label}</span>
         {asa && <AsaAncho asa={asa} />}
       </th>
     )
@@ -303,7 +314,7 @@ export function ColHead({
           ? `${name}: orden ${currentOrder}. Cambiar a ${nextOrder}`
           : `${name}: sin ordenar. Ordenar de forma ascendente`}
         className={`group ${inner} rounded-sm transition-colors duration-[var(--duration-control)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 motion-reduce:transition-none ${
-          active ? 'text-slate-700' : 'text-slate-500 hover:text-slate-800'
+          active ? 'text-slate-900' : 'text-slate-700 hover:text-slate-900'
         }`}
       >
         {label}
