@@ -1,4 +1,5 @@
 import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
@@ -44,7 +45,7 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
-import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, MOBILE_ROW } from '../components/ui/DataTable'
+import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH } from '../components/ui/DataTable'
 import { Avatar } from '../components/ui/Avatar'
 import { useProfiles } from '../lib/profiles'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
@@ -53,7 +54,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { CandidateModal } from './CandidateModal'
 import { exportCandidatesToExcel } from '../lib/export'
 import { RegistrarAccion } from '../lib/acciones'
-import { relativeDate, miles, formatPhone, candidateName, isFreshNuevo } from '../lib/format'
+import { relativeDate, miles, formatPhone, candidateName } from '../lib/format'
 import { clickDeFila } from '../lib/fila'
 // El anillo de ajuste se queda en el avatar (Mario, jul 2026) y desde ago 2026 lo
 // acompaña la columna "Encaje", que dice en palabras lo que el anillo dice en arco:
@@ -70,6 +71,8 @@ import { OnboardingTestCard } from '../components/OnboardingGuide'
 import { ShareReply } from '../components/ShareReply'
 import { useOnboarding } from '../lib/onboarding'
 import { useAppBase } from '../lib/useAppBase'
+import { useEsMovil } from '../lib/media'
+import { colocarFlotante } from '../lib/flotante'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
 import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SUPERFICIE, botonIcono } from '../lib/buttons'
@@ -158,10 +161,17 @@ export function Dashboard() {
   // lista estás. "Descartado" es el único estado del que se sale por decisión y no
   // por avance, así que separa la lista en dos y por eso vive en un conmutador y no
   // en el menú de filtros (donde sigue estando el resto de estados).
+  //
+  // EN MÓVIL NO SE PINTA (Mario, ago 2026): la franja de herramientas solo tiene
+  // sitio para el buscador y Filtros, y una caja de 240px con dos cifras dentro no
+  // cabe sin robarle la fila a lo que se usa todos los días. Y como no se pinta,
+  // TAMPOCO FILTRA: un recorte invisible que no se puede deshacer no es un filtro,
+  // es una lista mutilada. Allí la lista llega entera y descartado se recorta desde
+  // Estado, igual que los otros cuatro.
+  const esMovil = useEsMovil()
   const [vista, setVista] = useState<'activos' | 'rechazados'>('activos')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [interestDialogOpen, setInterestDialogOpen] = useState(false)
-  const [selectMode, setSelectMode] = useState(false) // modo selección múltiple (móvil)
   const [lockedDialogOpen, setLockedDialogOpen] = useState(false) // aviso al pulsar una candidatura bloqueada
   // Aquí vivía una cabecera adaptativa: medía el título con un ResizeObserver y,
   // si no cabía, reducía "Compartir" a solo icono. Dejó de servir para nada
@@ -192,7 +202,6 @@ export function Dashboard() {
       ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
       : { key, dir: key === 'encaje' ? 'desc' : 'asc' })), [])
   const openLockedDialog = useCallback(() => setLockedDialogOpen(true), [])
-  const enterSelectMode = useCallback(() => setSelectMode(true), [])
 
   // Duplicar el puesto: crea una copia (campos, apariencia y datos), sin candidatos,
   // y abre su editor. El error, si lo hay, lo avisa el store.
@@ -283,7 +292,6 @@ export function Dashboard() {
     setFavoritosOnly(false)
     setTagFilter(new Set())
     setSelected(new Set())
-    setSelectMode(false)
     // Trae los candidatos nuevos de este puesto: la carga global solo ocurre al
     // entrar en el panel, así que sin esto no se verían los llegados después.
     // Y marca el puesto como visto: el badge del menú cuenta los llegados después.
@@ -332,6 +340,10 @@ export function Dashboard() {
   }
 
   const all = useMemo(() => (campaign ? candidatesFor(campaign.id) : []), [campaign, candidatesFor])
+  // Vive aquí arriba y no junto a `activeFilterCount` porque es un HOOK: por
+  // debajo está el `return` temprano del puesto no encontrado. Lo cazó
+  // `hooks.test.ts` al devolver el conmutador.
+  const nRechazados = useMemo(() => all.filter((c) => c.status === 'descartado').length, [all])
   // "Actualizado hace X": la candidatura más reciente. El puesto no guarda un
   // `updatedAt` y no se inventa uno; lo que se pregunta en la cabecera es cuándo
   // fue la última vez que aquí pasó algo, y eso es que entró alguien.
@@ -339,7 +351,6 @@ export function Dashboard() {
     () => all.reduce<string | null>((max, c) => (!max || c.submittedAt > max ? c.submittedAt : max), null),
     [all],
   )
-  const nRechazados = useMemo(() => all.filter((c) => c.status === 'descartado').length, [all])
 
   // IDs de candidatos que "acaban de llegar" (en vivo por realtime, por refresco
   // manual o por tirar para refrescar) mientras el usuario ya tenía el puesto
@@ -438,8 +449,9 @@ export function Dashboard() {
     }
 
     let list = base0.filter((c) => {
-      // La mitad de la lista en la que estás, antes que cualquier filtro.
-      if ((c.status === 'descartado') !== (vista === 'rechazados')) return false
+      // La mitad de la lista en la que estás, antes que cualquier filtro. Solo
+      // donde el conmutador se ve: ver el comentario de `vista`.
+      if (!esMovil && (c.status === 'descartado') !== (vista === 'rechazados')) return false
       if (statusFilter.size && !statusFilter.has(c.status)) return false
       if (interestFilter.size && !interestFilter.has(candidateInterestState(campaign, c))) return false
       if (favoritosOnly && !c.favorito) return false
@@ -493,7 +505,7 @@ export function Dashboard() {
       })
     }
     return list
-  }, [all, campaign, q, rpcIds, base, vista, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
+  }, [all, campaign, q, rpcIds, base, esMovil, vista, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
 
   // Dominio real (mín/máx) de cada pregunta numérica, para acotar sus sliders.
   const numberDomains = useMemo(() => {
@@ -692,7 +704,6 @@ export function Dashboard() {
   // Buscar también estrecha la lista: si solo se mirasen los filtros, escribir un
   // nombre dejaba la pantalla sin decir cuántos han quedado, ni en voz alta.
   const hayContexto = loading || activeFilterCount > 0 || q.length > 0
-  const puedeSeleccionar = !loading && filtered.length > 0 && !selectMode
   // Aquí vivía `cols` (highlightFields): las dos respuestas del formulario que la
   // tabla pintaba como columnas. Fuera desde ago 2026 (Mario): cambiaban de puesto en
   // puesto, se comían el ancho de lo que sí es común a todos (encaje, etiquetas,
@@ -756,11 +767,9 @@ export function Dashboard() {
     toast.success(`Excel listo, ${name}`)
   }
 
-  // Selección múltiple en móvil (modo selección): sale del modo y limpia.
-  const exitSelect = () => {
-    setSelectMode(false)
-    setSelected(new Set())
-  }
+  // Deshacer la selección. Ya no hay un "modo" del que salir: con la casilla en su
+  // columna a todos los anchos, seleccionar es marcar y deseleccionar es vaciar.
+  const exitSelect = () => setSelected(new Set())
   // Selecciona/deselecciona todos los candidatos visibles (filtrados).
   const allFilteredSelected = filtered.length > 0 && filtered.every((c) => selected.has(c.id))
   const toggleSelectAll = () =>
@@ -788,7 +797,12 @@ export function Dashboard() {
 
   return (
     <PullToRefresh onRefresh={refresh}>
-    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8">
+    {/* `max-sm:pt-4`: en móvil el título arranca a 28px del filo (16 de aquí + 12
+          de la cabecera) y no a 36. Encima hay ya una barra con la marca, así que
+          ese hueco no está separando el título de nada: solo empuja la primera
+          candidatura fuera de la pantalla. En escritorio se queda como estaba,
+          donde el aire de arriba es lo único que separa el título del borde. */}
+      <div className="mx-auto max-w-[1240px] px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
       {/* Acción del buscador mientras este puesto esté abierto: exporta lo que ves,
           con los filtros puestos. Lleva el nombre del puesto porque el buscador se
           usa desde cualquier sitio y "Exportar a Excel" a secas no diría de qué. */}
@@ -841,6 +855,18 @@ export function Dashboard() {
                 .concat(`${miles(all.length)} ${all.length === 1 ? 'candidatura' : 'candidaturas'}`)
                 .join(' · ')}
             </p>
+            {/* La última señal de vida del puesto se dice DOS VECES en el JSX pero
+                UNA SOLA en cada ancho, que es la regla: en escritorio cabe a la
+                derecha, junto a tu cara y los verbos; por debajo de `lg` esa fila
+                no tiene sitio y baja a su propia línea, debajo del contexto
+                (referencia de Mario, ago 2026). Antes simplemente desaparecía por
+                debajo de `lg`, o sea que en el móvil no había forma de saber si el
+                puesto seguía recibiendo gente. */}
+            {ultimaEntrada && (
+              <p className="mt-0.5 text-sm font-medium text-slate-500 lg:hidden">
+                Actualizado {relativeDate(ultimaEntrada)}
+              </p>
+            )}
           </div>
 
           <div className="flex shrink-0 items-center gap-2.5">
@@ -928,33 +954,67 @@ export function Dashboard() {
             ocupan varias líneas, y no centrada respecto a un bloque que crece.
             Por debajo de `sm` se apilan A PROPÓSITO (no cabe la derecha al lado),
             que es distinto de apilarse por accidente. */}
-        <div className="flex flex-col gap-2 py-4 sm:flex-row sm:items-start sm:gap-3">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <MenuAnadirFiltro
-            dimensiones={dimensiones}
-            hayFiltros={activeFilterCount > 0}
-            vistas={myViews}
-            onAplicarVista={applyView}
-            onBorrarVista={deleteSavedView}
-            onGuardarVista={() => setSaveViewOpen(true)}
-            puedeGuardar={canSaveView}
-            onLimpiarTodo={clearFilters}
-          />
-
-          {dimensionesVisibles.map((d) => (
-            <ChipDimension key={d.id} dim={d} />
-          ))}
-
+        <div className="flex flex-wrap items-start gap-2 py-4 sm:flex-nowrap">
+          {/* 1 · BUSCAR. En móvil abre la fila y se lleva todo el ancho que sobra
+              hasta Filtros; en escritorio vuelve a la derecha, plegado en lupa. */}
+          <div className="order-1 flex min-w-0 flex-1 sm:order-3 sm:ml-1 sm:flex-none">
+            <BuscadorPuesto value={search} onChange={setSearch} />
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 max-sm:w-full">
-            <BuscadorPuesto value={search} onChange={setSearch} />
-            <SwitchVista
-              vista={vista}
-              onChange={setVista}
-              nActivos={all.length - nRechazados}
-              nRechazados={nRechazados}
+          {/* 2 · FILTROS. Comparte fila con el buscador en móvil (donde es solo el
+              icono) y encabeza la columna izquierda en escritorio. */}
+          <div className="order-2 shrink-0 sm:order-1">
+            <MenuAnadirFiltro
+              dimensiones={dimensiones}
+              hayFiltros={activeFilterCount > 0}
+              vistas={myViews}
+              onAplicarVista={applyView}
+              onBorrarVista={deleteSavedView}
+              onGuardarVista={() => setSaveViewOpen(true)}
+              puedeGuardar={canSaveView}
+              onLimpiarTodo={clearFilters}
             />
+          </div>
+
+          {/* 3 · EN QUÉ MITAD DE LA LISTA ESTÁS. Solo en escritorio: en móvil no
+              cabe en la fila y, si no se ve, tampoco filtra (ver `vista`). */}
+          {!esMovil && (
+            <div className="order-3 flex shrink-0 sm:order-4">
+              <SwitchVista
+                vista={vista}
+                onChange={setVista}
+                nActivos={all.length - nRechazados}
+                nRechazados={nRechazados}
+              />
+            </div>
+          )}
+
+          {/* 4 · LOS CHIPS DE LO QUE ESTÁ FILTRANDO, pegados a su botón: el control
+              y su lectura son la misma cosa. Vacío sigue montado en escritorio
+              porque es el que CRECE y empuja el buscador contra el filo derecho;
+              en móvil, donde no empuja nada, se esconde para no dejar una fila
+              vacía con su hueco.
+
+              UNA SOLA LÍNEA QUE SE DESPLAZA, no una pila (Mario, ago 2026). Al
+              envolver, cada chip nuevo empujaba hacia abajo la tabla entera y la
+              franja de herramientas cambiaba de alto según cuántos filtros
+              tuvieras puestos: la pantalla se recolocaba sola al filtrar, que es
+              justo cuando estás mirando el resultado. Es el mismo tratamiento que
+              ya tiene la columna de Etiquetas, y por el mismo motivo. Sin barra a
+              la vista, y `overscroll-x-contain` para que llegar al final no
+              arrastre la página.
+
+              Ojo: `overflow-x` obliga al navegador a recortar TAMBIÉN en vertical,
+              así que el desplegable de un chip ya no puede ser `absolute` dentro.
+              Va en un portal con posición fija (ver `ChipDimension`). */}
+          <div
+            className={`order-4 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:order-2 sm:flex-1 sm:basis-auto ${
+              dimensionesVisibles.length > 0 ? 'basis-full' : 'hidden sm:flex'
+            }`}
+          >
+            {dimensionesVisibles.map((d) => (
+              <ChipDimension key={d.id} dim={d} />
+            ))}
           </div>
         </div>
 
@@ -970,29 +1030,22 @@ export function Dashboard() {
             quedado al mover un filtro. Y `sr-only` lo saca del flujo, así que la
             fila vacía no ocupa nada y solo separa cuando de verdad la habita el
             botón de móvil. */}
-        <div className={`flex items-center gap-3 ${puedeSeleccionar ? 'mt-3 sm:mt-0' : ''}`}>
-          <p className="sr-only" role="status">
-            {loading ? (
-              'Cargando candidatos'
-            ) : hayContexto ? (
-              `${miles(filtered.length)} ${filtered.length === 1 ? 'candidato' : 'candidatos'}`
-            ) : null}
-          </p>
-          {puedeSeleccionar && (
-            <button
-              type="button"
-              onClick={() => setSelectMode(true)}
-              className="ml-auto text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 sm:hidden"
-            >
-              Seleccionar
-            </button>
-          )}
-        </div>
+        {/* Aquí había además un "Seleccionar" que encendía el modo selección del
+            móvil. Se fue con él: la casilla de cada fila está ahora a todos los
+            anchos, así que era un botón para poder empezar a hacer algo que ya se
+            puede hacer. Queda solo el recuento en voz alta. */}
+        <p className="sr-only" role="status">
+          {loading ? (
+            'Cargando candidatos'
+          ) : hayContexto ? (
+            `${miles(filtered.length)} ${filtered.length === 1 ? 'candidato' : 'candidatos'}`
+          ) : null}
+        </p>
 
         {/* Barra de selección (escritorio): aparece al marcar filas con los checks. */}
         {selected.size > 0 && !loading && (
           <div className="mt-3 hidden flex-wrap items-center gap-2.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm text-white shadow-card sm:flex">
-            <span className="font-semibold">{selected.size} seleccionados</span>
+            <span className="font-semibold">{selected.size} {selected.size === 1 ? 'seleccionado' : 'seleccionados'}</span>
             <button
               type="button"
               onClick={() => setInterestDialogOpen(true)}
@@ -1075,7 +1128,12 @@ export function Dashboard() {
             dentro del envoltorio. Corolario: una tarjeta con radio no puede dejar que
             su contenido llegue al filo sin recortar; el borde es de 1px y cualquier
             fondo hijo se lo come justo en la curva. */}
-        <div className="mt-3 overflow-hidden rounded-xl filo bg-white shadow-card md:overflow-clip">
+        {/* `overflow-clip` a todos los anchos: recorta con el mismo radio (o el fondo
+            cuadrado de la cabecera se comería el filo en las esquinas) y, a
+            diferencia de `hidden`, NO crea contenedor de scroll, que es lo que le
+            robaría el `sticky` a la cabecera de la tabla. Era `hidden` en móvil
+            porque allí no había tabla dentro; ahora la hay. */}
+        <div className="mt-3 overflow-clip rounded-xl filo bg-white shadow-card">
           {loading ? (
             <SkeletonRows showFit={showFit} />
           ) : filtered.length === 0 ? (
@@ -1107,14 +1165,12 @@ export function Dashboard() {
               setSelected={setSelected}
               onOpen={setOpenId}
               maskPhone={maskPhone}
-              selectMode={selectMode}
-              onEnterSelect={enterSelectMode}
             />
           )}
         </div>
 
-        {/* Hueco para que la barra inferior fija no tape la última tarjeta (móvil) */}
-        {selectMode && <div className="h-20 sm:hidden" aria-hidden />}
+        {/* Hueco para que la barra inferior fija no tape la última fila (móvil) */}
+        {selected.size > 0 && <div className="h-20 sm:hidden" aria-hidden />}
       </div>
 
       <ConfirmDialog
@@ -1226,8 +1282,10 @@ export function Dashboard() {
         Se eliminará «{campaign.title}»{all.length > 0 ? ` y sus ${all.length} ${all.length === 1 ? 'candidatura' : 'candidaturas'}` : ''}. Esta acción no se puede deshacer.
       </ConfirmDialog>
 
-      {/* Barra de acción de selección (móvil): fija abajo, al alcance del pulgar. */}
-      {selectMode && !loading && (
+      {/* Barra de acción de selección (móvil): fija abajo, al alcance del pulgar.
+          La dispara la SELECCIÓN, no un modo: aparece al marcar la primera casilla
+          y se va al desmarcar la última, igual que su gemela de escritorio. */}
+      {selected.size > 0 && !loading && (
         <div
           className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white px-4 pt-3 shadow-pop sm:hidden"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
@@ -1242,7 +1300,7 @@ export function Dashboard() {
               >
                 <X className="size-5" aria-hidden />
               </button>
-              <span className="text-sm font-semibold text-slate-900 num">{selected.size} seleccionados</span>
+              <span className="num text-sm font-semibold text-slate-900">{selected.size} {selected.size === 1 ? 'seleccionado' : 'seleccionados'}</span>
               <button
                 type="button"
                 onClick={toggleSelectAll}
@@ -1302,8 +1360,36 @@ export function Dashboard() {
  * filtro "Solo favoritos" ordenaba por algo que no se veía en ninguna parte, y
  * había que abrir candidato a candidato para saber dónde había hablado alguien.
  */
-function RowSignals({ favorito, comments }: { favorito: boolean; comments: number }) {
+/**
+ * Las señales de una fila: favorito y mensajes del equipo.
+ *
+ * `soloTexto` es lo que se pinta EN MÓVIL (Mario, ago 2026): allí la columna del
+ * candidato mide 164px y estos dos glifos se llevaban 40 de los 110 que le quedan
+ * al nombre, o sea que una estrella dejaba a "Florin Santos" en "Florin Sa...".
+ * En una pantalla de 375 el nombre es lo único que no se puede truncar sin perder
+ * de quién es la fila, así que las señales se van; están enteras en la ficha, que
+ * es a un toque.
+ *
+ * **No desaparecen: cambian de canal**, como los contadores del lateral. En ese
+ * modo se devuelve un fragmento con las lecturas `sr-only` y NINGÚN envoltorio: un
+ * `sr-only` está fuera del flujo, así que suelto no ocupa nada, mientras que
+ * envuelto en un `<span>` el hueco de 6px de su fila seguiría ahí, pintando aire
+ * detrás del nombre.
+ */
+function RowSignals({ favorito, comments, soloTexto = false }: { favorito: boolean; comments: number; soloTexto?: boolean }) {
   if (!favorito && !comments) return null
+  if (soloTexto) {
+    return (
+      <>
+        {favorito && <span className="sr-only">En favoritos.</span>}
+        {comments > 0 && (
+          <span className="sr-only">
+            {comments} {comments === 1 ? 'mensaje del equipo' : 'mensajes del equipo'}
+          </span>
+        )}
+      </>
+    )
+  }
   return (
     <span className="flex shrink-0 items-center gap-1.5">
       {favorito && (
@@ -1346,6 +1432,10 @@ function FitCell({ candidate }: { candidate: Candidate }) {
   )
 }
 
+/** Las columnas que puede llevar una fila. El ORDEN se declara aparte, porque
+    cambia con el ancho de la ventana (ver `orden` en la tabla). */
+type ColKey = 'candidato' | 'encaje' | 'etiquetas' | 'telefono' | 'estado' | 'recibida'
+
 // Memoizada: es lo más caro de la pantalla (142 filas son ~200ms de pintura) y el
 // panel se repinta por cosas que no la tocan, la primera de ellas cada tecla del
 // buscador. Con las props estables (ver los `useCallback` del panel), un render que
@@ -1363,8 +1453,6 @@ const CandidateTable = memo(function CandidateTable({
   setSelected,
   onOpen,
   maskPhone,
-  selectMode,
-  onEnterSelect,
   lockedDates,
   onLockedClick,
 }: {
@@ -1382,8 +1470,6 @@ const CandidateTable = memo(function CandidateTable({
   setSelected: (s: Set<string>) => void
   onOpen: (id: string) => void
   maskPhone: boolean
-  selectMode: boolean
-  onEnterSelect: () => void
 }) {
   const { setStatus, commentCounts } = useStore()
   // La columna Etiquetas solo existe cuando la empresa tiene vocabulario: sin una sola
@@ -1391,27 +1477,37 @@ const CandidateTable = memo(function CandidateTable({
   // crear la primera, igual que su filtro.
   const showTags = TAGS_ENABLED && tags.length > 0
 
+  // EL ORDEN DE LAS COLUMNAS ES LA PRIORIDAD, Y EN MÓVIL SE NOTA (ago 2026).
+  // Con la tabla desplazándose a lo ancho, lo que va primero es lo único que se
+  // ve sin empujar, así que ESTADO sube a la segunda columna: después de saber
+  // quién es una persona, lo que se mira es en qué punto está. En escritorio
+  // caben las seis a la vez y manda el orden de siempre, con la lectura de
+  // Meridian pegada al nombre. Se declara como una lista y se pinta mapeando,
+  // en vez de escribir las celdas dos veces: dos copias del mismo `<tr>` se
+  // separan al primer retoque.
+  const esMovil = useEsMovil()
+  const orden: ColKey[] = esMovil
+    ? ['candidato', 'estado', 'encaje', 'etiquetas', 'telefono', 'recibida']
+    : ['candidato', 'encaje', 'etiquetas', 'telefono', 'estado', 'recibida']
+  // Ancho mínimo de la tabla en móvil: la suma EXACTA de lo que se pinta. No vale
+  // el 852 de escritorio, porque `table-fixed` reparte el sobrante entre las
+  // columnas sin ancho propio y Candidato se volvería a comer lo que acabamos de
+  // quitarle.
+  //
+  // Los 144 de Estado no son un número redondo: son la pastilla más ancha MEDIDA
+  // ("Contactado", 128) más los 16 de relleno que deja la celda en móvil. Con los
+  // 168 de escritorio no cabía el nombre; con 136 la pastilla se salía de su
+  // columna y se metía en la de al lado.
+  //
+  // Candidato se lleva todo lo demás (164), y el tope no es el ancho de su columna
+  // sino DÓNDE ACABA LA PASTILLA: 40 + 164 + 8 de relleno + 128 = 340, o sea justo
+  // dentro de los 341 de contenido de una pantalla de 375. La columna de Estado
+  // termina unos píxeles más allá del pliegue, pero lo que se lee cabe entero, que
+  // es de lo que iba subirla a la segunda posición.
+  const anchoMovil = 40 + 164 + 144 + 136 + 124 + (showFit ? 136 : 0)
+
   // Candidato cuyo estado se está cambiando desde la hoja (solo móvil).
   const [statusFor, setStatusFor] = useState<Candidate | null>(null)
-  // Pulsación larga (móvil) para entrar en modo selección. longPressed evita que
-  // el click posterior al gesto vuelva a alternar la tarjeta.
-  const longPressed = useRef(false)
-  const pressTimer = useRef<number | null>(null)
-  const startPress = (id: string) => {
-    longPressed.current = false
-    pressTimer.current = window.setTimeout(() => {
-      longPressed.current = true
-      onEnterSelect()
-      toggleOne(id)
-      pressTimer.current = null
-    }, 400)
-  }
-  const cancelPress = () => {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current)
-      pressTimer.current = null
-    }
-  }
   // Orden de aparición entre las filas recién llegadas: si entran varias a la
   // vez, se escalonan (como en el mockup del hero) en vez de aparecer todas de
   // golpe. Tope a 4 para no alargar la espera si llega una tanda grande.
@@ -1528,163 +1624,33 @@ const CandidateTable = memo(function CandidateTable({
 
   return (
     <>
-      {/* --- Vista móvil: tarjetas (< md) --- */}
-      <ul className="md:hidden" aria-label={`Candidatos de ${campaign.title}`}>
-        {/* Bloqueados (móvil): ARRIBA, como las candidaturas nuevas (son las más
-            recientes). Contenido señuelo REAL (mismo texto que el Excel: "Candidatura
-            bloqueada" / "Bloqueada"), difuminado entero para que no se lea nada, con
-            el CTA nítido encima: es la única pieza legible y accionable de la fila. */}
-        {lockedDates.map((date, i) => (
-          <li key={`locked-${i}`} className={`${MOBILE_ROW} overflow-hidden bg-slate-50/70 px-4 py-3`}>
-            <div aria-hidden className="flex items-center gap-3 blur-[4px] select-none">
-              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-slate-200 text-[12.5px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-300">
-                CB
-              </span>
-              <div className="min-w-0 flex-1 space-y-1">
-                <p className="truncate text-[14px] font-medium text-slate-700">Candidatura bloqueada</p>
-                <p className="truncate text-[13px] text-slate-500">612 345 678</p>
-              </div>
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300">
-                <span className="size-1.5 rounded-full bg-slate-400" /> Bloqueada
-              </span>
-            </div>
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <button type="button" onClick={onLockedClick} className={`${BTN_PRIMARY_SM} pointer-events-auto`}>
-                <Lock className="size-3.5" aria-hidden /> Añadir método de pago
-              </button>
-            </div>
-            <time dateTime={date} className="num absolute right-3 top-2 text-[11px] text-slate-400">{relativeDate(date)}</time>
-          </li>
-        ))}
-        {rows.map((c) => {
-          const name = candidateName(c) || 'Sin nombre'
-          const phone = answerStr(c, 'telefono')
-          const m = STATUS_META[c.status]
-          const fresh = isFreshNuevo(c)
-          const sel = selected.has(c.id)
-          const arrivedAt = arrivalOrder.get(c.id)
-          // La pastilla mide y pesa lo MISMO en todas las filas, también en las
-          // recién llegadas (ago 2026). Engordarlas (13px, bold, ring-2 slate-400)
-          // dejaba la columna de estados en serrucho y esa fila parecía un fallo de
-          // pintado, no un énfasis. Que ha llegado ahora ya lo dicen el fondo teñido
-          // de la fila y la fecha en negrita, que es donde de verdad se pregunta.
-          const statusChipClass = `${m.chip} inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[12px] font-semibold`
-          const statusDotClass = `size-1.5 rounded-full ${m.dot}`
-          // Tap: en modo selección alterna; si no, abre el detalle. El guard
-          // longPressed evita que el click tras la pulsación larga lo deshaga.
-          const onTap = () => {
-            if (longPressed.current) {
-              longPressed.current = false
-              return
-            }
-            if (selectMode) toggleOne(c.id)
-            else onOpen(c.id)
-          }
-          return (
-            <li
-              key={c.id}
-              style={arrivedAt !== undefined
-                ? { animation: `drop-in 240ms var(--ease-out) ${Math.min(arrivedAt, 4) * 45}ms both` }
-                : undefined}
-              onClick={(e) => clickDeFila(e) && onTap()}
-              onTouchStart={selectMode ? undefined : () => startPress(c.id)}
-              onTouchMove={selectMode ? undefined : cancelPress}
-              onTouchEnd={selectMode ? undefined : cancelPress}
-              className={`${MOBILE_ROW} cursor-pointer px-4 py-3 transition-colors ${
-                selectMode && sel ? 'bg-indigo-50/70' : fresh ? 'bg-slate-50/80 active:bg-slate-100' : 'active:bg-slate-50'
-              }`}
-            >
-             {/* DOS LÍNEAS QUE OCUPAN LA FILA ENTERA, no dos columnas (ago 2026).
-                 Antes la pastilla de estado vivía en una columna derecha propia, y
-                 como esa columna mide lo que mide su hijo más ancho, se llevaba 150px
-                 de la línea del nombre: "Manuel Soler" se leía "Manuel So…" con media
-                 fila vacía debajo. Ahora arriba va la identidad (quién y cuándo) y
-                 abajo los metadatos (teléfono y estado), cada línea con todo el ancho.
-                 El nombre pasa de ~120px a ~205px sin que la fila crezca ni un pixel.
+      {/* UNA SOLA VISTA A TODOS LOS ANCHOS: LA REJILLA, QUE EN MÓVIL SE DESPLAZA
+          A LO ANCHO (Mario, ago 2026; sustituye a la lista de tarjetas de dos
+          líneas).
 
-                 Solo el avatar queda fuera, como raíl: es la columna que alinea las
-                 dos líneas y donde muere el filo sangrado. */}
-             <div className="flex items-start gap-3">
-              {selectMode ? (
-                <span
-                  // Mide lo MISMO que el avatar al que sustituye (36): si no, entrar
-                  // en modo selección movería la fila entera 4px.
-                  className={`grid size-9 shrink-0 place-items-center rounded-full border-2 transition-colors ${
-                    sel ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
-                  }`}
-                  aria-hidden
-                >
-                  {sel && <Check className="size-5 text-white" />}
-                </span>
-              ) : (
-                <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={36} />
-              )}
-              <div className="min-w-0 flex-1">
-                {/* Línea 1: quién, y cuándo llegó. */}
-                <div className="flex items-baseline gap-2">
-                  <p className="flex min-w-0 flex-1 items-center gap-1.5 text-[15px] font-medium text-slate-900">
-                    {/* La fila entera abre la ficha (como el <tr> de escritorio), pero
-                        el nombre sigue siendo un <button> de verdad: es lo que hace la
-                        fila alcanzable con teclado y lo que anuncia el lector. */}
-                    <button
-                      type="button"
-                      onClick={onTap}
-                      aria-pressed={selectMode ? sel : undefined}
-                      className="min-w-0 truncate text-left"
-                    >
-                      {name}
-                    </button>
-                    {c.source === 'prueba' && <TestChip />}
-                    <InterestOutcomeIcon campaign={campaign} candidate={c} />
-                    <RowSignals favorito={c.favorito} comments={commentCounts[c.id] ?? 0} />
-                  </p>
-                  <time
-                    dateTime={c.submittedAt}
-                    className={`num shrink-0 text-[11px] ${fresh ? 'font-semibold text-slate-700' : 'text-slate-500'}`}
-                  >
-                    {relativeDate(c.submittedAt)}
-                  </time>
-                </div>
-                {/* Línea 2: teléfono y estado. */}
-                <div className="mt-1 flex items-center gap-2">
-                  <p className="num min-w-0 flex-1 truncate text-sm text-slate-500">
-                    {phone ? (maskPhone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone)) : ''}
-                  </p>
-                  {selectMode ? (
-                    <span className={`${statusChipClass} shrink-0`}>
-                      <span className={statusDotClass} aria-hidden />
-                      {m.label}
-                    </span>
-                  ) : (
-                    // El área de toque se estira con un ::after invisible hasta ~44px
-                    // sin engordar la pastilla: en el dedo es un objetivo cómodo y en
-                    // pantalla sigue siendo la misma etiqueta pequeña.
-                    <button
-                      type="button"
-                      onClick={() => setStatusFor(c)}
-                      aria-label={`Estado: ${m.label}${fresh ? ', recién llegado' : ''}. Tocar para cambiar`}
-                      className={`${statusChipClass} relative shrink-0 pr-1.5 transition-[filter] after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] active:brightness-95`}
-                    >
-                      <span className={statusDotClass} aria-hidden />
-                      {m.label}
-                      <ChevronDown className="size-3 opacity-60" aria-hidden />
-                    </button>
-                  )}
-                </div>
-              </div>
-             </div>
-             {/* Sin etiquetas en la tarjeta: en móvil la fila tiene que leerse de
-                 un vistazo (quién, teléfono, estado, cuándo) y una segunda línea
-                 de chips la hacía crecer y competir con eso. Se ven al abrir la
-                 ficha, y en la tabla de escritorio, donde sí hay sitio. */}
-            </li>
-          )
-        })}
-      </ul>
+          La regla anterior era la contraria y su argumento era bueno para lo que
+          había: metida a la fuerza en 375px, la tabla dejaba el nombre en 120px
+          porque la columna de estado se llevaba 150. Pero eso era consecuencia de
+          COMPRIMIRLA, no de que fuera una tabla; con desplazamiento horizontal las
+          columnas conservan su ancho de siempre y no se comprime ninguna.
 
-      {/* --- Vista escritorio: tabla (md+) --- */}
-      <div ref={tableWrapRef} className={`relative hidden md:block ${headerCanStick ? 'overflow-visible' : 'overflow-x-auto'}`}>
-      <table ref={tableRef} className={`min-w-[852px] ${TABLE}`}>
+          Lo que se gana es que la fila sea la MISMA en todas partes: las mismas
+          columnas (encaje y etiquetas no existían en la tarjeta), el mismo orden y
+          la misma casilla de selección. Y esa casilla es lo que deja retirar el
+          "modo selección" del móvil (pulsación larga, botón "Seleccionar" y el
+          cambio de la cara por un círculo), que existía solo porque en la tarjeta
+          no había dónde marcar.
+
+          Lo que se paga, y hay que decirlo: en 375px se ven la persona y parte de
+          su encaje, y hay que empujar a la izquierda para llegar al estado. */}
+      {/* La cabecera solo puede pegarse cuando la tabla CABE: en cuanto hay
+          desplazamiento horizontal el envoltorio pasa a ser contenedor de scroll y
+          un `sticky` de dentro se pegaría a él y no a la página. En móvil nunca
+          cabe, así que allí la cabecera se va con la lista, que es lo correcto:
+          moverse a lo ancho con una banda clavada arriba desalinea las columnas de
+          su propio nombre. */}
+      <div ref={tableWrapRef} className={`relative ${headerCanStick ? 'overflow-visible' : 'overflow-x-auto'}`}>
+      <table ref={tableRef} className={`min-w-[852px] ${TABLE}`} style={esMovil ? { minWidth: anchoMovil } : undefined}>
         <caption className="sr-only">Candidatos de {campaign.title}</caption>
         {/* La banda (fondo, velo y sombra) vive en el <thead>; los filos, en cada
             celda. En `border-separate` los bordes de <thead>/<tr> no se pintan, y
@@ -1711,14 +1677,27 @@ const CandidateTable = memo(function CandidateTable({
                 que se reparten el hueco sobrante, así que al ensanchar la ventana
                 crece el nombre (que es lo que se corta) y no una columna cualquiera.
                 El resto mide lo que mide su contenido, ni un pixel más. */}
-            <ColHead icon={User} toneClass={headTone} sort={sortFor('nombre')}>Candidato</ColHead>
-            {showFit && <ColHead icon={Sparkles} className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')}>Encaje</ColHead>}
-            {showTags && (
-              <ColHead icon={Tag} className="hidden xl:table-cell" toneClass={headTone}>Etiquetas</ColHead>
-            )}
-            <ColHead icon={Phone} className="w-[136px]" toneClass={headTone}>Teléfono</ColHead>
-            <ColHead icon={CircleDot} className="w-[168px]" toneClass={headTone} sort={sortFor('estado')}>Estado</ColHead>
-            <ColHead icon={Clock} className="w-[124px]" align="right" toneClass={headTone} sort={sortFor('fecha')}>Recibida</ColHead>
+            {orden.map((k) => {
+              switch (k) {
+                case 'candidato':
+                  // El único ancho que cambia con el ancho de la ventana: en
+                  // escritorio no lo declara nadie (absorbe el sobrante, que es
+                  // lo que hace crecer el nombre al ensanchar) y en móvil se fija
+                  // a 160, porque allí el sobrante no existe y lo que hace falta
+                  // es dejarle sitio al estado.
+                  return <ColHead key={k} icon={User} className={esMovil ? 'w-[164px]' : ''} toneClass={headTone} sort={sortFor('nombre')}>Candidato</ColHead>
+                case 'encaje':
+                  return showFit ? <ColHead key={k} icon={Sparkles} className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')}>Encaje</ColHead> : null
+                case 'etiquetas':
+                  return showTags ? <ColHead key={k} icon={Tag} className="hidden xl:table-cell" toneClass={headTone}>Etiquetas</ColHead> : null
+                case 'telefono':
+                  return <ColHead key={k} icon={Phone} className="w-[136px]" toneClass={headTone}>Teléfono</ColHead>
+                case 'estado':
+                  return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[168px]'} toneClass={headTone} sort={sortFor('estado')}>Estado</ColHead>
+                case 'recibida':
+                  return <ColHead key={k} icon={Clock} className="w-[124px]" align="right" toneClass={headTone} sort={sortFor('fecha')}>Recibida</ColHead>
+              }
+            })}
           </tr>
         </thead>
         {/* Bloqueados (escritorio): ARRIBA, como las candidaturas nuevas (son las
@@ -1736,30 +1715,50 @@ const CandidateTable = memo(function CandidateTable({
                 <td className={`${CELL_FLUSH} px-0 text-center leading-none`}>
                   <div aria-hidden className="mx-auto size-4 rounded-[5px] border border-slate-300 bg-white blur-[4px] select-none" />
                 </td>
-                <td className={CELL}>
-                  <span aria-hidden className="block truncate text-[14px] font-medium text-slate-700 blur-[4px] select-none">Candidatura bloqueada</span>
-                </td>
-                {showFit && (
-                  <td className={CELL}>
-                    <span aria-hidden className="block truncate text-[13px] text-slate-600 blur-[4px] select-none">Puede encajar</span>
-                  </td>
-                )}
-                {showTags && (
-                  <td className={`${CELL} hidden xl:table-cell`}>
-                    <span aria-hidden className="inline-block rounded-full bg-slate-200 px-2 py-0.5 text-[11px] text-slate-600 blur-[4px] select-none">Etiqueta</span>
-                  </td>
-                )}
-                <td className={CELL}>
-                  <span aria-hidden className="num block truncate text-[13px] text-slate-600 blur-[4px] select-none">612 345 678</span>
-                </td>
-                <td className={`${CELL} whitespace-nowrap`}>
-                  <span aria-hidden className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300 blur-[4px] select-none">
-                    <span className="size-1.5 rounded-full bg-slate-400" /> Bloqueada
-                  </span>
-                </td>
-                <td className={`${CELL} whitespace-nowrap text-right`}>
-                  <time dateTime={date} aria-hidden className="num text-[13px] text-slate-500 blur-[4px] select-none">{relativeDate(date)}</time>
-                </td>
+                {/* Las mismas celdas y en el MISMO orden que una fila real: las
+                    recorre la misma lista, así que no pueden descuadrarse. */}
+                {orden.map((k) => {
+                  switch (k) {
+                    case 'candidato':
+                      return (
+                        <td key={k} className={CELL}>
+                          <span aria-hidden className="block truncate text-[14px] font-medium text-slate-700 blur-[4px] select-none">Candidatura bloqueada</span>
+                        </td>
+                      )
+                    case 'encaje':
+                      return showFit ? (
+                        <td key={k} className={CELL}>
+                          <span aria-hidden className="block truncate text-[13px] text-slate-600 blur-[4px] select-none">Puede encajar</span>
+                        </td>
+                      ) : null
+                    case 'etiquetas':
+                      return showTags ? (
+                        <td key={k} className={`${CELL} hidden xl:table-cell`}>
+                          <span aria-hidden className="inline-block rounded-full bg-slate-200 px-2 py-0.5 text-[11px] text-slate-600 blur-[4px] select-none">Etiqueta</span>
+                        </td>
+                      ) : null
+                    case 'telefono':
+                      return (
+                        <td key={k} className={CELL}>
+                          <span aria-hidden className="num block truncate text-[13px] text-slate-600 blur-[4px] select-none">612 345 678</span>
+                        </td>
+                      )
+                    case 'estado':
+                      return (
+                        <td key={k} className={`${CELL} whitespace-nowrap`}>
+                          <span aria-hidden className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300 blur-[4px] select-none">
+                            <span className="size-1.5 rounded-full bg-slate-400" /> Bloqueada
+                          </span>
+                        </td>
+                      )
+                    case 'recibida':
+                      return (
+                        <td key={k} className={`${CELL} whitespace-nowrap text-right`}>
+                          <time dateTime={date} aria-hidden className="num text-[13px] text-slate-500 blur-[4px] select-none">{relativeDate(date)}</time>
+                        </td>
+                      )
+                  }
+                })}
               </tr>
             ))}
           </tbody>
@@ -1789,56 +1788,71 @@ const CandidateTable = memo(function CandidateTable({
                     aria-label={`Seleccionar ${name}`}
                   />
                 </td>
-                <td className={CELL}>
-                  <div className="flex items-center gap-2.5">
-                    <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={28} />
-                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                      {/* Sin subrayado permanente (se probó, ago 2026): la fila ENTERA
-                          abre la ficha, así que subrayar solo el nombre promete un
-                          objetivo más pequeño del que hay, y cien rayas seguidas
-                          compiten con los filos de la rejilla. */}
-                      <button
-                        type="button"
-                        onClick={() => onOpen(c.id)}
-                        // Sin subrayado (Mario, ago 2026): la fila ENTERA abre la
-                        // ficha, así que subrayar el nombre promete un objetivo más
-                        // pequeño del que hay. El foco de teclado NO se queda sin
-                        // señal por eso: pasa a anillo, que es lo que la doctrina
-                        // pide y lo que el subrayado estaba haciendo de prestado.
-                        className="block min-w-0 truncate rounded-sm text-left text-[14px] font-medium text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
-                        title={name}
-                      >
-                        {name}
-                      </button>
-                      {c.source === 'prueba' && <TestChip />}
-                      <InterestOutcomeIcon campaign={campaign} candidate={c} />
-                      <RowSignals favorito={c.favorito} comments={commentCounts[c.id] ?? 0} />
-                    </div>
-                  </div>
-                </td>
-                {showFit && (
-                  <td className={`${CELL} text-[13px]`}>
-                    <FitCell candidate={c} />
-                  </td>
-                )}
-                {showTags && (
-                  <td className={`${CELL} hidden xl:table-cell`}>
-                    {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} /> : <span className="text-[13px] text-slate-600">–</span>}
-                  </td>
-                )}
-                <td className={`${CELL} text-[13px] text-slate-600`}>
-                  <span className="num block truncate">
-                    {maskPhone && answerStr(c, 'telefono')
-                      ? <MaskedPhone value={formatPhone(answerStr(c, 'telefono'))} />
-                      : (formatPhone(answerStr(c, 'telefono')) || '–')}
-                  </span>
-                </td>
-                <td className={`${CELL} whitespace-nowrap`}>
-                  <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
-                </td>
-                <td className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
-                  <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
-                </td>
+                {orden.map((k) => {
+                  switch (k) {
+                    case 'candidato':
+                      return (
+                        <td key={k} className={CELL}>
+                          <div className="flex items-center gap-2.5">
+                            <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={28} />
+                            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                              {/* Sin subrayado permanente (se probó, ago 2026): la fila
+                                  ENTERA abre la ficha, así que subrayar solo el nombre
+                                  promete un objetivo más pequeño del que hay, y cien
+                                  rayas seguidas compiten con los filos de la rejilla.
+                                  El foco de teclado no se queda sin señal: pasa a
+                                  anillo, que es lo que la doctrina pide. */}
+                              <button
+                                type="button"
+                                onClick={() => onOpen(c.id)}
+                                className="block min-w-0 truncate rounded-sm text-left text-[14px] font-medium text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+                                title={name}
+                              >
+                                {name}
+                              </button>
+                              {c.source === 'prueba' && <TestChip />}
+                              <InterestOutcomeIcon campaign={campaign} candidate={c} />
+                              <RowSignals favorito={c.favorito} comments={commentCounts[c.id] ?? 0} soloTexto={esMovil} />
+                            </div>
+                          </div>
+                        </td>
+                      )
+                    case 'encaje':
+                      return showFit ? (
+                        <td key={k} className={`${CELL} text-[13px]`}>
+                          <FitCell candidate={c} />
+                        </td>
+                      ) : null
+                    case 'etiquetas':
+                      return showTags ? (
+                        <td key={k} className={`${CELL} hidden xl:table-cell`}>
+                          {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} /> : <span className="text-[13px] text-slate-600">–</span>}
+                        </td>
+                      ) : null
+                    case 'telefono':
+                      return (
+                        <td key={k} className={`${CELL} text-[13px] text-slate-600`}>
+                          <span className="num block truncate">
+                            {maskPhone && answerStr(c, 'telefono')
+                              ? <MaskedPhone value={formatPhone(answerStr(c, 'telefono'))} />
+                              : (formatPhone(answerStr(c, 'telefono')) || '–')}
+                          </span>
+                        </td>
+                      )
+                    case 'estado':
+                      return (
+                        <td key={k} className={`${CELL} whitespace-nowrap`}>
+                          <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
+                        </td>
+                      )
+                    case 'recibida':
+                      return (
+                        <td key={k} className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
+                          <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
+                        </td>
+                      )
+                  }
+                })}
               </tr>
             )
           })}
@@ -1994,9 +2008,51 @@ const CHIP_ALTO = 'h-10 pointer-coarse:h-11'
 function ChipDimension({ dim }: { dim: DimensionFiltro }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  // EN UN PORTAL Y CON POSICIÓN FIJA, no `absolute` dentro del chip. La tira de
+  // chips se desplaza en horizontal, y `overflow-x` obliga al navegador a
+  // recortar también en vertical: colgado del chip, el desplegable se quedaba
+  // dentro de una caja de 40px de alto y no se veía. Es la misma regla que ya
+  // gobierna los tooltips y el panel de avisos: lo que flota se coloca contra la
+  // VENTANA, así ningún `overflow` de un antepasado puede alcanzarlo.
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!open) return
+    const colocar = () => {
+      const ancla = ref.current?.getBoundingClientRect()
+      const panel = panelRef.current?.getBoundingClientRect()
+      if (!ancla || !panel) return
+      const { top, left } = colocarFlotante(
+        ancla,
+        { width: panel.width, height: panel.height },
+        { width: window.innerWidth, height: window.innerHeight },
+        // Alineado a la IZQUIERDA del chip, que es de donde parece colgar; si no
+        // cabe, `colocarFlotante` lo aprieta contra el filo en vez de sacarlo.
+        { alinear: 'izquierda' },
+      )
+      setPos({ top, left })
+    }
+    colocar()
+    window.addEventListener('resize', colocar)
+    // El main y la propia tira se desplazan: sin reposicionar, el panel se queda
+    // huérfano flotando donde estaba el chip.
+    const main = document.getElementById('contenido')
+    main?.addEventListener('scroll', colocar, { passive: true })
+    const tira = ref.current?.parentElement
+    tira?.addEventListener('scroll', colocar, { passive: true })
+    return () => {
+      window.removeEventListener('resize', colocar)
+      main?.removeEventListener('scroll', colocar)
+      tira?.removeEventListener('scroll', colocar)
+    }
+  }, [open])
+
   useEffect(() => {
     if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
+    const dentro = (t: Node | null) =>
+      (ref.current?.contains(t as Node) ?? false) || (panelRef.current?.contains(t as Node) ?? false)
+    const onDoc = (e: MouseEvent) => !dentro(e.target as Node) && setOpen(false)
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
@@ -2005,6 +2061,8 @@ function ChipDimension({ dim }: { dim: DimensionFiltro }) {
       document.removeEventListener('keydown', onKey)
     }
   }, [open])
+
+  useEffect(() => { if (!open) setPos(null) }, [open])
 
   return (
     <div className="relative shrink-0" ref={ref}>
@@ -2023,8 +2081,14 @@ function ChipDimension({ dim }: { dim: DimensionFiltro }) {
         <ChevronDown className={`size-3 shrink-0 opacity-70 transition-transform duration-[var(--duration-control)] ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
 
-      {open && (
-        <div className="absolute left-0 z-40 mt-1.5 w-64 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop">
+      {open && createPortal(
+        <div
+          ref={panelRef}
+          className="fixed z-50 w-64 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop"
+          // Hasta que está medido se pinta fuera de la vista: colocado en 0,0 y
+          // saltando después, se vería el salto en el primer fotograma.
+          style={pos ? { top: pos.top, left: pos.left } : { top: -9999, left: -9999 }}
+        >
           <div className="max-h-72 space-y-0.5 overflow-y-auto">
             <ValoresDimension dim={dim} q="" />
           </div>
@@ -2039,7 +2103,8 @@ function ChipDimension({ dim }: { dim: DimensionFiltro }) {
           >
             <X className="size-3.5" aria-hidden /> Quitar este filtro
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
@@ -2194,7 +2259,14 @@ function MenuAnadirFiltro({
         onClick={() => (open ? cerrar() : setOpen(true))}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`${CHIP_ALTO} inline-flex items-center gap-1.5 rounded-lg px-3.5 text-sm font-medium outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+        aria-label="Filtros"
+        // En móvil el botón es SOLO EL ICONO y cuadrado (referencia de Mario, ago
+        // 2026): comparte fila con el buscador, que es quien tiene que llevarse el
+        // ancho. `aspect-square` y no un `w-*` fijo para que el lado siga a la
+        // altura, que en táctil sube a 44. El nombre no se pierde, se muda al
+        // `aria-label`, que además está puesto siempre: así lo que anuncia el
+        // lector no depende del ancho de la ventana.
+        className={`${CHIP_ALTO} inline-flex items-center justify-center gap-1.5 rounded-lg text-sm font-medium outline-none transition-colors duration-[var(--duration-control)] max-sm:aspect-square sm:px-3.5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
           // Teñido cuando hay filtros puestos: el botón dice el estado de la franja
           // entera, igual que cada chip dice el suyo. Sin teñir, la pintura sale de
           // `BTN_SUPERFICIE` y NO se escribe a mano: pintada aquí se quedó con el
@@ -2206,14 +2278,19 @@ function MenuAnadirFiltro({
         }`}
       >
         <Filter className={`size-4 shrink-0 ${hayFiltros ? 'text-indigo-500' : 'text-slate-400'}`} aria-hidden />
-        Filtros
+        <span className="max-sm:hidden">Filtros</span>
       </button>
 
       {open && (
         <div
           role="menu"
           aria-label={dim ? `Elegir ${dim.label}` : enPreguntas ? 'Preguntas de este puesto' : enVistas ? 'Vistas guardadas' : 'Filtros'}
-          className="absolute left-0 z-40 mt-1.5 w-72 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop"
+          // Cuelga del filo IZQUIERDO de su botón en escritorio y del DERECHO en
+          // móvil, porque es donde está el botón en cada sitio: al pasar Filtros a
+          // la derecha del buscador, un panel de 288px anclado a la izquierda se
+          // salía 205px de la pantalla y hacía scrollear la página entera a lo
+          // ancho. Un flotante se ancla al filo que tiene más cerca.
+          className="absolute left-0 z-40 mt-1.5 w-72 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop max-sm:left-auto max-sm:right-0"
         >
           {/* El campo cambia de papel según la página: busca CATEGORÍAS en la raíz
               y VALORES dentro de una. El placeholder es lo que dice dónde estás. */}
@@ -2392,6 +2469,7 @@ function TestChip() {
  */
 function BuscadorPuesto({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [abierto, setAbierto] = useState(false)
+  const esMovil = useEsMovil()
   const ref = useRef<HTMLInputElement>(null)
   const visible = abierto || value.length > 0
 
@@ -2402,6 +2480,33 @@ function BuscadorPuesto({ value, onChange }: { value: string; onChange: (v: stri
   useEffect(() => {
     if (abierto) ref.current?.focus()
   }, [abierto])
+
+  // EN MÓVIL NO SE PLIEGA, Y LA LUPA CAMBIA DE PAPEL (ago 2026, referencia de
+  // Mario). Aquí la fila es suya entera, así que no hay nada que ahorrar
+  // plegándola: el campo entra abierto y ocupa lo que sobra hasta el botón de
+  // Filtros. Y con el campo siempre abierto la lupa deja de ser un CONTROL (no
+  // pliega nada) y pasa a ser un ADORNO, así que se mete dentro del campo, en
+  // gris y sin caja, en vez de quedarse fuera como tapa teñida de acento: una
+  // caja de acento que no hace nada es un botón que miente.
+  //
+  // 16px de letra y no 14: por debajo de 16 iOS hace zoom al enfocar y la
+  // pantalla se descoloca, que es la misma razón por la que los campos del
+  // formulario público llevan ese cuerpo.
+  if (esMovil) {
+    return (
+      <div className="relative min-w-0 flex-1">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+        <input
+          type="search"
+          aria-label="Buscar candidatos"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Buscar candidatos"
+          className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-base text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-inset focus:ring-indigo-500/40"
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-w-0 items-center">
@@ -2631,11 +2736,20 @@ function EstadoPuesto({
       {e.label}
     </>
   )
-  // 24px en escritorio: es un ACCESORIO del título, no un control de la fila de
-  // acciones, así que va por debajo de los 36 de un botón. En táctil sube a 32,
-  // que no llega al objetivo de toque de 44 pero deja de ser una diana imposible;
-  // antes no tenía variante gruesa ninguna y se quedaba en 28 para todos.
-  const forma = 'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium pointer-coarse:h-8'
+  // 24px A TODOS LOS ANCHOS: es un ACCESORIO del título, no un control de la fila
+  // de acciones, así que va por debajo de los 36 de un botón. Llegó a engordar a
+  // 32 en táctil por el objetivo de toque, y ni así lo cumplía (44) mientras que
+  // en el móvil, donde el título ya ocupa dos líneas, sí se notaba: pegada a un
+  // `h1` de 24px, una cápsula de 32 compite con el nombre del puesto en vez de
+  // acompañarlo (Mario, ago 2026).
+  //
+  // El objetivo de toque no se pierde, se DESPEGA del dibujo: un `::after`
+  // invisible estira el área pulsable hasta ~44 sin engordar un solo píxel lo que
+  // se ve. Es el mismo recurso que ya usaba la pastilla de estado de la tarjeta
+  // de móvil, y la respuesta correcta siempre que una diana pequeña tiene que
+  // seguir siendo pequeña.
+  const forma = 'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium'
+  const diana = 'relative after:absolute after:-inset-x-1 after:-inset-y-2.5 after:content-[\'\'] sm:after:hidden'
 
   if (!canManage) {
     return <span className={`${forma} ${e.chapa}`}>{cara}</span>
@@ -2690,7 +2804,7 @@ function EstadoPuesto({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`${forma} ${e.chapa} transition-[filter] duration-[var(--duration-control)] hover:brightness-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40`}
+        className={`${forma} ${diana} ${e.chapa} transition-[filter] duration-[var(--duration-control)] hover:brightness-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40`}
       >
         {cara}
         <ChevronDown className={`size-3.5 shrink-0 opacity-70 transition-transform duration-[var(--duration-control)] ${open ? 'rotate-180' : ''}`} aria-hidden />
@@ -2828,13 +2942,7 @@ function PuestoMenu({
   // debe volver atrás, no cerrar) y encima mandaba el foco a elementos en
   // `display:none`, donde `focus()` no hace nada y el tabulador se queda muerto.
   // Mismo patrón que `ShareMenu`, que ya tenía este problema resuelto.
-  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 639px)').matches)
-  useEffect(() => {
-    const query = window.matchMedia('(max-width: 639px)')
-    const update = () => setIsMobile(query.matches)
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
+  const isMobile = useEsMovil()
 
   const cerrar = useCallback(() => {
     setOpen(false)
@@ -3103,7 +3211,7 @@ function ShareMenu({
   const ref = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
-  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 639px)').matches)
+  const isMobile = useEsMovil()
 
   const close = () => {
     setOpen(false)
@@ -3131,13 +3239,6 @@ function ShareMenu({
       main?.removeEventListener('scroll', place)
     }
   }, [open])
-
-  useEffect(() => {
-    const query = window.matchMedia('(max-width: 639px)')
-    const update = () => setIsMobile(query.matches)
-    query.addEventListener('change', update)
-    return () => query.removeEventListener('change', update)
-  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -3170,14 +3271,20 @@ function ShareMenu({
         // Compartir es la acción de acento del puesto (Figma, ago 2026): lo que
         // pone el puesto en marcha es que el enlace llegue a la gente, no editar
         // el formulario. Editar baja a secundario, a su lado.
-        className={`${BTN_PRIMARY} max-sm:size-11 max-sm:px-0`}
+        // EN MÓVIL LLEVA SU PALABRA, NO SU DIBUJO (Mario, ago 2026). Estaba al
+        // revés: un cuadrado de 44 con el glifo de compartir y el nombre escondido.
+        // Un icono hay que aprendérselo y este además no es universal (el de iOS es
+        // otro), mientras que "Compartir" se lee sin aprender nada; y la fila tiene
+        // sitio de sobra, que era el único motivo para encogerlo. Se van con el
+        // dibujo el chevron, que en móvil no anuncia un desplegable sino una hoja.
+        className={BTN_PRIMARY}
         title="Compartir"
         aria-label="Compartir"
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <Share2 className="size-4 shrink-0 text-indigo-200" aria-hidden />
-        <span className="max-sm:hidden">Compartir</span>
+        <Share2 className="size-4 shrink-0 text-indigo-200 max-sm:hidden" aria-hidden />
+        <span>Compartir</span>
         <ChevronDown
           className={`size-3.5 shrink-0 text-indigo-200 transition-transform duration-[var(--duration-control)] max-sm:hidden ${
             open ? 'rotate-180' : ''

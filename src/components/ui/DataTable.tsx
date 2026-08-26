@@ -44,14 +44,29 @@ export const TABLE = 'w-full table-fixed border-separate border-spacing-0'
 /** Fila de datos. `group/row` deja que la última celda se quede sin filo inferior. */
 export const ROW = 'group/row h-14 transition-colors duration-[var(--duration-control)]'
 
-/** Celda de datos. */
-export const CELL = `px-3 align-middle border-b border-b-slate-100 group-last/row:border-b-0 ${LINE}`
+/**
+ * Celda de datos.
+ *
+ * `max-sm:px-2`: en móvil la rejilla se desplaza a lo ancho y cada píxel de
+ * relleno se lo quita al nombre, que es lo único que no se puede truncar sin
+ * perder de quién es la fila. 8px por celda no se ven y en la columna del
+ * candidato son un apellido entero.
+ */
+export const CELL = `px-3 max-sm:px-2 align-middle border-b border-b-slate-100 group-last/row:border-b-0 ${LINE}`
 
-/** Celda sin filo derecho (la del checkbox: ver la decisión 3 de arriba). */
+/**
+ * Celda sin filo derecho (la del checkbox: ver la decisión 3 de arriba).
+ *
+ * SIN `max-sm:px-2`, y no es un olvido: quien la usa la pone a `px-0` para que la
+ * casilla quede centrada en sus 40px, y una VARIANTE gana siempre a una utilidad
+ * base, esté donde esté escrita en el `className`. Con el relleno de móvil puesto
+ * aquí, las casillas de la tabla se descolgaban 8px a la derecha de su columna.
+ * Es el mismo tropiezo que el `px-0` contra el `px-3.5` de los botones de icono.
+ */
 export const CELL_FLUSH = 'px-3 align-middle border-b border-b-slate-100 group-last/row:border-b-0'
 
 /** Celda de cabecera. El filo inferior es más oscuro: cierra la banda. */
-export const HEAD_CELL = `h-10 px-3 text-left align-middle border-b border-b-slate-200 ${LINE}`
+export const HEAD_CELL = `h-10 px-3 max-sm:px-2 text-left align-middle border-b border-b-slate-200 ${LINE}`
 
 /** Cabecera sin filo derecho, pareja de CELL_FLUSH. */
 export const HEAD_CELL_FLUSH = 'h-10 px-3 text-left align-middle border-b border-b-slate-200'
