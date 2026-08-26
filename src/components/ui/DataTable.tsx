@@ -42,8 +42,56 @@ const LINE = 'border-r border-r-slate-100 last:border-r-0'
 
 export const TABLE = 'w-full table-fixed border-separate border-spacing-0'
 
+/* ---------------------------------------------------------------------------
+   COLUMNAS FIJAS: LA IDENTIDAD NO SE VA CON EL DESPLAZAMIENTO (Mario, ago 2026)
+   ---------------------------------------------------------------------------
+   La rejilla se desplaza a lo ancho (en móvil siempre, y en escritorio en cuanto
+   la ventana estrecha o el usuario ensancha una columna). Empujando a la
+   izquierda para llegar al teléfono o a la fecha se perdía de vista lo único que
+   dice de QUIÉN es esa fila, y con ello la casilla para cogerlo: la tabla pasaba
+   a ser una cuadrícula de datos sin dueño, y para seleccionar a alguien había que
+   volver atrás. Así que la casilla y el candidato se quedan quietos y el resto
+   pasa por debajo.
+
+   Las tres cosas que hay que respetar al usarlas:
+
+   1. UNA CELDA FIJA ES OPACA, SIEMPRE. Lo que se desliza por debajo se ve a
+      través de cualquier alfa, y el nombre acabaría leyéndose sobre un teléfono.
+      Por eso los fondos de fila de la rejilla son tokens opacos (ver
+      `--color-tabla-*` en index.css) y la celda fija pinta el MISMO que su fila:
+      dos mitades de la misma fila con dos colores es una costura.
+   2. EL `left` LO PONE LA PANTALLA, porque depende de sus columnas: 0 para la
+      primera, y el ancho de la casilla (40px) para el candidato que va detrás.
+   3. SIN SOMBRA. El filo entre columnas ya lo pintan las seis, así que el borde
+      de la fija no necesita anunciarse; ver `FIJA`.
+--------------------------------------------------------------------------- */
+
+/**
+ * Celda que no se mueve. El `left` lo pone quien la usa (ver la nota 2).
+ *
+ * Y no lleva sombra (Mario, ago 2026). Se probó la hermana horizontal de la
+ * cabecera pegajosa, encendida solo con la rejilla ya desplazada, y sobra: el filo
+ * que separa dos columnas ya está pintado en todas, así que el borde de la fija
+ * no necesita presentarse. Lo que se ahorra al quitarla no es solo la sombra:
+ * saber si la tabla está desplazada exigía un oyente de scroll, un estado y un
+ * `data-` en el envoltorio, todo ello para decorar un filo que ya existía.
+ */
+export const FIJA = 'sticky z-10'
+
+/**
+ * La transición de color de una fila.
+ *
+ * La exporta para que **una celda FIJA repita la de su fila**, y eso no es un
+ * detalle: la celda fija pinta su propio fondo (nota 1 de arriba), así que sin
+ * esto la mitad que se queda quieta cambia DE GOLPE mientras la que se desliza se
+ * funde en 150ms. Bajando el ratón por la lista, eso se lee como si la fila fuera
+ * por detrás del puntero, o sea exactamente igual que un tirón. Medido: la fila
+ * llevaba `background-color 0.15s` y la celda `all 0s`.
+ */
+export const TRANSICION_FILA = 'transition-colors duration-[var(--duration-control)]'
+
 /** Fila de datos. `group/row` deja que la última celda se quede sin filo inferior. */
-export const ROW = 'group/row h-14 transition-colors duration-[var(--duration-control)]'
+export const ROW = `group/row h-14 ${TRANSICION_FILA}`
 
 /**
  * Celda de datos.
@@ -67,17 +115,34 @@ export const CELL = `px-3 max-sm:px-2 align-middle border-b border-b-slate-100 g
 export const CELL_FLUSH = 'px-3 align-middle border-b border-b-slate-100 group-last/row:border-b-0'
 
 /**
- * Celda de cabecera. El filo inferior es más oscuro: cierra la banda.
+ * Celda de cabecera, SIN posición: la pone `ColHead`, que es quien sabe si la
+ * columna es fija (ver `HEAD_CELL_FLUSH_FIJA` para por qué no puede ir en la base).
+ * El filo inferior es más oscuro: cierra la banda.
  *
- * `relative` porque de ella cuelga el asa de ajustar el ancho, que se coloca
- * sobre su filo derecho. Va en la clase base y no solo en las que llevan asa:
- * `relative` sin nada posicionado dentro no cambia una sola medida, y tenerlo en
- * las dos formas evita que la cabecera se mueva un píxel según lleve asa o no.
+ * En reposo la posición es `relative`, porque de la cabecera cuelga el asa de
+ * ajustar el ancho, que se coloca sobre su filo derecho. Va en todas y no solo en
+ * las que llevan asa: `relative` sin nada posicionado dentro no cambia una sola
+ * medida, y tenerlo en las dos formas evita que la cabecera se mueva un píxel
+ * según lleve asa o no.
  */
-export const HEAD_CELL = `relative h-10 px-3 max-sm:px-2 text-left align-middle border-b border-b-slate-200 ${LINE}`
+const HEAD_BASE = `h-10 px-3 max-sm:px-2 text-left align-middle border-b border-b-slate-200 ${LINE}`
 
 /** Cabecera sin filo derecho, pareja de CELL_FLUSH. */
-export const HEAD_CELL_FLUSH = 'relative h-10 px-3 text-left align-middle border-b border-b-slate-200'
+const HEAD_BASE_FLUSH = 'h-10 px-3 text-left align-middle border-b border-b-slate-200'
+export const HEAD_CELL_FLUSH = `relative ${HEAD_BASE_FLUSH}`
+
+/**
+ * La misma cabecera sin filo, pero FIJA.
+ *
+ * Existe como constante propia en vez de pegarle `sticky` a la de arriba porque
+ * `relative` y `sticky` son la MISMA utilidad de Tailwind (`position`), y dos
+ * utilidades del mismo eje no se resuelven por el orden en que se escriben en el
+ * `className` sino por el que se emite en el CSS. La salida es siempre la misma:
+ * la variante que NO pone la que sobra. (El `relative` de la base está ahí para
+ * el asa de ajustar el ancho, y `sticky` posiciona igual de bien.)
+ */
+export const HEAD_CELL_FLUSH_FIJA = `${FIJA} ${HEAD_BASE_FLUSH}`
+
 
 /**
  * Fila de la MISMA lista en móvil, donde no hay rejilla que valga: por debajo de
@@ -161,6 +226,7 @@ export function ColHead({
   columna,
   ancho,
   asa,
+  fija,
 }: {
   icon?: LucideIcon
   children: string
@@ -190,8 +256,14 @@ export function ColHead({
   columna?: string
   /** Lo que hace ajustable esta columna. Sale de `useColumnasAjustables`. */
   asa?: AsaColumna
+  /**
+   * Posición de la cabecera cuando la columna es FIJA: `` `${FIJA} left-10` ``
+   * y compañía. Sustituye al `relative` de la base en vez de acompañarlo, porque
+   * son la misma utilidad (ver `HEAD_CELL_FLUSH_FIJA`).
+   */
+  fija?: string
 }) {
-  const base = flush ? HEAD_CELL_FLUSH : HEAD_CELL
+  const base = `${fija ?? 'relative'} ${flush ? HEAD_BASE_FLUSH : HEAD_BASE}`
   const active = sort?.active ?? false
   const inner = `flex w-full min-w-0 items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`
   const label = (

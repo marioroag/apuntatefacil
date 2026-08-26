@@ -5,9 +5,9 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { StatusSelect } from '../components/ui/StatusPill'
-import { ColHead, TABLE, ROW, CELL } from '../components/ui/DataTable'
+import { ColHead, TABLE, ROW, CELL, FIJA, TRANSICION_FILA } from '../components/ui/DataTable'
 import { CandidateModal } from './CandidateModal'
-import { relativeDate, formatPhone, candidateName } from '../lib/format'
+import { fechaCorta, fullDateTime, formatPhone, candidateName } from '../lib/format'
 import { clickDeFila } from '../lib/fila'
 import { MeridianAvatar } from '../components/Meridian'
 import { candidateFit } from '../lib/meridian'
@@ -80,6 +80,12 @@ const ListaCandidatos = memo(function ListaCandidatos({
   // que ajustar "Puesto" aquí no toca ninguna columna de allí aunque se llamen
   // igual. Apagado en móvil, por lo mismo.
   const { col, minTabla } = useColumnasAjustables('candidatos', orden, !esMovil)
+  // La columna del candidato se queda quieta mientras el resto pasa por debajo:
+  // sin ella, empujando a la izquierda para llegar al estado o a la fecha se
+  // pierde de vista de QUIÉN es la fila. Aquí no hay casilla de selección, así que
+  // la fija es una y va pegada al filo. En móvil no, como en el panel: allí lo que
+  // se queda quieto se lo quita a lo poco que se puede explorar (ver `DataTable`).
+  const fijaNombre = esMovil ? '' : `${FIJA} left-0`
   // El mínimo de cada columna sale de su contenido, igual que en el panel del
   // puesto y con los mismos números donde la columna es la misma.
   //
@@ -92,7 +98,13 @@ const ListaCandidatos = memo(function ListaCandidatos({
   // MAYORÍA, no todos a cualquier precio, porque cada píxel de más aquí sale de
   // la columna del candidato.
   const MINIMOS: Record<ColKeyCandidatos, number> = {
-    candidato: 208, puesto: 184, telefono: 111, estado: 152, recibida: 116,
+    candidato: 230, puesto: 184, telefono: 111, estado: 152, recibida: 128,
+  }
+  // El techo, con la regla del revés: hasta dónde deja de enseñar algo nuevo. Los
+  // mismos números que en el panel donde la columna es la misma; Puesto lleva 360
+  // porque su cápsula sí crece con el título (el más largo de la demo pide 205).
+  const MAXIMOS: Record<ColKeyCandidatos, number> = {
+    candidato: 360, puesto: 360, telefono: 180, estado: 240, recibida: 200,
   }
   // Suma EXACTA de lo que se pinta en movil. Candidato (196) y Estado (144) caben
   // juntos en los 341 de contenido de una pantalla de 375: quien es y en que
@@ -115,7 +127,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
         <table className={`min-w-[680px] ${TABLE}`} style={{ minWidth: esMovil ? anchoMovil : minTabla }}>
           <caption className="sr-only">{caption}</caption>
           <thead>
-            <tr className="bg-slate-50/60">
+            <tr className="bg-tabla-banda">
               {orden.map((k) => {
                 switch (k) {
                   case 'candidato':
@@ -123,15 +135,15 @@ const ListaCandidatos = memo(function ListaCandidatos({
                     // declara nadie (absorbe el sobrante, que es lo que hace crecer
                     // el nombre) y en movil se fija, porque alli el sobrante no
                     // existe y hay que dejarle sitio al estado.
-                    return <ColHead key={k} icon={User} className={esMovil ? 'w-[196px]' : ''} {...col(k, 'Candidato', MINIMOS.candidato)}>Candidato</ColHead>
+                    return <ColHead key={k} icon={User} className={esMovil ? 'w-[196px]' : ''} fija={fijaNombre || undefined} toneClass="bg-tabla-banda" {...col(k, 'Candidato', MINIMOS.candidato, MAXIMOS.candidato)}>Candidato</ColHead>
                   case 'puesto':
-                    return <ColHead key={k} icon={Briefcase} className={esMovil ? 'w-[180px]' : ''} {...col(k, 'Puesto', MINIMOS.puesto)}>Puesto</ColHead>
+                    return <ColHead key={k} icon={Briefcase} className={esMovil ? 'w-[180px]' : ''} {...col(k, 'Puesto', MINIMOS.puesto, MAXIMOS.puesto)}>Puesto</ColHead>
                   case 'telefono':
-                    return <ColHead key={k} icon={Phone} className="hidden w-[150px] lg:table-cell" {...col(k, 'Teléfono', MINIMOS.telefono)}>Teléfono</ColHead>
+                    return <ColHead key={k} icon={Phone} className="hidden w-[150px] lg:table-cell" {...col(k, 'Teléfono', MINIMOS.telefono, MAXIMOS.telefono)}>Teléfono</ColHead>
                   case 'estado':
-                    return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[148px]'} {...col(k, 'Estado', MINIMOS.estado)}>Estado</ColHead>
+                    return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[148px]'} {...col(k, 'Estado', MINIMOS.estado, MAXIMOS.estado)}>Estado</ColHead>
                   case 'recibida':
-                    return <ColHead key={k} icon={Clock} align="right" className="w-[116px]" {...col(k, 'Recibida', MINIMOS.recibida)}>Recibida</ColHead>
+                    return <ColHead key={k} icon={Clock} align="right" className="w-[116px]" {...col(k, 'Recibida', MINIMOS.recibida, MAXIMOS.recibida)}>Recibida</ColHead>
                 }
               })}
             </tr>
@@ -151,7 +163,10 @@ const ListaCandidatos = memo(function ListaCandidatos({
                     switch (k) {
                       case 'candidato':
                         return (
-                          <td key={k} className={CELL}>
+                          // El fondo es el de la fila y no puede no serlo: la
+                          // celda fija tapa lo que se desliza por debajo, así que
+                          // un tono distinto sería una costura vertical.
+                          <td key={k} className={`${CELL} ${fijaNombre} ${fijaNombre && `${TRANSICION_FILA} bg-white group-hover:bg-slate-50`}`}>
                             <div className="flex items-center gap-2.5">
                               <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={28} />
                               {/* UN BOTON DE VERDAD, no un `<span>` subrayado al
@@ -208,7 +223,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
                       case 'recibida':
                         return (
                           <td key={k} className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
-                            <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
+                            <time dateTime={c.submittedAt} title={fullDateTime(c.submittedAt)} className="num">{fechaCorta(c.submittedAt)}</time>
                           </td>
                         )
                     }

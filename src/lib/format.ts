@@ -20,6 +20,42 @@ export function relativeDate(iso: string, now = Date.now()): string {
   return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`
 }
 
+/**
+ * LA FECHA DE UNA COLUMNA: "Hoy", "Ayer" y, a partir de ahí, "19 Ago, 2026"
+ * (Mario, ago 2026).
+ *
+ * Es la hermana de `relativeDate` para cuando la fecha va SOLA, en su propia
+ * columna, y no metida en una frase. Por eso empieza en mayúscula y por eso no
+ * cuenta minutos ni horas: en una lista de candidaturas lo que se compara es el
+ * DÍA, y "hace 20 min" contra "hace 3 h" obliga a hacer la cuenta para saber si
+ * las dos son de hoy. La hora exacta no se pierde: va en el `title` de la celda y
+ * en el `datetime` del `<time>`.
+ *
+ * `relativeDate` se queda igual y sigue siendo la buena dentro de una frase
+ * ("Actualizado hace 2 h", "respondió ayer"): allí una mayúscula en medio se lee
+ * como un error, y ahí sí importan los minutos.
+ *
+ * El día se compara por CALENDARIO y no restando 86.400.000 milisegundos: en el
+ * cambio de hora de octubre un día dura 25, y "ayer" se convertiría en "hoy" para
+ * todo lo que hubiera entrado por la mañana.
+ */
+export function fechaCorta(iso: string, now = Date.now()): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const hoy = new Date(now)
+  hoy.setHours(0, 0, 0, 0)
+  const suyo = new Date(d)
+  suyo.setHours(0, 0, 0, 0)
+  if (suyo.getTime() === hoy.getTime()) return 'Hoy'
+  const ayer = new Date(hoy)
+  ayer.setDate(ayer.getDate() - 1)
+  if (suyo.getTime() === ayer.getTime()) return 'Ayer'
+  // El mes sale de `MESES` y se capitaliza aquí: una sola lista de meses en toda
+  // la app, y la mayúscula la pone quien la necesita.
+  const mes = MESES[d.getMonth()]
+  return `${d.getDate()} ${mes[0].toUpperCase()}${mes.slice(1)}, ${d.getFullYear()}`
+}
+
 export function fullDate(iso: string): string {
   const d = new Date(iso)
   const dd = String(d.getDate()).padStart(2, '0')

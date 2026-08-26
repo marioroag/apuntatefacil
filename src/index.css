@@ -103,6 +103,21 @@
   --color-lateral-hover: #f4f5f7;
   --color-lateral-activo: #edeff2;
 
+  /* --- FONDOS DE LA REJILLA (columnas fijas, ago 2026) ---------------------
+     UNA FILA QUE PUEDE QUEDARSE QUIETA NO SE PINTA CON ALFA. Con las dos primeras
+     columnas fijas, el resto de la fila se DESLIZA POR DEBAJO de ellas, y un
+     `bg-indigo-50/70` deja verlo pasar: el nombre del candidato se leería sobre su
+     propio teléfono. La celda fija tiene que ser opaca, y si es opaca no puede
+     casar con una hermana translúcida sin una costura en mitad de la fila.
+
+     Una capa translúcida sobre el blanco de la tarjeta ES un color: aquí está
+     compuesto y declarado, así que lo que se ve hoy no cambia ni un valor. Se pone
+     en la fila ENTERA y no solo en las celdas fijas, que es lo que garantiza que
+     las dos mitades no puedan separarse nunca. */
+  --color-tabla-banda: #fbfcfd;      /* era slate-50/60 (la banda de la cabecera) */
+  --color-tabla-selec: #f3f6fe;      /* era indigo-50/70 (fila seleccionada) */
+  --color-tabla-bloqueada: #fbfcfc;  /* era slate-50/70 (fila bloqueada) */
+
   /* --- "HAY ALGO NUEVO" (Mario, ago 2026) ----------------------------------
      TINTA. Y es la segunda vez que este punto cambia de color, así que quedan
      los dos argumentos escritos, que es lo que impide una tercera vuelta a

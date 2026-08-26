@@ -41,7 +41,7 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
-import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH } from '../components/ui/DataTable'
+import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, HEAD_CELL_FLUSH_FIJA, FIJA, TRANSICION_FILA } from '../components/ui/DataTable'
 import { useColumnasAjustables } from '../lib/columnas'
 import { Avatar } from '../components/ui/Avatar'
 import { useProfiles } from '../lib/profiles'
@@ -52,7 +52,7 @@ import { SedesDialog } from '../components/SedesDialog'
 import { CandidateModal } from './CandidateModal'
 import { exportCandidatesToExcel } from '../lib/export'
 import { RegistrarAccion } from '../lib/acciones'
-import { relativeDate, miles, formatPhone, candidateName } from '../lib/format'
+import { relativeDate, fechaCorta, fullDateTime, miles, formatPhone, candidateName } from '../lib/format'
 import { clickDeFila } from '../lib/fila'
 // El anillo de ajuste se queda en el avatar (Mario, jul 2026) y desde ago 2026 lo
 // acompaña la columna "Encaje", que dice en palabras lo que el anillo dice en arco:
@@ -1574,18 +1574,42 @@ const CandidateTable = memo(function CandidateTable({
   // número que valga para las seis: una fecha necesita la mitad que una pastilla
   // de estado. Son los anchos que Mario ajustó a ojo, y coinciden con lo medido
   // con Geist de verdad (el relleno de celda son 24, 12 por lado):
-  //   · candidato 208 = 24 + 28 de cara + 10 de hueco + 146 de nombre. El nombre y
-  //     el primer apellido más largos de la demo miden 122, así que a este ancho
-  //     no se corta ninguno.
+  //   · candidato 230 (Mario, ago 2026, ajustado mirándolo en el navegador). La
+  //     cuenta da 208 (24 + 28 de cara + 10 de hueco + el nombre y el primer
+  //     apellido del p90), pero a ese ancho el apellido roza el filo y las señales
+  //     que acompañan al nombre (estrella, cuenta de mensajes) lo empujan. Los 22
+  //     de más son el aire que hace que se lea como un nombre y no como un nombre
+  //     que casi no cabe. Es la excepción declarada a "el mínimo sale de la
+  //     cuenta": aquí la cuenta da el suelo y el ojo da el número.
   //   · encaje 113 = 24 + "Puede encajar" (85) y su glifo.
   //   · etiquetas 140 = 24 + la etiqueta más ancha del vocabulario demo (115).
   //   · telefono 111 = 24 + los nueve dígitos agrupados (87).
   //   · estado 152 = 24 + la pastilla más ancha MEDIDA, "Contactado" (128). Es el
   //     mismo 128 del que ya salieron los 144 de la columna en móvil.
-  //   · recibida 116 = su CABECERA (115), que aquí manda: "hace 3 días" solo pide
-  //     92, pero el nombre del campo con su icono y su glifo de orden pide más.
+  //   · recibida 128 = 24 + la FECHA MÁS ANCHA, que no es "Hoy" ni "Ayer" sino la
+  //     absoluta ("28 May, 2026", 101). Su cabecera con icono y glifo de orden
+  //     pide 116, o sea menos: aquí manda el dato, no el rótulo. Es el mínimo que
+  //     más veces se ha corregido (116 -> 120 -> 128) y siempre por lo mismo:
+  //     mirar lo que había en pantalla en vez de TODO lo que la columna puede
+  //     pintar. Los 101 salen de probar los DOCE meses, no el de hoy: "May" es
+  //     más ancho que "Ago", y en mayo la columna se habría quedado corta.
   const MINIMOS: Record<ColKey, number> = {
-    candidato: 208, encaje: 113, etiquetas: 140, telefono: 111, estado: 152, recibida: 116,
+    candidato: 230, encaje: 113, etiquetas: 140, telefono: 111, estado: 152, recibida: 128,
+  }
+  // Y SU TECHO, con la misma regla del revés: **hasta dónde la columna deja de
+  // enseñar algo nuevo**. Tres de las seis tienen contenido de tamaño fijo, así
+  // que pasado su ancho no aparece nada y solo le quitan sitio al nombre, que es
+  // lo único de la fila que crece sin límite:
+  //   · estado 240, y la pastilla más ancha mide 128: el resto es aire.
+  //   · telefono 180 para nueve dígitos que siempre ocupan lo mismo.
+  //   · recibida 200 para una fecha que como mucho es "19 ago 2026" (95).
+  //   · encaje 200 para tres etiquetas fijas, la mayor "Puede encajar" (104).
+  // Las otras dos sí crecen con los datos y llevan techo generoso, no ajustado:
+  //   · candidato 360 (el nombre entero más largo de la demo pide 241 con cara y
+  //     señales, pero los apellidos compuestos de otra empresa piden más).
+  //   · etiquetas 480 (la tira más ancha de la demo son 3 etiquetas y 317).
+  const MAXIMOS: Record<ColKey, number> = {
+    candidato: 360, encaje: 200, etiquetas: 480, telefono: 180, estado: 240, recibida: 200,
   }
   // Ancho mínimo de la tabla en móvil: la suma EXACTA de lo que se pinta. No vale
   // el 852 de escritorio, porque `table-fixed` reparte el sobrante entre las
@@ -1716,9 +1740,20 @@ const CandidateTable = memo(function CandidateTable({
   // <thead>: si la celda conservara su tinte, el contenido que pasa por debajo
   // se leería a través de dos capas y la banda dejaría de ser una superficie.
   const headTone = `transition-colors duration-[var(--duration-enter)] ease-[var(--ease-out)] motion-reduce:transition-none ${
-    headerStuck ? 'bg-transparent' : 'bg-slate-50/60'
+    headerStuck ? 'bg-transparent' : 'bg-tabla-banda'
   }`
   const sortFor = (k: SortKey) => ({ active: sort.key === k, dir: sort.dir, onToggle: () => onSort(k) })
+
+  // LAS DOS COLUMNAS FIJAS, Y EN MÓVIL NINGUNA (Mario, ago 2026).
+  //
+  // Allí la casilla y el nombre se llevan 204 de los 341 de contenido de una
+  // pantalla de 375, y en los 137 que quedan no cabe entera NI UNA de las columnas
+  // que vienen detrás: se exploraría el resto de la ficha por una rendija. En
+  // escritorio el sobrante siempre da para varias columnas, que es lo que hace que
+  // fijar sea ganar. Es el mismo corte que ya apaga el asa de ajustar el ancho.
+  const fijaCasilla = esMovil ? '' : `${FIJA} left-0`
+  // 40px: el ancho de la casilla, que es lo único que tiene delante.
+  const fijaNombre = esMovil ? '' : `${FIJA} left-10`
 
   return (
     <>
@@ -1764,7 +1799,7 @@ const CandidateTable = memo(function CandidateTable({
           }`}
         >
           <tr>
-            <th scope="col" className={`${HEAD_CELL_FLUSH} w-10 px-0 text-center leading-none ${headTone}`}>
+            <th scope="col" className={`${esMovil ? HEAD_CELL_FLUSH : `${HEAD_CELL_FLUSH_FIJA} left-0`} w-10 px-0 text-center leading-none ${headTone}`}>
               <Checkbox
                 className="translate-y-[1.5px]"
                 checked={allSel}
@@ -1785,17 +1820,17 @@ const CandidateTable = memo(function CandidateTable({
                   // lo que hace crecer el nombre al ensanchar) y en móvil se fija
                   // a 160, porque allí el sobrante no existe y lo que hace falta
                   // es dejarle sitio al estado.
-                  return <ColHead key={k} icon={User} className={esMovil ? 'w-[164px]' : ''} toneClass={headTone} sort={sortFor('nombre')} {...col(k, 'Candidato', MINIMOS.candidato)}>Candidato</ColHead>
+                  return <ColHead key={k} icon={User} className={esMovil ? 'w-[164px]' : ''} fija={fijaNombre || undefined} toneClass={headTone} sort={sortFor('nombre')} {...col(k, 'Candidato', MINIMOS.candidato, MAXIMOS.candidato)}>Candidato</ColHead>
                 case 'encaje':
-                  return showFit ? <ColHead key={k} icon={Sparkles} className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')} {...col(k, 'Encaje', MINIMOS.encaje)}>Encaje</ColHead> : null
+                  return showFit ? <ColHead key={k} icon={Sparkles} className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')} {...col(k, 'Encaje', MINIMOS.encaje, MAXIMOS.encaje)}>Encaje</ColHead> : null
                 case 'etiquetas':
-                  return showTags ? <ColHead key={k} icon={Tag} className="hidden xl:table-cell" toneClass={headTone} {...col(k, 'Etiquetas', MINIMOS.etiquetas)}>Etiquetas</ColHead> : null
+                  return showTags ? <ColHead key={k} icon={Tag} className="hidden xl:table-cell" toneClass={headTone} {...col(k, 'Etiquetas', MINIMOS.etiquetas, MAXIMOS.etiquetas)}>Etiquetas</ColHead> : null
                 case 'telefono':
-                  return <ColHead key={k} icon={Phone} className="w-[136px]" toneClass={headTone} {...col(k, 'Teléfono', MINIMOS.telefono)}>Teléfono</ColHead>
+                  return <ColHead key={k} icon={Phone} className="w-[136px]" toneClass={headTone} {...col(k, 'Teléfono', MINIMOS.telefono, MAXIMOS.telefono)}>Teléfono</ColHead>
                 case 'estado':
-                  return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[168px]'} toneClass={headTone} sort={sortFor('estado')} {...col(k, 'Estado', MINIMOS.estado)}>Estado</ColHead>
+                  return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[168px]'} toneClass={headTone} sort={sortFor('estado')} {...col(k, 'Estado', MINIMOS.estado, MAXIMOS.estado)}>Estado</ColHead>
                 case 'recibida':
-                  return <ColHead key={k} icon={Clock} className="w-[124px]" align="right" toneClass={headTone} sort={sortFor('fecha')} {...col(k, 'Recibida', MINIMOS.recibida)}>Recibida</ColHead>
+                  return <ColHead key={k} icon={Clock} className="w-[124px]" align="right" toneClass={headTone} sort={sortFor('fecha')} {...col(k, 'Recibida', MINIMOS.recibida, MAXIMOS.recibida)}>Recibida</ColHead>
               }
             })}
           </tr>
@@ -1811,8 +1846,8 @@ const CandidateTable = memo(function CandidateTable({
             {lockedDates.map((date, i) => (
               // Sin `group/row`: estas filas nunca son la última de la tabla (debajo
               // vienen las reales), así que conservan su filo inferior siempre.
-              <tr key={`locked-${i}`} className="h-14 bg-slate-50/70">
-                <td className={`${CELL_FLUSH} px-0 text-center leading-none`}>
+              <tr key={`locked-${i}`} className="h-14 bg-tabla-bloqueada">
+                <td className={`${CELL_FLUSH} ${fijaCasilla} ${fijaCasilla && 'bg-tabla-bloqueada'} px-0 text-center leading-none`}>
                   <div aria-hidden className="mx-auto size-4 rounded-[5px] border border-slate-300 bg-white blur-[4px] select-none" />
                 </td>
                 {/* Las mismas celdas y en el MISMO orden que una fila real: las
@@ -1821,7 +1856,7 @@ const CandidateTable = memo(function CandidateTable({
                   switch (k) {
                     case 'candidato':
                       return (
-                        <td key={k} className={CELL}>
+                        <td key={k} className={`${CELL} ${fijaNombre} ${fijaNombre && 'bg-tabla-bloqueada'}`}>
                           <span aria-hidden className="block truncate text-[14px] font-medium text-slate-700 blur-[4px] select-none">Candidatura bloqueada</span>
                         </td>
                       )
@@ -1854,7 +1889,7 @@ const CandidateTable = memo(function CandidateTable({
                     case 'recibida':
                       return (
                         <td key={k} className={`${CELL} whitespace-nowrap text-right`}>
-                          <time dateTime={date} aria-hidden className="num text-[13px] text-slate-500 blur-[4px] select-none">{relativeDate(date)}</time>
+                          <time dateTime={date} aria-hidden className="num text-[13px] text-slate-500 blur-[4px] select-none">{fechaCorta(date)}</time>
                         </td>
                       )
                   }
@@ -1866,6 +1901,13 @@ const CandidateTable = memo(function CandidateTable({
         <tbody>
           {rows.map((c) => {
             const sel = selected.has(c.id)
+            // El fondo de las dos celdas FIJAS. Es el mismo de la fila y no puede
+            // no serlo: la fila lo necesita para pintarse y ellas para tapar lo
+            // que se desliza por debajo, así que un tono distinto sería una
+            // costura vertical en mitad de cada candidato.
+            // Con la transición de la fila: la celda fija pinta su propio fondo,
+            // y sin ella salta mientras el resto se funde (ver `TRANSICION_FILA`).
+            const fondoFila = esMovil ? '' : `${TRANSICION_FILA} ${sel ? 'bg-tabla-selec' : 'bg-white group-hover:bg-slate-50'}`
             const name = candidateName(c) || 'Sin nombre'
             const arrivedAt = arrivalOrder.get(c.id)
             const hasTags = c.tagIds.some((id) => tags.some((tag) => tag.id === id))
@@ -1876,11 +1918,11 @@ const CandidateTable = memo(function CandidateTable({
                   ? { animation: `drop-in 240ms var(--ease-out) ${Math.min(arrivedAt, 4) * 45}ms both` }
                   : undefined}
                 onClick={(e) => clickDeFila(e) && onOpen(c.id)}
-                className={`${ROW} group cursor-pointer ${sel ? 'bg-indigo-50/70' : 'hover:bg-slate-50'}`}
+                className={`${ROW} group cursor-pointer ${sel ? 'bg-tabla-selec' : 'hover:bg-slate-50'}`}
               >
                 {/* La ÚNICA celda que no abre la ficha, y a propósito: es la zona de
                     puntería de su checkbox, no un hueco de la fila (ver lib/fila.ts). */}
-                <td className={`${CELL_FLUSH} relative px-0 text-center leading-none`} onClick={(e) => e.stopPropagation()}>
+                <td className={`${CELL_FLUSH} ${fijaCasilla} ${fondoFila} px-0 text-center leading-none`} onClick={(e) => e.stopPropagation()}>
                   <Checkbox
                     className="translate-y-[1.5px]"
                     checked={sel}
@@ -1892,7 +1934,7 @@ const CandidateTable = memo(function CandidateTable({
                   switch (k) {
                     case 'candidato':
                       return (
-                        <td key={k} className={CELL}>
+                        <td key={k} className={`${CELL} ${fijaNombre} ${fondoFila}`}>
                           <div className="flex items-center gap-2.5">
                             <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={28} />
                             <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -1948,7 +1990,7 @@ const CandidateTable = memo(function CandidateTable({
                     case 'recibida':
                       return (
                         <td key={k} className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
-                          <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
+                          <time dateTime={c.submittedAt} title={fullDateTime(c.submittedAt)} className="num">{fechaCorta(c.submittedAt)}</time>
                         </td>
                       )
                   }

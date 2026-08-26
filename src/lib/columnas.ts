@@ -72,6 +72,14 @@ const CLAVE = 'apuntatefacil.columnas.v1'
 export const ANCHO_MINIMO = 72
 
 /**
+ * Techo de última instancia. Como el suelo, el bueno lo declara cada pantalla:
+ * **el máximo de una columna es el punto donde deja de enseñar algo nuevo.** Una
+ * pastilla de estado mide siempre lo mismo, así que darle 600px no revela nada y
+ * sí se los quita al nombre, que es lo único de la fila que crece sin techo.
+ */
+export const ANCHO_MAXIMO = 640
+
+/**
  * Clave reservada: lo que ocupan las cabeceras que NO son columnas de datos y por
  * lo tanto no se ajustan (hoy solo la de la casilla de selección, de 40px). Entra
  * en el suelo de la tabla porque ocupa sitio igual; no puede chocar con el id de
@@ -108,6 +116,7 @@ function escribir(g: Guardado) {
 export type AsaColumna = {
   nombre: string
   min: number
+  max: number
   onPointerDown: (e: React.PointerEvent<HTMLElement>) => void
   onPointerMove: (e: React.PointerEvent<HTMLElement>) => void
   onPointerUp: (e: React.PointerEvent<HTMLElement>) => void
@@ -129,7 +138,18 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
   const [anchos, setAnchos] = useState<Record<string, number>>(() => (activo ? leer()[tablaId] ?? {} : {}))
   // El arrastre vive en una ref y no en el estado: nada de lo que pasa mientras
   // se arrastra tiene que provocar un render (ver la decisión 1 de arriba).
-  const arrastre = useRef<{ th: HTMLElement; key: string; min: number; x0: number; w0: number } | null>(null)
+  const arrastre = useRef<{
+    th: HTMLElement
+    /** La tabla, para mover su suelo A LA VEZ que la columna (ver `alMover`). */
+    tabla: HTMLElement | null
+    key: string
+    min: number
+    max: number
+    x0: number
+    w0: number
+    /** El suelo de la tabla al empezar, para irlo recalculando sin pasar por el estado. */
+    min0: number
+  } | null>(null)
   // Espejo de `anchos` para poder leerlos y encadenarlos SIN pasar por el estado.
   // Hace dos cosas que el estado solo no puede: deja calcular el siguiente valor
   // fuera del updater (guardar en `localStorage` dentro de él sería un efecto
@@ -176,7 +196,9 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
     (th: HTMLElement) => {
       const fila = th.parentElement
       if (!fila) return
+      const ultima = ordenRef.current[ordenRef.current.length - 1]
       const next = { ...anchosRef.current }
+      const celdas: HTMLElement[] = []
       let cambio = false
       let fijo = 0
       fila.querySelectorAll<HTMLElement>('th').forEach((el) => {
@@ -188,6 +210,7 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
           fijo += w
           return
         }
+        celdas.push(el)
         if (next[k] !== undefined) return
         const min = minimosRef.current[k] ?? ANCHO_MINIMO
         // Ancho 0 = escondida por media query. Se congela a su MÍNIMO y no se
@@ -199,6 +222,19 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
       })
       if (!cambio) return
       next[FIJO] = fijo
+
+      // Y SE APLICAN AL DOM AQUÍ MISMO, sin esperar al render que trae el estado.
+      //
+      // El arrastre empieza en este mismo gesto y pinta escribiendo estilos a
+      // mano; si la mitad de las columnas todavía se están repartiendo el hueco
+      // como antes, durante todo el primer arrastre se ve una cosa y al comitir
+      // otra. Pasó de las dos formas posibles: la última pegaba un saltito de 4px
+      // al final, y al arreglar eso pasó a flotar en 198 en vez de quedarse en su
+      // mínimo, porque era la única declarada entre dos columnas elásticas.
+      for (const el of celdas) {
+        const k = el.dataset.columna!
+        el.style.width = k === ultima ? 'auto' : `${next[k]}px`
+      }
       anchosRef.current = next
       setAnchos(next)
       const g = leer()
@@ -223,9 +259,15 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
   }, [tablaId])
 
   const asaDe = useCallback(
-    (key: string, nombre: string, min: number): Omit<AsaColumna, 'onPointerMove' | 'onPointerUp' | 'onPointerCancel'> => ({
+    (
+      key: string,
+      nombre: string,
+      min: number,
+      max: number,
+    ): Omit<AsaColumna, 'onPointerMove' | 'onPointerUp' | 'onPointerCancel'> => ({
       nombre,
       min,
+      max,
       onPointerDown: (e) => {
         // Solo el botón principal: con el secundario se abre el menú del sistema
         // y el arrastre se quedaría enganchado sin que nadie suelte.
@@ -234,7 +276,30 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
         if (!th) return
         e.preventDefault()
         congelar(th)
-        arrastre.current = { th, key, min, x0: e.clientX, w0: th.getBoundingClientRect().width }
+        // El suelo de la tabla AHORA, leído de la ref (que `congelar` acaba de
+        // dejar al día) y no del estado, que todavía no ha comitido.
+        const ult = ordenRef.current[ordenRef.current.length - 1]
+        const min0 = ordenRef.current.reduce(
+          (t, k) =>
+            t + (k === ult ? (minimosRef.current[k] ?? ANCHO_MINIMO) : (anchosRef.current[k] ?? 0)),
+          anchosRef.current[FIJO] ?? 0,
+        )
+        const w0 = th.getBoundingClientRect().width
+        arrastre.current = {
+          th,
+          tabla: th.closest('table'),
+          key,
+          min,
+          // EL TECHO NUNCA ESTÁ POR DEBAJO DE DONDE EMPIEZAS. Si la columna ya
+          // venía más ancha que su máximo (el reparto natural se lo dio, con la
+          // ventana grande), sujetarla al máximo la encogería de golpe al primer
+          // píxel de arrastre. Así se puede estrechar pero no seguir creciendo,
+          // que es lo que el máximo quiere decir.
+          max: Math.max(max, Math.round(w0)),
+          x0: e.clientX,
+          w0,
+          min0,
+        }
         // La captura es lo que hace que el arrastre siga funcionando cuando el
         // puntero se sale de la tabla, que es justo lo que pasa al estrechar. Va
         // en un try: si el navegador no reconoce ese puntero, lanza, y perder la
@@ -254,7 +319,7 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
         const paso = e.shiftKey ? PASO_LARGO : PASO
         if (e.key === 'ArrowRight') {
           e.preventDefault()
-          guardar(key, actual + paso)
+          guardar(key, Math.min(Math.max(max, actual), actual + paso))
         } else if (e.key === 'ArrowLeft') {
           e.preventDefault()
           guardar(key, Math.max(min, actual - paso))
@@ -272,9 +337,19 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
   const alMover = useCallback((e: React.PointerEvent<HTMLElement>) => {
     const a = arrastre.current
     if (!a) return
-    const ancho = Math.max(a.min, Math.round(a.w0 + (e.clientX - a.x0)))
+    const ancho = Math.min(a.max, Math.max(a.min, Math.round(a.w0 + (e.clientX - a.x0))))
     // Directo al DOM: ver la decisión 1. El estado se entera al soltar.
     a.th.style.width = `${ancho}px`
+    // Y EL SUELO DE LA TABLA SE MUEVE CON ÉL, en el mismo fotograma.
+    //
+    // Sin esto, ensanchar una columna estrujaba a la última por debajo de su
+    // mínimo durante todo el arrastre (la tabla no podía crecer, porque su suelo
+    // solo se recalculaba al comitir el estado) y al soltar la última PEGABA UN
+    // SALTO de vuelta a su mínimo. Mario lo describió exacto: brusco, y no es lo
+    // que el usuario está pidiendo hacer. Moviendo los dos a la vez, la última se
+    // queda clavada en su mínimo y lo que crece es la tabla, de forma continua;
+    // al soltar, el estado calcula este mismo número y no se mueve nada.
+    if (a.tabla) a.tabla.style.minWidth = `${a.min0 - a.w0 + ancho}px`
   }, [])
 
   const alSoltar = useCallback(
@@ -309,9 +384,11 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
       nombre: string,
       /** Su suelo, en píxeles. Lo declara la pantalla porque sale de su CONTENIDO. */
       minimo = ANCHO_MINIMO,
+      /** Su techo. También sale del contenido: hasta dónde enseña algo nuevo. */
+      maximo = ANCHO_MAXIMO,
     ): { columna: string; ancho?: number | 'auto'; asa?: AsaColumna } => {
-      const ultima = orden[orden.length - 1] === key
       minimosRef.current[key] = minimo
+      const esUltima = orden[orden.length - 1] === key
       return {
         // Lo lee `congelar` para encontrar las hermanas de esta columna.
         columna: key,
@@ -320,10 +397,10 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
         // sin ancho declarado es la que absorbe. Su suelo lo pone el `min-w-*`
         // que la pantalla declara a su lado, así que estrujar las demás acaba
         // sacando el desplazamiento horizontal en vez de matar la fecha.
-        ancho: ultima ? (congelado ? 'auto' : undefined) : anchos[key],
+        ancho: esUltima ? (congelado ? 'auto' : undefined) : anchos[key],
         asa:
-          activo && !ultima
-            ? { ...asaDe(key, nombre, minimo), onPointerMove: alMover, onPointerUp: alSoltar, onPointerCancel: alSoltar }
+          activo && !esUltima
+            ? { ...asaDe(key, nombre, minimo, maximo), onPointerMove: alMover, onPointerUp: alSoltar, onPointerCancel: alSoltar }
             : undefined,
       }
     },
@@ -331,13 +408,30 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
   )
 
   /**
-   * El suelo de la tabla: la suma de lo congelado. Es lo que impide que estrujar
-   * una columna mate a la última, y lo que hace aparecer el desplazamiento
-   * horizontal cuando de verdad ya no cabe. `undefined` mientras nadie haya
-   * tocado nada, que es cuando manda el `min-w-*` de la propia tabla.
+   * El suelo de la tabla: lo que miden las columnas congeladas más **el MÍNIMO de
+   * la última**, no lo que la última mida ahora.
+   *
+   * Es lo que hace que la última tenga suelo de verdad: mientras quepa, absorbe;
+   * cuando llega a su mínimo, la tabla deja de encoger y empieza a DESPLAZARSE,
+   * en vez de seguir estrujándola hasta que su dato no se lee (Mario, ago 2026).
+   *
+   * Y es su mínimo DECLARADO y no el ancho que tenía al congelarse, que es lo que
+   * había y estaba mal: congelando con la ventana ancha, la última se quedaba con
+   * un suelo de 200px que ya no había forma de repartir, y la tabla empezaba a
+   * desplazarse mucho antes de hacer falta. El suelo de una columna es una
+   * propiedad de su contenido, no de en qué momento la tocaste por primera vez.
+   *
+   * `minimosRef` lo llena `col()` al pintar, o sea DESPUÉS de esta línea. No es un
+   * problema: `congelado` solo se pone a true al soltar un arrastre, y para
+   * entonces la tabla ya se ha pintado entera al menos una vez. Mientras es false,
+   * esto vale `undefined` y manda el `min-w-*` de la propia tabla.
    */
+  const ultima = orden[orden.length - 1]
   const minTabla = congelado
-    ? orden.reduce((t, k) => t + (anchos[k] ?? 0), anchos[FIJO] ?? 0) || undefined
+    ? orden.reduce(
+        (t, k) => t + (k === ultima ? (minimosRef.current[k] ?? ANCHO_MINIMO) : (anchos[k] ?? 0)),
+        anchos[FIJO] ?? 0,
+      ) || undefined
     : undefined
 
   return { col, minTabla }
