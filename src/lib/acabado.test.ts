@@ -293,7 +293,18 @@ describe('las decisiones de acabado tienen nombre', () => {
   it('toda transición declara qué anima', () => {
     // `transition` a secas anima TODAS las propiedades, incluidas las de layout, y
     // eso produce los arrastres de un pixel al pasar el ratón.
-    const fallos = buscar(/(?<![\w-])transition(?![-\w])(?!\s*[:=])/g, (f) => !f.ruta.includes('Builder'))
+    //
+    // Los dos descartes son de JAVASCRIPT, no de clases, y son precisos a
+    // propósito: dnd-kit devuelve una variable llamada `transition` y se pasa tal
+    // cual al `style` (`{ transform, transition }`), o sea que aparece seguida de
+    // una coma al desestructurarla y de una llave al colocarla. Una clase de
+    // verdad nunca acaba así: cierra con comilla o con acento grave. Esto lo tapaba una
+    // excepción por FICHERO (`!ruta.includes('Builder')`), que silenciaba el
+    // fichero entero: un `transition` desnudo de verdad ahí dentro no lo habría
+    // visto nadie. Con el descarte pegado a la forma, el guardián vuelve a mirar
+    // el Builder y cubre a la vez al panel de ajustes de la vista, que usa la
+    // misma librería.
+    const fallos = buscar(/(?<![\w-])transition(?![-\w])(?!\s*[:=,}])/g)
 
     expect(
       fallos,

@@ -2,12 +2,15 @@ import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMem
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  AlignLeft,
   ArrowUpRight,
   Briefcase,
   Bell,
   BellOff,
   Building2,
+  CalendarDays,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -16,15 +19,18 @@ import {
   Copy,
   Download,
   Eye,
+  Hash,
   Inbox,
+  List,
   ListFilter,
   Lock,
+  Mail,
   MailCheck,
   MoreHorizontal,
+  Paperclip,
   PenLine,
   Phone,
   Plus,
-  RefreshCw,
   Search,
   SearchX,
   Settings2,
@@ -41,12 +47,17 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
+import type { LucideIcon } from 'lucide-react'
 import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, HEAD_CELL_FLUSH_FIJA, FIJA, TRANSICION_FILA } from '../components/ui/DataTable'
+import { createPortal } from 'react-dom'
+import { colocarFlotante } from '../lib/flotante'
 import { useColumnasAjustables } from '../lib/columnas'
+import { useVistaTabla, type ColumnaVista } from '../lib/vistaTabla'
+import { AjustesVista, type OpcionOrden } from '../components/AjustesVista'
 import { DUR, EASE } from '../lib/motion'
 import { Avatar } from '../components/ui/Avatar'
 import { useProfiles } from '../lib/profiles'
-import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
+import { StatusSelect, StatusPickerSheet, MenuEstado } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { SedesDialog } from '../components/SedesDialog'
@@ -62,6 +73,7 @@ import { clickDeFila } from '../lib/fila'
 import { MeridianAvatar, FitLabel } from '../components/Meridian'
 import { candidateFit, hasMeridian } from '../lib/meridian'
 import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
+import { TIPOS_ORDENABLES } from '../lib/types'
 import type { Campaign, Candidate, CandidateInterestState, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
 import { PRECIO_PROCESO, PRUEBA_CANDIDATOS, PRUEBA_DIAS, TAGS_ENABLED } from '../lib/pricing'
 import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
@@ -74,7 +86,7 @@ import { useEsMovil } from '../lib/media'
 import { ChipDimension, MenuAnadirFiltro, type DimensionFiltro } from '../components/FiltroChip'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
-import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SOBRE_OSCURO_SM, botonIcono } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SUPERFICIE, botonIcono } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
 import { supabase } from '../lib/supabase'
 import { searchScore } from '../lib/search'
@@ -88,6 +100,33 @@ function answerStr(c: Candidate, fieldId: string): string {
   if (typeof v === 'boolean') return v ? 'Sí' : 'No'
   if (Array.isArray(v)) return v.join(', ')
   return String(v)
+}
+
+/** El campo del formulario detrás de una clave `campo:<id>`, si lo es. */
+function campoDeClave(campaign: Campaign | undefined, key: string): FormField | undefined {
+  if (!campaign || !key.startsWith('campo:')) return undefined
+  return campaign.fields.find((f) => `campo:${f.id}` === key)
+}
+
+/** ¿La columna es una pregunta de Sí/No? Decide hacia dónde ordena el primer click. */
+function esBooleano(campaign: Campaign | undefined, key: string): boolean {
+  return campoDeClave(campaign, key)?.type === 'boolean'
+}
+
+/**
+ * La respuesta de un campo ORDENABLE, como número, o `null` si no contestó.
+ *
+ * `null` no es cero, y la diferencia importa: quien no ha contestado se va
+ * siempre al final de la lista (ver el comparador), en vez de amontonarse con
+ * los que dijeron "No" o pusieron un 0.
+ */
+function valorOrdenable(c: Candidate, f: FormField | undefined): number | null {
+  if (!f) return null
+  const v = c.answers[f.id]
+  if (v === undefined || v === null || v === '') return null
+  if (f.type === 'boolean') return v ? 1 : 0
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
 }
 
 function filterableFields(campaign: Campaign): FormField[] {
@@ -104,7 +143,7 @@ const SIN_FECHAS: string[] = []
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany, setStatusMany } = useStore()
   const { company, role, user } = useAuth()
   const profiles = useProfiles()
   const toast = useToast()
@@ -285,11 +324,18 @@ export function Dashboard() {
   // los demás manejadores, porque son hooks: por debajo está el `return` temprano del
   // puesto no encontrado y ahí ya no se pueden llamar.
   const toggleSort = useCallback((key: SortKey) =>
-    // Al elegir una columna nueva empieza ascendente, salvo Encaje: ahí lo que se
-    // pide al pulsar es "enséñame primero a quien encaja", no al revés.
+    // Al elegir una columna nueva empieza ascendente, salvo dos casos, y los dos
+    // por el mismo motivo: el primer click tiene que dar lo que se estaba
+    // pidiendo. En Encaje eso es "enséñame primero a quien encaja"; en una
+    // pregunta de Sí/No, los que dijeron que SÍ (que es a quien buscas cuando
+    // pulsas "¿Tienes carnet?"). Los números se quedan en ascendente, que es la
+    // convención neutra: en unos más es mejor y en otros peor, y adivinarlo por
+    // el nombre de la pregunta sería inventarse una intención.
     setSort((s) => (s.key === key
       ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
-      : { key, dir: key === 'encaje' ? 'desc' : 'asc' })), [])
+      : { key, dir: key === 'encaje' || esBooleano(campaign, key) ? 'desc' : 'asc' })), [campaign])
+
+  
   const openLockedDialog = useCallback(() => setLockedDialogOpen(true), [])
 
   // Duplicar el puesto: crea una copia (campos, apariencia y datos), sin candidatos,
@@ -433,6 +479,42 @@ export function Dashboard() {
   // debajo está el `return` temprano del puesto no encontrado. Lo cazó
   // `hooks.test.ts` al devolver el conmutador.
   const nRechazados = useMemo(() => all.filter((c) => c.status === 'descartado').length, [all])
+
+  // AJUSTES DE LA VISTA (el engranaje de la fila de herramientas). Vive aquí
+  // arriba porque son HOOKS y por debajo está el `return` temprano del puesto no
+  // encontrado, que es la trampa que `hooks.test.ts` ya ha cazado tres veces.
+  //
+  // Las columnas DISPONIBLES no son las declaradas: Encaje solo existe si el plan
+  // trae Meridian y Etiquetas solo si la empresa tiene vocabulario. Se filtran
+  // aquí, así que el panel no puede ofrecer una columna que la tabla no pintaría.
+  const columnasDisponibles = useMemo<ColumnaVista<ColKey>[]>(() => {
+    const conMeridian = hasMeridian(company?.plan)
+    const conEtiquetas = TAGS_ENABLED && tags.length > 0
+    const base = COLUMNAS.filter((c) => (c.key === 'encaje' ? conMeridian : c.key === 'etiquetas' ? conEtiquetas : true))
+    // Las del producto primero y las de este puesto después: son las únicas que
+    // cambian de un puesto a otro, así que puestas en medio moverían de sitio a
+    // las que sí están siempre.
+    return [...base, ...COLUMNAS_DE(campaign)]
+  }, [company?.plan, tags.length, campaign])
+  const vistaTabla = useVistaTabla('puesto', columnasDisponibles)
+  // El estado que comparten TODOS los marcados, o null si hay mezcla: es lo que
+  // decide si el menú de estado de la barra marca alguno. Con mezcla no se marca
+  // ninguno, porque señalar uno diría que los demás también lo tienen.
+  //
+  // Vive aquí arriba porque es un HOOK y por debajo está el `return` temprano del
+  // puesto no encontrado. Se escribió abajo, junto a `exitSelect`, que es donde
+  // pedía el cuerpo, y lo cazó `hooks.test.ts` a la primera.
+  const estadoComun = useMemo(() => {
+    const marcados = all.filter((c) => selected.has(c.id))
+    if (!marcados.length) return null
+    const primero = marcados[0].status
+    return marcados.every((c) => c.status === primero) ? primero : null
+  }, [all, selected])
+  // El orden por defecto no es un dato suelto: es lo que decide si "Restablecer"
+  // se puede pulsar y si, buscando, manda la relevancia (ver `sorted`).
+  const ordenPorDefecto = sort.key === ORDEN_INICIAL.key && sort.dir === ORDEN_INICIAL.dir
+  const ordenar = useCallback((key: string, dir: 'asc' | 'desc') => setSort({ key: key as SortKey, dir }), [])
+  const restablecerOrden = useCallback(() => setSort(ORDEN_INICIAL), [])
   // "Actualizado hace X": la candidatura más reciente. El puesto no guarda un
   // `updatedAt` y no se inventa uno; lo que se pregunta en la cabecera es cuándo
   // fue la última vez que aquí pasó algo, y eso es que entró alguien.
@@ -588,6 +670,19 @@ export function Dashboard() {
           // no es "el peor encaje", y colarlo arriba al invertir sería mentir.
           if (fa == null || fb == null) return fa == null ? (fb == null ? 0 : 1) : -1
           cmp = fa - fb
+        }
+        else if (sort.key.startsWith('campo:')) {
+          // Una respuesta de Sí/No o de número (ver `TIPOS_ORDENABLES`). Las dos
+          // se comparan como número, que es lo que las hace ordenables: un Sí es
+          // un 1 y un No un 0.
+          const f = campoDeClave(campaign, sort.key)
+          const va = valorOrdenable(a, f)
+          const vb = valorOrdenable(b, f)
+          // MISMA REGLA QUE EL ENCAJE: quien no ha contestado va SIEMPRE al final,
+          // se ordene como se ordene. "No lo dijo" no es "un cero", y colarlo
+          // arriba al invertir el orden sería inventarle una respuesta.
+          if (va == null || vb == null) return va == null ? (vb == null ? 0 : 1) : -1
+          cmp = va - vb
         }
         else cmp = a.submittedAt.localeCompare(b.submittedAt)
         return sort.dir === 'asc' ? cmp : -cmp
@@ -1029,11 +1124,6 @@ export function Dashboard() {
               onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
               onDuplicate={handleDuplicate}
               duplicating={duplicating}
-              onRefresh={async () => {
-                const r = await refresh()
-                if (r.message) r.ok ? toast.show(r.message) : toast.error(r.message)
-              }}
-              refreshing={refreshing}
               onDelete={() => setConfirmDelete(true)}
             />
           </div>
@@ -1087,13 +1177,28 @@ export function Dashboard() {
 
           {/* 3 · EN QUÉ MITAD DE LA LISTA ESTÁS. Solo en escritorio: en móvil no
               cabe en la fila y, si no se ve, tampoco filtra (ver `vista`). */}
+          {/* AJUSTES DE LA VISTA, el último de la fila y a la derecha del
+              conmutador: primero se decide QUÉ lista miras (filtros, buscador,
+              mitad) y al final cómo se te presenta. Solo en escritorio, como el
+              conmutador y como el asa de ajustar anchos: en móvil los anchos
+              están medidos al píxel y el orden de las columnas es otro a
+              propósito, así que ahí no hay nada que elegir. */}
           {!esMovil && (
-            <div className="order-3 flex shrink-0 sm:order-4">
+            <div className="order-3 flex shrink-0 items-center gap-2 sm:order-4">
               <SwitchVista
                 vista={vista}
                 onChange={setVista}
                 nActivos={all.length - nRechazados}
                 nRechazados={nRechazados}
+              />
+              <AjustesVista
+                ordenes={ordenesDe(campaign, showFit)}
+                sort={sort}
+                onOrdenar={ordenar}
+                ordenPorDefecto={ordenPorDefecto}
+                onRestablecerOrden={restablecerOrden}
+                vista={vistaTabla}
+                buscando={q.length > 0}
               />
             </div>
           )}
@@ -1218,6 +1323,8 @@ export function Dashboard() {
             <CandidateTable
               campaign={campaign}
               showFit={showFit}
+              canManageTags={canManageTags}
+              columnas={vistaTabla.visibles}
               rows={filtered}
               justArrived={justArrived}
               lockedDates={showLockedRows ? lockedDates : SIN_FECHAS}
@@ -1382,59 +1489,105 @@ export function Dashboard() {
             // centrada contra la ventana, quedaría descentrada contra la lista.
             className="pointer-events-none fixed inset-x-0 bottom-0 z-40 hidden justify-center px-4 pb-4 sm:flex lg:left-64"
           >
-            {/* NEGRA, y solo en escritorio (Mario, ago 2026). Blanca era otra tarjeta
-                blanca flotando sobre una tabla blanca: se apoyaba entera en la
-                sombra para separarse, y encima competía con las filas que tenía
-                debajo. En tinta se lee como lo que es, una capa POR ENCIMA de la
-                pantalla, y se encuentra sin buscarla.
+            {/* UN SOLO OBJETO SEGMENTADO (Mario, ago 2026, con una referencia de
+                la competencia: "usemos este organizador"). Eran botones sueltos
+                con hueco entre ellos dentro de una caja negra, o sea cinco cosas
+                flotando; ahora es UNA pieza partida en tramos por filos de 1px, y
+                cada tramo ocupa el alto entero. Lo que cambia no es el adorno: un
+                grupo de botones separados invita a leerlos uno a uno, y una barra
+                segmentada se lee de un vistazo como "esto es lo que puedes hacer
+                con lo que has marcado".
 
-                Y por eso se va el `filo`: un hairline claro alrededor de una caja
-                negra sería un contorno, no un canto. La regla de "el filo hace la
-                profundidad y la sombra la confirma" es para una superficie clara
-                sobre fondo claro, que es donde hace falta ayudar al ojo; aquí el
-                borde ES el salto de color, que es todo el contraste que hay. */}
-            <div className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-xl bg-slate-900 p-2 pl-3.5 shadow-pop">
-              <span className="num text-[13px] font-semibold text-white">
+                EL RECUENTO ABRE Y LA EQUIS VA PEGADA A ÉL, no al otro extremo: la
+                equis no es una acción sobre los candidatos, es deshacer la
+                SELECCIÓN, así que su sitio es junto a lo que dice cuántos hay. Al
+                final de la fila se leía como una cuarta acción más.
+
+                DEL COLOR DE LA MARCA, y solo en escritorio (Mario, ago 2026).
+                Blanca era otra tarjeta blanca sobre una tabla blanca: se apoyaba
+                entera en la sombra y competía con las filas de debajo. Pasó por
+                tinta y acabó en ultramarine, que es lo que dice lo que esta barra
+                ES: **hay algo seleccionado**, y seleccionar es uno de los cuatro
+                usos del acento, junto con la acción, el foco y la navegación. La
+                fila marcada ya se tiñe de lo mismo, así que la barra y lo que
+                gobierna hablan el mismo idioma.
+
+                Lo que hay que respetar a cambio: **dentro de una superficie de
+                acento, ningún control puede usar el acento para decir "principal"**
+                (aquí ya no lo hace ninguno, y por otro motivo: no hay una
+                principal entre las tres).
+
+                Por eso también se va el `filo`: un hairline claro alrededor de una
+                caja saturada es un contorno, no un canto; esa regla es para
+                superficie clara sobre fondo claro, y aquí el borde ES el salto de
+                color.
+
+                `overflow-clip` porque los tramos son cajas cuadradas que llegan al
+                filo: en la curva de la esquina se comerían el radio, igual que la
+                cabecera de la tabla. */}
+            <div className="pointer-events-auto flex h-11 items-stretch overflow-clip rounded-xl bg-indigo-600 shadow-pop">
+              {/* LA CIFRA, SIN CHAPA (Mario, ago 2026). Llegó a llevar un disco de
+                  acento, copiado del conmutador Activos/Rechazados. Allí la chapa
+                  se gana el sitio porque hay DOS cifras que comparar; aquí hay una
+                  sola y no compite con nada, así que el círculo solo añadía un
+                  objeto más a una barra que se acababa de hacer para quitarlos.
+                  `num` porque la cifra cambia en su sitio al marcar y desmarcar. */}
+              <span className="num flex items-center whitespace-nowrap px-3.5 text-[13px] font-medium text-white">
                 {selected.size} {selected.size === 1 ? 'seleccionado' : 'seleccionados'}
               </span>
-              <span aria-hidden className="h-5 w-px shrink-0 bg-white/15" />
-              {/* LAS TRES SON DE LÍNEA, NINGUNA DE ACENTO (Mario, ago 2026).
-                  "Comprobar interés" era la destacada, y lo era por herencia: en la
-                  barra índigo alguna tenía que ir en blanco para leerse como la
-                  principal, y al pasar la barra a blanca se arrastró la jerarquía
-                  sin volver a preguntarse si existía. No existe: las tres son
-                  HERMANAS, tres cosas que le puedes hacer a una selección, y cuál
-                  quieres depende de por qué has marcado. Peor todavía, la que
-                  llevaba el acento es la única que SALE de la empresa (le escribe a
-                  gente, de una en una no, a todas a la vez): el acento estaba
-                  apuntando el ojo y el clic despistado justo a lo irreversible. */}
-              {/* "Comprobar" a secas (Mario, ago 2026). Lo que se pierde es el
-                  objeto, así que no se pierde: viaja al `title` y al nombre
-                  accesible, que siguen diciendo "Comprobar interés" (la etiqueta
-                  visible está contenida en él, que es lo que pide la norma). */}
-              <button
-                type="button"
-                onClick={() => setInterestDialogOpen(true)}
-                title="Comprobar interés"
-                aria-label="Comprobar interés"
-                className={BTN_SOBRE_OSCURO_SM}
-              >
-                <MailCheck className="size-4" aria-hidden /> Comprobar
-              </button>
-              {/* Hacia ARRIBA: la barra vive pegada al filo de abajo, y un
-                  desplegable que se abra hacia abajo se sale de la pantalla. */}
-              {TAGS_ENABLED && (
-                <BulkTagMenu selectedIds={[...selected]} canManage={canManageTags} placement="up" triggerClass={BTN_SOBRE_OSCURO_SM} />
-              )}
-              {/* "Exportar", no "Exportar selección": la barra empieza diciendo
-                  cuántos hay marcados, así que la segunda palabra lo repetía. */}
-              <button type="button" onClick={exportSelected} className={BTN_SOBRE_OSCURO_SM}>
-                <Download className="size-4" aria-hidden /> Exportar
-              </button>
-              <span aria-hidden className="h-5 w-px shrink-0 bg-white/15" />
-              <button type="button" onClick={exitSelect} aria-label="Quitar selección" className={botonIcono('sobreOscuro', 'sm')}>
+              <Filo />
+              <button type="button" onClick={exitSelect} aria-label="Quitar selección" title="Quitar selección" className={`${SEGMENTO} px-3`}>
                 <X className="size-4" aria-hidden />
               </button>
+              <Filo />
+              {/* NINGUNA DE ACENTO: las tres son hermanas, tres cosas que le puedes
+                  hacer a una selección, y cuál quieres depende de por qué has
+                  marcado. "Comprobar" lo llevaba por herencia de la barra índigo, y
+                  encima es la única que SALE de la empresa (le escribe a gente, y a
+                  todas a la vez): el acento apuntaba el ojo justo a lo irreversible.
+
+                  Etiquetas primero, que es lo que más se hace desde aquí. */}
+              {TAGS_ENABLED && (
+                <>
+                  {/* `flotante`, y es OBLIGATORIO desde que la barra es una pieza
+                      segmentada: su `overflow-clip` (el que impide que los tramos
+                      cuadrados se coman la esquina redonda) recorta también lo que
+                      cuelgue de dentro, así que el desplegable no se veía. Contra
+                      la ventana no hay nada que lo recorte, y de paso `colocarFlotante`
+                      decide solo que tiene que abrirse hacia arriba, porque pegado
+                      al filo de abajo no cabe de otra forma. */}
+                  <BulkTagMenu selectedIds={[...selected]} canManage={canManageTags} flotante triggerClass={SEGMENTO} />
+                  <Filo />
+                </>
+              )}
+              {/* ESTADO EN LA BARRA (Mario, ago 2026). Es la segunda cosa que se
+                  hace con un puñado de gente marcada, después de etiquetarla, y
+                  hasta ahora había que ir fila por fila con el selector de cada
+                  una. La lista es LA MISMA que la de una fila (`MenuEstado`), no
+                  una copia: mismo vocabulario, mismos cinco nombres pelados.
+
+                  `valor` es el estado solo si TODOS comparten uno; con la
+                  selección mezclada va `null` y no se marca ninguno, porque
+                  señalar uno diría que los demás también lo tienen. */}
+              <MenuEstado
+                valor={estadoComun}
+                onChange={(st) => setStatusMany([...selected], st)}
+                triggerClass={SEGMENTO}
+              >
+                <CircleDot className="size-4" aria-hidden />
+                Estado
+              </MenuEstado>
+              <Filo />
+              {/* EL RESTO, DENTRO DEL `···` (Mario, ago 2026, con la referencia de
+                  la competencia delante). La barra visible se queda con lo que se
+                  hace a diario (etiquetar y mover de estado) y lo demás baja un
+                  nivel: "Comprobar" le escribe a gente y "Exportar" saca los datos,
+                  o sea que ni son diarias ni son inocentes. Lo que se gana es
+                  ancho, y una barra corta se lee de un vistazo. */}
+              <MenuMas
+                onInteres={() => setInterestDialogOpen(true)}
+                onExportar={exportSelected}
+              />
             </div>
           </motion.div>
         )}
@@ -1590,7 +1743,196 @@ function FitCell({ candidate }: { candidate: Candidate }) {
 
 /** Las columnas que puede llevar una fila. El ORDEN se declara aparte, porque
     cambia con el ancho de la ventana (ver `orden` en la tabla). */
-type ColKey = 'candidato' | 'encaje' | 'etiquetas' | 'telefono' | 'estado' | 'recibida'
+/**
+ * Las columnas del PRODUCTO más una por cada respuesta del formulario, con el
+ * prefijo `campo:`. Las segundas nacen apagadas: ver `COLUMNAS_DE`.
+ */
+type ColKey = 'candidato' | 'encaje' | 'etiquetas' | 'telefono' | 'estado' | 'recibida' | `campo:${string}`
+
+/**
+ * EL ORDEN SE DICE EN LAS PALABRAS DE SU COLUMNA.
+ *
+ * Un "de más antiguo a más nuevo" genérico obliga a traducirlo a lo que estás
+ * mirando; escrito en las palabras del campo se lee sin traducir, y escrito EN
+ * PARALELO (mismas palabras, del revés) la diferencia entre las dos opciones se
+ * ve sin leerlas enteras. Es lo mismo que hace el menú de estado del puesto.
+ *
+ * TODOS SIGUEN LA MISMA CONSTRUCCIÓN, "De X a Y", y cada par es el espejo exacto
+ * del otro (Mario, ago 2026: el lenguaje era demasiado informal). Se probó con
+ * frases sueltas por columna ("Primero los que sí", "Del final al principio") y
+ * se retiró: además de sonar de andar por casa, rompían el paralelismo, que es
+ * justo lo que deja comparar las dos opciones sin leerlas enteras.
+ *
+ * Los textos tienen que decir lo que el código hace de verdad, así que salen de
+ * mirarlo: `nombre` compara con `localeCompare`, `estado` recorre `STATUS_ORDER`
+ * (que ES el orden del proceso), `encaje` compara la nota y `fecha` la marca de
+ * tiempo. Si cambia una comparación, cambia su frase.
+ */
+const ORDENES_BASE: OpcionOrden[] = [
+  { key: 'nombre', label: 'Candidato', asc: 'De la A a la Z', desc: 'De la Z a la A' },
+  { key: 'encaje', label: 'Encaje', asc: 'De menor a mayor encaje', desc: 'De mayor a menor encaje' },
+  // No se nombran los estados de los extremos a propósito: "descartado" es el
+  // último del array pero en Activos no hay ni uno, así que "de nuevo a
+  // descartado" sería mentira justo en la mitad de la lista donde más se usa.
+  { key: 'estado', label: 'Estado', asc: 'Del inicio al final del proceso', desc: 'Del final al inicio del proceso' },
+  { key: 'fecha', label: 'Recibida', asc: 'De la más antigua a la más reciente', desc: 'De la más reciente a la más antigua' },
+]
+
+/** El orden de fábrica de la tabla, y el que "Restablecer" devuelve. */
+const ORDEN_INICIAL: { key: SortKey; dir: 'asc' | 'desc' } = { key: 'fecha', dir: 'desc' }
+
+/**
+ * LAS PREGUNTAS DE SÍ/NO Y DE NÚMERO TAMBIÉN ORDENAN (Mario, ago 2026).
+ *
+ * Solo esas dos: un texto libre o una selección no tienen un orden que signifique
+ * nada, y ofrecerlo sería un botón que devuelve un resultado arbitrario. Las dos
+ * que sí se comparan como número, que es justo lo que las hace ordenables.
+ *
+ * SE OFRECEN AUNQUE LA COLUMNA ESTÉ APAGADA, y eso no es un descuido: ordenar por
+ * algo que no se pinta es legítimo ("ponme primero a los que tienen carnet aunque
+ * no quiera la columna"), y sobre todo, si se cayera de la lista al apagarla te
+ * quedarías con un orden puesto y sin forma de cambiarlo. Que es exactamente el
+ * agujero que este bloque vino a tapar.
+ */
+function ordenesDe(campaign: Campaign | undefined, showFit: boolean): OpcionOrden[] {
+  const base = ORDENES_BASE.filter((o) => o.key !== 'encaje' || showFit)
+  const preguntas = (campaign?.fields ?? [])
+    .filter((f) => TIPOS_ORDENABLES.includes(f.type))
+    .map<OpcionOrden>((f) => ({
+      key: `campo:${f.id}`,
+      label: f.label,
+      ...(f.type === 'boolean'
+        ? { asc: 'De No a Sí', desc: 'De Sí a No' }
+        : { asc: 'De menor a mayor', desc: 'De mayor a menor' }),
+    }))
+  return [...base, ...preguntas]
+}
+
+/**
+ * Las columnas, en el orden en que el producto las declara. `candidato` es FIJA:
+ * es de quién es la fila y además es la que se queda quieta al desplazar, así
+ * que tiene que ser la primera o el `sticky` no cuadra.
+ */
+const COLUMNAS: ColumnaVista<ColKey>[] = [
+  { key: 'candidato', label: 'Candidato', fija: true, icon: User },
+  { key: 'encaje', label: 'Encaje', icon: Sparkles },
+  { key: 'etiquetas', label: 'Etiquetas', icon: Tag },
+  { key: 'telefono', label: 'Teléfono', icon: Phone },
+  { key: 'estado', label: 'Estado', icon: CircleDot },
+  { key: 'recibida', label: 'Recibida', icon: Clock },
+]
+
+/**
+ * LAS RESPUESTAS DEL FORMULARIO TAMBIÉN SON COLUMNAS (Mario, ago 2026), y eso
+ * DA LA VUELTA a una regla escrita: "fuera las columnas de respuestas del
+ * formulario", que se decidió cuando llegaban solas.
+ *
+ * El argumento de entonces era bueno para lo que había: dos preguntas elegidas a
+ * dedo se colaban en todas las tablas, cambiaban de puesto en puesto y se comían
+ * el ancho de lo que sí es común. Con el panel puesto, ninguna de las tres cosas
+ * pasa: **no llegan, se piden**. Y lo que se gana es lo que faltaba, poder mirar
+ * de un vistazo quién tiene el carnet C sin abrir ciento cuarenta fichas.
+ *
+ * Nacen APAGADAS, y no es una precaución: un formulario con quince preguntas
+ * encendidas de golpe no cabe en ninguna pantalla.
+ *
+ * Fuera las que la fila ya pinta (nombre, apellidos y teléfono): serían la misma
+ * columna dos veces. El correo NO estaba y ahora se puede pedir, que era una de
+ * las peticiones viejas.
+ */
+const YA_EN_LA_FILA = ['nombre', 'apellidos', 'telefono']
+
+function COLUMNAS_DE(campaign: Campaign | undefined): ColumnaVista<ColKey>[] {
+  if (!campaign) return []
+  return campaign.fields
+    .filter((f) => !YA_EN_LA_FILA.includes(f.id))
+    .map((f) => ({
+      key: `campo:${f.id}` as ColKey,
+      // El CV no es una respuesta, es un adjunto, así que se llama por lo que es.
+      label: f.type === 'file' ? 'Documentos' : f.label,
+      apagada: true,
+      icon: ICONO_CAMPO[f.type],
+    }))
+}
+
+/**
+ * EN MÓVIL EL ORDEN ES OTRO Y NO LO ELIGE NADIE: Estado sube al segundo puesto
+ * porque con la tabla desplazándose a lo ancho, lo que va primero es lo único
+ * que se ve sin empujar. Lo que SÍ se respeta allí es lo que has apagado: si has
+ * dicho que no te importa el teléfono, tampoco te importa en el móvil.
+ */
+const ORDEN_MOVIL: ColKey[] = ['candidato', 'estado', 'encaje', 'etiquetas', 'telefono', 'recibida']
+
+/**
+ * Lo que mide cada columna en móvil, donde los anchos están medidos al píxel
+ * (ver el comentario de `anchoMovil`). `etiquetas` va a 0 porque allí no se
+ * pinta (`hidden xl:table-cell`).
+ */
+const ANCHO_MOVIL: Partial<Record<ColKey, number>> = {
+  candidato: 164, estado: 144, encaje: 136, etiquetas: 0, telefono: 136, recibida: 124,
+}
+/**
+ * El icono de una columna de respuesta lo dice su TIPO, igual que en las de
+ * siempre: en una rejilla la cabecera es el nombre de un campo, y el icono lo
+ * identifica antes de que se lea la palabra.
+ */
+const ICONO_CAMPO: Record<FormField['type'], LucideIcon> = {
+  text: AlignLeft,
+  textarea: AlignLeft,
+  phone: Phone,
+  email: Mail,
+  select: List,
+  multiselect: List,
+  boolean: CheckCircle2,
+  number: Hash,
+  date: CalendarDays,
+  file: Paperclip,
+}
+
+/**
+ * LO QUE MIDE UNA RESPUESTA LO DICE SU TIPO (Mario, ago 2026).
+ *
+ * Empezó siendo un solo trío de medidas para todas las preguntas, y eso
+ * contradice la regla que gobierna a las columnas de siempre: **el mínimo de una
+ * columna lo dice su CONTENIDO**. Una pregunta de Sí/No y otra de "años de
+ * experiencia" caben en un tercio de lo que necesita un texto libre, y forzarlas
+ * a 120px les regala espacio que sale de la columna del nombre.
+ *
+ * · `min` es donde el DATO deja de leerse, no donde deja de leerse la cabecera:
+ *   el título se recorta desde mucho antes ("Años d…"), y eso ya está aceptado en
+ *   las de siempre. Un número de cuatro cifras o un "Sí" se leen en muy poco.
+ * · `max` es donde la columna deja de enseñar algo nuevo. Un booleano nunca
+ *   crece; un texto libre sí, y por eso es el único con techo generoso.
+ * · `clase` va como literal y no compuesta al vuelo: una clase de Tailwind
+ *   construida con una variable no llega nunca al CSS compilado (la misma lección
+ *   que dejó al `<select>` sin flecha).
+ */
+type Medidas = { clase: string; base: number; min: number; max: number }
+const MEDIDAS_TEXTO: Medidas = { clase: 'w-[160px]', base: 160, min: 120, max: 420 }
+const MEDIDAS_CAMPO: Partial<Record<FormField['type'], Medidas>> = {
+  boolean: { clase: 'w-[110px]', base: 110, min: 72, max: 160 },
+  number: { clase: 'w-[110px]', base: 110, min: 80, max: 180 },
+  date: { clase: 'w-[130px]', base: 130, min: 110, max: 200 },
+  file: { clase: 'w-[110px]', base: 110, min: 90, max: 160 },
+}
+const medidasDe = (t: FormField['type'] | undefined) => (t && MEDIDAS_CAMPO[t]) || MEDIDAS_TEXTO
+
+/**
+ * Lo que ocupa cada columna en escritorio, para calcular el SUELO de la tabla.
+ *
+ * Era un `min-w-[852px]` escrito a mano, que es la suma de las seis de siempre.
+ * Con columnas que se encienden y se apagan ese número deja de ser verdad al
+ * primer interruptor: en `table-fixed`, la única que no declara ancho (el nombre)
+ * absorbe el sobrante, y si el sobrante es negativo se estruja hasta desaparecer.
+ * Se vio en pantalla: con dos preguntas encendidas, los nombres se quedaron en
+ * una letra. `candidato` entra con su MÍNIMO, que es exactamente lo que se le
+ * quiere garantizar antes de que la tabla empiece a desplazarse.
+ */
+const ANCHO_ESCRITORIO: Partial<Record<ColKey, number>> = {
+  candidato: 230, encaje: 136, etiquetas: 160, telefono: 136, estado: 168, recibida: 124,
+}
+const anchoEscritorioDe = (k: ColKey, tipo?: FormField['type']) => ANCHO_ESCRITORIO[k] ?? medidasDe(tipo).base
+const anchoMovilDe = (k: ColKey, tipo?: FormField['type']) => ANCHO_MOVIL[k] ?? medidasDe(tipo).base
 
 // Memoizada: es lo más caro de la pantalla (142 filas son ~200ms de pintura) y el
 // panel se repinta por cosas que no la tocan, la primera de ellas cada tecla del
@@ -1600,6 +1942,8 @@ type ColKey = 'candidato' | 'encaje' | 'etiquetas' | 'telefono' | 'estado' | 're
 const CandidateTable = memo(function CandidateTable({
   campaign,
   showFit,
+  canManageTags,
+  columnas,
   rows,
   justArrived,
   tags,
@@ -1615,6 +1959,14 @@ const CandidateTable = memo(function CandidateTable({
   campaign: Campaign
   /** Solo hay columna Encaje si el plan tiene Meridian: sin él nunca habría nada que poner. */
   showFit: boolean
+  /** Quién puede crear vocabulario nuevo desde la lista de etiquetas de una fila. */
+  canManageTags: boolean
+  /**
+   * Las columnas a pintar, ya ordenadas y sin las que el usuario ha apagado (ver
+   * `vistaTabla.ts`). Llega por prop y con identidad ESTABLE porque esta tabla
+   * está memoizada: un array escrito en línea apagaría el memo en silencio.
+   */
+  columnas: ColKey[]
   rows: Candidate[]
   justArrived: Set<string>
   lockedDates: string[]
@@ -1642,9 +1994,22 @@ const CandidateTable = memo(function CandidateTable({
   // en vez de escribir las celdas dos veces: dos copias del mismo `<tr>` se
   // separan al primer retoque.
   const esMovil = useEsMovil()
-  const orden: ColKey[] = esMovil
-    ? ['candidato', 'estado', 'encaje', 'etiquetas', 'telefono', 'recibida']
-    : ['candidato', 'encaje', 'etiquetas', 'telefono', 'estado', 'recibida']
+  // En móvil manda `ORDEN_MOVIL` y no lo que el usuario haya colocado, pero SÍ se
+  // respeta lo que haya apagado: si has dicho que no te importa el teléfono,
+  // tampoco te importa en el móvil.
+  const orden = useMemo(
+    () => (esMovil
+      // Las del producto en su orden de móvil, y detrás las de este puesto, que
+      // no tienen sitio declarado allí.
+      ? [...ORDEN_MOVIL.filter((k) => columnas.includes(k)), ...columnas.filter((k) => k.startsWith('campo:'))]
+      : columnas),
+    [esMovil, columnas],
+  )
+  /** El campo del formulario detrás de una columna `campo:<id>`, si lo es. */
+  const campoDe = useCallback(
+    (k: ColKey) => (k.startsWith('campo:') ? campaign.fields.find((f) => `campo:${f.id}` === k) : undefined),
+    [campaign.fields],
+  )
   // El ancho de cada columna es del usuario: se tira del filo de la cabecera. El
   // hook vive DENTRO de esta tabla, que está memoizada, para que ajustar un ancho
   // no cruce la frontera del `memo` ni obligue a la pantalla a repintarse entera.
@@ -1707,7 +2072,13 @@ const CandidateTable = memo(function CandidateTable({
   // dentro de los 341 de contenido de una pantalla de 375. La columna de Estado
   // termina unos píxeles más allá del pliegue, pero lo que se lee cabe entero, que
   // es de lo que iba subirla a la segunda posición.
-  const anchoMovil = 40 + 164 + 144 + 136 + 124 + (showFit ? 136 : 0)
+  // 40 de la casilla más lo que mida cada columna pintada. Antes era una suma
+  // escrita a mano con un `showFit` colgando al final; con las columnas
+  // apagables esa suma dejaría de cuadrar en cuanto quitas una, y `table-fixed`
+  // reparte el sobrante entre las que no declaran ancho, o sea que Candidato se
+  // volvería a comer lo que se le acaba de quitar.
+  const anchoMovil = orden.reduce((t, k) => t + anchoMovilDe(k, campoDe(k)?.type), 40)
+  const anchoEscritorio = orden.reduce((t, k) => t + anchoEscritorioDe(k, campoDe(k)?.type), 40)
 
   // Candidato cuyo estado se está cambiando desde la hoja (solo móvil).
   const [statusFor, setStatusFor] = useState<Candidate | null>(null)
@@ -1866,7 +2237,9 @@ const CandidateTable = memo(function CandidateTable({
       <div ref={tableWrapRef} className={`relative ${headerCanStick ? 'overflow-visible' : 'overflow-x-auto'}`}>
       {/* El `minWidth` en línea manda sobre la clase: congelada, el suelo de la
           tabla es la suma de sus columnas (ver `useColumnasAjustables`). */}
-      <table ref={tableRef} className={`min-w-[852px] ${TABLE}`} style={{ minWidth: esMovil ? anchoMovil : minTabla }}>
+      {/* El `minWidth` en línea manda: congelada mandan las columnas (ver
+          `useColumnasAjustables`), y si no, la suma de lo que se está pintando. */}
+      <table ref={tableRef} className={TABLE} style={{ minWidth: esMovil ? anchoMovil : (minTabla ?? anchoEscritorio) }}>
         <caption className="sr-only">Candidatos de {campaign.title}</caption>
         {/* La banda (fondo, velo y sombra) vive en el <thead>; los filos, en cada
             celda. En `border-separate` los bordes de <thead>/<tr> no se pintan, y
@@ -1905,13 +2278,39 @@ const CandidateTable = memo(function CandidateTable({
                 case 'encaje':
                   return showFit ? <ColHead key={k} icon={Sparkles} className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')} {...col(k, 'Encaje', MINIMOS.encaje, MAXIMOS.encaje)}>Encaje</ColHead> : null
                 case 'etiquetas':
-                  return showTags ? <ColHead key={k} icon={Tag} className="hidden xl:table-cell" toneClass={headTone} {...col(k, 'Etiquetas', MINIMOS.etiquetas, MAXIMOS.etiquetas)}>Etiquetas</ColHead> : null
+                  // Ya no se esconde sola por debajo de `xl`: eso lo decide el
+                  // panel, y con las dos cosas a la vez el interruptor decía
+                  // "encendida" mientras la columna no se veía. Y pasa a declarar
+                  // ancho, para que la única que absorbe el sobrante sea el nombre.
+                  return showTags ? <ColHead key={k} icon={Tag} className="w-[160px]" toneClass={headTone} {...col(k, 'Etiquetas', MINIMOS.etiquetas, MAXIMOS.etiquetas)}>Etiquetas</ColHead> : null
                 case 'telefono':
                   return <ColHead key={k} icon={Phone} className="w-[136px]" toneClass={headTone} {...col(k, 'Teléfono', MINIMOS.telefono, MAXIMOS.telefono)}>Teléfono</ColHead>
                 case 'estado':
                   return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[168px]'} toneClass={headTone} sort={sortFor('estado')} {...col(k, 'Estado', MINIMOS.estado, MAXIMOS.estado)}>Estado</ColHead>
                 case 'recibida':
                   return <ColHead key={k} icon={Clock} className="w-[124px]" align="right" toneClass={headTone} sort={sortFor('fecha')} {...col(k, 'Recibida', MINIMOS.recibida, MAXIMOS.recibida)}>Recibida</ColHead>
+                default: {
+                  // Una respuesta del formulario. Ordena si se puede comparar, o
+                  // sea Sí/No y número (ver `TIPOS_ORDENABLES`): un texto libre o
+                  // una selección no tienen un orden que signifique nada, y el
+                  // glifo prometería un resultado arbitrario.
+                  const f = campoDe(k)
+                  if (!f) return null
+                  const etiqueta = f.type === 'file' ? 'Documentos' : f.label
+                  const m = medidasDe(f.type)
+                  return (
+                    <ColHead
+                      key={k}
+                      icon={ICONO_CAMPO[f.type]}
+                      className={m.clase}
+                      toneClass={headTone}
+                      sort={TIPOS_ORDENABLES.includes(f.type) ? sortFor(k) : undefined}
+                      {...col(k, etiqueta, m.min, m.max)}
+                    >
+                      {etiqueta}
+                    </ColHead>
+                  )
+                }
               }
             })}
           </tr>
@@ -1949,7 +2348,7 @@ const CandidateTable = memo(function CandidateTable({
                       ) : null
                     case 'etiquetas':
                       return showTags ? (
-                        <td key={k} className={`${CELL} hidden xl:table-cell`}>
+                        <td key={k} className={CELL}>
                           <span aria-hidden className="inline-block rounded-full bg-slate-200 px-2 py-0.5 text-[11px] text-slate-600 blur-[4px] select-none">Etiqueta</span>
                         </td>
                       ) : null
@@ -1971,6 +2370,15 @@ const CandidateTable = memo(function CandidateTable({
                       return (
                         <td key={k} className={`${CELL} whitespace-nowrap text-right`}>
                           <time dateTime={date} aria-hidden className="num text-[13px] text-slate-500 blur-[4px] select-none">{fechaCorta(date)}</time>
+                        </td>
+                      )
+                    default:
+                      // Mismo señuelo difuminado que sus vecinas: si no se pintara,
+                      // la fila bloqueada tendría menos celdas que una real y
+                      // `table-fixed` descuadraría las dos.
+                      return (
+                        <td key={k} className={CELL}>
+                          <span aria-hidden className="block truncate text-[13px] text-slate-600 blur-[4px] select-none">Respuesta</span>
                         </td>
                       )
                   }
@@ -2048,8 +2456,30 @@ const CandidateTable = memo(function CandidateTable({
                       ) : null
                     case 'etiquetas':
                       return showTags ? (
-                        <td key={k} className={`${CELL} hidden xl:table-cell`}>
-                          {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} /> : <span className="text-[13px] text-slate-600">–</span>}
+                        <td key={k} className={CELL}>
+                          {/* LA CELDA ES EL DISPARADOR de la misma lista de
+                              etiquetas que usa la barra de selección, con esta
+                              persona como "selección de uno" (Mario, ago 2026).
+
+                              Devuelve un control a esta celda, de la que la
+                              doctrina había ido quitándolos ("+N" fue botón,
+                              luego texto, luego nada). Pero el que se quitó
+                              escondía INFORMACIÓN detrás de un click; este da
+                              una ACCIÓN que antes exigía abrir la ficha, y
+                              etiquetar es de las cosas que más se hacen mirando
+                              la lista. Sin tag, la raya también abre: es como se
+                              pone la primera.
+
+                              `flotante` porque aquí el panel se sale de la
+                              tabla, que se desplaza y va recortada. */}
+                          <BulkTagMenu
+                            selectedIds={[c.id]}
+                            canManage={canManageTags}
+                            flotante
+                            triggerClass="flex w-full min-w-0 items-center rounded-md px-1 py-0.5 -mx-1 text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40"
+                          >
+                            {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} /> : <span className="text-[13px] text-slate-600">–</span>}
+                          </BulkTagMenu>
                         </td>
                       ) : null
                     case 'telefono':
@@ -2074,6 +2504,15 @@ const CandidateTable = memo(function CandidateTable({
                           <time dateTime={c.submittedAt} title={fullDateTime(c.submittedAt)} className="num">{fechaCorta(c.submittedAt)}</time>
                         </td>
                       )
+                    default: {
+                      const f = campoDe(k)
+                      if (!f) return null
+                      return (
+                        <td key={k} className={`${CELL} text-[13px] text-slate-600`}>
+                          <RespuestaCelda candidate={c} field={f} />
+                        </td>
+                      )
+                    }
                   }
                 })}
               </tr>
@@ -2138,6 +2577,166 @@ function RangeSlider({ min, max, from, to, onChange }: {
     </div>
   )
 }
+
+/**
+ * La celda de una respuesta del formulario.
+ *
+ * UNA SOLA LÍNEA Y RECORTADA, con el texto entero en el `title`: la fila tiene
+ * alto fijo, que es lo que deja bajar la vista por una columna, y una respuesta
+ * de párrafo la rompería. Lo que no cabe se lee en la ficha, que es donde la
+ * respuesta vive entera.
+ *
+ * EL CV NO ES UN CONTROL, y eso es a propósito: aquí sería un botón más dentro
+ * de una fila, y la doctrina dice que ahí solo entra lo imprescindible. Se dice
+ * si LO HAY, y para verlo se abre la ficha, que es lo que hace la fila entera al
+ * pulsarla. Además, descargarlo pide una URL firmada, y esa lógica no puede
+ * vivir en dos sitios.
+ */
+function RespuestaCelda({ candidate, field }: { candidate: Candidate; field: FormField }) {
+  if (field.type === 'file') {
+    return candidate.cvPath ? (
+      <span className="inline-flex items-center gap-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[12px] font-medium text-slate-600">
+        <Paperclip className="size-3 shrink-0 text-slate-500" aria-hidden /> CV
+      </span>
+    ) : (
+      <span className="text-slate-500">–</span>
+    )
+  }
+  const texto = answerStr(candidate, field.id)
+  if (!texto) return <span className="text-slate-500">–</span>
+  // UN CORREO ES UN ENLACE (Mario, ago 2026). Es el único dato de la fila que se
+  // puede USAR desde aquí, y escribirle a alguien es a lo que se viene. No rompe
+  // la regla de "en una fila solo controles imprescindibles" porque esta columna
+  // no está de serie: si la ves es porque la has pedido.
+  //
+  // Y no hace falta parar la propagación: `clickDeFila` ya ignora lo que caiga
+  // dentro de un control de verdad, y un `<a>` lo es. Pulsas el correo y se abre
+  // tu correo; pulsas el resto de la fila y se abre la ficha.
+  if (field.type === 'email') {
+    return (
+      <a
+        href={`mailto:${texto}`}
+        title={texto}
+        className="block truncate rounded-sm text-indigo-600 hover:text-indigo-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+      >
+        {texto}
+      </a>
+    )
+  }
+  // `num` en lo que se compara en columna (números y fechas), como la de Recibida.
+  const cifra = field.type === 'number' || field.type === 'date'
+  return <span className={`block truncate ${cifra ? 'num' : ''}`} title={texto}>{texto}</span>
+}
+
+/**
+ * EL `···` DE LA BARRA DE SELECCIÓN: lo que no se hace a diario.
+ *
+ * Su panel va en un PORTAL por lo mismo que el de etiquetas: la barra recorta lo
+ * que cuelgue de dentro (`overflow-clip`), y aquí encima tiene que abrirse hacia
+ * arriba, que es lo único que cabe pegado al filo de abajo.
+ */
+function MenuMas({ onInteres, onExportar }: { onInteres: () => void; onExportar: () => void }) {
+  const [open, setOpen] = useState(false)
+  // El ancla es el BOTÓN: el envoltorio va en `display: contents` para que el
+  // botón sea el tramo de verdad de la barra, y un elemento sin caja devuelve un
+  // rect a cero.
+  const botonRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!open) return
+    const colocar = () => {
+      const ancla = botonRef.current?.getBoundingClientRect()
+      const panel = panelRef.current?.getBoundingClientRect()
+      if (!ancla || !panel) return
+      // Alineado a la DERECHA: es el último tramo, así que colgando por la
+      // izquierda se saldría de la barra hacia dentro y taparía a sus vecinos.
+      setPos(colocarFlotante(
+        ancla,
+        { width: panel.width, height: panel.height },
+        { width: window.innerWidth, height: window.innerHeight },
+        { alinear: 'derecha' },
+      ))
+    }
+    colocar()
+    window.addEventListener('resize', colocar)
+    return () => window.removeEventListener('resize', colocar)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const dentro = (t: Node) =>
+      (botonRef.current?.contains(t) ?? false) || (panelRef.current?.contains(t) ?? false)
+    const onDoc = (e: MouseEvent) => !dentro(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  // Un ítem de este menú es un VERBO, así que al pulsarlo el menú se cierra (el
+  // reverso del menú de estado, donde eliges y te quedas).
+  const FILA_MAS = 'flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-slate-800 outline-none transition-colors duration-[var(--duration-control)] hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40'
+
+  return (
+    <>
+      <button
+        ref={botonRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label="Más acciones"
+        title="Más acciones"
+        className={`${SEGMENTO} px-3`}
+      >
+        <MoreHorizontal className="size-4" aria-hidden />
+      </button>
+      {open && createPortal(
+        <div
+          ref={panelRef}
+          style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? 'visible' : 'hidden' }}
+          className="fixed z-[70] w-56 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop"
+        >
+          <button type="button" onClick={() => { setOpen(false); onInteres() }} className={FILA_MAS}>
+            <MailCheck className="size-4 shrink-0 text-slate-400" aria-hidden /> Comprobar interés
+          </button>
+          <button type="button" onClick={() => { setOpen(false); void onExportar() }} className={FILA_MAS}>
+            <Download className="size-4 shrink-0 text-slate-400" aria-hidden /> Exportar
+          </button>
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
+/**
+ * UN TRAMO de la barra de selección. No es un botón del sistema y por eso no sale
+ * de `lib/buttons.ts`: no tiene radio propio ni altura propia, porque es una
+ * PARTE de una pieza mayor, igual que las dos mitades del conmutador
+ * Activos/Rechazados. Lo que sí comparte con `sobreOscuro` es la pintura, que son
+ * tres peldaños de opacidad sobre la tinta.
+ */
+const SEGMENTO = [
+  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3.5 text-[13px] font-medium outline-none',
+  'transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none',
+  'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40',
+  // La PINTURA sale del sistema y no se escribe otra vez aquí: es la misma
+  // variante `sobreOscuro` que se declaró para esta barra cuando se puso negra.
+  BTN_SUPERFICIE.sobreOscuro,
+].join(' ')
+
+/**
+ * El filo que separa dos tramos. De alto completo: es lo que los hace tramos.
+ * Al 22% y no al 15% por lo mismo que subieron los peldaños del hover: el mismo
+ * velo blanco separa menos sobre el ultramarine que sobre la tinta (1,34:1
+ * contra 1,58), y un filo que no se ve deja de partir la barra en tramos.
+ */
+const Filo = () => <span aria-hidden className="w-px shrink-0 bg-white/22" />
 
 function SkeletonRows({ showFit }: { showFit: boolean }) {
   // Replica la rejilla real de la fila (checkbox · nombre, y a la derecha
@@ -2629,8 +3228,6 @@ function PuestoMenu({
   onToggleNotify,
   onDuplicate,
   duplicating,
-  onRefresh,
-  refreshing,
   onDelete,
 }: {
   campaign: Campaign
@@ -2648,8 +3245,6 @@ function PuestoMenu({
   /** Refrescar vivía en la barra de filtros hasta ago 2026. No actúa sobre la
    *  VISTA (qué ves) sino sobre los DATOS (traer lo que haya nuevo), o sea que es
    *  un verbo, y los verbos del puesto viven aquí. */
-  onRefresh: () => void
-  refreshing: boolean
   onDelete: () => void
 }) {
   const [open, setOpen] = useState(false)
@@ -2724,25 +3319,23 @@ function PuestoMenu({
 
   const raiz = (
     <>
-      {canManage && (
-        <div className="space-y-0.5 pb-1.5">
-          <Link to={editHref} onClick={cerrar} className={`${FILA} ${QUIETA}`}>
-            <PenLine className={GLIFO} aria-hidden /> Editar formulario
-          </Link>
-          <button
-            type="button"
-            onClick={() => { cerrar(); onDuplicate() }}
-            disabled={duplicating}
-            className={`${FILA} ${QUIETA} disabled:opacity-60`}
-          >
-            <Copy className={GLIFO} aria-hidden /> {duplicating ? 'Duplicando…' : 'Duplicar puesto'}
-          </button>
-        </div>
-      )}
+      {/* EL FORMULARIO: EDITARLO Y VERLO, JUNTOS Y EN ESE ORDEN (Mario, ago 2026).
+          Son las dos caras de la misma cosa, y con una raya y "Duplicar" en medio
+          había que buscar la segunda. Primero se toca y después se comprueba, que
+          es también el orden en que se hacen.
 
-      <div className={`space-y-0.5 py-1.5 ${canManage ? 'border-t border-slate-100' : ''}`}>
-        {/* `↗` y `rel="noreferrer"`: sale de la app y abre pestaña. El texto dice a
-            dónde va, el glifo dice que se va. */}
+          El grupo se pinta SIEMPRE aunque sus filas estén acotadas por permiso:
+          "Ver el formulario" es de todos (el encargado también tiene que poder
+          abrirlo), y al meterlo dentro del `canManage &&` que envolvía al bloque
+          se le habría quitado sin que nadie lo pidiera. Cada fila se acota sola. */}
+      <div className="space-y-0.5 pb-1.5">
+        {canManage && (
+          <Link to={editHref} onClick={cerrar} className={`${FILA} ${QUIETA}`}>
+            <PenLine className={GLIFO} aria-hidden /> Editar
+          </Link>
+        )}
+        {/* `↗` y `rel="noreferrer"`: sale de la app y abre pestaña. El texto dice
+            a dónde va, el glifo dice que se va. */}
         <a
           href={publicUrl}
           target="_blank"
@@ -2755,15 +3348,19 @@ function PuestoMenu({
           <ArrowUpRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
           <span className="sr-only">(se abre en otra pestaña)</span>
         </a>
-        <button
-          type="button"
-          onClick={() => { cerrar(); onRefresh() }}
-          disabled={refreshing}
-          className={`${FILA} ${QUIETA} disabled:opacity-60`}
-        >
-          <RefreshCw className={`${GLIFO} ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
-          {refreshing ? 'Buscando candidaturas…' : 'Buscar candidaturas nuevas'}
-        </button>
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => { cerrar(); onDuplicate() }}
+            disabled={duplicating}
+            className={`${FILA} ${QUIETA} disabled:opacity-60`}
+          >
+            <Copy className={GLIFO} aria-hidden /> {duplicating ? 'Duplicando…' : 'Duplicar puesto'}
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-0.5 border-t border-slate-100 py-1.5">
         <button
           type="button"
           onClick={() => { void onExport(); cerrar() }}

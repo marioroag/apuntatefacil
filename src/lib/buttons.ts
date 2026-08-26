@@ -81,17 +81,29 @@ export const BTN_SUPERFICIE = {
   inverted: 'bg-white text-slate-900 hover:bg-slate-100 active:bg-slate-200',
   ghost: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 active:bg-slate-200',
   /**
-   * El gemelo de `ghost` para vivir SOBRE una superficie oscura (hoy, la barra
-   * flotante de selección). Sin caja y sin anillo: en una barra negra, un botón
-   * de línea blanco por cada acción devuelve el problema que la barra oscura vino
-   * a quitar, que es una fila de objetos compitiendo. Manda la etiqueta, y la
-   * caja aparece al pasar por encima.
+   * El gemelo de `ghost` para vivir SOBRE UNA SUPERFICIE SATURADA (hoy, la barra
+   * flotante de selección, que es del color de la marca). Sin caja y sin anillo:
+   * un botón de línea blanco por cada acción devuelve el problema que la barra de
+   * color vino a quitar, que es una fila de objetos compitiendo. Manda la
+   * etiqueta, y la caja aparece al pasar por encima.
    *
    * Los tres peldaños son de opacidad y no de la rampa, porque aquí no hay rampa:
    * el fondo es uno solo. Y siguen distinguiéndose ENTRE SÍ, que es la regla que
    * ya aprendió el riel del lateral, no solo del reposo.
+   *
+   * LAS OPACIDADES ESTÁN MEDIDAS SOBRE EL FONDO QUE TIENEN, y por eso subieron al
+   * pasar la barra de tinta a marca (ago 2026): el mismo velo blanco separa menos
+   * cuanto más claro es lo que hay debajo. Con 12/20, que era lo calculado para
+   * `slate-900`, sobre `indigo-600` el hover caía de 1,42:1 a 1,27 y se
+   * desdibujaba. 18/30 devuelve los mismos peldaños (1,44 y 1,83). **Corolario:
+   * un velo de opacidad no se muda de fondo sin volver a medirlo.**
+   *
+   * No tiene constante con talla (`BTN_..._SM`) porque hoy su único consumidor es
+   * una barra SEGMENTADA, donde los tramos no tienen radio ni altura propios: la
+   * compone `SEGMENTO` en `Dashboard.tsx`, que coge de aquí la pintura y pone su
+   * propia caja. Si algún día hace falta un botón suelto sobre color, se declara.
    */
-  sobreOscuro: 'text-white hover:bg-white/12 active:bg-white/20',
+  sobreOscuro: 'text-white hover:bg-white/18 active:bg-white/30',
 } as const
 
 export type BtnVariant = keyof typeof BTN_SUPERFICIE
@@ -142,8 +154,6 @@ export const BTN_DANGER = botonClase('danger', 'md')
 /** Compacta (h-8) para botones inline en pills o grupos estrechos. */
 export const BTN_PRIMARY_SM = botonClase('primary', 'sm')
 export const BTN_SECONDARY_SM = botonClase('secondary', 'sm')
-/** La de la barra flotante de selección, que es negra. */
-export const BTN_SOBRE_OSCURO_SM = botonClase('sobreOscuro', 'sm')
 
 /** CTA grandes de la landing: mismo lenguaje, más cuerpo. */
 export const BTN_PRIMARY_LG = botonClase('primary', 'lg')
@@ -174,6 +184,22 @@ export function botonIcono(variant: BtnVariant = 'primary', size: BtnSize = 'md'
     .filter(Boolean)
     .join(' ')
 }
+
+/**
+ * EL BOTÓN DE ICONO DE LA FRANJA DE FILTROS: 40px, no 36.
+ *
+ * Todo lo que vive en esa fila mide 40 (el buscador, su lupa y el conmutador
+ * Activos/Rechazados), y no por capricho: es la fila con la que más se trabaja de
+ * la pantalla, así que se hizo más grande que los botones de la cabecera, que se
+ * usan mucho menos. Un icono de 36 al lado de un conmutador de 40 se ve hundido.
+ *
+ * Se declara aquí y no se arregla con un `size-10` pegado al final de
+ * `botonIcono(...)`: `size-9` y `size-10` son la MISMA utilidad de Tailwind y no
+ * se resuelven por el orden en que se escriben. La salida es siempre la variante
+ * que no pone la que sobra. Es el mismo motivo por el que existe
+ * `BTN_PRIMARY_LATERAL`.
+ */
+export const BTN_ICONO_FRANJA = [CAJA, BTN_MOTION, BTN_SUPERFICIE.secondary, 'size-10 pointer-coarse:size-11', 'shrink-0'].join(' ')
 
 /**
  * BOTÓN DE BLOQUE: el que cierra un formulario de acceso (entrar, crear cuenta,

@@ -437,7 +437,16 @@ export interface Company {
 // El orden por ajuste se retiró en jul 2026 y volvió en ago 2026 con la columna
 // Encaje, ya con su nombre visible ('encaje'). Una vista guardada antigua puede
 // traer todavía el 'ajuste' de entonces: no rompe, cae al orden por fecha.
-export type SortKey = 'nombre' | 'fecha' | 'estado' | 'encaje'
+/**
+ * Por qué se ordena la lista. Las cuatro de siempre más las RESPUESTAS que se
+ * pueden comparar: solo Sí/No y número (`campo:<id>`). Un texto libre o una
+ * selección no tienen un orden que signifique nada, y ordenar por ellos sería
+ * ofrecer un botón que devuelve un resultado arbitrario.
+ */
+export type SortKey = 'nombre' | 'fecha' | 'estado' | 'encaje' | `campo:${string}`
+
+/** Los tipos de pregunta que se pueden ordenar. Ver `SortKey`. */
+export const TIPOS_ORDENABLES: FieldType[] = ['boolean', 'number']
 
 export interface ValueFilter {
   fieldId: string

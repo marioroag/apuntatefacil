@@ -1,8 +1,10 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Pencil, Plus, Settings2, Tag as TagIcon, Trash2, X } from 'lucide-react'
 import type { Tag } from '../lib/types'
 import { useStore, normalizeTagName } from '../lib/store'
 import { tagTone } from '../lib/format'
+import { colocarFlotante } from '../lib/flotante'
 import { useToast } from './ui/Toast'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 import { Checkbox } from './ui/Checkbox'
@@ -596,23 +598,78 @@ export function BulkTagMenu({
   canManage,
   triggerClass,
   placement = 'down',
+  flotante = false,
+  children,
   onDone,
 }: {
   selectedIds: string[]
   canManage: boolean
   triggerClass?: string
   placement?: 'up' | 'down'
+  /**
+   * Coloca el panel contra la VENTANA, en un portal, en vez de colgarlo del
+   * disparador. Es obligatorio cuando vive dentro de la rejilla: allí lo
+   * recortarían el desplazamiento horizontal de la tabla y el `overflow-clip` de
+   * la tarjeta. En la barra flotante no hace falta, porque esa barra ya es fija.
+   */
+  flotante?: boolean
+  /** Contenido del disparador. Sin él, el icono y la palabra "Etiquetas". */
+  children?: ReactNode
   onDone?: () => void
 }) {
   const { tags, candidates, applyTagToMany, removeTagFromMany, createTag } = useStore()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const ref = useRef<HTMLDivElement>(null)
+  // El ancla es el BOTÓN, no el envoltorio: en modo flotante el envoltorio va en
+  // `display: contents` (para que el botón sea el hijo directo de la barra
+  // segmentada y estire a lo alto), y un elemento sin caja devuelve un rect a
+  // cero, o sea que el panel se colocaría en la esquina de la pantalla.
+  const botonRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  // Se coloca contra la ventana y se recoloca con los dos desplazamientos que lo
+  // pueden dejar huérfano: el de la página y el de la propia tabla.
+  useLayoutEffect(() => {
+    if (!open || !flotante) return
+    const colocar = () => {
+      const ancla = botonRef.current?.getBoundingClientRect()
+      const panel = panelRef.current?.getBoundingClientRect()
+      if (!ancla || !panel) return
+      const { top, left } = colocarFlotante(
+        ancla,
+        { width: panel.width, height: panel.height },
+        { width: window.innerWidth, height: window.innerHeight },
+        { alinear: 'izquierda' },
+      )
+      setPos({ top, left })
+    }
+    colocar()
+    window.addEventListener('resize', colocar)
+    const main = document.getElementById('contenido')
+    main?.addEventListener('scroll', colocar, { passive: true })
+    const tabla = botonRef.current?.closest('.overflow-x-auto')
+    tabla?.addEventListener('scroll', colocar, { passive: true })
+    return () => {
+      window.removeEventListener('resize', colocar)
+      main?.removeEventListener('scroll', colocar)
+      tabla?.removeEventListener('scroll', colocar)
+    }
+  }, [open, flotante])
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    const dentro = (t: Node | null) =>
+      (ref.current?.contains(t as Node) ?? false) || (panelRef.current?.contains(t as Node) ?? false)
+    const onDoc = (e: MouseEvent) => !dentro(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // Corta la propagación: si no, cerraría además la ficha o el diálogo que
+      // haya detrás, en vez de solo esta lista.
+      e.stopPropagation()
+      setOpen(false)
+    }
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
     return () => {
@@ -654,19 +711,9 @@ export function BulkTagMenu({
     onDone?.()
   }
 
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className={triggerClass ?? `${BTN_SECONDARY}`}
-      >
-        <TagIcon className="size-4" aria-hidden />
-        {COPY.title}
-      </button>
-      {open && (
-        <div className={`absolute left-0 z-50 w-60 overflow-hidden rounded-xl filo bg-white p-1.5 shadow-pop ${placement === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+  const lista = (
+    <>
+
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -721,8 +768,41 @@ export function BulkTagMenu({
               </li>
             )}
           </ul>
+    </>
+  )
+
+  return (
+    <div className={flotante ? 'contents' : 'relative'} ref={ref}>
+      <button
+        ref={botonRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className={triggerClass ?? `${BTN_SECONDARY}`}
+      >
+        {children ?? (
+          <>
+            <TagIcon className="size-4" aria-hidden />
+            {COPY.title}
+          </>
+        )}
+      </button>
+      {open && (flotante
+        ? createPortal(
+          <div
+            ref={panelRef}
+            style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? 'visible' : 'hidden' }}
+            className="fixed z-50 w-60 overflow-hidden rounded-xl filo bg-white p-1.5 shadow-pop"
+          >
+            {lista}
+          </div>,
+          document.body,
+        )
+        : (
+        <div ref={panelRef} className={`absolute left-0 z-50 w-60 overflow-hidden rounded-xl filo bg-white p-1.5 shadow-pop ${placement === 'up' ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+          {lista}
         </div>
-      )}
+      ))}
     </div>
   )
 }

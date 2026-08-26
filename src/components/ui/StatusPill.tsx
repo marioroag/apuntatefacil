@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
 import { STATUS_META, STATUS_ORDER } from '../../lib/types'
@@ -29,35 +29,38 @@ export function StatusPill({ status, className = '' }: { status: CandidateStatus
  * ancho de "Contratado" solo deja aire muerto entre la palabra y el chevron. La
  * pastilla es la etiqueta de una palabra, no una caja que rellenar.
  */
-export function StatusSelect({
-  status,
+/* ---------------------------------------------------------------------------
+   LA LISTA DE LOS CINCO ESTADOS. Una sola, con dos disparadores.
+   ---------------------------------------------------------------------------
+   La pinta la pastilla de una fila (`StatusSelect`) y el tramo "Estado" de la
+   barra de selección, que cambia el estado de VARIOS de golpe. Es la misma
+   decisión con el mismo vocabulario, así que la lista, su colocación en portal y
+   su cierre viven aquí una vez: copiada, la segunda se separa de la primera al
+   primer retoque, que es lo que este proyecto lleva media doctrina evitando.
+
+   Nombres pelados, sin una frase por opción: los cinco estados se cambian
+   cincuenta veces al día, son obvios y son reversibles. La descripción por opción
+   es para lo que se decide una vez y cuesta caro (el estado del PUESTO), no para
+   esto.
+--------------------------------------------------------------------------- */
+export function MenuEstado({
+  valor,
   onChange,
   align = 'left',
+  triggerClass,
+  children,
 }: {
-  status: CandidateStatus
+  /** El estado marcado, o `null` cuando la selección tiene varios distintos. */
+  valor: CandidateStatus | null
   onChange: (s: CandidateStatus) => void
   align?: 'left' | 'right'
+  triggerClass?: string
+  children: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLUListElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-  const m = STATUS_META[status]
-
-  // Hito de marca: al pasar a "contratado" (y SOLO entonces) la pill da un único
-  // pulso sobrio, como un cuño. Es el único estado celebrable de la doctrina;
-  // "descartado" solo cambia de color. reduced-motion lo neutraliza globalmente.
-  const prevStatus = useRef(status)
-  const [celebrate, setCelebrate] = useState(false)
-  useEffect(() => {
-    if (prevStatus.current !== 'contratado' && status === 'contratado') {
-      setCelebrate(true)
-      const t = setTimeout(() => setCelebrate(false), 460)
-      prevStatus.current = status
-      return () => clearTimeout(t)
-    }
-    prevStatus.current = status
-  }, [status])
 
   // El menú va en un portal con posición fija (no absolute) para que NO lo recorte el
   // overflow de la tarjeta/scroll de la lista. Se calcula desde el botón, abriendo hacia
@@ -105,18 +108,16 @@ export function StatusSelect({
   }, [open])
 
   return (
-    <div className="inline-block">
+    <div className={triggerClass ? 'contents' : 'inline-block'}>
       <button
         ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-semibold transition-colors ${m.chip} hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
+        className={triggerClass}
       >
-        <span className={`size-2 shrink-0 rounded-full ${m.dot}`} aria-hidden />
-        {m.label}
-        <ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />
+        {children}
       </button>
       {open &&
         pos &&
@@ -129,7 +130,7 @@ export function StatusSelect({
           >
             {STATUS_ORDER.map((s) => {
               const mm = STATUS_META[s]
-              const sel = s === status
+              const sel = s === valor
               return (
                 <li key={s}>
                   <button
@@ -153,6 +154,46 @@ export function StatusSelect({
           document.body,
         )}
     </div>
+  )
+}
+
+export function StatusSelect({
+  status,
+  onChange,
+  align = 'left',
+}: {
+  status: CandidateStatus
+  onChange: (s: CandidateStatus) => void
+  align?: 'left' | 'right'
+}) {
+  const m = STATUS_META[status]
+
+  // Hito de marca: al pasar a "contratado" (y SOLO entonces) la pill da un único
+  // pulso sobrio, como un cuño. Es el único estado celebrable de la doctrina;
+  // "descartado" solo cambia de color. reduced-motion lo neutraliza globalmente.
+  const prevStatus = useRef(status)
+  const [celebrate, setCelebrate] = useState(false)
+  useEffect(() => {
+    if (prevStatus.current !== 'contratado' && status === 'contratado') {
+      setCelebrate(true)
+      const t = setTimeout(() => setCelebrate(false), 460)
+      prevStatus.current = status
+      return () => clearTimeout(t)
+    }
+    prevStatus.current = status
+  }, [status])
+
+  return (
+    <MenuEstado
+      valor={status}
+      onChange={onChange}
+      align={align}
+      triggerClass={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-semibold transition-colors ${m.chip} hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
+    >
+      <span className={`size-2 shrink-0 rounded-full ${m.dot}`} aria-hidden />
+      {m.label}
+      <ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />
+    </MenuEstado>
   )
 }
 

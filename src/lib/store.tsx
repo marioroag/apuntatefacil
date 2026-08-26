@@ -397,6 +397,8 @@ interface Store {
   sendInterestCheck: (campaignId: string, candidateIds: string[], idempotencyKey: string, channel?: InterestChannel) => Promise<InterestSendResult>
   // mutaciones
   setStatus: (candidateId: string, status: CandidateStatus) => Promise<void>
+  /** El mismo estado para varios de golpe (la barra de selección). */
+  setStatusMany: (candidateIds: string[], status: CandidateStatus) => Promise<void>
   setFavorito: (candidateId: string, favorito: boolean) => Promise<void>
   // Meridian: pide (o repite) el triaje de IA de una candidatura. Devuelve true si
   // quedó analizada. La edge function gatea por plan y es idempotente; en demo se
@@ -1252,6 +1254,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       patchCandidateLocal(id, { status })
       logDemoEvent(id, 'estado', { de: prev, a: status })
       await dbCandidate(id, { status }, () => prev && patchCandidateLocal(id, { status: prev }))
+    },
+    /**
+     * MISMO ESTADO PARA VARIOS, en UNA sola escritura.
+     *
+     * No es `setStatus` en un bucle: cien candidatos serían cien peticiones y cien
+     * repintados, y a mitad de camino la lista quedaría medio movida si una
+     * fallara. Aquí se pinta todo de golpe, se manda un `update ... in (ids)` y si
+     * falla se devuelve cada uno a SU estado anterior, que no tiene por qué ser el
+     * mismo para todos: por eso se guarda un mapa y no un valor.
+     *
+     * El historial de cada candidato no se escribe aquí: lo ponen los triggers de
+     * la base de datos, que se disparan fila a fila igual que con una sola.
+     */
+    setStatusMany: async (candidateIds, status) => {
+      const targets = candidates.filter((c) => candidateIds.includes(c.id) && c.status !== status)
+      if (!targets.length) return
+      const ids = targets.map((t) => t.id)
+      const antes = new Map(targets.map((t) => [t.id, t.status]))
+      setCandidates((cs) => cs.map((c) => (antes.has(c.id) ? { ...c, status } : c)))
+      if (companyId === 'demo') {
+        targets.forEach((t) => logDemoEvent(t.id, 'estado', { de: t.status, a: status }))
+        return
+      }
+      ids.forEach((id) => pendingCandidateWrites.current.add(id))
+      const { error } = await supabase.from('candidates').update({ status }).in('id', ids)
+      ids.forEach((id) => pendingCandidateWrites.current.delete(id))
+      if (error) {
+        setCandidates((cs) => cs.map((c) => (antes.has(c.id) ? { ...c, status: antes.get(c.id)! } : c)))
+        toast.error('No se pudo cambiar el estado.')
+      }
     },
     setFavorito: async (id, favorito) => {
       const prev = candidates.find((c) => c.id === id)?.favorito
