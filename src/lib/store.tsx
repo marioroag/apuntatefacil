@@ -464,6 +464,11 @@ interface Store {
   teamRequests: TeamRequest[]
   // Sube con cada ping realtime del tablón: un detalle abierto lo usa para refrescar su hilo.
   boardVersion: number
+  // Candidaturas llegadas desde la última visita a la pantalla de Candidatos
+  // (el punto de su fila del menú). Mismo criterio que `newSinceFor` pero para
+  // toda la empresa: lo que se apaga es HABER MIRADO, no haber triado.
+  candidatosNewCount: number
+  markCandidatosSeen: () => void
   // Peticiones con actividad ajena desde la última visita al tablón (badge del menú).
   boardNewCount: number
   markBoardSeen: () => void
@@ -575,6 +580,31 @@ function readSeen(): Record<string, string> {
   }
 }
 
+/**
+ * "Visto por última vez" de la pantalla de CANDIDATOS (mapa companyId -> ISO).
+ *
+ * Tercera marca de visto, y hace falta porque es una superficie propia. El punto
+ * de su fila se calculaba con `newCountFor`, o sea "cuántos están en estado
+ * nuevo", y eso NO se apaga mirando: se apaga triando. El resultado era una señal
+ * encendida para siempre, que es lo mismo que ninguna señal. Y encima el menú
+ * contestaba la misma pregunta de dos maneras, porque las filas de los puestos ya
+ * usaban `newSinceFor`.
+ *
+ * Es por EMPRESA y no por puesto (como `boardSeen` y a diferencia de `seen`)
+ * porque la pantalla es una y mezcla todos los puestos. Y es independiente del
+ * visto por puesto a propósito: mirar la lista global no es haber abierto cada
+ * puesto, así que no apaga sus puntos.
+ */
+const CANDIDATOS_SEEN_KEY = 'apuntatefacil.candidatos-seen.v1'
+function readCandidatosSeen(): Record<string, string> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CANDIDATOS_SEEN_KEY) ?? 'null')
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {}
+  } catch {
+    return {}
+  }
+}
+
 // "Visto por última vez" del tablón (mapa companyId -> ISO): el tablón es una
 // superficie única por empresa, a diferencia del seen por puesto de arriba.
 const BOARD_SEEN_KEY = 'apuntatefacil.board-seen.v1'
@@ -659,6 +689,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
   // Hilos del tablón en DEMO (en real se cargan perezosos por petición, sin estado global).
   const [demoTeamComments, setDemoTeamComments] = useState<TeamRequestComment[]>([])
+  const [candidatosSeen, setCandidatosSeen] = useState<Record<string, string>>(() => readCandidatosSeen())
   const [boardSeen, setBoardSeen] = useState<Record<string, string>>(() => readBoardSeen())
   const [boardVersion, setBoardVersion] = useState(0)
   // Chat de candidatos: igual que el tablón, el hilo no se cachea (se carga al
@@ -2100,6 +2131,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return true
     },
 
+    candidatosNewCount: (() => {
+      const since = companyId ? candidatosSeen[companyId] : undefined
+      // Sin marca de "visto" (nunca abierta): cuentan todas, igual que hace
+      // `newSinceFor` con un puesto que no se ha abierto nunca.
+      return candidates.filter((c) => !since || c.submittedAt > since).length
+    })(),
+    markCandidatosSeen: () => {
+      if (!companyId) return
+      setCandidatosSeen((prev) => {
+        const next = { ...prev, [companyId]: new Date().toISOString() }
+        try { localStorage.setItem(CANDIDATOS_SEEN_KEY, JSON.stringify(next)) } catch { /* cuota llena */ }
+        return next
+      })
+    },
+
     // --- Tablón de peticiones de equipo ------------------------------------
     teamRequests,
     boardVersion,
@@ -2457,7 +2503,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // enseña que el chat avisa a un compañero.
       setMembers(SEED_MEMBERS.map((m) => ({ userId: m.user_id, email: m.email, role: m.role as CompanyMember['role'], isSelf: m.is_self })))
     },
-  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, teamRequests, demoTeamComments, demoCandidateComments, demoCandidateEvents, commentCounts, chatVersion, members, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, sendInterestCheck, toast, interviews, interviewUpcomingCount, conversations, conversationVersion, refreshInterviews, refreshConversations, company, refreshCompany])
+  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, candidatosSeen, teamRequests, demoTeamComments, demoCandidateComments, demoCandidateEvents, commentCounts, chatVersion, members, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, sendInterestCheck, toast, interviews, interviewUpcomingCount, conversations, conversationVersion, refreshInterviews, refreshConversations, company, refreshCompany])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

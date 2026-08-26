@@ -179,11 +179,10 @@ function BotonFila({ Icon, label, onClick, teclas }: { Icon: LucideIcon; label: 
  * cada fila convierte la sangría en ruido. Su texto arranca a 48px, exactamente
  * donde arranca la etiqueta del padre.
  */
-function Puestos({ onNavigate }: { onNavigate: () => void }) {
+function Puestos({ abierto, onToggle, onNavigate }: { abierto: boolean; onToggle: () => void; onNavigate: () => void }) {
   const { campaigns, newSinceFor, loading } = useStore()
   const base = useAppBase()
   const { pathname } = useLocation()
-  const [abierto, setAbierto] = useState(true)
   const listaId = useId()
 
   // Plegado, el padre HEREDA el "estás aquí" de su hijo. Sin esto, plegar la
@@ -204,7 +203,7 @@ function Puestos({ onNavigate }: { onNavigate: () => void }) {
   return (
     <div>
       <button
-        onClick={() => setAbierto((a) => !a)}
+        onClick={onToggle}
         aria-expanded={abierto}
         aria-controls={listaId}
         className={`${FILA} ${heredaActivo ? FILA_ACTIVA : FILA_QUIETA}`}
@@ -311,9 +310,23 @@ function Puestos({ onNavigate }: { onNavigate: () => void }) {
  * mismo problema que la doctrina ya resolvió en lo visual ("desplegado no se
  * marca el padre"), una capa más abajo.
  */
-function FilaConHijos({ it, base, onNavigate }: { it: NavItem; base: string; onNavigate: () => void }) {
+function FilaConHijos({
+  it,
+  base,
+  abierto,
+  onToggle,
+  onAbrir,
+  onNavigate,
+}: {
+  it: NavItem
+  base: string
+  abierto: boolean
+  onToggle: () => void
+  /** Ir a la fila ABRE su lista: llegas al corte principal y ves los otros dos. */
+  onAbrir: () => void
+  onNavigate: () => void
+}) {
   const { pathname } = useLocation()
-  const [abierto, setAbierto] = useState(true)
   const listaId = useId()
   const hijos = it.hijos ?? []
 
@@ -335,7 +348,7 @@ function FilaConHijos({ it, base, onNavigate }: { it: NavItem; base: string; onN
       <div className={`${FILA_CAJA} ${heredaActivo ? FILA_ACTIVA : FILA_QUIETA}`}>
         <Link
           to={`${base}${it.to}`}
-          onClick={onNavigate}
+          onClick={() => { onAbrir(); onNavigate() }}
           aria-current={heredaActivo ? 'page' : undefined}
           className={FILA_ENLACE}
         >
@@ -353,7 +366,7 @@ function FilaConHijos({ it, base, onNavigate }: { it: NavItem; base: string; onN
         </Link>
         <button
           type="button"
-          onClick={() => setAbierto((a) => !a)}
+          onClick={onToggle}
           aria-expanded={abierto}
           aria-controls={listaId}
           // La etiqueta dice qué pliega, no solo que pliega: en una lista de
@@ -416,23 +429,59 @@ export function Sidebar({
   /** Solo en la demo: recarga los datos de ejemplo (pide confirmación). */
   onReiniciarDemo: () => void
 }) {
-  const { campaigns, newCountFor, boardNewCount } = useStore()
+  const { candidatosNewCount, boardNewCount } = useStore()
   const { company, role } = useAuth()
   const base = useAppBase()
   const demo = base === '/demo'
   const isStaff = useIsSupportStaff()
 
-  const totalNuevos = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
+  const { pathname } = useLocation()
+
   const grupos = navGroups({
     plan: company?.plan,
     empresa: company?.name ?? '',
     isStaff,
     demo,
     counts: {
-      nuevos: totalNuevos,
+      // `candidatosNewCount` y NO la suma de `newCountFor`, que era "cuántos están
+      // en estado nuevo": eso no se apaga mirando, se apaga triando, así que el
+      // punto se quedaba encendido para siempre y una señal que no se apaga es lo
+      // mismo que ninguna señal. Encima el menú contestaba la misma pregunta de
+      // dos maneras, porque las filas de los puestos ya usaban "desde la última
+      // vez". Ahora las dos dicen lo mismo. El porqué, en `store.tsx`.
+      nuevos: candidatosNewCount,
       equipo: boardNewCount,
     },
   })
+
+  /**
+   * UN SOLO DESPLEGABLE ABIERTO (Mario, ago 2026).
+   *
+   * El estado vive aquí y no dentro de cada plegable, que es lo que hace que sean
+   * excluyentes: con un `useState` por pieza no hay forma de que una sepa de la
+   * otra sin inventar un canal entre hermanas. Uno solo y el que gana es el
+   * último que abres.
+   *
+   * Y NO ES SOLO ORDEN: con las dos listas abiertas, "Ajustes" caía por debajo
+   * del pliegue en una pantalla de portátil, o sea que la única forma de llegar a
+   * él era desplazar un menú que parecía completo. Abriendo de una en una, el
+   * bloque entero cabe.
+   *
+   * Cuál arranca abierto lo decide LA RUTA, no un valor fijo: si entras estando
+   * dentro de un puesto se abre Puestos, y si entras por una vista de candidatos
+   * se abre Candidatos. Con un fijo, la mitad de las veces el menú arrancaba
+   * enseñando la lista que no estabas usando. Es un inicializador perezoso, así
+   * que decide al montar y luego manda lo que pulses: navegar después no te
+   * reabre nada por su cuenta, salvo pulsar la fila madre, que para eso está.
+   */
+  const [abierto, setAbierto] = useState<string | null>(() => {
+    if (pathname.startsWith(`${base}/puestos/`)) return 'puestos'
+    for (const g of grupos)
+      for (const it of g.items)
+        if (it.hijos?.some((h) => pathname === `${base}${h.to}`)) return it.id
+    return 'puestos'
+  })
+  const alternar = (id: string) => setAbierto((a) => (a === id ? null : id))
 
   // Crear puestos: el encargado ve sus datos (acotados por RLS) pero no gestiona
   // estructura. El límite de plan NO se descubre aquí, se descubre al crear.
@@ -446,7 +495,18 @@ export function Sidebar({
     if (it.capa === 'avisos') return <Avisos key={it.id} label={it.label} />
     if (it.capa === 'buscar') return <BotonFila key={it.id} Icon={it.Icon} label={it.label} onClick={onBuscar} teclas={['⌘', 'K']} />
     // Con hijos, la fila se parte: la etiqueta lleva y el chevron pliega.
-    if (it.hijos) return <FilaConHijos key={it.id} it={it} base={base} onNavigate={onNavigate} />
+    if (it.hijos)
+      return (
+        <FilaConHijos
+          key={it.id}
+          it={it}
+          base={base}
+          abierto={abierto === it.id}
+          onToggle={() => alternar(it.id)}
+          onAbrir={() => setAbierto(it.id)}
+          onNavigate={onNavigate}
+        />
+      )
     return (
       <EnlaceFila
         key={it.id}
@@ -468,7 +528,7 @@ export function Sidebar({
             referencia. Es la mitad de la regla; la otra mitad es que la píldora
             encogió (ver `filaLateral.ts`). */}
         <div className="space-y-1.5">
-          {g.conPuestos && <Puestos onNavigate={onNavigate} />}
+          {g.conPuestos && <Puestos abierto={abierto === 'puestos'} onToggle={() => alternar('puestos')} onNavigate={onNavigate} />}
           {g.items.map(pintarItem)}
         </div>
       </div>

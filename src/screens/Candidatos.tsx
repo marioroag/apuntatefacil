@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Briefcase, CircleDot, Clock, ContactRound, Phone, SearchX, User } from 'lucide-react'
 import { useStore } from '../lib/store'
@@ -20,7 +20,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { useEsMovil } from '../lib/media'
 import { BTN_SECONDARY } from '../lib/buttons'
 import { ChipDimension, type DimensionFiltro } from '../components/FiltroChip'
-import { vistaPor, type VistaCandidatos } from '../lib/candidatos'
+import { traeNuevos, vistaPor, type VistaCandidatos } from '../lib/candidatos'
 
 /** Las columnas de la cola. El ORDEN se declara aparte: cambia con el ancho. */
 type ColKeyCandidatos = 'candidato' | 'puesto' | 'telefono' | 'estado' | 'recibida'
@@ -215,7 +215,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
  */
 export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
   const vista = vistaPor(vistaId)
-  const { candidates, getCampaign, setStatus, restoreCandidate } = useStore()
+  const { candidates, getCampaign, setStatus, restoreCandidate, markCandidatosSeen } = useStore()
   const { role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -224,6 +224,23 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
   const canManageTags = role !== 'encargado'
   const [openId, setOpenId] = useState<string | null>(null)
   const [manageTagsOpen, setManageTagsOpen] = useState(false)
+
+  // MIRAR ESTA LISTA CUENTA COMO HABERLA VISTO, y eso es lo que apaga el punto de
+  // su fila del menu. Antes ese punto contaba "cuantos estan en estado nuevo", que
+  // no se apaga mirando sino triando: se quedaba encendido para siempre.
+  //
+  // Solo en las vistas que TRAEN a los nuevos: abrir Contratados no es haber visto
+  // las candidaturas nuevas, porque ahi no estan. Y se vuelve a marcar cuando
+  // entra gente mientras la tienes delante, igual que hace el tablon.
+  //
+  // Por `ref` para que el efecto no dependa de la funcion del store: si entrara en
+  // las dependencias, cada marca cambiaria el contexto y volveria a disparar el
+  // efecto. Es el mismo patron que ya usa `EquipoTablon`.
+  const marcaRef = useRef(markCandidatosSeen)
+  marcaRef.current = markCandidatosSeen
+  useEffect(() => {
+    if (traeNuevos(vista)) marcaRef.current()
+  }, [candidates, vista])
 
   const [puestoFilter, setPuestoFilter] = useState<Set<string>>(new Set())
 

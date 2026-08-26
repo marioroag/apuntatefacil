@@ -105,6 +105,20 @@ export const VISTAS: Vista[] = [
   },
 ]
 
+/**
+ * ¿Esta vista contiene a los que acaban de llegar?
+ *
+ * Lo usa la pantalla para decidir si mirar cuenta como HABER MIRADO: abrir
+ * Contratados no es haber visto las candidaturas nuevas, porque ahí no están.
+ *
+ * Se DERIVA de `incluye` en vez de declararse como un campo más, y eso es a
+ * propósito: un campo sería una segunda lista que hay que acordarse de mantener
+ * a la vez que el filtro, y la vista que se añada mañana llegaría con los dos
+ * puestos de acuerdo o no según la suerte. Aquí solo puede haber una respuesta.
+ * El objeto de mentira es el precio: `incluye` solo mira el estado.
+ */
+export const traeNuevos = (v: Vista) => v.incluye({ status: 'nuevo' } as Candidate)
+
 /** La vista principal: la que abre "Candidatos" a secas. */
 export const VISTA_PRINCIPAL: VistaCandidatos = 'activos'
 
