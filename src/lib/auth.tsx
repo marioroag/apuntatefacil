@@ -109,6 +109,20 @@ export function mapAuthError(message: string): string {
  * Cualquier otro error (500, red, timeout) NO es esto y no debe cerrar la sesión
  * de nadie: se reintenta.
  */
+/**
+ * El mensaje para la persona MÁS el código para quien tenga que arreglarlo.
+ *
+ * Un error que no dice cuál es obliga a adivinar, y adivinar sobre producción es
+ * caro: "puede ser un problema de conexión" era una suposición escrita como si
+ * fuera un diagnóstico. El código va al final, en su propia línea y en pequeño:
+ * no estorba a quien solo quiere reintentar y salva a quien tiene que arreglarlo.
+ */
+function detalle(error: { code?: string; message?: string } | null, cabecera?: string): string {
+  const base = cabecera ?? 'No hemos podido leer los datos de tu empresa.'
+  const codigo = [error?.code, error?.message].filter(Boolean).join(': ')
+  return codigo ? base + '\n' + codigo : base
+}
+
 function esSesionMuerta(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false
   return error.code === 'PGRST301' || error.code === '42501'
@@ -194,10 +208,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         // Token vivo y aun así sin permiso: no es cosa del usuario, así que se
         // dice y se deja reintentar. Lo que NO se hace es mandarlo al onboarding.
-        setCompanyError('No hemos podido leer tu empresa. Vuelve a intentarlo en un momento.')
+        console.error('[apuntatefacil] my_companies sin permiso con sesión viva:', error)
+        setCompanyError(detalle(error, 'Tu sesión es válida pero la base no nos deja leer tu empresa.'))
         return null
       }
-      setCompanyError('No hemos podido cargar tu empresa. Puede ser un problema de conexión.')
+      // EL DETALLE TÉCNICO VIAJA CON EL MENSAJE. Sin él, esta pantalla decía
+      // "puede ser un problema de conexión" ante CUALQUIER fallo, que es una
+      // suposición disfrazada de diagnóstico: costó una ronda entera de ida y
+      // vuelta no saber qué código devolvía la base.
+      console.error('[apuntatefacil] my_companies falló:', error)
+      setCompanyError(detalle(error))
       return null
     }
     setCompanyError(null)

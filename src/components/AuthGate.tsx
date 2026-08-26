@@ -21,7 +21,17 @@ function FullSpinner() {
  * onboarding, o sea que le pedía a alguien con su empresa montada que se creara
  * otra. Un error se dice; no se disfraza del principio del producto.
  */
-function ErrorDeCarga({ mensaje, onReintentar }: { mensaje: string; onReintentar: () => void }) {
+function ErrorDeCarga({
+  mensaje,
+  onReintentar,
+  onSalir,
+}: {
+  mensaje: string
+  onReintentar: () => void
+  onSalir: () => void
+}) {
+  // El mensaje trae el detalle técnico en su segunda línea, si lo hay.
+  const [texto, codigo] = mensaje.split('\n')
   return (
     <div className="grid min-h-svh place-items-center bg-slate-50 px-4">
       <div className="w-full max-w-sm rounded-xl filo bg-white p-6 text-center shadow-card">
@@ -29,15 +39,31 @@ function ErrorDeCarga({ mensaje, onReintentar }: { mensaje: string; onReintentar
           <WifiOff className="size-6" aria-hidden />
         </div>
         <h1 className="mt-4 text-lg font-semibold text-slate-900">No hemos podido cargar tu empresa</h1>
-        {/* El motivo, no un "algo ha ido mal": lo que se hace después depende de
-            si es la conexión o es otra cosa. */}
-        <p className="mt-1 text-sm text-slate-500">{mensaje}</p>
+        <p className="mt-1 text-sm text-slate-500">{texto}</p>
         <button type="button" onClick={onReintentar} className={`${BTN_PRIMARY} mt-5 w-full`}>
           Reintentar
         </button>
-        <p className="mt-3 text-[13px] text-slate-500">
+        {/* UNA PANTALLA DE ERROR SIEMPRE TIENE UNA SALIDA, y esto no es un detalle
+            de estilo: con solo "Reintentar", un fallo que se repite deja a la
+            persona ENCERRADA en la aplicación, sin poder ni siquiera cambiar de
+            cuenta. Pasó (26-ago-2026) y es peor que el error que la trajo aquí. */}
+        <button
+          type="button"
+          onClick={onSalir}
+          className="mt-3 w-full text-[13px] font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline"
+        >
+          Cerrar sesión y volver a entrar
+        </button>
+        <p className="mt-4 text-[13px] text-slate-500">
           Tus datos están intactos: esto es un problema al leerlos, no al guardarlos.
         </p>
+        {/* El código, para poder decirlo al pedir ayuda. Seleccionable y en su
+            propia línea: no estorba a quien solo quiere reintentar. */}
+        {codigo && (
+          <p className="mt-3 select-all break-words rounded-lg bg-slate-50 px-3 py-2 text-left text-[12px] leading-relaxed text-slate-500">
+            {codigo}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -52,12 +78,13 @@ function ErrorDeCarga({ mensaje, onReintentar }: { mensaje: string; onReintentar
  * convertía en "eres un usuario nuevo, crea tu empresa".
  */
 export function AuthGate({ children }: { children: ReactNode }) {
-  const { loading, session, company, companyLoading, companyError, retryCompanies } = useAuth()
+  const { loading, session, company, companyLoading, companyError, retryCompanies, signOut } = useAuth()
   if (loading) return <FullSpinner />
   if (!session) return <Navigate to="/login" replace />
   if (companyLoading && !company) return <FullSpinner />
   // Antes de decidir que no tienes empresa, hay que haber podido preguntarlo.
-  if (companyError && !company) return <ErrorDeCarga mensaje={companyError} onReintentar={retryCompanies} />
+  if (companyError && !company)
+    return <ErrorDeCarga mensaje={companyError} onReintentar={retryCompanies} onSalir={signOut} />
   if (!company) return <Onboarding />
   // La prueba SÍ da acceso al panel, con topes (1 proceso, 25 candidaturas o
   // 15 días). Al agotarse se sigue recopilando: las candidaturas nuevas entran
