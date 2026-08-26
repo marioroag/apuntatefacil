@@ -123,6 +123,37 @@ function detalle(error: { code?: string; message?: string } | null, cabecera?: s
   return codigo ? base + '\n' + codigo : base
 }
 
+/**
+ * PGRST303, "JWT issued at future": UN DESFASE DE RELOJES, NO UN FALLO TUYO.
+ *
+ * Le pasó a Mario el 26-ago-2026 y dejó la cuenta inutilizable: el token está
+ * bien firmado y bien vivo, pero llega al servicio que lo valida con una marca de
+ * emisión (`iat`) por delante de SU reloj, así que lo rechaza por venir del
+ * futuro. Medido ese día: el reloj de la máquina y los de Supabase coincidían al
+ * segundo, o sea que el desfase estaba entre los dos servicios de Supabase, el
+ * que emite el token y el que lo comprueba.
+ *
+ * Lo importante para el código: **se cura con el tiempo, solo**. Un token
+ * "emitido en el futuro" deja de estarlo en cuanto el reloj del validador
+ * alcanza esa marca, así que lo correcto es ESPERAR Y REINTENTAR, no cerrar la
+ * sesión (el token es bueno) ni rendirse con una pantalla de error. Sacar al
+ * usuario sería además inútil: al volver a entrar se emite otro token con el
+ * mismo desfase.
+ */
+function esDesfaseDeReloj(error: { code?: string } | null): boolean {
+  return error?.code === 'PGRST303'
+}
+
+const espera = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Cuánto se espera entre reintentos, en ms. Suman ~7s, que cubre de sobra un
+ * desfase de unos segundos sin dejar la pantalla colgada: si el desfase fuera de
+ * minutos, ninguna espera razonable ayudaría y hay que decirlo, no seguir dando
+ * vueltas con el usuario mirando.
+ */
+const ESPERAS_RELOJ = [700, 1500, 4500]
+
 function esSesionMuerta(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false
   return error.code === 'PGRST301' || error.code === '42501'
@@ -184,7 +215,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // EL ERROR NO SE TIRA. Estaba escrito `const { data } = await ...`, o sea que
     // un fallo de la llamada acababa en `data === null` y de ahí en una lista
     // vacía, indistinguible de "no tienes ninguna empresa".
-    const { data, error } = await supabase.rpc('my_companies')
+    let { data, error } = await supabase.rpc('my_companies')
+    // Un desfase de relojes se pasa solo: se espera y se vuelve a preguntar con
+    // el MISMO token, que es bueno. Sin esto, el usuario se comía una pantalla de
+    // error por unos segundos de diferencia entre dos servidores.
+    for (const ms of ESPERAS_RELOJ) {
+      if (!esDesfaseDeReloj(error)) break
+      await espera(ms)
+      ;({ data, error } = await supabase.rpc('my_companies'))
+    }
     if (error) {
       setCompanyLoading(false)
       if (esSesionMuerta(error)) {
@@ -217,7 +256,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // suposición disfrazada de diagnóstico: costó una ronda entera de ida y
       // vuelta no saber qué código devolvía la base.
       console.error('[apuntatefacil] my_companies falló:', error)
-      setCompanyError(detalle(error))
+      setCompanyError(
+        detalle(
+          error,
+          esDesfaseDeReloj(error)
+            ? 'El servidor está recibiendo tu sesión con una marca de tiempo por delante de su reloj. No es cosa tuya y suele arreglarse solo en unos minutos.'
+            : undefined,
+        ),
+      )
       return null
     }
     setCompanyError(null)
