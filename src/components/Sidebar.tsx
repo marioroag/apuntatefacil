@@ -6,7 +6,6 @@ import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { useAppBase } from '../lib/useAppBase'
 import { useIsSupportStaff } from '../lib/useSupportStaff'
-import { BRAND } from '../lib/brand'
 import { PUESTO_ICON, contarNuevas, contarPuestos, navGroups, type NavGroup, type NavItem } from '../lib/nav'
 import { BTN_PRIMARY_LATERAL } from '../lib/buttons'
 import { Logo } from './Logo'
@@ -549,7 +548,7 @@ export function Sidebar({
           propósito ("dentro de tu casa no hace falta la valla") mientras la
           esquina superior izquierda era la empresa; retirada la barra, la empresa
           pasó a ser la cabecera de su propio bloque y este sitio se quedó libre.
-          La baldosa es de tinta y el monograma va en su versión oscura. */}
+          El lockup es el mismo que en el resto del producto (ver abajo). */}
       <Link
         to={base}
         onClick={onNavigate}
@@ -558,13 +557,28 @@ export function Sidebar({
         // que ya lleva la marca. Sin esto salía dos veces, una debajo de la otra.
         // Como el aside solo existe a partir de lg y el cajón solo por debajo, la
         // media query los reparte sin que ninguno tenga que saber del otro.
-        className="hidden shrink-0 items-center gap-2.5 rounded-xl px-[18px] pb-7 pt-[22px] outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 lg:flex"
+        className="hidden shrink-0 items-center gap-1.5 rounded-xl px-6 pb-7 pt-[22px] outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 lg:flex"
       >
-        <span aria-hidden className="grid size-[34px] shrink-0 place-items-center rounded-[9px] bg-slate-900">
-          <Logo className="size-[18px]" tone="oscuro" />
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[17px] font-bold tracking-[-0.02em] text-slate-900">
-          {BRAND}
+        {/* El MISMO lockup que el resto del producto (Mario, ago 2026): monograma
+            bicolor a pelo + wordmark "apuntatefacil" en minúscula, como el login,
+            el onboarding y la landing. Aquí había una variante propia del shell
+            (baldosa de tinta con el logo en su versión oscura y "Apúntate Fácil"
+            en caja de título), y dos formas de escribir la marca se leen como dos
+            productos. El nombre accesible lo pone el propio SVG del logo
+            (aria-label); el wordmark es dibujo y va aria-hidden, igual que en
+            todas las demás superficies. */}
+        {/* La sangría a 24 (no 18) y el monograma a 28 con 6 de hueco: así el
+            logo cae en la MISMA vertical que los iconos del menú y el wordmark en
+            la misma que sus etiquetas (24 + 28 + 6 = 58, medido). Con la baldosa
+            vieja el logo colgaba 6px a la izquierda de esa columna, que es justo
+            el descuadre que en este lateral se lee como descosido.
+            El 28 tampoco es libre: sale de la PROPORCIÓN del lockup en el resto
+            del producto (landing 32/20, login 36/20, o sea 1,6-1,8). Con 24 el
+            ratio caía a 1,41 y el monograma se veía pequeño para su wordmark: la
+            misma marca en otra proporción se lee como otra marca. */}
+        <Logo className="size-7" />
+        <span className="min-w-0 flex-1 truncate text-[17px] brand-wordmark text-slate-900" aria-hidden translate="no">
+          apuntatefacil
         </span>
       </Link>
 

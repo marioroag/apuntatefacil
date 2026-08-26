@@ -10,7 +10,6 @@ import { seedDemoData } from '../lib/seedDemo'
 import { Sidebar } from '../components/Sidebar'
 import { GlobalSearch } from '../components/GlobalSearch'
 import { Logo } from '../components/Logo'
-import { BRAND } from '../lib/brand'
 import { ProfileDialog } from '../components/ProfileDialog'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
 import { SupportDialog } from '../components/SupportDialog'
@@ -286,14 +285,13 @@ export function AppLayout() {
               busca de qué producto es esta pantalla, igual que en el lateral de
               escritorio; el control de abrir el menú es una acción y las acciones
               van al otro lado, que además es donde llega el pulgar. */}
-          <Link to={base} className="flex min-w-0 items-center gap-2 rounded-xl px-1 py-1">
-            {/* Las MISMAS medidas que la marca del lateral en escritorio (baldosa
-                de 34, glifo de 18, rótulo de 17): es la misma marca en la misma
-                esquina, y con dos tallas distintas se lee como dos logotipos. */}
-            <span aria-hidden className="grid size-[34px] shrink-0 place-items-center rounded-[9px] bg-slate-900">
-              <Logo className="size-[18px]" tone="oscuro" />
-            </span>
-            <span className="min-w-0 truncate text-[17px] font-bold tracking-[-0.02em] text-slate-900">{BRAND}</span>
+          <Link to={base} className="flex min-w-0 items-center gap-1.5 rounded-xl px-1 py-1">
+            {/* El MISMO lockup que el lateral de escritorio y que el resto del
+                producto (Mario, ago 2026): monograma de 32 y wordmark de 17. Es la
+                misma marca en la misma esquina, y con dos formas o dos tallas se
+                lee como dos logotipos: al estrechar la ventana se ve saltar. */}
+            <Logo className="size-7" />
+            <span className="min-w-0 truncate text-[17px] brand-wordmark text-slate-900" aria-hidden translate="no">apuntatefacil</span>
           </Link>
           <button
             data-cajon
