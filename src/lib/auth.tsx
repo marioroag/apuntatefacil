@@ -158,9 +158,24 @@ const espera = (ms: number) => new Promise((r) => setTimeout(r, ms))
  */
 const ESPERAS_JWT = [800, 2500, 6000]
 
+/**
+ * SOLO 42501, y quitar PGRST301 de aquí es un arreglo, no una limpieza.
+ *
+ * 42501 significa que la petición llegó a la base COMO ANÓNIMA (PostgREST solo
+ * asigna el rol anon cuando no hay token que evaluar), o sea que el cliente no
+ * adjuntó ninguna sesión: estado local roto, y cerrar sesión es lo correcto.
+ *
+ * PGRST301/PGRST303 significan que HAY token y fue RECHAZADO, y durante el
+ * incidente de Supabase (ver arriba) eso le pasa a tokens perfectamente buenos.
+ * Con PGRST301 aquí dentro, el camino de "¿sigue viva tu sesión?" preguntaba a
+ * `getUser()`, que valida EL MISMO token por el MISMO canal averiado: también
+ * 401, y cerrábamos la sesión de un usuario válido. Le pasó a Mario: entraba
+ * bien y la app lo echaba con "tu sesión había caducado". Un rechazo de token
+ * nunca cierra sesión solo; como mucho enseña la pantalla de error, que ya
+ * lleva "Cerrar sesión" manual para quien quiera intentarlo.
+ */
 function esSesionMuerta(error: { code?: string; message?: string } | null): boolean {
-  if (!error) return false
-  return error.code === 'PGRST301' || error.code === '42501'
+  return error?.code === '42501'
 }
 
 /**
