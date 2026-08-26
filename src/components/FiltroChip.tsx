@@ -1,10 +1,11 @@
 import { createPortal } from 'react-dom'
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { ChevronDown, X } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Bookmark, Briefcase, ChevronDown, ChevronLeft, ChevronRight, Filter, Globe, ListFilter, Plus, Search, Trash2, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Checkbox } from './ui/Checkbox'
 import { colocarFlotante } from '../lib/flotante'
 import { BTN_SUPERFICIE } from '../lib/buttons'
+import type { SavedView } from '../lib/types'
 
 /* ---------------------------------------------------------------------------
    EL CHIP DE UN FILTRO. Pieza compartida.
@@ -16,9 +17,9 @@ import { BTN_SUPERFICIE } from '../lib/buttons'
    Candidatos una, pero **un chip de filtro se abre, se marca y se quita igual en las
    dos**, y quien lo vea tiene que reconocerlo.
 
-   Lo que NO sale de aqui es el menu de varias paginas (`MenuAnadirFiltro`): ese
-   sirve para ELEGIR entre muchas categorias y guardar vistas, y Candidatos no
-   tiene ni lo uno ni lo otro. Se queda en el panel hasta que haga falta dos veces.
+   El MENÚ de varias páginas (`MenuAnadirFiltro`) vive también aquí desde ago
+   2026, por lo mismo: era exclusivo del panel hasta que Candidatos necesitó
+   filtrar por algo más que el puesto.
 --------------------------------------------------------------------------- */
 
 /**
@@ -255,3 +256,332 @@ export function ChipDimension({ dim }: { dim: DimensionFiltro }) {
   )
 }
 
+/* ---------------------------------------------------------------------------
+   EL MENÚ DE FILTROS. Bajó aquí desde `Dashboard.tsx` en ago 2026.
+   ---------------------------------------------------------------------------
+   El comentario de arriba decía que este menú se quedaba en el panel "hasta que
+   haga falta dos veces". Hizo falta: Mario pidió que Candidatos filtre por algo
+   más que el puesto, y una lista de gente se filtra igual venga de un proceso o
+   de todos. Lo único que el panel tiene y Candidatos no son las VISTAS
+   GUARDADAS, que se guardan con el id de un puesto; por eso son opcionales y su
+   página no se pinta si no llegan.
+--------------------------------------------------------------------------- */
+/** Fila de categoría del menú de filtros: lleva a otra página de la misma caja. */
+function FilaCategoria({
+  icon: Icon,
+  label,
+  n,
+  onClick,
+}: {
+  icon: LucideIcon
+  label: string
+  n: number
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-800 outline-none transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 sm:py-1.5 sm:text-[13px]"
+    >
+      <Icon className="size-4 shrink-0 text-slate-500" aria-hidden />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {/* El recuento ahorra entrar a mirar si esta categoría ya filtra. */}
+      {n > 0 && <span className="num shrink-0 text-[12px] font-medium text-indigo-600">({n})</span>}
+      <ChevronRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+    </button>
+  )
+}
+
+/**
+ * "FILTROS": elige la CATEGORÍA y dentro sus valores, en la misma caja.
+ *
+ * Dos páginas, no dos capas: la raíz lista las categorías y al pulsar una, el mismo
+ * desplegable pasa a enseñar SUS valores, con el campo de arriba convertido en
+ * "Elegir <categoría>". Es un gesto continuo (abrir, categoría, valores) en vez de
+ * dos (añadir el chip, luego abrirlo), y sobre todo **evita que la fila se llene de
+ * chips del mismo tipo**: los tres estados que quieres van dentro de "Estado", no
+ * en tres cápsulas seguidas. Mario, ago 2026.
+ *
+ * Una segunda capa colgando de la primera se saldría de la pantalla y en móvil no
+ * tendría dónde ponerse; es la misma decisión que ya tomó el submenú de Sede.
+ *
+ * "Limpiar todos los filtros" solo aparece cuando hay algo que limpiar: una acción
+ * que no puede hacer nada es una puerta cerrada pintada en la pared.
+ */
+export function MenuAnadirFiltro({
+  dimensiones,
+  onLimpiarTodo,
+  hayFiltros,
+  vistas,
+  onAplicarVista,
+  onBorrarVista,
+  onGuardarVista,
+  puedeGuardar = false,
+}: {
+  dimensiones: DimensionFiltro[]
+  onLimpiarTodo: () => void
+  hayFiltros: boolean
+  /**
+   * Las vistas guardadas viven DENTRO de Filtros desde ago 2026 (Mario), no en un
+   * botón aparte: una vista guardada ES una combinación de filtros, así que fuera
+   * estaba en otro dominio. En la raíz aparece como una página más (`Vistas ›`),
+   * junto a "Limpiar todos": esa zona del pie es la de las operaciones sobre el
+   * CONJUNTO de filtros (recuperar uno entero, vaciarlos todos), y las categorías
+   * de arriba son las de añadir uno.
+   *
+   * SON OPCIONALES desde ago 2026, que es cuando este menú dejó de ser del panel
+   * del puesto y pasó a servir también a Candidatos. Allí una vista guardada no
+   * existe: se guardan con el id de un puesto y esa pantalla los mezcla todos.
+   * Sin ellas, la página de Vistas sencillamente no se pinta, que es la misma
+   * regla que gobierna todo lo demás en este proyecto: lo que no está disponible
+   * no se enseña bloqueado, no se enseña.
+   */
+  vistas?: SavedView[]
+  onAplicarVista?: (v: SavedView) => void
+  onBorrarVista?: (id: string) => void
+  onGuardarVista?: () => void
+  puedeGuardar?: boolean
+}) {
+  const hayVistas = !!vistas
+  const [open, setOpen] = useState(false)
+  // RUTA y no una sola página: hay tres niveles (raíz -> Preguntas -> una pregunta)
+  // y volver atrás desde una pregunta tiene que devolverte a la LISTA de preguntas,
+  // no a la raíz. Con un solo `pagina` no hay forma de saber por dónde entraste.
+  const [ruta, setRuta] = useState<string[]>([])
+  const [q, setQ] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+  const campoRef = useRef<HTMLInputElement>(null)
+  const botonRef = useRef<HTMLButtonElement>(null)
+
+  const hoja = ruta[ruta.length - 1] ?? null
+  const PAGINAS = ['preguntas', 'vistas']
+  const dim = hoja && !PAGINAS.includes(hoja) ? dimensiones.find((d) => d.id === hoja) ?? null : null
+  const enPreguntas = hoja === 'preguntas'
+  const enVistas = hayVistas && hoja === 'vistas'
+  const preguntas = dimensiones.filter((d) => d.grupo === 'preguntas')
+  const raizDims = dimensiones.filter((d) => !d.grupo)
+  const nPreguntas = preguntas.reduce((t, d) => t + d.n, 0)
+
+  const entrar = (id: string) => { setRuta((r) => [...r, id]); setQ('') }
+  const volver = () => { setRuta((r) => r.slice(0, -1)); setQ('') }
+
+  const cerrar = useCallback(() => {
+    setOpen(false)
+    // La ruta vuelve a la raíz al CERRAR, no al abrir: al abrir se vería el salto
+    // de vuelta durante la animación.
+    setRuta([])
+    setQ('')
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && cerrar()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // Escape sube UN nivel; en la raíz, cierra. Así no se sale de todo por querer
+      // deshacer un paso, ni hacen falta dos Escapes para salir de tres niveles.
+      if (ruta.length) {
+        e.stopPropagation()
+        volver()
+        return
+      }
+      cerrar()
+      botonRef.current?.focus()
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open, ruta, cerrar])
+
+  // El foco entra al campo en un efecto y no en el click: al pulsar todavía no
+  // existe. Se repite al cambiar de página, que es cuando el campo cambia de papel.
+  useEffect(() => {
+    if (open) campoRef.current?.focus()
+  }, [open, hoja])
+
+  const busca = q.trim().toLowerCase()
+  // Buscando desde la raíz se mira TODO, preguntas incluidas: quien escribe
+  // "carnet" quiere ese filtro, no que le manden a abrir "Preguntas" primero. El
+  // agrupado es para ojear, no una jaula.
+  const vistasFiltradas = (vistas ?? []).filter((v) => !busca || v.name.toLowerCase().includes(busca))
+  const enBusqueda = !!busca && !dim && !enVistas
+  const listaRaiz = enBusqueda
+    ? dimensiones.filter((d) => d.label.toLowerCase().includes(busca))
+    : enPreguntas
+      ? preguntas
+      : raizDims
+
+  return (
+    <div className="relative shrink-0" ref={ref}>
+      <button
+        ref={botonRef}
+        type="button"
+        onClick={() => (open ? cerrar() : setOpen(true))}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label="Filtros"
+        // En móvil el botón es SOLO EL ICONO y cuadrado (referencia de Mario, ago
+        // 2026): comparte fila con el buscador, que es quien tiene que llevarse el
+        // ancho. `aspect-square` y no un `w-*` fijo para que el lado siga a la
+        // altura, que en táctil sube a 44. El nombre no se pierde, se muda al
+        // `aria-label`, que además está puesto siempre: así lo que anuncia el
+        // lector no depende del ancho de la ventana.
+        className={`${CHIP_ALTO} inline-flex items-center justify-center gap-1.5 rounded-lg text-sm font-medium outline-none transition-colors duration-[var(--duration-control)] max-sm:aspect-square sm:px-3.5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+          // Teñido cuando hay filtros puestos: el botón dice el estado de la franja
+          // entera, igual que cada chip dice el suyo. Sin teñir, la pintura sale de
+          // `BTN_SUPERFICIE` y NO se escribe a mano: pintada aquí se quedó con el
+          // anillo y la sombra del botón con relieve, así que al pasar el sistema a
+          // plano fue el único control de la fila que no se enteró.
+          hayFiltros
+            ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+            : `${BTN_SUPERFICIE.secondary} ${open ? 'bg-slate-50' : ''}`
+        }`}
+      >
+        <Filter className={`size-4 shrink-0 ${hayFiltros ? 'text-indigo-500' : 'text-slate-400'}`} aria-hidden />
+        <span className="max-sm:hidden">Filtros</span>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label={dim ? `Elegir ${dim.label}` : enPreguntas ? 'Preguntas de este puesto' : enVistas ? 'Vistas guardadas' : 'Filtros'}
+          // Cuelga del filo IZQUIERDO de su botón en escritorio y del DERECHO en
+          // móvil, porque es donde está el botón en cada sitio: al pasar Filtros a
+          // la derecha del buscador, un panel de 288px anclado a la izquierda se
+          // salía 205px de la pantalla y hacía scrollear la página entera a lo
+          // ancho. Un flotante se ancla al filo que tiene más cerca.
+          className="absolute left-0 z-40 mt-1.5 w-72 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop max-sm:left-auto max-sm:right-0"
+        >
+          {/* El campo cambia de papel según la página: busca CATEGORÍAS en la raíz
+              y VALORES dentro de una. El placeholder es lo que dice dónde estás. */}
+          <div className="relative mb-1 flex items-center gap-1">
+            {ruta.length > 0 && (
+              <button
+                type="button"
+                onClick={volver}
+                aria-label="Volver"
+                className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+              >
+                <ChevronLeft className="size-4" aria-hidden />
+              </button>
+            )}
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+              <input
+                ref={campoRef}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={dim ? `Elegir ${dim.label.toLowerCase()}` : enPreguntas ? 'Buscar pregunta' : enVistas ? 'Buscar vista' : 'Buscar filtro'}
+                aria-label={dim ? `Buscar en ${dim.label}` : enPreguntas ? 'Buscar una pregunta' : enVistas ? 'Buscar una vista' : 'Buscar un filtro'}
+                className="h-9 w-full rounded-lg bg-slate-100 pl-8 pr-2.5 text-[13px] text-slate-900 outline-none placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40"
+              />
+            </div>
+          </div>
+
+          <div className="max-h-72 space-y-0.5 overflow-y-auto">
+            {enVistas ? (
+              <>
+                {vistasFiltradas.length === 0 ? (
+                  <p className="px-2.5 py-3 text-[13px] leading-relaxed text-slate-500">
+                    {q
+                      ? 'Ninguna vista se llama así.'
+                      : 'Aún no has guardado ninguna vista. Filtra como quieras y guarda la combinación.'}
+                  </p>
+                ) : (
+                  vistasFiltradas.map((v) => (
+                    <div key={v.id} className="group flex items-center gap-1 rounded-lg hover:bg-slate-50">
+                      <button
+                        type="button"
+                        onClick={() => { onAplicarVista?.(v); cerrar() }}
+                        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-800 outline-none sm:py-1.5 sm:text-[13px]"
+                      >
+                        {/* Global (vale para cualquier puesto) o de ESTE puesto: el
+                            glifo lo dice sin gastar una palabra. */}
+                        {v.campaignId === null
+                          ? <Globe className="size-4 shrink-0 text-slate-500" aria-hidden />
+                          : <Briefcase className="size-4 shrink-0 text-slate-500" aria-hidden />}
+                        <span className="min-w-0 flex-1 truncate">{v.name}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onBorrarVista?.(v.id)}
+                        aria-label={`Eliminar vista ${v.name}`}
+                        className="mr-1 grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
+                      >
+                        <Trash2 className="size-3.5" aria-hidden />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </>
+            ) : dim ? (
+              <ValoresDimension dim={dim} q={q} />
+            ) : listaRaiz.length === 0 && !(!enBusqueda && !enPreguntas && preguntas.length > 0) ? (
+              <p className="px-2.5 py-3 text-[13px] text-slate-500">
+                {enPreguntas ? 'Ninguna pregunta se llama así.' : 'Ningún filtro se llama así.'}
+              </p>
+            ) : (
+              <>
+                {listaRaiz.map((d) => (
+                  <FilaCategoria key={d.id} icon={d.icon} label={d.label} n={d.n} onClick={() => entrar(d.id)} />
+                ))}
+                {/* "Preguntas" solo en la raíz y solo si el puesto tiene alguna.
+                    Buscando NO se pinta, porque ahí la lista ya trae las preguntas
+                    mezcladas y entrar en el grupo sería dar un rodeo. */}
+                {!enBusqueda && !enPreguntas && preguntas.length > 0 && (
+                  <FilaCategoria
+                    icon={ListFilter}
+                    label="Preguntas del formulario"
+                    n={nPreguntas}
+                    onClick={() => entrar('preguntas')}
+                  />
+                )}
+              </>
+            )}
+          </div>
+
+          {/* El PIE es la zona de las operaciones sobre el CONJUNTO de filtros:
+              recuperar uno entero (Vistas) o vaciarlos todos. Las categorías de
+              arriba son para añadir uno. */}
+          {!dim && !enPreguntas && !enVistas && (
+            <div className="mt-1 border-t border-slate-100 pt-1">
+              {hayVistas && (
+                <FilaCategoria icon={Bookmark} label="Vistas guardadas" n={vistas.length} onClick={() => entrar('vistas')} />
+              )}
+              {hayFiltros && (
+                <button
+                  type="button"
+                  onClick={() => { onLimpiarTodo(); cerrar() }}
+                  className="w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 sm:py-1.5"
+                >
+                  Limpiar todos los filtros
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Guardar vive DENTRO de Vistas, que es donde estás cuando piensas en
+              ellas. Apagado sin nada que guardar, y SIN una nota explicándolo: el
+              vacío de la lista, justo encima, ya dice "filtra como quieras y guarda
+              la combinación". Dos frases para el mismo hecho es una de más. */}
+          {enVistas && (
+            <div className="mt-1 border-t border-slate-100 pt-1">
+              <button
+                type="button"
+                onClick={() => { cerrar(); onGuardarVista?.() }}
+                disabled={!puedeGuardar}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:opacity-40 disabled:hover:bg-transparent sm:py-1.5"
+              >
+                <Plus className="size-4 shrink-0" aria-hidden /> Guardar los filtros de ahora
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useState } from 'react'
 import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Inbox, Loader2, Menu, Plus, Sparkles, X } from 'lucide-react'
+import { Inbox, Loader2, MapPin, Menu, Plus, Sparkles, X } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
@@ -10,6 +10,7 @@ import { Sidebar } from '../components/Sidebar'
 import { GlobalSearch } from '../components/GlobalSearch'
 import { Logo } from '../components/Logo'
 import { ProfileDialog } from '../components/ProfileDialog'
+import { SedesDialog } from '../components/SedesDialog'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
 import { SupportDialog } from '../components/SupportDialog'
 import { DowngradeReconcileDialog } from '../components/DowngradeReconcileDialog'
@@ -120,6 +121,8 @@ export function AppLayout() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [buscarOpen, setBuscarOpen] = useState(false)
+  const [sedesOpen, setSedesOpen] = useState(false)
+  const [sedesKey, setSedesKey] = useState(0)
 
   // Guía de primer uso, ahora anclada en la barra con su anillo de progreso. El
   // paso que enseña es el MISMO que numera la propia guía ("Paso N de 4"), para
@@ -213,6 +216,20 @@ export function AppLayout() {
         icon={Plus}
         claves={['nuevo puesto', 'anuncio', 'oferta', 'vacante', 'publicar']}
         hacer={() => setWizardOpen(true)}
+      />
+      {/* Las sedes no tienen pantalla y no la van a tener: son un atributo del
+          puesto. Pero renombrarlas y borrarlas tiene que poder hacerse desde
+          algún sitio, y el buscador es la puerta declarada de todo lo que a
+          propósito no tiene una (lo mismo que la marca). El submenú Sede de un
+          puesto abre este mismo diálogo. */}
+      <RegistrarAccion
+        activa={canCreate}
+        id="sedes"
+        label="Gestionar sedes"
+        hint="Crear, renombrar o eliminar tus sedes."
+        icon={MapPin}
+        claves={['sede', 'sedes', 'local', 'centro', 'tienda', 'obra', 'delegacion']}
+        hacer={() => { setSedesKey((k) => k + 1); setSedesOpen(true) }}
       />
       {/* La barra superior se retiró con el reskin (ago 2026): el lateral es la
           única capa de navegación y absorbió a sus tres inquilinos (Buscar,
@@ -322,6 +339,7 @@ export function AppLayout() {
 
       <OnboardingGuide />
       <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
+      <SedesDialog key={sedesKey} open={sedesOpen} onClose={() => setSedesOpen(false)} />
       <NewCampaignWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
       <SupportDialog
         open={supportOpen}

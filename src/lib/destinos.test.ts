@@ -41,7 +41,8 @@ const fuente = (nombre: string) =>
 const RUTAS_SIN_DESTINO: Record<string, string> = {
   'puestos/:campaignId': 'Cada puesto es su propio resultado en el buscador: salen del store, no del registro.',
   'ajustes/:seccion': 'Es la misma pantalla que "ajustes", y cada interruptor entra por su fila con enlace directo.',
-  sedes: 'Ruta retirada (ago 2026): redirige. "Sedes" sí se encuentra, y lleva a Vista general, que es donde se administran.',
+  sedes:
+    'Ruta retirada (ago 2026): redirige. Una sede no es un sitio al que ir. Se encuentra escribiendo "sede", pero como ACCIÓN ("Gestionar sedes", registrada por el shell), porque lo que abre es un diálogo y no una URL.',
   marcas: 'Ruta retirada (ago 2026): redirige. La identidad se encuentra y lleva al constructor, que es donde se edita.',
   bandeja:
     'Ruta retirada (ago 2026, Mario): redirige a Candidatos, que es lo que la sustituye. "Bandeja" SÍ se encuentra escribiéndola (es una clave del destino "Candidatos"), así que quien la busque por su nombre viejo llega igual.',

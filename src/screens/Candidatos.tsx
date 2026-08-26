@@ -1,6 +1,6 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, CircleDot, Clock, ContactRound, Phone, SearchX, User } from 'lucide-react'
+import { Briefcase, CircleDot, Clock, ContactRound, Phone, SearchX, Star, Tag, User } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
@@ -15,11 +15,13 @@ import { MaskedPhone } from '../components/MaskedPhone'
 import { useAppBase } from '../lib/useAppBase'
 import { TAGS_ENABLED } from '../lib/pricing'
 import { ManageTagsModal } from '../components/Tags'
+import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { Campaign, Candidate, CandidateStatus } from '../lib/types'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useEsMovil } from '../lib/media'
 import { BTN_SECONDARY } from '../lib/buttons'
-import { ChipDimension, type DimensionFiltro } from '../components/FiltroChip'
+import { ChipDimension, MenuAnadirFiltro, type DimensionFiltro } from '../components/FiltroChip'
+import { useColumnasAjustables } from '../lib/columnas'
 import { traeNuevos, vistaPor, type VistaCandidatos } from '../lib/candidatos'
 
 /** Las columnas de la cola. El ORDEN se declara aparte: cambia con el ancho. */
@@ -74,6 +76,24 @@ const ListaCandidatos = memo(function ListaCandidatos({
   const orden: ColKeyCandidatos[] = esMovil
     ? ['candidato', 'estado', 'puesto', 'telefono', 'recibida']
     : ['candidato', 'puesto', 'telefono', 'estado', 'recibida']
+  // Igual que la tabla del puesto: el ancho lo pone quien mira. Su propio id, así
+  // que ajustar "Puesto" aquí no toca ninguna columna de allí aunque se llamen
+  // igual. Apagado en móvil, por lo mismo.
+  const { col, minTabla } = useColumnasAjustables('candidatos', orden, !esMovil)
+  // El mínimo de cada columna sale de su contenido, igual que en el panel del
+  // puesto y con los mismos números donde la columna es la misma.
+  //
+  // El de Puesto es propio y se ajustó MIDIENDO LO PINTADO, no calculándolo: la
+  // cápsula se lleva 39px entre icono, hueco y relleno (no los 26 que salían de
+  // medir solo el texto), así que 184 = 24 de celda + 39 de cápsula + 121 de
+  // título. Con eso entran cinco de los seis títulos de la demo, "Oficial de 1ª
+  // (albañil)" incluido, y solo se corta el más largo ("Preparador/a de
+  // pedidos"). Es la misma regla que Mario puso para el nombre: que se vea LA
+  // MAYORÍA, no todos a cualquier precio, porque cada píxel de más aquí sale de
+  // la columna del candidato.
+  const MINIMOS: Record<ColKeyCandidatos, number> = {
+    candidato: 208, puesto: 184, telefono: 111, estado: 152, recibida: 116,
+  }
   // Suma EXACTA de lo que se pinta en movil. Candidato (196) y Estado (144) caben
   // juntos en los 341 de contenido de una pantalla de 375: quien es y en que
   // estado esta se leen sin empujar. Los 144 son la pastilla mas ancha medida
@@ -89,7 +109,10 @@ const ListaCandidatos = memo(function ListaCandidatos({
           afirmaba una paridad que ya no existia. Dos listas de candidatos que se
           leen distinto es exactamente lo que este repaso viene a quitar. */}
       <div className="overflow-x-auto">
-        <table className={`min-w-[680px] ${TABLE}`} style={esMovil ? { minWidth: anchoMovil } : undefined}>
+        {/* El `minWidth` en línea manda sobre la clase: congelada, el suelo de la
+            tabla es la suma de sus columnas, y es lo que saca el desplazamiento
+            horizontal en vez de estrangular a la última. */}
+        <table className={`min-w-[680px] ${TABLE}`} style={{ minWidth: esMovil ? anchoMovil : minTabla }}>
           <caption className="sr-only">{caption}</caption>
           <thead>
             <tr className="bg-slate-50/60">
@@ -100,15 +123,15 @@ const ListaCandidatos = memo(function ListaCandidatos({
                     // declara nadie (absorbe el sobrante, que es lo que hace crecer
                     // el nombre) y en movil se fija, porque alli el sobrante no
                     // existe y hay que dejarle sitio al estado.
-                    return <ColHead key={k} icon={User} className={esMovil ? 'w-[196px]' : ''}>Candidato</ColHead>
+                    return <ColHead key={k} icon={User} className={esMovil ? 'w-[196px]' : ''} {...col(k, 'Candidato', MINIMOS.candidato)}>Candidato</ColHead>
                   case 'puesto':
-                    return <ColHead key={k} icon={Briefcase} className={esMovil ? 'w-[180px]' : ''}>Puesto</ColHead>
+                    return <ColHead key={k} icon={Briefcase} className={esMovil ? 'w-[180px]' : ''} {...col(k, 'Puesto', MINIMOS.puesto)}>Puesto</ColHead>
                   case 'telefono':
-                    return <ColHead key={k} icon={Phone} className="hidden w-[150px] lg:table-cell">Teléfono</ColHead>
+                    return <ColHead key={k} icon={Phone} className="hidden w-[150px] lg:table-cell" {...col(k, 'Teléfono', MINIMOS.telefono)}>Teléfono</ColHead>
                   case 'estado':
-                    return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[148px]'}>Estado</ColHead>
+                    return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[148px]'} {...col(k, 'Estado', MINIMOS.estado)}>Estado</ColHead>
                   case 'recibida':
-                    return <ColHead key={k} icon={Clock} align="right" className="w-[116px]">Recibida</ColHead>
+                    return <ColHead key={k} icon={Clock} align="right" className="w-[116px]" {...col(k, 'Recibida', MINIMOS.recibida)}>Recibida</ColHead>
                 }
               })}
             </tr>
@@ -215,7 +238,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
  */
 export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
   const vista = vistaPor(vistaId)
-  const { candidates, getCampaign, setStatus, restoreCandidate, markCandidatosSeen } = useStore()
+  const { candidates, getCampaign, setStatus, restoreCandidate, markCandidatosSeen, tags } = useStore()
   const { role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -243,6 +266,9 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
   }, [candidates, vista])
 
   const [puestoFilter, setPuestoFilter] = useState<Set<string>>(new Set())
+  const [statusFilter, setStatusFilter] = useState<Set<CandidateStatus>>(new Set())
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set())
+  const [favoritosOnly, setFavoritosOnly] = useState(false)
 
   // El conjunto de la VISTA, sin el filtro por puesto: es el tamaño de lo que
   // hay, y es lo que lleva el contador del título. El del panel del puesto se
@@ -252,9 +278,38 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
     [candidates, vista],
   )
   const filas = useMemo(
-    () => (puestoFilter.size === 0 ? todos : todos.filter((c) => puestoFilter.has(c.campaignId))),
-    [todos, puestoFilter],
+    () =>
+      todos.filter((c) => {
+        if (puestoFilter.size && !puestoFilter.has(c.campaignId)) return false
+        if (statusFilter.size && !statusFilter.has(c.status)) return false
+        if (favoritosOnly && !c.favorito) return false
+        if (tagFilter.size && !c.tagIds.some((id) => tagFilter.has(id))) return false
+        return true
+      }),
+    [todos, puestoFilter, statusFilter, favoritosOnly, tagFilter],
   )
+
+  /**
+   * DOS CUENTAS, PORQUE HAY DOS CONTROLES. El puesto es hermano de "Filtros", no
+   * uno de sus contenidos, así que **su chip no puede teñir al botón de al lado**:
+   * con una sola cuenta, filtrar por un puesto dejaba "Filtros" en azul sin que
+   * hubiera nada puesto dentro, y al abrirlo no había ni un valor marcado. Cada
+   * control dice su propio estado, que es la misma regla por la que un chip existe
+   * solo si filtra. (Al revés ya funcionaba: la cápsula del puesto se tiñe de su
+   * propio `n`.)
+   */
+  const nFiltrosMenu = statusFilter.size + tagFilter.size + (favoritosOnly ? 1 : 0)
+  /** Lo que limpia el pie del menú: lo suyo, no el puesto, que vive fuera. */
+  const limpiarMenu = useCallback(() => {
+    setStatusFilter(new Set())
+    setTagFilter(new Set())
+    setFavoritosOnly(false)
+  }, [])
+  /** TODO, para la salida del vacío: ahí da igual cuál de los dos te dejó sin lista. */
+  const limpiarTodo = useCallback(() => {
+    setPuestoFilter(new Set())
+    limpiarMenu()
+  }, [limpiarMenu])
 
   // FILTRAR POR PUESTO (Mario, ago 2026). La lista mezcla puestos a proposito, que
   // es de lo que va esta pantalla, pero cuando el dia se va en uno solo hay que
@@ -277,21 +332,125 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
       }))
   }, [todos, getCampaign])
 
-  const dimPuesto: DimensionFiltro = {
-    id: 'puesto',
-    label: 'Puesto',
-    icon: Briefcase,
-    n: puestoFilter.size,
-    limpiar: () => setPuestoFilter(new Set()),
-    seleccionadas: puestoFilter,
-    onToggle: (v) =>
-      setPuestoFilter((p) => {
-        const n = new Set(p)
-        n.has(v) ? n.delete(v) : n.add(v)
-        return n
-      }),
-    opciones: opcionesPuesto,
-  }
+  /**
+   * QUÉ SE PUEDE FILTRAR AQUÍ. Es un registro, igual que el del panel del puesto,
+   * y por eso las dos pantallas comparten el menú y el chip: una lista de gente se
+   * filtra igual venga de un proceso o de todos. Añadir una dimensión es una
+   * entrada más, nunca UI nueva.
+   *
+   * DOS DIMENSIONES DEL PANEL NO ESTÁN AQUÍ, y no es un olvido:
+   *  · **Las preguntas del formulario**, porque son de CADA puesto: "¿Tienes
+   *    carnet C?" no existe en el proceso de al lado, y una lista que mezcla seis
+   *    procesos no puede ofrecer un filtro que solo se aplica a uno. Se filtran
+   *    dentro del puesto, que es donde significan algo.
+   *  · **Interés**, que se deriva del estado de la conversación de WhatsApp y hoy
+   *    ese canal está apagado.
+   */
+  const dimensiones = useMemo<DimensionFiltro[]>(() => {
+    const d: DimensionFiltro[] = []
+
+    // ESTADO, y lo que se ofrece DEPENDE DE LA VISTA, que es el mismo problema que
+    // resolvió el conmutador Activos/Rechazados del panel: la vista ya es un corte
+    // por estado, así que ofrecer uno que ella deja fuera es ofrecer una lista
+    // vacía garantizada. En Contratados no se ofrece la dimensión entera: solo hay
+    // un estado posible y filtrar por él es no filtrar.
+    const estadosVista = STATUS_ORDER.filter((v) => vista.incluye({ status: v } as Candidate))
+    if (estadosVista.length > 1) {
+      d.push({
+        id: 'estado',
+        label: 'Estado',
+        icon: CircleDot,
+        n: statusFilter.size,
+        limpiar: () => setStatusFilter(new Set()),
+        seleccionadas: statusFilter as Set<string>,
+        onToggle: (v) => {
+          const s2 = v as CandidateStatus
+          const n = new Set(statusFilter)
+          n.has(s2) ? n.delete(s2) : n.add(s2)
+          setStatusFilter(n)
+        },
+        opciones: estadosVista.map((v) => ({
+          valor: v,
+          label: STATUS_META[v].label,
+          leading: <span className={`size-2 shrink-0 rounded-full ${STATUS_META[v].dot}`} aria-hidden />,
+        })),
+      })
+    }
+
+    d.push({
+      id: 'favoritos',
+      label: 'Favoritos',
+      icon: Star,
+      n: favoritosOnly ? 1 : 0,
+      limpiar: () => setFavoritosOnly(false),
+      seleccionadas: new Set(favoritosOnly ? ['si'] : []),
+      onToggle: () => setFavoritosOnly((v) => !v),
+      opciones: [
+        {
+          valor: 'si',
+          label: 'Solo favoritos',
+          leading: <Star className={`size-4 shrink-0 ${FAVORITO_STAR}`} aria-hidden />,
+        },
+      ],
+    })
+
+    if (TAGS_ENABLED && tags.length > 0) {
+      d.push({
+        id: 'etiquetas',
+        label: 'Etiquetas',
+        icon: Tag,
+        n: tagFilter.size,
+        limpiar: () => setTagFilter(new Set()),
+        seleccionadas: tagFilter,
+        onToggle: (v) =>
+          setTagFilter((p) => {
+            const n = new Set(p)
+            n.has(v) ? n.delete(v) : n.add(v)
+            return n
+          }),
+        opciones: tags.map((t) => ({ valor: t.id, label: t.name })),
+      })
+    }
+    return d
+  }, [vista, statusFilter, favoritosOnly, tags, tagFilter])
+
+  /**
+   * EL PUESTO NO ESTÁ DENTRO DE "FILTROS": es su hermano, y va a su izquierda
+   * (Mario, ago 2026).
+   *
+   * En el panel de un puesto, el puesto ya lo dice el título y filtrar por él no
+   * existe. Aquí es la dimensión que define de qué va la pantalla: esta lista
+   * MEZCLA procesos a propósito, así que "de qué proceso estoy mirando gente" es
+   * la primera pregunta que se hace, no una categoría más al mismo nivel que
+   * Etiquetas. Metido dentro del menú costaba dos gestos (abrir Filtros, elegir
+   * Puesto) para lo que se usa a diario; fuera, la cápsula está siempre a la
+   * vista y dice de un vistazo si estás mirando uno o todos.
+   *
+   * Solo si hay MÁS DE UN puesto con gente en esta vista: con uno, filtrar por él
+   * es no filtrar, y un control que no puede cambiar nada es peor que ninguno.
+   */
+  const dimPuesto = useMemo<DimensionFiltro>(
+    () => ({
+      id: 'puesto',
+      label: 'Puesto',
+      icon: Briefcase,
+      n: puestoFilter.size,
+      limpiar: () => setPuestoFilter(new Set()),
+      seleccionadas: puestoFilter,
+      onToggle: (v) =>
+        setPuestoFilter((p) => {
+          const n = new Set(p)
+          n.has(v) ? n.delete(v) : n.add(v)
+          return n
+        }),
+      opciones: opcionesPuesto,
+    }),
+    [puestoFilter, opcionesPuesto],
+  )
+
+  // UN CHIP EXISTE SI FILTRA, igual que en el panel: nada de una lista paralela de
+  // "categorías añadidas", que se desincroniza en cuanto desmarcas el último valor.
+  const dimensionesVisibles = useMemo(() => dimensiones.filter((d) => d.n > 0), [dimensiones])
 
   const openCandidate = openId ? candidates.find((c) => c.id === openId) ?? null : null
   const openCampaign = openCandidate ? getCampaign(openCandidate.campaignId) ?? null : null
@@ -311,6 +470,10 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
         cuenta={todos.length}
         cuentaLabel={vista.cuenta(todos.length)}
         sub={vista.sub}
+        // La cabecera del panel de un puesto: `pb-3` en vez de margen, para que
+        // sus 12px más los 16 de la franja den los mismos 28 que hay por debajo de
+        // los chips. Ver `pegada` en la pieza.
+        pegada
       />
 
       {/* Aqui habia una segunda linea con la MISMA cifra que ya lleva el titulo
@@ -323,18 +486,50 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
         {filas.length} {vista.cuenta(filas.length)}
       </p>
 
-      {/* La franja de herramientas: hoy solo el filtro por puesto, y solo si hay
-          mas de un puesto con gente nueva. Con uno, filtrar por el es no filtrar. */}
-      {opcionesPuesto.length > 1 && (
-        <div className="mb-3 flex items-start gap-2">
-          <ChipDimension dim={dimPuesto} />
+      {/* LA FRANJA DE HERRAMIENTAS. La misma que el panel del puesto, con la misma
+          pieza: "Filtros" elige la categoría y dentro sus valores, y cada categoría
+          que filtra deja su chip al lado. Aquí no hay vistas guardadas (se guardan
+          con el id de un puesto y esta pantalla los mezcla), así que esa página del
+          menú sencillamente no se pinta.
+
+          Los chips van en UNA SOLA LÍNEA QUE SE DESPLAZA y no en una pila: al
+          envolver, cada filtro nuevo empujaba la tabla hacia abajo y la pantalla se
+          recolocaba sola justo al filtrar, que es cuando estás mirando el
+          resultado. Y `overflow-x` recorta también en vertical, que es por lo que
+          el desplegable de un chip sale en un portal (ver `ChipDimension`). */}
+      {/* `py-4` y chips de 40px: EL MISMO AIRE QUE LA FRANJA DEL PANEL DE UN
+          PUESTO (Mario, ago 2026), que es la fila con la que más se trabaja de la
+          app. Aquí estaba en 12px sueltos, así que al ir de una pantalla a otra
+          los filtros cambiaban de sitio. (Se probó además quitarle el margen a
+          `PageHeader` para clavar también los 16px de encima: no se puede desde
+          fuera, porque `mb-0` y el `mb-6` de la pieza son la MISMA utilidad de
+          Tailwind y gana la que se emita después en el CSS, no la que se escriba
+          al final del `className`. Es el mismo tropiezo que obligó a fabricar los
+          botones de icono con `botonIcono()`.) */}
+      <div className="mb-3 flex items-start gap-2 py-4">
+        {opcionesPuesto.length > 1 && (
+          <div className="shrink-0">
+            <ChipDimension dim={dimPuesto} />
+          </div>
+        )}
+        <div className="shrink-0">
+          <MenuAnadirFiltro
+            dimensiones={dimensiones}
+            hayFiltros={nFiltrosMenu > 0}
+            onLimpiarTodo={limpiarMenu}
+          />
         </div>
-      )}
+        <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {dimensionesVisibles.map((d) => (
+            <ChipDimension key={d.id} dim={d} />
+          ))}
+        </div>
+      </div>
 
       {todos.length === 0 ? (
         <Vacio titulo={vista.vacio.titulo} texto={vista.vacio.texto} />
       ) : filas.length === 0 ? (
-        <EmptySinResultado titulo={vista.vacioFiltrado} onLimpiar={() => setPuestoFilter(new Set())} />
+        <EmptySinResultado titulo={vista.vacioFiltrado} onLimpiar={limpiarTodo} />
       ) : (
         <>
           <ListaCandidatos

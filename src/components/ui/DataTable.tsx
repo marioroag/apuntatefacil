@@ -1,5 +1,6 @@
 import { ArrowUp, ArrowUpDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import type { AsaColumna } from '../../lib/columnas'
 
 /* ---------------------------------------------------------------------------
    REJILLA DE DATOS · vocabulario único de las tablas (panel y bandeja)
@@ -65,11 +66,18 @@ export const CELL = `px-3 max-sm:px-2 align-middle border-b border-b-slate-100 g
  */
 export const CELL_FLUSH = 'px-3 align-middle border-b border-b-slate-100 group-last/row:border-b-0'
 
-/** Celda de cabecera. El filo inferior es más oscuro: cierra la banda. */
-export const HEAD_CELL = `h-10 px-3 max-sm:px-2 text-left align-middle border-b border-b-slate-200 ${LINE}`
+/**
+ * Celda de cabecera. El filo inferior es más oscuro: cierra la banda.
+ *
+ * `relative` porque de ella cuelga el asa de ajustar el ancho, que se coloca
+ * sobre su filo derecho. Va en la clase base y no solo en las que llevan asa:
+ * `relative` sin nada posicionado dentro no cambia una sola medida, y tenerlo en
+ * las dos formas evita que la cabecera se mueva un píxel según lleve asa o no.
+ */
+export const HEAD_CELL = `relative h-10 px-3 max-sm:px-2 text-left align-middle border-b border-b-slate-200 ${LINE}`
 
 /** Cabecera sin filo derecho, pareja de CELL_FLUSH. */
-export const HEAD_CELL_FLUSH = 'h-10 px-3 text-left align-middle border-b border-b-slate-200'
+export const HEAD_CELL_FLUSH = 'relative h-10 px-3 text-left align-middle border-b border-b-slate-200'
 
 /**
  * Fila de la MISMA lista en móvil, donde no hay rejilla que valga: por debajo de
@@ -89,6 +97,44 @@ export const HEAD_CELL_FLUSH = 'h-10 px-3 text-left align-middle border-b border
  */
 export const MOBILE_ROW =
   'relative after:pointer-events-none after:absolute after:bottom-0 after:left-16 after:right-0 after:h-px after:bg-slate-100 last:after:hidden'
+
+/**
+ * EL ASA DE AJUSTAR EL ANCHO. Se pone sobre el filo que separa dos cabeceras.
+ *
+ * La zona sensible mide 9px y va CENTRADA en el filo (`-right-1`), no pegada a un
+ * lado: el filo es de 1px y el ojo apunta a él, así que un asa que solo cubriera
+ * su izquierda obligaría a acertar dentro de la columna. Lo que se VE es una
+ * barra de 2px que aparece al acercarse, como en la referencia.
+ *
+ * Es de las poquísimas cosas que se pintan en el acento sin ser un botón, y está
+ * dentro de la regla: el ultramarine es acción, foco y selección, y esto es un
+ * control que se agarra. En reposo no se ve nada, que es lo que impide que seis
+ * filos de acento compitan con los datos.
+ */
+function AsaAncho({ asa }: { asa: AsaColumna }) {
+  return (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Ancho de la columna ${asa.nombre}`}
+      tabIndex={0}
+      onPointerDown={asa.onPointerDown}
+      onPointerMove={asa.onPointerMove}
+      onPointerUp={asa.onPointerUp}
+      onPointerCancel={asa.onPointerCancel}
+      onKeyDown={asa.onKeyDown}
+      onDoubleClick={asa.onDoubleClick}
+      // `touch-none` para que el gesto no se lo lleve el desplazamiento de la
+      // tabla, y `select-none` para no ir seleccionando texto al arrastrar.
+      className="group/asa absolute inset-y-0 -right-1 z-10 flex w-2 cursor-col-resize touch-none select-none items-stretch justify-center focus-visible:outline-none"
+    >
+      <span
+        aria-hidden
+        className="w-0.5 rounded-full bg-transparent transition-colors duration-[var(--duration-control)] group-hover/asa:bg-indigo-500 group-focus-visible/asa:bg-indigo-500 motion-reduce:transition-none"
+      />
+    </span>
+  )
+}
 
 type Sort = {
   active: boolean
@@ -112,6 +158,9 @@ export function ColHead({
   align = 'left',
   flush = false,
   sort,
+  columna,
+  ancho,
+  asa,
 }: {
   icon?: LucideIcon
   children: string
@@ -121,6 +170,26 @@ export function ColHead({
   align?: 'left' | 'right'
   flush?: boolean
   sort?: Sort
+  /**
+   * Ancho en píxeles, si el usuario lo ha ajustado. Va en `style` y no en una
+   * clase porque es un número que sale de un arrastre: una clase de Tailwind
+   * compuesta al vuelo no llega nunca al CSS compilado (el mismo fallo que dejó
+   * al `<select>` sin flecha).
+   *
+   * `'auto'` es el caso de la ÚLTIMA columna cuando alguna hermana está
+   * congelada: anula el ancho de su clase para que sea ella quien se coma el
+   * sobrante y la tabla siga midiendo lo que mide la tarjeta.
+   */
+  ancho?: number | 'auto'
+  /**
+   * La clave de esta columna, escrita en el DOM (`data-columna`). Al empezar un
+   * arrastre hay que congelar el ancho de TODAS sus hermanas, y esto es lo que
+   * deja encontrarlas desde el `<th>` que agarras sin que la tabla tenga que
+   * pasarle a nadie una lista de refs.
+   */
+  columna?: string
+  /** Lo que hace ajustable esta columna. Sale de `useColumnasAjustables`. */
+  asa?: AsaColumna
 }) {
   const base = flush ? HEAD_CELL_FLUSH : HEAD_CELL
   const active = sort?.active ?? false
@@ -132,10 +201,13 @@ export function ColHead({
     </>
   )
 
+  const estilo = ancho !== undefined ? { width: ancho } : undefined
+
   if (!sort) {
     return (
-      <th scope="col" className={`${base} ${toneClass} ${className}`}>
+      <th scope="col" data-columna={columna} className={`${base} ${toneClass} ${className}`} style={estilo}>
         <span className={`${inner} text-slate-500`}>{label}</span>
+        {asa && <AsaAncho asa={asa} />}
       </th>
     )
   }
@@ -147,7 +219,9 @@ export function ColHead({
   return (
     <th
       scope="col"
+      data-columna={columna}
       className={`${base} ${toneClass} ${className}`}
+      style={estilo}
       aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
     >
       <button
@@ -173,6 +247,7 @@ export function ColHead({
           )}
         </span>
       </button>
+      {asa && <AsaAncho asa={asa} />}
     </th>
   )
 }

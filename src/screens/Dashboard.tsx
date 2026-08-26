@@ -1,9 +1,8 @@
 import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowUpRight,
-  Bookmark,
   Briefcase,
   Bell,
   BellOff,
@@ -17,8 +16,6 @@ import {
   Copy,
   Download,
   Eye,
-  Filter,
-  Globe,
   Inbox,
   ListFilter,
   Lock,
@@ -30,6 +27,7 @@ import {
   RefreshCw,
   Search,
   SearchX,
+  Settings2,
   Share2,
   Sparkles,
   Star,
@@ -39,17 +37,18 @@ import {
   User,
   X,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
 import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH } from '../components/ui/DataTable'
+import { useColumnasAjustables } from '../lib/columnas'
 import { Avatar } from '../components/ui/Avatar'
 import { useProfiles } from '../lib/profiles'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { SedesDialog } from '../components/SedesDialog'
 import { CandidateModal } from './CandidateModal'
 import { exportCandidatesToExcel } from '../lib/export'
 import { RegistrarAccion } from '../lib/acciones'
@@ -71,10 +70,10 @@ import { ShareReply } from '../components/ShareReply'
 import { useOnboarding } from '../lib/onboarding'
 import { useAppBase } from '../lib/useAppBase'
 import { useEsMovil } from '../lib/media'
-import { ChipDimension, ValoresDimension, CHIP_ALTO, type DimensionFiltro } from '../components/FiltroChip'
+import { ChipDimension, MenuAnadirFiltro, type DimensionFiltro } from '../components/FiltroChip'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
-import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SUPERFICIE, botonIcono } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
 import { supabase } from '../lib/supabase'
 import { searchScore } from '../lib/search'
@@ -104,7 +103,7 @@ const SIN_FECHAS: string[] = []
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, createSite, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany } = useStore()
   const { company, role, user } = useAuth()
   const profiles = useProfiles()
   const toast = useToast()
@@ -993,7 +992,6 @@ export function Dashboard() {
               exportTotal={all.length}
               onExport={doExport}
               onSetSite={(siteId) => updateCampaign(campaign.id, { siteId })}
-              onCreateSite={createSite}
               onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
               onDuplicate={handleDuplicate}
               duplicating={duplicating}
@@ -1566,6 +1564,29 @@ const CandidateTable = memo(function CandidateTable({
   const orden: ColKey[] = esMovil
     ? ['candidato', 'estado', 'encaje', 'etiquetas', 'telefono', 'recibida']
     : ['candidato', 'encaje', 'etiquetas', 'telefono', 'estado', 'recibida']
+  // El ancho de cada columna es del usuario: se tira del filo de la cabecera. El
+  // hook vive DENTRO de esta tabla, que está memoizada, para que ajustar un ancho
+  // no cruce la frontera del `memo` ni obligue a la pantalla a repintarse entera.
+  // En móvil está apagado: allí los anchos están medidos al píxel para que quepan
+  // nombre y estado sin empujar, y un asa de 9px no es un objetivo de toque.
+  const { col, minTabla } = useColumnasAjustables('puesto', orden, !esMovil)
+  // EL MÍNIMO DE CADA COLUMNA LO DICE SU CONTENIDO (Mario, ago 2026). No hay un
+  // número que valga para las seis: una fecha necesita la mitad que una pastilla
+  // de estado. Son los anchos que Mario ajustó a ojo, y coinciden con lo medido
+  // con Geist de verdad (el relleno de celda son 24, 12 por lado):
+  //   · candidato 208 = 24 + 28 de cara + 10 de hueco + 146 de nombre. El nombre y
+  //     el primer apellido más largos de la demo miden 122, así que a este ancho
+  //     no se corta ninguno.
+  //   · encaje 113 = 24 + "Puede encajar" (85) y su glifo.
+  //   · etiquetas 140 = 24 + la etiqueta más ancha del vocabulario demo (115).
+  //   · telefono 111 = 24 + los nueve dígitos agrupados (87).
+  //   · estado 152 = 24 + la pastilla más ancha MEDIDA, "Contactado" (128). Es el
+  //     mismo 128 del que ya salieron los 144 de la columna en móvil.
+  //   · recibida 116 = su CABECERA (115), que aquí manda: "hace 3 días" solo pide
+  //     92, pero el nombre del campo con su icono y su glifo de orden pide más.
+  const MINIMOS: Record<ColKey, number> = {
+    candidato: 208, encaje: 113, etiquetas: 140, telefono: 111, estado: 152, recibida: 116,
+  }
   // Ancho mínimo de la tabla en móvil: la suma EXACTA de lo que se pinta. No vale
   // el 852 de escritorio, porque `table-fixed` reparte el sobrante entre las
   // columnas sin ancho propio y Candidato se volvería a comer lo que acabamos de
@@ -1727,7 +1748,9 @@ const CandidateTable = memo(function CandidateTable({
           moverse a lo ancho con una banda clavada arriba desalinea las columnas de
           su propio nombre. */}
       <div ref={tableWrapRef} className={`relative ${headerCanStick ? 'overflow-visible' : 'overflow-x-auto'}`}>
-      <table ref={tableRef} className={`min-w-[852px] ${TABLE}`} style={esMovil ? { minWidth: anchoMovil } : undefined}>
+      {/* El `minWidth` en línea manda sobre la clase: congelada, el suelo de la
+          tabla es la suma de sus columnas (ver `useColumnasAjustables`). */}
+      <table ref={tableRef} className={`min-w-[852px] ${TABLE}`} style={{ minWidth: esMovil ? anchoMovil : minTabla }}>
         <caption className="sr-only">Candidatos de {campaign.title}</caption>
         {/* La banda (fondo, velo y sombra) vive en el <thead>; los filos, en cada
             celda. En `border-separate` los bordes de <thead>/<tr> no se pintan, y
@@ -1762,17 +1785,17 @@ const CandidateTable = memo(function CandidateTable({
                   // lo que hace crecer el nombre al ensanchar) y en móvil se fija
                   // a 160, porque allí el sobrante no existe y lo que hace falta
                   // es dejarle sitio al estado.
-                  return <ColHead key={k} icon={User} className={esMovil ? 'w-[164px]' : ''} toneClass={headTone} sort={sortFor('nombre')}>Candidato</ColHead>
+                  return <ColHead key={k} icon={User} className={esMovil ? 'w-[164px]' : ''} toneClass={headTone} sort={sortFor('nombre')} {...col(k, 'Candidato', MINIMOS.candidato)}>Candidato</ColHead>
                 case 'encaje':
-                  return showFit ? <ColHead key={k} icon={Sparkles} className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')}>Encaje</ColHead> : null
+                  return showFit ? <ColHead key={k} icon={Sparkles} className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')} {...col(k, 'Encaje', MINIMOS.encaje)}>Encaje</ColHead> : null
                 case 'etiquetas':
-                  return showTags ? <ColHead key={k} icon={Tag} className="hidden xl:table-cell" toneClass={headTone}>Etiquetas</ColHead> : null
+                  return showTags ? <ColHead key={k} icon={Tag} className="hidden xl:table-cell" toneClass={headTone} {...col(k, 'Etiquetas', MINIMOS.etiquetas)}>Etiquetas</ColHead> : null
                 case 'telefono':
-                  return <ColHead key={k} icon={Phone} className="w-[136px]" toneClass={headTone}>Teléfono</ColHead>
+                  return <ColHead key={k} icon={Phone} className="w-[136px]" toneClass={headTone} {...col(k, 'Teléfono', MINIMOS.telefono)}>Teléfono</ColHead>
                 case 'estado':
-                  return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[168px]'} toneClass={headTone} sort={sortFor('estado')}>Estado</ColHead>
+                  return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[168px]'} toneClass={headTone} sort={sortFor('estado')} {...col(k, 'Estado', MINIMOS.estado)}>Estado</ColHead>
                 case 'recibida':
-                  return <ColHead key={k} icon={Clock} className="w-[124px]" align="right" toneClass={headTone} sort={sortFor('fecha')}>Recibida</ColHead>
+                  return <ColHead key={k} icon={Clock} className="w-[124px]" align="right" toneClass={headTone} sort={sortFor('fecha')} {...col(k, 'Recibida', MINIMOS.recibida)}>Recibida</ColHead>
               }
             })}
           </tr>
@@ -1989,316 +2012,6 @@ function RangeSlider({ min, max, from, to, onChange }: {
         aria-label="Hasta"
         className="range-thumb absolute inset-0 h-5 w-full"
       />
-    </div>
-  )
-}
-
-/** Fila de categoría del menú de filtros: lleva a otra página de la misma caja. */
-function FilaCategoria({
-  icon: Icon,
-  label,
-  n,
-  onClick,
-}: {
-  icon: LucideIcon
-  label: string
-  n: number
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-800 outline-none transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 sm:py-1.5 sm:text-[13px]"
-    >
-      <Icon className="size-4 shrink-0 text-slate-500" aria-hidden />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      {/* El recuento ahorra entrar a mirar si esta categoría ya filtra. */}
-      {n > 0 && <span className="num shrink-0 text-[12px] font-medium text-indigo-600">({n})</span>}
-      <ChevronRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
-    </button>
-  )
-}
-
-/**
- * "FILTROS": elige la CATEGORÍA y dentro sus valores, en la misma caja.
- *
- * Dos páginas, no dos capas: la raíz lista las categorías y al pulsar una, el mismo
- * desplegable pasa a enseñar SUS valores, con el campo de arriba convertido en
- * "Elegir <categoría>". Es un gesto continuo (abrir, categoría, valores) en vez de
- * dos (añadir el chip, luego abrirlo), y sobre todo **evita que la fila se llene de
- * chips del mismo tipo**: los tres estados que quieres van dentro de "Estado", no
- * en tres cápsulas seguidas. Mario, ago 2026.
- *
- * Una segunda capa colgando de la primera se saldría de la pantalla y en móvil no
- * tendría dónde ponerse; es la misma decisión que ya tomó el submenú de Sede.
- *
- * "Limpiar todos los filtros" solo aparece cuando hay algo que limpiar: una acción
- * que no puede hacer nada es una puerta cerrada pintada en la pared.
- */
-function MenuAnadirFiltro({
-  dimensiones,
-  onLimpiarTodo,
-  hayFiltros,
-  vistas,
-  onAplicarVista,
-  onBorrarVista,
-  onGuardarVista,
-  puedeGuardar,
-}: {
-  dimensiones: DimensionFiltro[]
-  onLimpiarTodo: () => void
-  hayFiltros: boolean
-  /**
-   * Las vistas guardadas viven DENTRO de Filtros desde ago 2026 (Mario), no en un
-   * botón aparte: una vista guardada ES una combinación de filtros, así que fuera
-   * estaba en otro dominio. En la raíz aparece como una página más (`Vistas ›`),
-   * junto a "Limpiar todos": esa zona del pie es la de las operaciones sobre el
-   * CONJUNTO de filtros (recuperar uno entero, vaciarlos todos), y las categorías
-   * de arriba son las de añadir uno.
-   */
-  vistas: SavedView[]
-  onAplicarVista: (v: SavedView) => void
-  onBorrarVista: (id: string) => void
-  onGuardarVista: () => void
-  puedeGuardar: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  // RUTA y no una sola página: hay tres niveles (raíz -> Preguntas -> una pregunta)
-  // y volver atrás desde una pregunta tiene que devolverte a la LISTA de preguntas,
-  // no a la raíz. Con un solo `pagina` no hay forma de saber por dónde entraste.
-  const [ruta, setRuta] = useState<string[]>([])
-  const [q, setQ] = useState('')
-  const ref = useRef<HTMLDivElement>(null)
-  const campoRef = useRef<HTMLInputElement>(null)
-  const botonRef = useRef<HTMLButtonElement>(null)
-
-  const hoja = ruta[ruta.length - 1] ?? null
-  const PAGINAS = ['preguntas', 'vistas']
-  const dim = hoja && !PAGINAS.includes(hoja) ? dimensiones.find((d) => d.id === hoja) ?? null : null
-  const enPreguntas = hoja === 'preguntas'
-  const enVistas = hoja === 'vistas'
-  const preguntas = dimensiones.filter((d) => d.grupo === 'preguntas')
-  const raizDims = dimensiones.filter((d) => !d.grupo)
-  const nPreguntas = preguntas.reduce((t, d) => t + d.n, 0)
-
-  const entrar = (id: string) => { setRuta((r) => [...r, id]); setQ('') }
-  const volver = () => { setRuta((r) => r.slice(0, -1)); setQ('') }
-
-  const cerrar = useCallback(() => {
-    setOpen(false)
-    // La ruta vuelve a la raíz al CERRAR, no al abrir: al abrir se vería el salto
-    // de vuelta durante la animación.
-    setRuta([])
-    setQ('')
-  }, [])
-
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && cerrar()
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      // Escape sube UN nivel; en la raíz, cierra. Así no se sale de todo por querer
-      // deshacer un paso, ni hacen falta dos Escapes para salir de tres niveles.
-      if (ruta.length) {
-        e.stopPropagation()
-        volver()
-        return
-      }
-      cerrar()
-      botonRef.current?.focus()
-    }
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open, ruta, cerrar])
-
-  // El foco entra al campo en un efecto y no en el click: al pulsar todavía no
-  // existe. Se repite al cambiar de página, que es cuando el campo cambia de papel.
-  useEffect(() => {
-    if (open) campoRef.current?.focus()
-  }, [open, hoja])
-
-  const busca = q.trim().toLowerCase()
-  // Buscando desde la raíz se mira TODO, preguntas incluidas: quien escribe
-  // "carnet" quiere ese filtro, no que le manden a abrir "Preguntas" primero. El
-  // agrupado es para ojear, no una jaula.
-  const vistasFiltradas = vistas.filter((v) => !busca || v.name.toLowerCase().includes(busca))
-  const enBusqueda = !!busca && !dim && !enVistas
-  const listaRaiz = enBusqueda
-    ? dimensiones.filter((d) => d.label.toLowerCase().includes(busca))
-    : enPreguntas
-      ? preguntas
-      : raizDims
-
-  return (
-    <div className="relative shrink-0" ref={ref}>
-      <button
-        ref={botonRef}
-        type="button"
-        onClick={() => (open ? cerrar() : setOpen(true))}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label="Filtros"
-        // En móvil el botón es SOLO EL ICONO y cuadrado (referencia de Mario, ago
-        // 2026): comparte fila con el buscador, que es quien tiene que llevarse el
-        // ancho. `aspect-square` y no un `w-*` fijo para que el lado siga a la
-        // altura, que en táctil sube a 44. El nombre no se pierde, se muda al
-        // `aria-label`, que además está puesto siempre: así lo que anuncia el
-        // lector no depende del ancho de la ventana.
-        className={`${CHIP_ALTO} inline-flex items-center justify-center gap-1.5 rounded-lg text-sm font-medium outline-none transition-colors duration-[var(--duration-control)] max-sm:aspect-square sm:px-3.5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
-          // Teñido cuando hay filtros puestos: el botón dice el estado de la franja
-          // entera, igual que cada chip dice el suyo. Sin teñir, la pintura sale de
-          // `BTN_SUPERFICIE` y NO se escribe a mano: pintada aquí se quedó con el
-          // anillo y la sombra del botón con relieve, así que al pasar el sistema a
-          // plano fue el único control de la fila que no se enteró.
-          hayFiltros
-            ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
-            : `${BTN_SUPERFICIE.secondary} ${open ? 'bg-slate-50' : ''}`
-        }`}
-      >
-        <Filter className={`size-4 shrink-0 ${hayFiltros ? 'text-indigo-500' : 'text-slate-400'}`} aria-hidden />
-        <span className="max-sm:hidden">Filtros</span>
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          aria-label={dim ? `Elegir ${dim.label}` : enPreguntas ? 'Preguntas de este puesto' : enVistas ? 'Vistas guardadas' : 'Filtros'}
-          // Cuelga del filo IZQUIERDO de su botón en escritorio y del DERECHO en
-          // móvil, porque es donde está el botón en cada sitio: al pasar Filtros a
-          // la derecha del buscador, un panel de 288px anclado a la izquierda se
-          // salía 205px de la pantalla y hacía scrollear la página entera a lo
-          // ancho. Un flotante se ancla al filo que tiene más cerca.
-          className="absolute left-0 z-40 mt-1.5 w-72 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop max-sm:left-auto max-sm:right-0"
-        >
-          {/* El campo cambia de papel según la página: busca CATEGORÍAS en la raíz
-              y VALORES dentro de una. El placeholder es lo que dice dónde estás. */}
-          <div className="relative mb-1 flex items-center gap-1">
-            {ruta.length > 0 && (
-              <button
-                type="button"
-                onClick={volver}
-                aria-label="Volver"
-                className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
-              >
-                <ChevronLeft className="size-4" aria-hidden />
-              </button>
-            )}
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
-              <input
-                ref={campoRef}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder={dim ? `Elegir ${dim.label.toLowerCase()}` : enPreguntas ? 'Buscar pregunta' : enVistas ? 'Buscar vista' : 'Buscar filtro'}
-                aria-label={dim ? `Buscar en ${dim.label}` : enPreguntas ? 'Buscar una pregunta' : enVistas ? 'Buscar una vista' : 'Buscar un filtro'}
-                className="h-9 w-full rounded-lg bg-slate-100 pl-8 pr-2.5 text-[13px] text-slate-900 outline-none placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40"
-              />
-            </div>
-          </div>
-
-          <div className="max-h-72 space-y-0.5 overflow-y-auto">
-            {enVistas ? (
-              <>
-                {vistasFiltradas.length === 0 ? (
-                  <p className="px-2.5 py-3 text-[13px] leading-relaxed text-slate-500">
-                    {q
-                      ? 'Ninguna vista se llama así.'
-                      : 'Aún no has guardado ninguna vista. Filtra como quieras y guarda la combinación.'}
-                  </p>
-                ) : (
-                  vistasFiltradas.map((v) => (
-                    <div key={v.id} className="group flex items-center gap-1 rounded-lg hover:bg-slate-50">
-                      <button
-                        type="button"
-                        onClick={() => { onAplicarVista(v); cerrar() }}
-                        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-800 outline-none sm:py-1.5 sm:text-[13px]"
-                      >
-                        {/* Global (vale para cualquier puesto) o de ESTE puesto: el
-                            glifo lo dice sin gastar una palabra. */}
-                        {v.campaignId === null
-                          ? <Globe className="size-4 shrink-0 text-slate-500" aria-hidden />
-                          : <Briefcase className="size-4 shrink-0 text-slate-500" aria-hidden />}
-                        <span className="min-w-0 flex-1 truncate">{v.name}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onBorrarVista(v.id)}
-                        aria-label={`Eliminar vista ${v.name}`}
-                        className="mr-1 grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
-                      >
-                        <Trash2 className="size-3.5" aria-hidden />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </>
-            ) : dim ? (
-              <ValoresDimension dim={dim} q={q} />
-            ) : listaRaiz.length === 0 && !(!enBusqueda && !enPreguntas && preguntas.length > 0) ? (
-              <p className="px-2.5 py-3 text-[13px] text-slate-500">
-                {enPreguntas ? 'Ninguna pregunta se llama así.' : 'Ningún filtro se llama así.'}
-              </p>
-            ) : (
-              <>
-                {listaRaiz.map((d) => (
-                  <FilaCategoria key={d.id} icon={d.icon} label={d.label} n={d.n} onClick={() => entrar(d.id)} />
-                ))}
-                {/* "Preguntas" solo en la raíz y solo si el puesto tiene alguna.
-                    Buscando NO se pinta, porque ahí la lista ya trae las preguntas
-                    mezcladas y entrar en el grupo sería dar un rodeo. */}
-                {!enBusqueda && !enPreguntas && preguntas.length > 0 && (
-                  <FilaCategoria
-                    icon={ListFilter}
-                    label="Preguntas del formulario"
-                    n={nPreguntas}
-                    onClick={() => entrar('preguntas')}
-                  />
-                )}
-              </>
-            )}
-          </div>
-
-          {/* El PIE es la zona de las operaciones sobre el CONJUNTO de filtros:
-              recuperar uno entero (Vistas) o vaciarlos todos. Las categorías de
-              arriba son para añadir uno. */}
-          {!dim && !enPreguntas && !enVistas && (
-            <div className="mt-1 border-t border-slate-100 pt-1">
-              <FilaCategoria icon={Bookmark} label="Vistas guardadas" n={vistas.length} onClick={() => entrar('vistas')} />
-              {hayFiltros && (
-                <button
-                  type="button"
-                  onClick={() => { onLimpiarTodo(); cerrar() }}
-                  className="w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 sm:py-1.5"
-                >
-                  Limpiar todos los filtros
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Guardar vive DENTRO de Vistas, que es donde estás cuando piensas en
-              ellas. Apagado sin nada que guardar, y SIN una nota explicándolo: el
-              vacío de la lista, justo encima, ya dice "filtra como quieras y guarda
-              la combinación". Dos frases para el mismo hecho es una de más. */}
-          {enVistas && (
-            <div className="mt-1 border-t border-slate-100 pt-1">
-              <button
-                type="button"
-                onClick={() => { cerrar(); onGuardarVista() }}
-                disabled={!puedeGuardar}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:opacity-40 disabled:hover:bg-transparent sm:py-1.5"
-              >
-                <Plus className="size-4 shrink-0" aria-hidden /> Guardar los filtros de ahora
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
@@ -2790,7 +2503,6 @@ function PuestoMenu({
   exportTotal,
   onExport,
   onSetSite,
-  onCreateSite,
   onToggleNotify,
   onDuplicate,
   duplicating,
@@ -2807,7 +2519,6 @@ function PuestoMenu({
   exportTotal: number
   onExport: () => void | Promise<void>
   onSetSite: (siteId: string | null) => void
-  onCreateSite: (input: { name: string; city: string }) => Promise<Site | null>
   onToggleNotify: () => void
   onDuplicate: () => void
   duplicating: boolean
@@ -2824,11 +2535,10 @@ function PuestoMenu({
   // de la pantalla en cuanto el menú está pegado al filo derecho, y en móvil (donde
   // esto es una hoja) no tendría dónde ponerse.
   const [pagina, setPagina] = useState<'raiz' | 'sede'>('raiz')
-  const [crearSede, setCrearSede] = useState(false)
-  const [crearSedeKey, setCrearSedeKey] = useState(0)
+  const [sedesOpen, setSedesOpen] = useState(false)
+  const [sedesKey, setSedesKey] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
-  const toast = useToast()
   // La hoja de móvil se MONTA solo en móvil, no se esconde con `sm:hidden`.
   // `BottomSheet` registra su Escape en el documento y atrapa el Tab mientras está
   // abierta: montada y oculta en escritorio se tragaba el Escape del submenú (que
@@ -2867,18 +2577,19 @@ function PuestoMenu({
     }
   }, [open, pagina, cerrar])
 
-  const abrirCrearSede = () => {
-    setCrearSedeKey((k) => k + 1)
-    setCrearSede(true)
+  // El diálogo se remonta en cada apertura (`key`) para que no arrastre lo que
+  // dejaste escrito o la fila que estabas editando la vez anterior.
+  const abrirSedes = () => {
+    setSedesKey((k) => k + 1)
+    setSedesOpen(true)
   }
-  const crearSedeYAsignar = async (input: { name: string; city: string }) => {
-    const site = await onCreateSite(input)
-    if (!site) return false
+  // Creada desde aquí, la sede se asigna a este puesto y se cierra todo: entrar
+  // por el submenú Sede es querer ponerle una a ESTE puesto, no administrar la
+  // lista. Administrarla es lo que hace el resto del diálogo.
+  const alCrearSede = (site: Site) => {
     onSetSite(site.id)
-    setCrearSede(false)
+    setSedesOpen(false)
     cerrar()
-    toast.success('Sede creada y asignada a este puesto')
-    return true
   }
 
   const avisos = campaign.notifyNew !== false
@@ -3020,8 +2731,19 @@ function PuestoMenu({
         })}
       </div>
       <div className="mt-1 border-t border-slate-100 pt-1.5">
-        <button type="button" onClick={abrirCrearSede} className={`${FILA} ${QUIETA}`}>
-          <Plus className={GLIFO} aria-hidden /> Crear sede
+        {/* Una sola fila, y su nombre depende de si hay algo que gestionar: sin
+            sedes lo único que puedes hacer es crear la primera, y con sedes la
+            misma puerta lleva además a renombrarlas y borrarlas. */}
+        <button type="button" onClick={abrirSedes} className={`${FILA} ${QUIETA}`}>
+          {sites.length === 0 ? (
+            <>
+              <Plus className={GLIFO} aria-hidden /> Crear sede
+            </>
+          ) : (
+            <>
+              <Settings2 className={GLIFO} aria-hidden /> Gestionar sedes
+            </>
+          )}
         </button>
       </div>
     </>
@@ -3071,12 +2793,12 @@ function PuestoMenu({
 
       {/* Móvil: hoja inferior, la misma lista. */}
       {isMobile && (
-        <BottomSheet open={open} onClose={cerrar} title={pagina === 'sede' ? 'Sede' : 'Acciones del puesto'} inert={crearSede}>
+        <BottomSheet open={open} onClose={cerrar} title={pagina === 'sede' ? 'Sede' : 'Acciones del puesto'} inert={sedesOpen}>
           <div className="px-2 pb-3 pt-1">{cuerpo}</div>
         </BottomSheet>
       )}
 
-      <CrearSedeDialog key={crearSedeKey} open={crearSede} onClose={() => setCrearSede(false)} onCrear={crearSedeYAsignar} />
+      <SedesDialog key={sedesKey} open={sedesOpen} onClose={() => setSedesOpen(false)} alCrear={alCrearSede} />
     </div>
   )
 }
@@ -3383,154 +3105,6 @@ function SaveViewDialog({
         </div>
       </div>
     </div>
-  )
-}
-
-function CrearSedeDialog({
-  open,
-  onClose,
-  onCrear,
-}: {
-  open: boolean
-  onClose: () => void
-  /** Devuelve true si se creó: solo entonces se cierra el pop-up. */
-  onCrear: (input: { name: string; city: string }) => Promise<boolean>
-}) {
-  const [name, setName] = useState('')
-  const [city, setCity] = useState('')
-  const [busy, setBusy] = useState(false)
-  const panelRef = useRef<HTMLFormElement>(null)
-  const nameRef = useRef<HTMLInputElement>(null)
-  const reducedMotion = useReducedMotion()
-
-  useEffect(() => {
-    if (!open) return
-    const opener = document.activeElement as HTMLElement | null
-    const t = window.setTimeout(() => nameRef.current?.focus(), 60)
-    return () => {
-      window.clearTimeout(t)
-      opener?.focus?.()
-    }
-  }, [open])
-
-  const cerrar = useCallback(() => {
-    if (!busy) onClose()
-  }, [busy, onClose])
-
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        cerrar()
-        return
-      }
-      if (e.key !== 'Tab') return
-      const els = Array.from(
-        panelRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])') ?? [],
-      )
-      if (!els.length) return
-      const first = els[0]
-      const last = els[els.length - 1]
-      const active = document.activeElement
-      if (!panelRef.current?.contains(active)) {
-        e.preventDefault()
-        ;(e.shiftKey ? last : first).focus()
-      } else if (e.shiftKey && active === first) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && active === last) {
-        e.preventDefault()
-        first.focus()
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, cerrar])
-
-  const crear = async () => {
-    if (!name.trim() || busy) return
-    setBusy(true)
-    const ok = await onCrear({ name: name.trim(), city: city.trim() })
-    setBusy(false)
-    if (ok) onClose()
-  }
-
-  // Enter desde cualquiera de los dos campos crea la sede. Se hace explícito, con
-  // preventDefault, en vez de dejarlo al envío implícito del navegador: mismo
-  // camino en todos los navegadores y un solo envío.
-  const onKeyDownForm = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Enter' || !(e.target instanceof HTMLInputElement)) return
-    e.preventDefault()
-    void crear()
-  }
-
-  // En táctil el campo sube a 44px y a 16px de fuente (el mismo criterio que los
-  // botones): por debajo de 16px, iOS hace zoom al enfocar.
-  const input =
-    'h-10 pointer-coarse:h-11 w-full rounded-xl border border-slate-300 px-3 text-sm pointer-coarse:text-base text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15'
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-[60] grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="crear-sede-title">
-          <motion.div
-            className="absolute inset-0 bg-slate-900/40"
-            aria-hidden
-            initial={reducedMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.16 }}
-            onClick={cerrar}
-          />
-          <motion.form
-            ref={panelRef}
-            onSubmit={(e) => {
-              e.preventDefault()
-              void crear()
-            }}
-            onKeyDown={onKeyDownForm}
-            className="relative w-full max-w-[420px] rounded-xl bg-white p-5 shadow-pop outline-none"
-            initial={reducedMotion ? false : { opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 6 }}
-            transition={{ duration: reducedMotion ? 0 : 0.18, ease: [0, 0, 0.2, 1] }}
-          >
-            <h2 id="crear-sede-title" className="text-lg font-semibold text-slate-900">
-              Nueva sede
-            </h2>
-            <p className="mt-1 text-sm leading-relaxed text-slate-600">
-              Agrupa los puestos de un mismo local. Al crearla se asigna a este puesto.
-            </p>
-            <div className="mt-4 space-y-3">
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-800">Nombre</span>
-                <input
-                  ref={nameRef}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Valencia centro"
-                  className={input}
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-sm font-medium text-slate-800">
-                  Ciudad <span className="font-normal text-slate-500">(opcional)</span>
-                </span>
-                <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Valencia" className={input} />
-              </label>
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={cerrar} disabled={busy} className={`${BTN_SECONDARY} disabled:opacity-50`}>
-                Cancelar
-              </button>
-              <button type="submit" disabled={busy || !name.trim()} className={`${BTN_PRIMARY} disabled:opacity-50`}>
-                {busy ? 'Creando…' : 'Crear sede'}
-              </button>
-            </div>
-          </motion.form>
-        </div>
-      )}
-    </AnimatePresence>
   )
 }
 

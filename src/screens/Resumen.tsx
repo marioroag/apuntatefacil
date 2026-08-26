@@ -1,506 +1,654 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, Building2, ChevronRight, Clock, PauseCircle, Trash2 } from 'lucide-react'
+import { Briefcase, Building2, Calendar, CalendarClock, Check, ChevronDown, ChevronRight, Clock, Inbox } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
+import { useProfiles } from '../lib/profiles'
 import { useAppBase } from '../lib/useAppBase'
-import { miles } from '../lib/format'
-import { useToast } from '../components/ui/Toast'
-import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { candidateName, clockTimeInZone, dayLabelInZone, miles, plural } from '../lib/format'
 import { PageHeader } from '../components/ui/PageHeader'
-import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
-import type { Candidate, Site } from '../lib/types'
+import { SOURCE_META } from '../lib/types'
+import type { Campaign, Candidate, CandidateSource } from '../lib/types'
 
 const STALE_DAYS = 7
 
-// Vista general: el estado de todos los puestos de un vistazo. Es la primera
-// entrada del menú lateral, no un nivel aparte: se probó sacarla a una pestaña
-// de la barra superior y Mario lo descartó (ago 2026). La sede no tiene pantalla
-// propia (ago 2026): se asigna y se crea en los ajustes del puesto, y el ÚNICO
-// sitio donde se renombra o se elimina es el bloque "Por sede" de aquí abajo,
-// que ya las lista. El menú lateral solo la usa de separador.
+/**
+ * VISTA GENERAL (rediseño de Figma, Mario, ago 2026).
+ *
+ * Tres franjas y ni una más: **saludo**, **acciones rápidas** y la **gráfica de
+ * por dónde entra la gente**. Lo que había era una pantalla-inventario: cuatro
+ * cifras grandes, una gráfica, dos paneles de listas y un bloque por sede, o sea
+ * seis bloques que contestaban a la vez a preguntas distintas y ninguno decía por
+ * dónde empezar el día.
+ *
+ * QUÉ SE FUE Y A DÓNDE, que es la parte que hay que saber:
+ *
+ *  · **Los cuatro KPIs** (candidatos, nuevos sin revisar, contratados, puestos
+ *    abiertos). Ninguno cambiaba una decisión desde aquí: para triar ya está
+ *    Candidatos, y el número de procesos abiertos, que es el único del que
+ *    depende la factura, vive donde se paga (el menú de cuenta y Facturación).
+ *  · **"Piden atención"** no se borró: es la tarjeta del medio. Un panel con
+ *    seis filas para decir "tres personas llevan una semana esperando" era la
+ *    misma frase repartida en seis líneas.
+ *  · **"Nuevos sin revisar"** es la primera tarjeta, y por lo mismo: la lista de
+ *    puestos ordenada por cuántos nuevos tienen es el menú lateral.
+ *  · **"Por sede"** era el ÚNICO sitio donde se renombraba o se borraba una
+ *    sede, así que antes de quitarlo se le dio casa propia: `SedesDialog`, que
+ *    abre desde el submenú Sede de un puesto y desde el buscador ("Gestionar
+ *    sedes"). Una sede sigue sin ser un destino, que es la doctrina de siempre.
+ *
+ * La gráfica ya no cuenta candidaturas por semana a secas: las cuenta POR
+ * ORIGEN, que es la única lectura de aquí que cambia lo que haces mañana (dónde
+ * vuelves a anunciarte). El total ya lo dicen el puesto y Candidatos.
+ */
 export function Resumen() {
-  const { campaigns, candidates, newCountFor, sites, renameSite, deleteSite } = useStore()
-  const { role } = useAuth()
+  const { campaigns, candidates, newCountFor, interviews } = useStore()
+  const { user } = useAuth()
+  const profiles = useProfiles()
   const base = useAppBase()
-  const toast = useToast()
-  // La sede se administra AQUÍ, que es el único sitio donde ya está toda la lista.
-  // El menú lateral solo la usa de separador. El encargado la ve en solo lectura.
-  const canManage = role !== 'encargado'
-  const [editando, setEditando] = useState<string | null>(null)
-  const [aBorrar, setABorrar] = useState<Site | null>(null)
-  const [borrando, setBorrando] = useState(false)
+  const tz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
 
-  const staleCut = Date.now() - STALE_DAYS * 86400000
+  // El nombre de pila, no el nombre entero: un saludo es la voz de alguien que te
+  // conoce. Sale de `nameFor`, que es la única fuente de "cómo se llama esta
+  // persona" en toda la app; sin perfil cae al correo (mario.rodriguez -> Mario),
+  // y sin correo no se saluda por el nombre en vez de inventarse uno.
+  const email = user?.email ?? null
+  const nombre = email || profiles.me ? profiles.nameFor(user?.id, email).split(' ')[0] : ''
+
+  const ahora = Date.now()
+  const staleCut = ahora - STALE_DAYS * 86400000
+
   const nuevosTotal = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
-  const contratados = candidates.filter((c) => c.status === 'contratado').length
-  const abiertos = campaigns.filter((c) => c.status === 'activa' || c.status === 'pausada').length
 
-  // "Piden atención": nuevos sin contactar +7 días (por puesto) y puestos pausados.
-  const atencion: { key: string; to: string; title: string; reason: string; kind: 'stale' | 'pause' }[] = []
-  for (const c of campaigns) {
-    const staleN = candidates.filter(
-      (x) => x.campaignId === c.id && x.status === 'nuevo' && new Date(x.submittedAt).getTime() < staleCut,
-    ).length
-    if (staleN > 0)
-      atencion.push({
-        key: `stale-${c.id}`,
-        to: `${base}/puestos/${c.id}?estado=nuevo`,
-        title: c.title,
-        reason: `${staleN} sin contactar +${STALE_DAYS} días`,
-        kind: 'stale',
-      })
-  }
-  for (const c of campaigns) {
-    if (c.status === 'pausada')
-      atencion.push({ key: `pause-${c.id}`, to: `${base}/puestos/${c.id}`, title: c.title, reason: 'Puesto pausado', kind: 'pause' })
-  }
+  // Piden atención: primero quien lleva esperando, y si no hay nadie, los puestos
+  // pausados. Se enseña UNA cosa, la más urgente, con su enlace: dos frases en una
+  // tarjeta de tres líneas es un panel disfrazado.
+  const esperando = useMemo(() => {
+    const porPuesto = campaigns
+      .map((c) => ({
+        c,
+        n: candidates.filter(
+          (x) => x.campaignId === c.id && x.status === 'nuevo' && new Date(x.submittedAt).getTime() < staleCut,
+        ).length,
+      }))
+      .filter((x) => x.n > 0)
+      .sort((a, b) => b.n - a.n)
+    return { porPuesto, total: porPuesto.reduce((s, x) => s + x.n, 0) }
+  }, [campaigns, candidates, staleCut])
+  const pausados = campaigns.filter((c) => c.status === 'pausada')
 
-  // "Nuevos sin revisar": top puestos por candidatos nuevos.
-  const topNuevos = campaigns
-    .map((c) => ({ c, n: newCountFor(c.id) }))
-    .filter((x) => x.n > 0)
-    .sort((a, b) => b.n - a.n)
-    .slice(0, 6)
-
-  // Desglose por sede: las mismas cifras de arriba, partidas por local. Se pinta
-  // solo si hay sedes; los puestos sin sede cierran la lista para que las cuentas
-  // cuadren con los totales.
-  const grupoSede = (id: string | null, name: string, city: string) => {
-    const camps = campaigns.filter((c) =>
-      id === null ? !c.siteId || !sites.some((s) => s.id === c.siteId) : c.siteId === id,
-    )
-    const campIds = new Set(camps.map((c) => c.id))
-    const cands = candidates.filter((c) => campIds.has(c.campaignId))
-    return {
-      id,
-      name,
-      city,
-      camps,
-      nuevos: camps.reduce((s, c) => s + newCountFor(c.id), 0),
-      stale: cands.filter((c) => c.status === 'nuevo' && new Date(c.submittedAt).getTime() < staleCut).length,
-      contratados: cands.filter((c) => c.status === 'contratado').length,
-    }
-  }
-  const gruposSede = sites.length > 0
-    ? [...sites.map((s) => grupoSede(s.id, s.name, s.city)), grupoSede(null, 'Sin sede', '')].filter((g) => g.camps.length > 0)
-    : []
+  // La próxima entrevista confirmada que todavía no ha pasado. 'confirmada' es el
+  // único estado con hueco reservado de verdad: las invitadas y las que están
+  // eligiendo hora no tienen cuándo, así que anunciarlas sería inventar una cita.
+  const proxima = useMemo(() => {
+    const vivas = interviews
+      .filter((i) => i.status === 'confirmada' && i.startsAt && Date.parse(i.startsAt) > ahora)
+      .sort((a, b) => Date.parse(a.startsAt!) - Date.parse(b.startsAt!))
+    const i = vivas[0]
+    if (!i) return null
+    const cand = candidates.find((c) => c.id === i.candidateId)
+    return { i, quien: cand ? candidateName(cand) : 'un candidato' }
+  }, [interviews, candidates, ahora])
 
   return (
-    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
-      {/* El mismo nombre que su entrada en el menú: un destino, un nombre. */}
-      <PageHeader titulo="Vista general" sub="Cómo van todos tus puestos de un vistazo." />
+    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8 [@media(max-height:820px)]:py-4">
+      {/* El h1 es el saludo, no "Vista general". El nombre de la pantalla sigue
+          escrito en el menú, que es donde se elige a dónde ir; aquí ya has
+          llegado, y lo primero que se lee es a quién le hablamos. */}
+      <PageHeader titulo={`${saludoDe(new Date(ahora).getHours())}${nombre ? `, ${nombre}` : ''}`} sub="Aquí tienes un resumen de tu actividad reciente." />
 
       {campaigns.length === 0 ? (
-        <Empty text="Aún no tienes puestos. Crea el primero para ver aquí cómo van tus puestos." />
+        <Empty text="Aún no tienes puestos. Crea el primero para ver aquí cómo va tu actividad." />
       ) : (
         <>
-          {/* Aquí vivía una tarjeta que llevaba al hilo de Meridian. Se fue con
-              el hilo (Mario, ago 2026): no va a volver. El triaje sigue entero. */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Kpi label="Candidatos" n={candidates.length} />
-            <Kpi label="Nuevos sin revisar" n={nuevosTotal} />
-            <Kpi label="Contratados" n={contratados} />
-            <Kpi label="Puestos abiertos" n={abiertos} />
-          </div>
-
-          {/* Gráfica de altas por semana (única serie temporal real: fecha de alta) */}
-          <IntakeChart candidates={candidates} />
-
-          {/* Piden atención + Nuevos sin revisar */}
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Panel title="Piden atención">
-              {atencion.length === 0 ? (
-                <p className="px-1 py-2 text-[13px] text-slate-500">Todo al día, nada pendiente.</p>
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {atencion.slice(0, 6).map((a) => (
-                    <li key={a.key}>
-                      <Link to={a.to} className="flex items-center gap-2.5 py-2.5 transition-colors hover:bg-slate-50">
-                        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
-                          {a.kind === 'stale' ? <Clock className="size-4" aria-hidden /> : <PauseCircle className="size-4" aria-hidden />}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium text-slate-800">{a.title}</span>
-                          <span className="block text-[12px] text-slate-500">{a.reason}</span>
-                        </span>
-                        <ChevronRight className="size-4 shrink-0 text-slate-300" aria-hidden />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Panel>
-
-            <Panel title="Nuevos sin revisar" right={nuevosTotal > 0 ? miles(nuevosTotal) : undefined}>
-              {topNuevos.length === 0 ? (
-                <p className="px-1 py-2 text-[13px] text-slate-500">Sin candidatos nuevos pendientes.</p>
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {topNuevos.map(({ c, n }) => (
-                    <li key={c.id}>
-                      <Link
-                        to={`${base}/puestos/${c.id}?estado=nuevo`}
-                        className="flex items-center gap-2.5 py-2.5 transition-colors hover:bg-slate-50"
-                      >
-                        <Briefcase className="size-4 shrink-0 text-slate-500" aria-hidden />
-                        <span className="min-w-0 flex-1 truncate text-sm text-slate-800">{c.title}</span>
-                        {/* La chapa va APAGADA: aquí hay una por fila y se pintan hasta seis a
-                            la vez, así que en negrita la columna se leía como un marcador y le
-                            robaba el sitio a lo único que se lee de un vistazo, los nombres de
-                            los puestos. La negrita es para cuando hay UNA. La cifra se queda
-                            (en Vista general sí cambia una decisión: dice a qué puesto entrar). */}
-                        <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[11px] font-medium num text-slate-700">{n}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Panel>
-          </div>
-
-          {gruposSede.length > 0 && (
-            <div className="mt-4">
-              <Panel title="Por sede">
-                <ul className="divide-y divide-slate-100">
-                  {gruposSede.map((g) => (
-                    <li key={g.id ?? '__none__'} className="group/sede py-3 first:pt-1.5">
-                      {editando === g.id && g.id ? (
-                        <SedeEditor
-                          site={sites.find((s) => s.id === g.id)!}
-                          onSave={async (patch) => {
-                            const ok = await renameSite(g.id!, patch)
-                            if (ok) {
-                              setEditando(null)
-                              toast.success('Sede guardada')
-                            }
-                          }}
-                          onDelete={() => setABorrar(sites.find((s) => s.id === g.id) ?? null)}
-                          onCancel={() => setEditando(null)}
-                        />
-                      ) : (
-                      <div className="flex flex-wrap items-baseline gap-x-2">
-                        <h3 className="text-sm font-semibold text-slate-800">{g.name}</h3>
-                        {/* La ciudad solo acompaña si aporta algo: muchas sedes se
-                            llaman como su ciudad y repetirlo es ruido. */}
-                        {g.city && g.city.toLowerCase() !== g.name.toLowerCase() && (
-                          <p className="text-[12px] text-slate-500">{g.city}</p>
-                        )}
-                        {/* Único sitio donde se administra una sede. Discreto: aparece
-                            al acercarse o al tabular, y nunca en el grupo "Sin sede". */}
-                        {canManage && g.id && (
-                          <button
-                            onClick={() => setEditando(g.id)}
-                            className="ml-auto text-[12px] font-medium text-slate-500 opacity-0 transition-opacity hover:text-indigo-700 focus-visible:opacity-100 group-hover/sede:opacity-100"
-                          >
-                            Editar
-                          </button>
-                        )}
-                      </div>
-                      )}
-                      <div className="mt-1 flex flex-wrap gap-x-5 gap-y-0.5">
-                        <SedeStat label="nuevos sin revisar" n={g.nuevos} />
-                        <SedeStat label={`sin contactar +${STALE_DAYS} días`} n={g.stale} />
-                        <SedeStat label="contratados" n={g.contratados} />
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {g.camps.map((c) => (
-                          <Link
-                            key={c.id}
-                            to={`${base}/puestos/${c.id}`}
-                            className="inline-flex max-w-full items-center gap-1.5 rounded-full filo px-2.5 py-1 text-[12px] text-slate-600 transition-colors hover:filo-slate-300 hover:bg-slate-50 hover:text-slate-900"
-                          >
-                            <Briefcase className="size-3 shrink-0 text-slate-400" aria-hidden />
-                            <span className="truncate">{c.title}</span>
-                          </Link>
-                        ))}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </Panel>
-            </div>
-          )}
-
-          {/* Eliminar una sede nunca borra puestos: quedan sin sede (en la base lo
-              hace el "on delete set null"). Se dice tal cual para que nadie tema
-              perder datos. */}
-          <ConfirmDialog
-            open={aBorrar !== null}
-            onClose={() => setABorrar(null)}
-            onConfirm={async () => {
-              if (!aBorrar || borrando) return
-              setBorrando(true)
-              const ok = await deleteSite(aBorrar.id)
-              setBorrando(false)
-              if (ok) {
-                setABorrar(null)
-                setEditando(null)
-                toast.success('Sede eliminada')
+          <h2 className="text-base font-semibold text-slate-900">Acciones rápidas</h2>
+          <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3 [@media(max-height:820px)]:mt-3">
+            <AccionRapida
+              icono={Inbox}
+              titulo="Ver nuevos candidatos"
+              texto={
+                nuevosTotal > 0
+                  ? `Empieza el día revisando ${plural(nuevosTotal, 'candidatura nueva', 'candidaturas nuevas')} sin catalogar.`
+                  : 'No queda ninguna candidatura por revisar. Estás al día.'
               }
-            }}
-            title={aBorrar ? `¿Eliminar ${aBorrar.name}?` : ''}
-            confirmLabel={borrando ? 'Eliminando…' : 'Eliminar'}
-            confirmVariant="danger"
-          >
-            Los puestos de esta sede no se borran: se quedan sin sede y puedes asignarles otra cuando quieras.
-          </ConfirmDialog>
+              to={`${base}/candidatos`}
+              enlace="Candidatos"
+            />
+            <AccionRapida
+              icono={Clock}
+              titulo="Piden atención"
+              texto={textoAtencion(esperando, pausados.length)}
+              to={destinoAtencion(esperando, pausados, base)}
+              enlace={
+                esperando.porPuesto[0]?.c.title ?? pausados[0]?.title ?? undefined
+              }
+            />
+            <AccionRapida
+              icono={CalendarClock}
+              titulo="Próxima entrevista"
+              texto={
+                proxima
+                  ? `${dayLabelInZone(proxima.i.startsAt!, tz)} a las ${clockTimeInZone(proxima.i.startsAt!, tz)} con ${proxima.quien}.`
+                  : 'No tienes ninguna entrevista con hora confirmada.'
+              }
+              to={`${base}/entrevistas`}
+              enlace={proxima ? 'Ver detalles' : 'Ver agenda'}
+            />
+          </div>
+
+          <GraficaOrigen candidates={candidates} campaigns={campaigns} />
         </>
       )}
     </div>
   )
 }
 
-// Renombrar o eliminar una sede, en línea y en su propia fila. Guarda con Enter
-// y cancela con Escape.
-function SedeEditor({
-  site,
-  onSave,
-  onDelete,
-  onCancel,
-}: {
-  site: Site
-  onSave: (patch: { name: string; city: string }) => void
-  onDelete: () => void
-  onCancel: () => void
-}) {
-  const [name, setName] = useState(site.name)
-  const [city, setCity] = useState(site.city)
-  const input =
-    'h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 sm:w-auto sm:flex-1'
-  const save = () => name.trim() && onSave({ name: name.trim(), city: city.trim() })
-  const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') save()
-    if (e.key === 'Escape') onCancel()
+/**
+ * El saludo por la hora. Los cortes son los españoles y no los ingleses: aquí a
+ * la una y media de la tarde se siguen dando los buenos días, y a las nueve de la
+ * noche ya se dan las buenas noches.
+ */
+function saludoDe(hora: number): string {
+  if (hora < 14) return 'Buenos días'
+  if (hora < 21) return 'Buenas tardes'
+  return 'Buenas noches'
+}
+
+type Atencion = { porPuesto: { c: { id: string; title: string }; n: number }[]; total: number }
+
+function textoAtencion(a: Atencion, pausados: number): string {
+  if (a.total > 0) {
+    const donde = a.porPuesto.length > 1 ? ` en ${plural(a.porPuesto.length, 'puesto', 'puestos')}` : ''
+    return `${plural(a.total, 'candidato lleva', 'candidatos llevan')} más de ${STALE_DAYS} días esperando respuesta${donde}.`
   }
-  return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={onKey} autoFocus aria-label="Nombre de la sede" placeholder="Nombre" className={input} />
-      <input value={city} onChange={(e) => setCity(e.target.value)} onKeyDown={onKey} aria-label="Ciudad de la sede (opcional)" placeholder="Ciudad (opcional)" className={input} />
-      <div className="flex shrink-0 items-center gap-2">
-        <button onClick={save} disabled={!name.trim()} className={`${BTN_PRIMARY} disabled:opacity-50`}>Guardar</button>
-        <button onClick={onCancel} className={BTN_SECONDARY}>Cancelar</button>
-        <button
-          onClick={onDelete}
-          aria-label={`Eliminar la sede ${site.name}`}
-          className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-400 transition-colors pointer-coarse:size-11 hover:bg-red-50 hover:text-red-600"
-        >
-          <Trash2 className="size-4" aria-hidden />
-        </button>
+  if (pausados > 0)
+    return `${plural(pausados, 'puesto pausado', 'puestos pausados')}: su enlace no acepta candidaturas y el proceso se sigue cobrando.`
+  return 'Nadie lleva esperando y ningún puesto está pausado.'
+}
+
+function destinoAtencion(a: Atencion, pausados: { id: string }[], base: string): string | undefined {
+  if (a.total > 0) return `${base}/puestos/${a.porPuesto[0].c.id}?estado=nuevo`
+  if (pausados.length > 0) return `${base}/puestos/${pausados[0].id}`
+  return undefined
+}
+
+/**
+ * Una tarjeta de acción rápida. Tres piezas: qué es, qué pasa ahora mismo, y a
+ * dónde vas. El pie repite la geometría del diseño (glifo de 32px a la izquierda,
+ * el destino a la derecha) con un icono nuestro en vez del logo de relleno que
+ * traía el mockup.
+ *
+ * SIN `to` LA TARJETA NO ES UN ENLACE, y no desaparece. Cuando no hay nada que
+ * atender, una tarjeta que lleva a alguna parte sería una puerta pintada en la
+ * pared; y quitarla dejaría la fila saltando entre dos y tres tarjetas según el
+ * día, que es peor que una tarjeta tranquila diciendo que no hay nada.
+ */
+function AccionRapida({
+  icono: Icono,
+  titulo,
+  texto,
+  to,
+  enlace,
+}: {
+  icono: typeof Clock
+  titulo: string
+  texto: string
+  to?: string
+  enlace?: string
+}) {
+  // Radio de tarjeta del sistema (10px), no los 20 del mockup: esta tarjeta vive
+  // al lado de tablas, paneles y diálogos que van todos a 10, y un radio propio
+  // aquí se lee como una pieza de otra pantalla.
+  const caja =
+    'flex h-full flex-col rounded-xl filo bg-white p-6 shadow-card max-sm:p-5'
+  const cuerpo = (
+    <>
+      {/* El texto CRECE (`flex-1`) y el pie se queda pegado abajo. Las tres
+          descripciones no miden lo mismo (una entrevista se cuenta en una línea y
+          lo que pide atención en dos), así que sin esto el filo y su fila caían a
+          alturas distintas en cada tarjeta y la fila entera se leía descosida. Va
+          con `flex-1` en el texto y NO con `mt-auto` en el pie: `mt-auto` y el
+          `mt-6` de abajo son la misma utilidad de Tailwind y no se resuelven por
+          orden de escritura, que es el mismo tropiezo de `botonIcono()`. Así el
+          `mt-6` sigue siendo el hueco MÍNIMO cuando el texto ya llena la tarjeta. */}
+      <div className="flex-1">
+        <p className="text-base font-bold text-slate-900">{titulo}</p>
+        <p className="mt-2 text-[13px] leading-relaxed text-slate-500">{texto}</p>
       </div>
-    </div>
-  )
-}
-
-// Cifra de una sede: el número manda (peso y tinta), la etiqueta acompaña.
-function SedeStat({ label, n }: { label: string; n: number }) {
-  return (
-    <p className="text-[12px] text-slate-500">
-      <span className="num font-semibold text-slate-800">{miles(n)}</span> {label}
-    </p>
-  )
-}
-
-// --- Gráfica de candidatos recibidos por semana ----------------------------
-// La ÚNICA dimensión temporal real del modelo es la fecha de alta (submittedAt):
-// no inventamos embudos en el tiempo. Semanas de CALENDARIO (lunes), trazo recto
-// (sin suavizar, que falsearía valores entre semanas), valores legibles en la
-// propia gráfica, semana en curso marcada, y tabla de datos para lectores de
-// pantalla y para quien quiera la cifra exacta de cada semana.
-function IntakeChart({ candidates }: { candidates: Candidate[] }) {
-  const weeks = useMemo(() => weeklyIntake(candidates), [candidates])
-  if (weeks.length < 2) return <ChartPlaceholder />
-  return <IntakeChartBody weeks={weeks} />
-}
-
-function ChartPlaceholder() {
-  return (
-    <div className="mt-4 rounded-xl filo bg-white p-4 shadow-card sm:p-5">
-      <p className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</p>
-      <div className="mt-2 flex h-40 items-center justify-center rounded-lg border border-dashed border-slate-200">
-        <p className="max-w-xs px-6 text-center text-[13px] text-slate-500">La tendencia aparece en cuanto tengas 2 o más semanas de datos.</p>
+      <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-5 [@media(max-height:820px)]:mt-4 [@media(max-height:820px)]:pt-4">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600">
+          <Icono className="size-4" aria-hidden />
+        </span>
+        {enlace && (
+          <span className="flex min-w-0 items-center gap-1 text-[12px] font-semibold text-slate-500">
+            <span className="truncate">{enlace}</span>
+            <ChevronRight className="size-3.5 shrink-0" aria-hidden />
+          </span>
+        )}
       </div>
-    </div>
+    </>
+  )
+  if (!to) return <div className={caja}>{cuerpo}</div>
+  return (
+    <Link
+      to={to}
+      className={`${caja} transition-colors duration-[var(--duration-control)] hover:bg-slate-50`}
+    >
+      {cuerpo}
+    </Link>
   )
 }
 
-function IntakeChartBody({ weeks }: { weeks: Week[] }) {
-  // El ancho real (medido) da coordenadas 1:1 sin distorsión: círculos redondos
-  // y texto legible dentro del SVG (preserveAspectRatio="none" los deformaba).
+// --- La gráfica: por dónde entra la gente -----------------------------------
+
+type Bucket = 'dia' | 'semana' | 'mes'
+type Rango = { id: string; label: string; dias: number; bucket: Bucket }
+
+/**
+ * Los rangos son TRES y cada uno trae su cubo. No son un rango libre con dos
+ * calendarios: el mockup dibujaba "Dec 27, 2023 - Jan 03, 2024" y elegir dos
+ * fechas a mano es un control caro para una pregunta que casi siempre es "¿cómo
+ * ha ido el último mes?". El cubo va con el rango porque son la misma decisión:
+ * 365 puntos diarios en 900px no se leen, y 30 puntos mensuales no existen.
+ */
+const RANGOS: Rango[] = [
+  { id: '30d', label: 'Últimos 30 días', dias: 30, bucket: 'dia' },
+  { id: '3m', label: 'Últimos 3 meses', dias: 90, bucket: 'semana' },
+  { id: '12m', label: 'Últimos 12 meses', dias: 365, bucket: 'mes' },
+]
+
+/** El valor de "todos los puestos". Vacío y no `null`: es un id que no existe. */
+const TODOS = ''
+
+function GraficaOrigen({ candidates, campaigns }: { candidates: Candidate[]; campaigns: Campaign[] }) {
+  const [rango, setRango] = useState<Rango>(RANGOS[0])
+  const [puesto, setPuesto] = useState<string>(TODOS)
+
+  // Con un solo puesto no hay nada que elegir y el selector no se pinta: un
+  // control que solo puede decir lo que ya se ve es un botón que no hace nada.
+  const opcionesPuesto = useMemo(
+    () => [{ id: TODOS, label: 'Todos los puestos' }, ...campaigns.map((c) => ({ id: c.id, label: c.title }))],
+    [campaigns],
+  )
+
+  // Si el puesto elegido desaparece (se borra, o cambias de empresa), se vuelve a
+  // Todos en vez de dejar la gráfica vacía sin decir por qué.
+  const elegido = campaigns.some((c) => c.id === puesto) ? puesto : TODOS
+
+  const datos = useMemo(
+    () => construir(elegido === TODOS ? candidates : candidates.filter((c) => c.campaignId === elegido), rango),
+    [candidates, rango, elegido],
+  )
+
+  return (
+    <section className="mt-8 [@media(max-height:820px)]:mt-5">
+      {/* El título vive FUERA de la tarjeta, igual que "Acciones rápidas" (Mario,
+          ago 2026): los dos rotulan un bloque de la pantalla, y uno dentro y otro
+          fuera dejaban la página con dos alturas de titular sin motivo. El
+          SELECTOR, en cambio, se queda DENTRO y arriba del todo, como en el
+          diseño: no rotula el bloque, gobierna lo que se pinta debajo, y fuera se
+          leía como un control suelto flotando entre dos tarjetas. */}
+      <h2 className="mb-4 text-base font-semibold text-slate-900">Por dónde entra la gente</h2>
+
+      {datos.series.length === 0 ? (
+        <p className="rounded-xl filo bg-white px-6 py-12 text-center text-[13px] text-slate-500 shadow-card">
+          No ha entrado ninguna candidatura en este periodo.
+        </p>
+      ) : (
+        <div className="rounded-xl filo bg-white p-6 shadow-card max-sm:p-5">
+          {/* Una sola fila: las plataformas a la izquierda y el rango a la
+              derecha (Mario, ago 2026). El selector no rotula nada, dice CON QUÉ
+              VARA están medidas esas cifras, así que va en su misma línea y no
+              en un renglón propio por encima, que lo dejaba suelto en el aire.
+              Las cifras van a 20px y no a los 28 del mockup: el título de la
+              pantalla va a 24, y un número de dentro no puede ganarle al nombre
+              de la pantalla en la que está. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+            <div className="flex flex-wrap gap-x-10 gap-y-4">
+              {datos.series.map((s) => (
+                <div key={s.origen}>
+                  <p className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-500">
+                    <span className={`size-2 shrink-0 rounded-full ${SOURCE_META[s.origen].punto}`} aria-hidden />
+                    {SOURCE_META[s.origen].label}
+                  </p>
+                  <p className="mt-1 num text-xl font-bold text-slate-900">{miles(s.total)}</p>
+                </div>
+              ))}
+            </div>
+            {/* Dos cápsulas hermanas: con qué recorte y con qué vara. Primero el
+                puesto y luego el periodo, que es como se lee la frase. */}
+            <div className="flex flex-wrap items-center gap-2">
+              {campaigns.length > 1 && (
+                <SelectorPill
+                  icono={Briefcase}
+                  etiqueta="Puesto"
+                  valor={elegido}
+                  opciones={opcionesPuesto}
+                  onChange={setPuesto}
+                />
+              )}
+              <SelectorPill
+                icono={Calendar}
+                etiqueta="Periodo"
+                valor={rango.id}
+                opciones={RANGOS.map((r) => ({ id: r.id, label: r.label }))}
+                onChange={(id) => setRango(RANGOS.find((r) => r.id === id) ?? RANGOS[0])}
+              />
+            </div>
+          </div>
+
+          <Lienzo datos={datos} rango={rango} />
+        </div>
+      )}
+    </section>
+  )
+}
+
+/**
+ * UNA CÁPSULA QUE ELIGE, con su menú. La usan el puesto y el periodo, y por eso
+ * es una pieza y no dos: dos cápsulas que empiezan iguales se separan al primer
+ * retoque, que es la lección que este proyecto ya ha pagado varias veces.
+ *
+ * Es un `menuitemradio` de verdad: eliges uno de varios, no ejecutas un verbo.
+ * Al elegir, el menú se cierra pero lo que queda escrito en la cápsula es el
+ * estado en el que estás, que es el reverso exacto de un menú de acciones.
+ */
+function SelectorPill({
+  icono: Icono,
+  etiqueta,
+  valor,
+  opciones,
+  onChange,
+}: {
+  icono: typeof Calendar
+  /** Qué se elige, para quien no ve la cápsula. */
+  etiqueta: string
+  valor: string
+  opciones: { id: string; label: string }[]
+  onChange: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const [w, setW] = useState(560)
+  const cerrar = useCallback(() => setOpen(false), [])
+  const actual = opciones.find((o) => o.id === valor) ?? opciones[0]
+
+  useEffect(() => {
+    if (!open) return
+    const fuera = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) cerrar()
+    }
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        cerrar()
+      }
+    }
+    document.addEventListener('mousedown', fuera)
+    document.addEventListener('keydown', tecla)
+    return () => {
+      document.removeEventListener('mousedown', fuera)
+      document.removeEventListener('keydown', tecla)
+    }
+  }, [open, cerrar])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`${etiqueta}: ${actual?.label ?? ''}`}
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex h-9 max-w-[240px] items-center gap-2 rounded-full filo bg-white px-3.5 text-[13px] font-semibold text-slate-800 transition-colors duration-[var(--duration-control)] pointer-coarse:h-11 hover:bg-slate-50"
+      >
+        <Icono className="size-3.5 shrink-0 text-slate-500" aria-hidden />
+        <span className="min-w-0 truncate">{actual?.label}</span>
+        <ChevronDown className="size-3.5 shrink-0 text-slate-500" aria-hidden />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          aria-label={etiqueta}
+          className="absolute right-0 top-full z-20 mt-1.5 max-h-72 w-64 overflow-y-auto rounded-xl filo bg-white p-1 shadow-pop"
+        >
+          {opciones.map((o) => {
+            const marcado = o.id === actual?.id
+            return (
+              <button
+                key={o.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={marcado}
+                onClick={() => {
+                  onChange(o.id)
+                  cerrar()
+                }}
+                className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors duration-[var(--duration-control)] ${
+                  marcado ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <Check className={`size-4 shrink-0 ${marcado ? 'text-indigo-600' : 'text-transparent'}`} aria-hidden />
+                <span className="min-w-0 truncate">{o.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type Serie = { origen: CandidateSource; valores: number[]; total: number }
+type Datos = { cubos: { inicio: number; label: string }[]; series: Serie[]; techo: number; lineas: number[] }
+
+/**
+ * El lienzo. Un área por origen, DIBUJADAS UNA ENCIMA DE OTRA y no apiladas: lo
+ * que se pregunta aquí es cuánto trae cada canal, no cuánto suman, y en una pila
+ * la altura de una banda depende de la que tenga debajo. La más grande se pinta
+ * primero para que las pequeñas no queden tapadas.
+ *
+ * El ancho se MIDE (no `preserveAspectRatio="none"`, que deforma el texto y los
+ * puntos): así las coordenadas del SVG son píxeles de verdad.
+ */
+function Lienzo({ datos, rango }: { datos: Datos; rango: Rango }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [w, setW] = useState(720)
+  // EL ALTO LO PONE LO QUE SOBRA DE PANTALLA, no un número fijo (Mario, ago
+  // 2026: "no puede ocupar más que el viewport"). La gráfica es lo último de la
+  // pantalla, así que su hueco es exactamente el que dejan el saludo, las
+  // tarjetas y su propia cabecera; con un alto fijo, la misma página cabe en un
+  // monitor y obliga a desplazar en un portátil.
+  //
+  // No hay bucle de medida aunque se mida dentro de un ResizeObserver: lo que se
+  // lee es la POSICIÓN del lienzo (dónde empieza), y eso no depende de su alto,
+  // que es lo único que esto cambia.
+  const [alto, setAlto] = useState(260)
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const measure = () => setW(Math.max(240, el.clientWidth))
-    measure()
-    const ro = new ResizeObserver(measure)
+    const medir = () => {
+      setW(Math.max(280, el.clientWidth))
+      const scroller = el.closest('main')
+      if (!scroller) return
+      const arriba =
+        el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+      // Lo que hay que dejar libre por debajo: el relleno de la tarjeta más el de
+      // la página. Si cambian esos dos, cambia este número.
+      const libre = scroller.clientHeight - arriba - 52
+      // Suelo y techo: por debajo de 200 una serie de treinta días deja de leerse,
+      // y por encima de 340 el lienzo se estira sin decir nada más.
+      setAlto(Math.round(Math.max(200, Math.min(340, libre))))
+    }
+    medir()
+    const ro = new ResizeObserver(medir)
     ro.observe(el)
+    const scroller = el.closest('main')
+    if (scroller) ro.observe(scroller)
     return () => ro.disconnect()
   }, [])
 
-  const n = weeks.length
-  const partialLast = weeks[n - 1].start === weekStartMonday(Date.now())
-  const complete = partialLast ? weeks.slice(0, -1) : weeks
-  const avg = complete.length
-    ? Math.round(complete.reduce((s, x) => s + x.count, 0) / complete.length)
-    : weeks[n - 1].count
-  const max = Math.max(...weeks.map((x) => x.count), 1)
-
-  const H = 180
-  const padL = 10
+  const n = datos.cubos.length
+  const H = alto
+  const padL = 36
   const padR = 10
-  const padTop = 24
-  const padBottom = 22
+  const padTop = 14
+  const padBottom = 24
   const innerH = H - padTop - padBottom
-  const x = (i: number) => padL + (i / (n - 1)) * (w - padL - padR)
-  const y = (v: number) => padTop + innerH - (v / max) * innerH
+  const x = (i: number) => (n === 1 ? padL + (w - padL - padR) / 2 : padL + (i / (n - 1)) * (w - padL - padR))
+  const y = (v: number) => padTop + innerH - (v / datos.techo) * innerH
   const baseY = padTop + innerH
-  const pts = weeks.map((wk, i) => ({ x: x(i), y: y(wk.count), v: wk.count }))
-  const seg = (p: { x: number; y: number }, i: number) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`
-  const solidPts = partialLast ? pts.slice(0, -1) : pts
-  const solidLine = solidPts.map(seg).join(' ')
-  const area = `${pts.map(seg).join(' ')} L${pts[n - 1].x.toFixed(1)} ${baseY} L${pts[0].x.toFixed(1)} ${baseY} Z`
-  const maxY = y(max)
 
-  // Etiquetas de eje X equiespaciadas (siempre primera y última).
-  const k = Math.min(n, w < 380 ? 3 : 6)
-  const labelIdx = [...new Set(Array.from({ length: k }, (_, j) => Math.round((j * (n - 1)) / (k - 1))))]
-  const labelEach = n <= 8
+  // Etiquetas del eje X: siempre la primera y la última, y hasta seis en total.
+  const k = Math.min(n, w < 420 ? 3 : 6)
+  const idx = [...new Set(Array.from({ length: k }, (_, j) => (k === 1 ? 0 : Math.round((j * (n - 1)) / (k - 1)))))]
+
+  const resumen = datos.series
+    .map((s) => `${SOURCE_META[s.origen].label} ${s.total}`)
+    .join(', ')
 
   return (
-    <figure className="mt-4 rounded-xl filo bg-white p-4 shadow-card sm:p-5">
-      <figcaption className="flex items-baseline justify-between">
-        <span className="text-[13px] font-semibold text-slate-800">Candidatos recibidos por semana</span>
-        <span className="text-[12px] num text-slate-500">media de {miles(avg)}/semana</span>
-      </figcaption>
-      <div ref={ref} className="mt-2">
-        <svg
-          viewBox={`0 0 ${w} ${H}`}
-          height={H}
-          className="w-full"
-          role="img"
-          aria-label={`Candidatos recibidos por semana. Media de ${avg} por semana, máximo ${max} en una semana.${partialLast ? ' La última semana está en curso.' : ''} Cifra de cada semana en la tabla "Ver datos por semana".`}
-        >
-          {/* Línea de máximo: da escala para leer las alturas. */}
-          <line x1={padL} y1={maxY} x2={w - padR} y2={maxY} className="stroke-slate-200" strokeDasharray="2 4" />
-          {/* slate-500, no slate-400: 400 es 2,6:1 sobre blanco y vale para un glifo (la
-              línea de puntos, el punto hueco), no para una cifra, que es texto con
-              significado y tiene su suelo en 4,5:1. */}
-          <text x={w - padR} y={maxY - 5} textAnchor="end" className="fill-slate-500 text-[10px] num">{max}</text>
-          {/* Área + línea RECTA (honesta con datos discretos). */}
-          <path d={area} className="fill-slate-700/10" />
-          <path d={solidLine} fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" className="stroke-slate-700" />
-          {partialLast && n >= 2 && (
-            <path
-              d={`M${pts[n - 2].x.toFixed(1)} ${pts[n - 2].y.toFixed(1)} L${pts[n - 1].x.toFixed(1)} ${pts[n - 1].y.toFixed(1)}`}
-              fill="none" strokeWidth="2" strokeDasharray="3 3" strokeLinecap="round" className="stroke-slate-400"
-            />
-          )}
-          {/* Puntos + valor encima (el del máximo ya lo da la línea de escala). */}
-          {pts.map((p, i) => {
-            const partial = partialLast && i === n - 1
-            return (
-              <g key={weeks[i].start}>
-                <circle cx={p.x} cy={p.y} r="2.5" strokeWidth="2" className={partial ? 'fill-white stroke-slate-400' : 'fill-slate-700 stroke-white'} />
-                {/* La semana en curso se distingue por FORMA (línea de puntos y punto hueco)
-                    y por el `aria-label`, no solo por el gris: la cifra ya no puede bajar de
-                    slate-500 sin dejar de cumplir el suelo de contraste. */}
-                {(labelEach || i === n - 1) && p.v !== max && (
-                  <text x={p.x} y={p.y - 8} textAnchor="middle" className={`text-[10px] num ${partial ? 'fill-slate-500' : 'fill-slate-600'}`}>{p.v}</text>
-                )}
-              </g>
-            )
-          })}
-          {/* Eje X. */}
-          {labelIdx.map((i, j) => (
-            <text key={weeks[i].start} x={x(i)} y={H - 6} textAnchor={j === 0 ? 'start' : j === labelIdx.length - 1 ? 'end' : 'middle'} className="fill-slate-500 text-[11px]">{weeks[i].label}</text>
-          ))}
-        </svg>
-      </div>
-      {partialLast && <p className="mt-1 text-[11px] text-slate-500">La última semana (línea discontinua) está en curso.</p>}
-      <details className="group mt-3">
-        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[12px] font-medium text-indigo-700 marker:content-none hover:text-indigo-800">
-          <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden /> Ver datos por semana
-        </summary>
-        <div className="mt-2 overflow-hidden rounded-lg filo">
-          {/* Tabla menuda (no es la rejilla de candidatos: no lleva su alto ni sus
-              iconos), pero sí su filo vertical: dos columnas sin línea entre ellas
-              se leen como una lista de dos palabras sueltas. */}
-          <table className="w-full text-left text-[12px]">
-            <thead className="bg-slate-50 text-slate-500">
-              <tr>
-                <th scope="col" className="border-r border-r-slate-100 px-3 py-1.5 font-medium">Semana</th>
-                <th scope="col" className="px-3 py-1.5 text-right font-medium">Candidatos</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {weeks.map((wk, i) => (
-                <tr key={wk.start}>
-                  <td className="border-r border-r-slate-100 px-3 py-1.5 text-slate-700">{wk.label}{partialLast && i === n - 1 ? ' (en curso)' : ''}</td>
-                  <td className="px-3 py-1.5 text-right num text-slate-800">{wk.count}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
-    </figure>
+    <div ref={ref} className="mt-4">
+      <svg
+        viewBox={`0 0 ${w} ${H}`}
+        height={H}
+        className="w-full"
+        role="img"
+        aria-label={`Candidaturas por origen, ${rango.label.toLowerCase()}: ${resumen}.`}
+      >
+        {/* Rejilla. Las cifras van en slate-500 y no en 400: son texto con
+            significado y su suelo de contraste es 4,5:1. */}
+        {datos.lineas.map((v) => (
+          <g key={v}>
+            <line x1={padL} y1={y(v)} x2={w - padR} y2={y(v)} className="stroke-slate-100" />
+            <text x={padL - 8} y={y(v) + 3.5} textAnchor="end" className="num fill-slate-500 text-[10px]">
+              {v}
+            </text>
+          </g>
+        ))}
+        <line x1={padL} y1={baseY} x2={w - padR} y2={baseY} className="stroke-slate-200" />
+
+        {datos.series.map((s) => {
+          const pts = s.valores.map((v, i) => `${x(i).toFixed(1)} ${y(v).toFixed(1)}`)
+          const linea = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p}`).join(' ')
+          const area = `${linea} L${x(n - 1).toFixed(1)} ${baseY} L${x(0).toFixed(1)} ${baseY} Z`
+          return (
+            <g key={s.origen}>
+              <path d={area} className={SOURCE_META[s.origen].area} />
+              <path
+                d={linea}
+                fill="none"
+                strokeWidth="2"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                className={SOURCE_META[s.origen].trazo}
+              />
+            </g>
+          )
+        })}
+
+        {idx.map((i, j) => (
+          <text
+            key={datos.cubos[i].inicio}
+            x={x(i)}
+            y={H - 6}
+            textAnchor={j === 0 ? 'start' : j === idx.length - 1 ? 'end' : 'middle'}
+            className="fill-slate-500 text-[11px]"
+          >
+            {datos.cubos[i].label}
+          </text>
+        ))}
+      </svg>
+    </div>
   )
 }
 
-type Week = { start: number; count: number; label: string }
+// --- Los datos ---------------------------------------------------------------
 
-// Inicio de la semana de calendario (lunes 00:00 local), robusto a cambios de hora.
-function weekStartMonday(t: number): number {
+/** El principio del cubo al que cae un instante, en hora LOCAL. */
+function inicioCubo(t: number, bucket: Bucket): number {
   const d = new Date(t)
   d.setHours(0, 0, 0, 0)
-  const dow = (d.getDay() + 6) % 7 // 0 = lunes
-  d.setDate(d.getDate() - dow)
+  if (bucket === 'semana') d.setDate(d.getDate() - ((d.getDay() + 6) % 7)) // lunes
+  if (bucket === 'mes') d.setDate(1)
   return d.getTime()
 }
 
-function weeklyIntake(candidates: Candidate[]): Week[] {
-  const times = candidates.map((c) => new Date(c.submittedAt).getTime()).filter((t) => !Number.isNaN(t))
-  if (times.length === 0) return []
-  const first = weekStartMonday(Math.min(...times))
-  const last = weekStartMonday(Math.max(...times))
-  const buckets: Week[] = []
-  // Avanzar por días de calendario (DST-safe), una semana cada vez.
-  for (let d = new Date(first); d.getTime() <= last; d.setDate(d.getDate() + 7)) {
-    buckets.push({ start: d.getTime(), count: 0, label: new Date(d.getTime()).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) })
-  }
-  const idxByStart = new Map(buckets.map((b, i) => [b.start, i]))
-  for (const t of times) {
-    const i = idxByStart.get(weekStartMonday(t))
-    if (i !== undefined) buckets[i].count++
-  }
-  return buckets
+function etiquetaCubo(t: number, bucket: Bucket): string {
+  const d = new Date(t)
+  if (bucket === 'mes')
+    return d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }).replace(/\./g, '')
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace(/\./g, '')
 }
 
-// --- Tarjetas ---------------------------------------------------------------
-
-// Tarjeta de entrada al Parte de Meridian (ritual diario). Voz de asistente,
-// honesta con lo que hay. El acento solo en la acción (el enlace al parte).
-function Kpi({ label, n }: { label: string; n: number }) {
-  return (
-    <div className="rounded-xl filo bg-white px-4 py-3 shadow-card">
-      <p className="text-[12px] text-slate-500">{label}</p>
-      <p className="mt-0.5 text-2xl font-semibold num text-slate-900">{miles(n)}</p>
-    </div>
-  )
+/**
+ * Los cubos del rango, avanzando por CALENDARIO (`setDate`/`setMonth`) y no
+ * sumando milisegundos: así el cambio de hora de octubre no corre un día entero
+ * y los meses no duran todos 30.
+ */
+function cubosDe(rango: Rango, ahora: number): number[] {
+  const desde = inicioCubo(ahora - (rango.dias - 1) * 86400000, rango.bucket)
+  const hasta = inicioCubo(ahora, rango.bucket)
+  const out: number[] = []
+  const d = new Date(desde)
+  while (d.getTime() <= hasta) {
+    out.push(d.getTime())
+    if (rango.bucket === 'dia') d.setDate(d.getDate() + 1)
+    else if (rango.bucket === 'semana') d.setDate(d.getDate() + 7)
+    else d.setMonth(d.getMonth() + 1)
+  }
+  return out
 }
 
-function Panel({ title, right, children }: { title: string; right?: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl filo bg-white p-4 shadow-card sm:p-5">
-      <div className="mb-1 flex items-baseline justify-between">
-        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-        {right && <span className="text-[13px] num text-slate-500">{right}</span>}
-      </div>
-      {children}
-    </div>
-  )
+/**
+ * Una escala que se lea: pasos de 1, 2, 5 o 10 (por su magnitud) y unas cuatro
+ * líneas. Un techo pegado al máximo real deja la línea de arriba rozando el
+ * trazo, y una rejilla con pasos de 37 no se lee de un vistazo.
+ */
+function escalaBonita(max: number): { techo: number; lineas: number[] } {
+  const bruto = Math.max(1, max)
+  const crudo = bruto / 4
+  const mag = Math.pow(10, Math.floor(Math.log10(crudo)))
+  const paso = Math.max(1, ([1, 2, 5, 10].map((m) => m * mag).find((p) => p >= crudo) ?? 10 * mag))
+  const techo = Math.ceil(bruto / paso) * paso
+  const lineas: number[] = []
+  for (let v = paso; v <= techo + 1e-9; v += paso) lineas.push(Math.round(v))
+  return { techo, lineas }
+}
+
+function construir(candidates: Candidate[], rango: Rango): Datos {
+  const ahora = Date.now()
+  const inicios = cubosDe(rango, ahora)
+  const indice = new Map(inicios.map((t, i) => [t, i]))
+
+  const acumulado = new Map<CandidateSource, number[]>()
+  for (const c of candidates) {
+    const t = Date.parse(c.submittedAt)
+    if (Number.isNaN(t)) continue
+    const i = indice.get(inicioCubo(t, rango.bucket))
+    if (i === undefined) continue
+    let fila = acumulado.get(c.source)
+    if (!fila) {
+      fila = new Array(inicios.length).fill(0)
+      acumulado.set(c.source, fila)
+    }
+    fila[i]++
+  }
+
+  const series: Serie[] = [...acumulado.entries()]
+    .map(([origen, valores]) => ({ origen, valores, total: valores.reduce((s, v) => s + v, 0) }))
+    .filter((s) => s.total > 0)
+    // La más grande primero: se pinta detrás y no tapa a las pequeñas.
+    .sort((a, b) => b.total - a.total)
+
+  const max = series.reduce((m, s) => Math.max(m, ...s.valores), 0)
+  const { techo, lineas } = escalaBonita(max)
+
+  return {
+    cubos: inicios.map((t) => ({ inicio: t, label: etiquetaCubo(t, rango.bucket) })),
+    series,
+    techo,
+    lineas,
+  }
 }
 
 function Empty({ text }: { text: string }) {

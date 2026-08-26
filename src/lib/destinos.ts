@@ -5,7 +5,6 @@ import {
   FileText,
   Gauge,
   LayoutGrid,
-  MapPin,
   MessagesSquare,
   Palette,
   SlidersHorizontal,
@@ -98,7 +97,7 @@ export const DESTINOS: Destino[] = [
   {
     id: 'resumen',
     label: 'Vista general',
-    hint: 'Cómo va cada puesto y cada sede.',
+    hint: 'El saludo del día, lo que pide atención y por dónde entra la gente.',
     icon: LayoutGrid,
     claves: ['inicio', 'resumen', 'panel', 'cifras', 'estadisticas'],
     to: (c) => `${c.base}/resumen`,
@@ -185,14 +184,12 @@ export const DESTINOS: Destino[] = [
     disponible: (c) => !!c.campaignId,
     to: (c) => `${c.base}/puestos/${c.campaignId}/formulario`,
   },
-  {
-    id: 'sedes',
-    label: 'Sedes',
-    hint: 'Se renombran en Vista general, en Por sede.',
-    icon: MapPin,
-    claves: ['sede', 'local', 'centro', 'tienda', 'obra', 'delegacion'],
-    to: (c) => `${c.base}/resumen`,
-  },
+  // Las SEDES ya no están aquí (ago 2026). Eran un destino que llevaba a Vista
+  // general porque ahí vivía el bloque "Por sede"; con el rediseño de esa
+  // pantalla ese bloque se fue, y la administración de sedes pasó a un diálogo
+  // (`SedesDialog`). Un destino es una URL, así que lo que se busca escribiendo
+  // "sede" es ahora una ACCIÓN, "Gestionar sedes", registrada por el shell. La
+  // sede sigue sin ser un sitio al que ir, que es la doctrina de siempre.
   // Zona de admin: SOLO el equipo de Apúntate Fácil, nunca en la demo.
   {
     id: 'admin',

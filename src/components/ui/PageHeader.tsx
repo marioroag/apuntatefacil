@@ -38,6 +38,7 @@ export function PageHeader({
   cuentaLabel,
   sub,
   acciones,
+  pegada = false,
   className = '',
 }: {
   titulo: React.ReactNode
@@ -48,6 +49,25 @@ export function PageHeader({
   sub?: React.ReactNode
   /** Acciones de la pantalla, a la derecha de la línea del título. */
   acciones?: React.ReactNode
+  /**
+   * LA CABECERA DEL PANEL DE UN PUESTO, para las pantallas cuyo bloque siguiente
+   * es una franja de herramientas con su propio `py-4`. Cambia el `mb-6` por el
+   * `pb-3` que el panel lleva escrito a mano, y esos 12px más los 16 de la franja
+   * dan los mismos 28 que hay por debajo de los chips: la fila de filtros queda
+   * CENTRADA EN SU HUECO en vez de colgada del título.
+   *
+   * Sin esto, Candidatos daba 16px por encima de los chips y 28 por debajo, o sea
+   * la misma franja descentrada de una pantalla a otra. (Con el `mb-6` puesto eran
+   * 40 y 28, todavía peor.)
+   *
+   * ES UNA PROP Y NO UN `mb-0` EN EL `className` PORQUE ESO NO FUNCIONA: `mb-0` y
+   * `mb-6` son la MISMA utilidad de Tailwind, y entre dos utilidades del mismo eje
+   * gana la que se emita después en el CSS, no la que se escriba al final del
+   * `className`. Es el mismo mecanismo que obligó a fabricar los botones de icono
+   * con `botonIcono()` en vez de `BTN_* + px-0`: cuando una pieza necesita anular
+   * una utilidad de otra, la respuesta es la variante que NO la pone.
+   */
+  pegada?: boolean
   className?: string
 }) {
   return (
@@ -56,7 +76,7 @@ export function PageHeader({
     // el panel añadía 12 por su cuenta, así que al ir del panel a Bandeja o a
     // Entrevistas el título saltaba 12px hacia arriba. El aire vive en la pieza y
     // no en cada pantalla, que es lo que impide que vuelvan a separarse.
-    <header className={`mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 pt-3 ${className}`}>
+    <header className={`flex flex-wrap items-start justify-between gap-x-4 gap-y-3 pt-3 ${pegada ? 'pb-3' : 'mb-6'} ${className}`}>
       <div className="min-w-0">
         <h1 className="flex items-baseline gap-2 text-2xl font-bold leading-tight tracking-[-0.012em] text-slate-900">
           <span className="min-w-0 truncate">{titulo}</span>

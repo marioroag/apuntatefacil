@@ -43,10 +43,25 @@ export function Avisos({ label }: { label: string }) {
   // abrir y se quita al cerrar, en vez de en cada render.
   const marcarRef = useRef(marcarVisto)
   marcarRef.current = marcarVisto
-  const cerrar = useCallback(() => {
-    setOpen(false)
-    marcarRef.current()
-  }, [])
+  const cerrar = useCallback(() => setOpen(false), [])
+
+  /**
+   * ABRIR ES HABER VISTO (Mario, ago 2026). Aquí había un botón, "Marcar como
+   * visto", en la cabecera del panel: pedía un gesto para declarar algo que el
+   * gesto anterior ya había hecho, que es abrir la lista y tenerla delante. Es la
+   * misma regla que ya gobierna el punto de Candidatos y el de un puesto: **una
+   * señal se apaga MIRANDO, no trabajando**, y aquí encima ni siquiera era
+   * trabajo, era papeleo.
+   *
+   * Se marca al ABRIR y no al cerrar, que es lo que hacía antes. La diferencia se
+   * ve cuando entra un aviso mientras tienes el panel abierto: marcando al cerrar,
+   * ese aviso se daba por visto sin que nadie lo hubiera mirado; marcando al
+   * abrir, se queda sin ver y la chapa vuelve a encenderse al cerrar, que es lo
+   * que hay que hacer con algo que no has leído.
+   */
+  useEffect(() => {
+    if (open) marcarRef.current()
+  }, [open])
 
   // El panel sale FUERA DEL LATERAL Y ARRIBA DEL TODO (Mario, ago 2026), no a la
   // altura de su fila. Colgado de la fila, la lista de avisos arrancaba a media
@@ -163,16 +178,8 @@ export function Avisos({ label }: { label: string }) {
           style={pos ? { top: pos.top, left: pos.left } : { top: 0, left: 0, visibility: 'hidden' }}
           className="fixed z-40 w-[min(22rem,calc(100vw-1rem))] rounded-xl filo bg-white shadow-pop"
         >
-          <div className="flex items-baseline justify-between px-3 py-2.5">
+          <div className="px-3 py-2.5">
             <h2 className="text-sm font-semibold text-slate-900">Avisos</h2>
-            {sinVer > 0 && (
-              <button
-                onClick={marcarVisto}
-                className="text-[12px] font-medium text-slate-500 transition-colors hover:text-slate-900"
-              >
-                Marcar como visto
-              </button>
-            )}
           </div>
 
           {items.length === 0 ? (

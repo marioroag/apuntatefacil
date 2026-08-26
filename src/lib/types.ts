@@ -586,13 +586,31 @@ export const TEAM_REQUEST_STATUS_META: Record<
   completada: { label: 'Completada', dot: 'bg-green-500', chip: 'bg-green-50 text-green-700 ring-green-200' },
 }
 
-export const SOURCE_META: Record<CandidateSource, { label: string }> = {
-  milanuncios: { label: 'Milanuncios' },
-  enlace: { label: 'Enlace' },
-  qr: { label: 'QR' },
+/**
+ * De dónde llega una candidatura, y CON QUÉ COLOR se dibuja en la gráfica de
+ * Vista general.
+ *
+ * El tono se declara aquí y no se calcula (como sí hace `tagTone` con las
+ * etiquetas) porque los orígenes son un vocabulario CERRADO de cuatro: no hay
+ * choques que repartir, y un color estable a lo largo de los meses es lo que
+ * deja comparar una gráfica de hoy con la que viste en junio.
+ *
+ * La paleta sale de la misma regla que la de etiquetas: fuera el rojo y el rosa
+ * (reservados a errores y a lo destructivo) y fuera el ultramarine de marca, que
+ * es acción. Aquí el color no informa solo: cada serie lleva SIEMPRE su punto
+ * pegado a su nombre escrito, y el desglose exacto está en la tabla de datos.
+ */
+export const SOURCE_META: Record<
+  CandidateSource,
+  { label: string; punto: string; trazo: string; area: string }
+> = {
+  milanuncios: { label: 'Milanuncios', punto: 'bg-violet-500', trazo: 'stroke-violet-500', area: 'fill-violet-500/12' },
+  enlace: { label: 'Enlace', punto: 'bg-sky-500', trazo: 'stroke-sky-500', area: 'fill-sky-500/12' },
+  qr: { label: 'QR', punto: 'bg-teal-500', trazo: 'stroke-teal-500', area: 'fill-teal-500/12' },
   // La candidatura que el dueño se envía a sí mismo al probar su enlace durante
-  // el onboarding. Chip neutro en la lista; puede borrarse para liberar cupo.
-  prueba: { label: 'Prueba' },
+  // el onboarding. Chip neutro en la lista; puede borrarse para liberar cupo. En
+  // la gráfica va en gris a propósito: no es un canal, es una prueba.
+  prueba: { label: 'Prueba', punto: 'bg-slate-400', trazo: 'stroke-slate-400', area: 'fill-slate-400/12' },
 }
 
 export const FIELD_TYPE_META: Record<
