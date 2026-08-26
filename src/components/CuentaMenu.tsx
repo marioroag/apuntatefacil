@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Check, ChevronDown, Compass, ExternalLink, LifeBuoy, LogOut, Pencil, RotateCcw } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useProfiles } from '../lib/profiles'
+import { useStore } from '../lib/store'
 import { useAppBase } from '../lib/useAppBase'
-import { PLAN_LABEL } from '../lib/pricing'
+import { procesosAbiertos } from '../lib/pricing'
 import { initials } from '../lib/format'
 import { FACTURACION_ICON } from '../lib/nav'
 import { Avatar } from './ui/Avatar'
@@ -76,6 +77,7 @@ export function CuentaMenu({
   onReiniciarDemo: () => void
 }) {
   const { company, companies, setActiveCompany, signOut, role, user } = useAuth()
+  const { campaigns } = useStore()
   const profiles = useProfiles()
   const base = useAppBase()
   const demo = base === '/demo'
@@ -91,9 +93,19 @@ export function CuentaMenu({
   const nombre = profiles.nameFor(uid, email)
   const foto = profiles.avatarFor(uid)
   const sinNombre = !profiles.me?.fullName.trim() && !demo
+  const abiertos = procesosAbiertos(campaigns)
   const isOwner = role === 'owner'
   const empresa = company?.name ?? ''
-  const planLabel = PLAN_LABEL[company?.plan ?? 'trial'] ?? 'Prueba'
+  // Debajo del nombre de la empresa NO va el nombre del plan, va CUÁNTOS PROCESOS
+  // TIENE ABIERTOS (Mario, ago 2026). "Pago por proceso" es el nombre del modelo y
+  // es el mismo todos los días: una línea que nunca cambia deja de leerse. El
+  // número sí cambia, y es además la única cifra de la que depende la factura.
+  //
+  // Se dice ABIERTOS y no "activos" a propósito, aunque cueste una palabra menos:
+  // un proceso PAUSADO sigue abierto y sigue cobrándose, así que llamarlos activos
+  // insinuaría que los pausados no cuentan, que es justo el malentendido que la
+  // doctrina de precios más se esfuerza en evitar. Es la misma palabra que usa
+  // Facturación, que es a donde lleva esta línea si la pulsas.
 
   const close = useCallback(() => setOpen(false), [])
 
@@ -186,7 +198,13 @@ export function CuentaMenu({
           // Hacia ARRIBA: el disparador está pegado al filo de abajo y no hay
           // sitio por debajo. `max-h` + scroll por si el equipo tiene muchas
           // empresas y la lista pasa de largo.
-          className="absolute bottom-full left-0 z-40 mb-1.5 max-h-[min(80vh,32rem)] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-xl filo bg-white p-1.5 shadow-pop"
+          // ANCHO: el de SU BOTÓN en móvil, 320 en escritorio (Mario, ago 2026).
+          // En el raíl de 256px el panel tiene que ser MÁS ancho que su disparador
+          // o sus filas no caben; pero por debajo de `lg` el menú ocupa la pantalla
+          // entera, así que ahí el disparador ya mide 375 y un panel de 320 se veía
+          // más estrecho que la fila que lo abre, encajado y descentrado. `w-full`
+          // lo pega a su botón, que es de donde parece salir.
+          className="absolute bottom-full left-0 z-40 mb-1.5 max-h-[min(80vh,32rem)] w-full overflow-y-auto rounded-xl filo bg-white p-1.5 shadow-pop lg:w-[min(20rem,calc(100vw-2rem))]"
         >
           {/* Dónde estás. Centrado y con aire: es la puerta de entrada de la
               cuenta, no una fila más. No es accionable (el bloque de arriba
@@ -194,7 +212,9 @@ export function CuentaMenu({
           <div className="flex flex-col items-center gap-1.5 px-3 pb-3 pt-3">
             <CompanyTile name={empresa} size={44} radius="rounded-xl" />
             <p className="max-w-full truncate text-[15px] font-semibold text-slate-900">{empresa}</p>
-            <p className="text-[12px] text-slate-500">{company?.plan === 'proceso' ? planLabel : `Plan ${planLabel}`}</p>
+            <p className="text-[12px] text-slate-500">
+              <span className="num">{abiertos}</span> {abiertos === 1 ? 'proceso abierto' : 'procesos abiertos'}
+            </p>
             {!demo && <BetaBadge />}
           </div>
 

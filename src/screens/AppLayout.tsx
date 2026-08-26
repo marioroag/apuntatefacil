@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Inbox, Loader2, Menu, Plus, Sparkles, X } from 'lucide-react'
@@ -162,68 +162,20 @@ export function AppLayout() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Gesto de navegación en móvil: deslizar hacia la derecha desde los primeros ~70%
-  // del ancho abre el menú (zona generosa, acorde a la memoria muscular); deslizar
-  // a la izquierda lo cierra. Solo gestos claramente horizontales, para no pelear
-  // con el scroll vertical ni con tirar para refrescar. Listeners pasivos.
-  const openRef = useRef(open)
-  openRef.current = open
-  useEffect(() => {
-    const THRESHOLD = 55 // px de recorrido horizontal para disparar
-    const OPEN_ZONE = 0.7 // fracción del ancho (desde la izq.) donde puede iniciarse la apertura
-    let sx = 0,
-      sy = 0,
-      track = false,
-      inOpenZone = false
-    let axis: '' | 'h' | 'v' = ''
-    const onStart = (e: TouchEvent) => {
-      if (e.touches.length !== 1 || window.innerWidth >= 1024) {
-        track = false
-        return
-      }
-      sx = e.touches[0].clientX
-      sy = e.touches[0].clientY
-      // Abrir: el gesto puede empezar en los primeros ~70% del ancho.
-      inOpenZone = sx <= window.innerWidth * OPEN_ZONE
-      track = openRef.current || inOpenZone // abrir: zona izquierda amplia; cerrar: en cualquier sitio
-      axis = ''
-    }
-    const onMove = (e: TouchEvent) => {
-      if (!track) return
-      const dx = e.touches[0].clientX - sx
-      const dy = e.touches[0].clientY - sy
-      if (!axis) {
-        if (Math.abs(dx) < 12 && Math.abs(dy) < 12) return
-        axis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
-        if (axis === 'v') {
-          track = false // vertical: lo maneja el scroll / pull-to-refresh
-          return
-        }
-      }
-      if (openRef.current) {
-        if (dx < -THRESHOLD) {
-          setOpen(false)
-          track = false
-        }
-      } else if (inOpenZone && dx > THRESHOLD) {
-        setOpen(true)
-        track = false
-      }
-    }
-    const onEnd = () => {
-      track = false
-    }
-    window.addEventListener('touchstart', onStart, { passive: true })
-    window.addEventListener('touchmove', onMove, { passive: true })
-    window.addEventListener('touchend', onEnd, { passive: true })
-    window.addEventListener('touchcancel', onEnd, { passive: true })
-    return () => {
-      window.removeEventListener('touchstart', onStart)
-      window.removeEventListener('touchmove', onMove)
-      window.removeEventListener('touchend', onEnd)
-      window.removeEventListener('touchcancel', onEnd)
-    }
-  }, [])
+  // AQUÍ VIVÍA EL GESTO DE DESLIZAR para abrir y cerrar el menú (Mario, ago 2026).
+  // Se retira porque se PELEA con los desplazamientos horizontales que ahora tiene
+  // el panel del puesto: la tabla, que en móvil se recorre a lo ancho, y la tira
+  // de chips de filtros. Los dos son gestos horizontales dentro de la zona donde
+  // el cajón escuchaba, así que arrastrar la tabla para llegar al teléfono abría
+  // el menú encima, y arrastrarla de vuelta lo cerraba.
+  //
+  // Se miró primero la salida fina (ignorar el gesto si empieza dentro de algo con
+  // scroll horizontal) y no vale: un contenedor ya desplazado hasta el tope no
+  // consume el arrastre, así que el menú volvería a aparecer justo al final del
+  // recorrido, que es cuando más desconcierta. **Dos cosas que compiten por el
+  // mismo gesto no se reparten con heurísticas: se queda una.** Y se queda la que
+  // no tiene alternativa, que es leer la tabla; el menú tiene su botón, siempre a
+  // la vista y en la esquina del pulgar.
 
   if (!company) return null // AuthGate garantiza empresa; guard de tipos
 
@@ -288,33 +240,37 @@ export function AppLayout() {
           {lateral}
         </aside>
 
-        {/* En móvil el mismo menú entra en un cajón, POR DEBAJO de la barrita de
-            arriba (top-14 = su h-14): así el botón que lo abrió sigue a la vista
-            y es el mismo que lo cierra, sin necesidad de una equis dentro.
-            Si cambia la altura de esa barra, cambia este `top-14`. */}
+        {/* En móvil el mismo menú OCUPA LA PANTALLA ENTERA (Mario, ago 2026), no
+            un cajón de 288px con el trabajo asomando detrás. Un panel a medias
+            pide elegir entre dos cosas a la vez: el menú que acabas de abrir y la
+            lista que sigue ahí llamando. A pantalla completa, mientras navegas
+            solo hay una cosa que mirar; el trabajo vuelve entero al cerrar.
+
+            Sigue POR DEBAJO de la barrita de arriba (`top-14` = su `h-14`): así el
+            botón que lo abrió sigue a la vista y es el mismo que lo cierra, sin
+            necesidad de una equis dentro. Si cambia la altura de esa barra, cambia
+            este `top-14`.
+
+            Se van con el cajón dos piezas que ya no significan nada: el TELÓN
+            (no queda nada detrás que atenuar, y su click-para-cerrar lo hace la
+            aspa de la barra) y la SOMBRA (una superficie que ocupa todo el hueco
+            no está elevada sobre nada). Y la entrada pasa de barrido a
+            fundido: deslizar 375px de ancho es un gesto grande para lo que es
+            abrir un menú, y nuestra escala de movimiento es corta y sobria.
+            `--duration-enter` es el token de "algo aparece". */}
         <AnimatePresence>
           {open && (
-            <div className="fixed inset-x-0 bottom-0 top-14 z-40 lg:hidden">
-              <motion.div
-                className="absolute inset-0 bg-slate-900/40"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                onClick={() => setOpen(false)}
-              />
-              <motion.div
-                id="menu-lateral"
-                data-cajon
-                className="absolute left-0 top-0 h-full w-72 shadow-pop"
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
-              >
-                {lateral}
-              </motion.div>
-            </div>
+            <motion.div
+              id="menu-lateral"
+              data-cajon
+              className="fixed inset-x-0 bottom-0 top-14 z-40 lg:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+            >
+              {lateral}
+            </motion.div>
           )}
         </AnimatePresence>
 
@@ -325,22 +281,30 @@ export function AppLayout() {
             ajustes, tu cuenta) está dentro del cajón: cada cosa existe una sola
             vez en cada ancho, nunca las dos. */}
         <header className="z-50 flex h-14 shrink-0 items-center gap-1 border-b border-[var(--color-lateral-filo)] bg-[var(--color-lateral)] px-2 lg:hidden">
+          {/* La MARCA a la izquierda y el botón a la derecha (Mario, ago 2026).
+              Estaba al revés. La esquina de arriba a la izquierda es donde se
+              busca de qué producto es esta pantalla, igual que en el lateral de
+              escritorio; el control de abrir el menú es una acción y las acciones
+              van al otro lado, que además es donde llega el pulgar. */}
+          <Link to={base} className="flex min-w-0 items-center gap-2 rounded-xl px-1 py-1">
+            {/* Las MISMAS medidas que la marca del lateral en escritorio (baldosa
+                de 34, glifo de 18, rótulo de 17): es la misma marca en la misma
+                esquina, y con dos tallas distintas se lee como dos logotipos. */}
+            <span aria-hidden className="grid size-[34px] shrink-0 place-items-center rounded-[9px] bg-slate-900">
+              <Logo className="size-[18px]" tone="oscuro" />
+            </span>
+            <span className="min-w-0 truncate text-[17px] font-bold tracking-[-0.02em] text-slate-900">{BRAND}</span>
+          </Link>
           <button
             data-cajon
             onClick={() => setOpen((o) => !o)}
             aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
             aria-expanded={open}
             aria-controls={open ? 'menu-lateral' : undefined}
-            className={`grid size-10 shrink-0 place-items-center rounded-xl text-slate-600 transition-colors hover:bg-[var(--color-lateral-hover)] hover:text-slate-900 ${open ? 'bg-[var(--color-lateral-activo)] text-slate-900' : ''}`}
+            className={`ml-auto grid size-10 shrink-0 place-items-center rounded-xl text-slate-600 transition-colors hover:bg-[var(--color-lateral-hover)] hover:text-slate-900 ${open ? 'bg-[var(--color-lateral-activo)] text-slate-900' : ''}`}
           >
             {open ? <X className="size-5" aria-hidden /> : <Menu className="size-5" aria-hidden />}
           </button>
-          <Link to={base} className="flex min-w-0 items-center gap-2 rounded-xl px-1 py-1">
-            <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-lg bg-slate-900">
-              <Logo className="size-[15px]" tone="oscuro" />
-            </span>
-            <span className="min-w-0 truncate text-[15px] font-bold tracking-[-0.02em] text-slate-900">{BRAND}</span>
-          </Link>
         </header>
         {/* El aviso de la demo se retiró (Mario, ago 2026): con el shell nuevo era
             una franja permanente entre la barra y el trabajo para decir algo que

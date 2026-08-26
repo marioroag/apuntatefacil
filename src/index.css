@@ -84,6 +84,26 @@
   --color-lateral-hover: #f4f5f7;
   --color-lateral-activo: #edeff2;
 
+  /* --- "HAY ALGO NUEVO" (Mario, ago 2026) ----------------------------------
+     El punto de novedad pasa de TINTA a ROJO. La regla anterior era la contraria
+     y su argumento era bueno sobre el papel: algo nuevo no es una acción (para
+     eso está el acento) ni un error (para eso está el rojo). Pero en pantalla la
+     tinta no funcionaba: un punto de 6px del mismo color que las etiquetas de
+     su fila no se lee como una señal, se lee como parte del texto, y hay que
+     buscarlo. Una señal tiene que separarse de lo que señala.
+
+     Lo que esto cambia en la doctrina, y hay que decirlo: **el rojo ya no
+     significa solo "error o acción destructiva"**. Ahora significa también "hay
+     algo aquí sin mirar", y los dos se distinguen por FORMA, no por tono: lo
+     destructivo es siempre un control con borde e icono (`BTN_DANGER`) o un
+     texto de error; esto es siempre un disco de 6px pegado al filo de una fila.
+     Es el mismo desempate que ya resolvió la estrella dorada contra el ámbar de
+     "entrevista". Si algún día aparece un tercer uso del rojo, se discute.
+
+     Token propio y no `red-500` a pelo: es una decisión con nombre, y cambiarla
+     tiene que ser una línea. */
+  --color-novedad: #ef4444;
+
   /* Radios: tarjeta/panel/input a 10px (más ajustado = más "instrumento").
      Los botones fijan 8px en su propia clase; las pills siguen en 9999px. */
   --radius-xl: 0.625rem; /* 10px (era 12) */

@@ -48,11 +48,20 @@ export function Avisos({ label }: { label: string }) {
     marcarRef.current()
   }, [])
 
-  // El panel sale AL LADO de su fila, fuera del lateral, y se coloca contra la
-  // VENTANA: `fixed`, así ningún `overflow` del menú (que se desplaza) lo
-  // recorta. Se mide en vez de escribirse a mano porque la fila cambia de altura
-  // según el bloque en el que caiga, y porque en una ventana baja el panel tiene
-  // que subir hasta caber en lugar de salirse por abajo.
+  // El panel sale FUERA DEL LATERAL Y ARRIBA DEL TODO (Mario, ago 2026), no a la
+  // altura de su fila. Colgado de la fila, la lista de avisos arrancaba a media
+  // pantalla y bajaba hasta cerca del filo: nacía en un sitio distinto según en
+  // qué bloque cayera "Notificaciones" y según cuántos puestos tuvieras
+  // desplegados. Es una capa de la aplicación, no un submenú de esa fila, así que
+  // empieza donde empieza la superficie de la que sale.
+  //
+  // "Arriba" es el techo del LATERAL (`[data-lateral]`), no el de la ventana:
+  // en escritorio son lo mismo, pero en móvil el menú vive por debajo de la
+  // barrita y anclar a la ventana taparía el aspa que lo cierra.
+  //
+  // Se coloca contra la VENTANA (`fixed`) para que ningún `overflow` del menú, que
+  // se desplaza, pueda recortarlo, y se MIDE en vez de escribirse a mano porque en
+  // una ventana baja tiene que subir hasta caber en lugar de salirse por abajo.
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   useLayoutEffect(() => {
     if (!open) return
@@ -61,11 +70,18 @@ export function Avisos({ label }: { label: string }) {
       if (!fila) return
       const ancho = panelRef.current?.offsetWidth ?? 352
       const alto = panelRef.current?.offsetHeight ?? 320
+      const MARGEN = 8
+      const lateral = wrapRef.current?.closest('[data-lateral]')?.getBoundingClientRect()
+      const techo = (lateral?.top ?? 0) + MARGEN
       setPos({
-        // Al lado de su fila, y apretado contra el filo si no cabe a la derecha:
-        // nunca fuera de la pantalla.
-        left: Math.max(8, Math.min(fila.right + 8, window.innerWidth - ancho - 8)),
-        top: Math.max(8, Math.min(fila.top, window.innerHeight - alto - 8)),
+        // Fuera del lateral de verdad: se mide contra el filo del LATERAL y no
+        // contra el de su fila, que acaba 10px antes (el raíl tiene relleno) y
+        // dejaba el panel montado sobre el borde. Apretado contra el filo de la
+        // pantalla si no cabe a la derecha: nunca fuera.
+        left: Math.max(MARGEN, Math.min((lateral?.right ?? fila.right) + MARGEN, window.innerWidth - ancho - MARGEN)),
+        // Arriba del todo. Solo sube por encima del techo si la ventana es tan
+        // baja que el panel no cabe, y ni así se sale.
+        top: Math.max(MARGEN, Math.min(techo, window.innerHeight - alto - MARGEN)),
       })
     }
     medir()

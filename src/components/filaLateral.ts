@@ -29,22 +29,38 @@
 // -----------------------------------------------------------------------------
 
 export const FILA =
-  'flex h-11 w-full items-center gap-3.5 rounded-xl px-3.5 text-sm outline-none lg:h-[34px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)]'
+  'flex h-11 w-full items-center gap-3.5 rounded-xl px-3.5 text-sm font-medium outline-none lg:h-[34px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)]'
 
 /** En reposo. La etiqueta va en TINTA (`slate-800`), no en gris de apoyo: una
  *  fila del menú es un destino, no un pie de foto, y en gris medio sobre blanco
  *  la columna entera se lee borrosa. Es la diferencia que se veía comparando con
  *  JOIN, más que ningún tamaño. El hover tiene peldaño propio
  *  (`--color-lateral-hover`): tiene que distinguirse del riel Y del activo, y
- *  entre dos grises tan juntos eso no sale de una opacidad puesta a ojo. */
-export const FILA_QUIETA = 'font-medium text-slate-800 hover:bg-[var(--color-lateral-hover)] hover:text-slate-900'
+ *  entre dos grises tan juntos eso no sale de una opacidad puesta a ojo.
+ *
+ *  El PESO no vive aquí sino en `FILA`, y eso no es un detalle de orden: si cada
+ *  estado declarase el suyo, volver a descuadrarlos sería cuestión de tocar uno.
+ *  Declarado una vez en la base, ningún estado puede cambiar el cuerpo de la
+ *  letra sin que se note al escribirlo. */
+export const FILA_QUIETA = 'text-slate-800 hover:bg-[var(--color-lateral-hover)] hover:text-slate-900'
 
-/** ESTÁS AQUÍ. Fondo recesivo + tinta + peso: tres señales, ninguna de color de
- *  marca. El acento salió de la navegación con la identidad nueva y se quedó
- *  solo en la acción (Crear puesto), el foco y la selección. */
-export const FILA_ACTIVA = 'bg-[var(--color-lateral-activo)] font-semibold text-slate-900'
+/** ESTÁS AQUÍ. Fondo recesivo + tinta, y **SIN cambiar el peso de la letra**
+ *  (Mario, ago 2026). Llegó a subir a `font-semibold` y se retiró por lo mismo
+ *  que en las pestañas: una etiqueta que engorda al activarse mueve todo lo que
+ *  tiene al lado, y en una columna de nombres el ojo lo lee como un temblor, no
+ *  como un énfasis. Aquí además el ancho no era el problema (la fila mide lo
+ *  mismo), lo era el propio salto de la letra al pasar de una fila a otra.
+ *
+ *  Ninguna de las dos señales es color de marca: el acento salió de la
+ *  navegación con la identidad nueva y se quedó solo en la acción (Crear
+ *  puesto), el foco y la selección. */
+export const FILA_ACTIVA = 'bg-[var(--color-lateral-activo)] text-slate-900'
 
-/** La capa que abre esta fila está desplegada. Mismo fondo que el activo pero
- *  SIN el peso: tener un panel abierto no es estar en un sitio, y si pesara
- *  igual, el menú diría que estás en dos sitios a la vez. */
-export const FILA_ABIERTA = 'bg-[var(--color-lateral-activo)] font-medium text-slate-900'
+/** La capa que abre esta fila está desplegada.
+ *
+ *  Pinta lo MISMO que el activo desde que este dejó de llevar peso, y se queda
+ *  como constante aparte a propósito: son dos ideas distintas (estar en un sitio
+ *  y tener un panel abierto) y no pueden chocar, porque el registro obliga a que
+ *  una fila lleve `to` o `capa`, nunca las dos. Separadas, la que se retoque un
+ *  día no arrastra a la otra. */
+export const FILA_ABIERTA = 'bg-[var(--color-lateral-activo)] text-slate-900'

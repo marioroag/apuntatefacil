@@ -65,9 +65,12 @@ function BloqueLabel({ children }: { children: React.ReactNode }) {
  * SUMA de los seis de arriba: el número más grande de la pantalla era el mismo
  * dato otra vez.
  *
- * En TINTA, no en el acento ni en rojo, por el mismo motivo que el contador de
- * avisos: algo nuevo no es una acción (para eso está el acento) ni un error
- * (para eso está el rojo).
+ * EN ROJO (`--color-novedad`, Mario ago 2026). Estuvo en tinta, con el argumento
+ * de que algo nuevo no es una acción (para eso está el acento) ni un error (para
+ * eso está el rojo). El argumento era bueno sobre el papel y malo en pantalla: un
+ * disco de 6px del mismo color que las etiquetas de su fila no se lee como una
+ * señal, se lee como parte del texto. Una señal tiene que separarse de lo que
+ * señala. El porqué y lo que eso le hace a la doctrina del rojo, en `index.css`.
  *
  * El número no se pierde, cambia de canal: `label` lo lleva entero al lector de
  * pantalla ("142 candidaturas nuevas"), que es lo que la doctrina quiso decir con
@@ -77,7 +80,7 @@ function BloqueLabel({ children }: { children: React.ReactNode }) {
 function Novedad({ label }: { label?: string }) {
   return (
     <span className="shrink-0">
-      <span aria-hidden className="block size-1.5 rounded-full bg-slate-900" />
+      <span aria-hidden className="block size-1.5 rounded-full bg-[var(--color-novedad)]" />
       {label && <span className="sr-only">{label}</span>}
     </span>
   )
@@ -102,7 +105,7 @@ function FilaIcon({ Icon, activa, senal }: { Icon: LucideIcon; activa?: boolean;
   return (
     <span className="relative shrink-0">
       {glifo}
-      <span aria-hidden className="absolute -right-0.5 -top-0.5 block size-1.5 rounded-full bg-slate-900 ring-2 ring-[var(--color-lateral)]" />
+      <span aria-hidden className="absolute -right-0.5 -top-0.5 block size-1.5 rounded-full bg-[var(--color-novedad)] ring-2 ring-[var(--color-lateral)]" />
     </span>
   )
 }
@@ -261,11 +264,11 @@ function Puestos({ onNavigate }: { onNavigate: () => void }) {
                     to={`${base}/puestos/${c.id}`}
                     onClick={onNavigate}
                     className={({ isActive }) =>
-                      `flex h-10 w-full items-center gap-2 rounded-xl pl-12 pr-3.5 text-sm outline-none lg:h-[30px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)] ${
+                      `flex h-10 w-full items-center gap-2 rounded-xl pl-12 pr-3.5 text-sm font-medium outline-none lg:h-[30px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)] ${
                         isActive
                           ? FILA_ACTIVA
                           : apagado
-                            ? 'font-medium text-slate-500 hover:bg-[var(--color-lateral-hover)] hover:text-slate-700'
+                            ? 'text-slate-500 hover:bg-[var(--color-lateral-hover)] hover:text-slate-700'
                             : FILA_QUIETA
                       }`
                     }
@@ -377,6 +380,11 @@ export function Sidebar({
 
   return (
     <nav
+      // `data-lateral` no es decoración: el panel de Avisos se coloca contra la
+      // ventana (`fixed`) y necesita saber dónde EMPIEZA esta superficie para
+      // abrirse a su altura. En escritorio arranca en 0 y en móvil por debajo de
+      // la barrita, y esta marca es lo que deja escribirlo una sola vez.
+      data-lateral
       className="flex h-full flex-col bg-[var(--color-lateral)]"
       aria-label="Menú principal"
     >
