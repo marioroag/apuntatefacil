@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ArrowDown } from 'lucide-react'
-import { MessageScroller, useMessageScrollerScrollable } from '@shadcn/react/message-scroller'
+import { MessageScroller } from '@shadcn/react/message-scroller'
 
 /**
  * Las piezas de conversación de Meridian.
@@ -15,8 +15,8 @@ import { MessageScroller, useMessageScrollerScrollable } from '@shadcn/react/mes
  *   de golpe: Mario lo probó y ese tirón es justo lo que no quiere.
  * - **Soltar el auto-scroll**: si te subes a releer, deja de arrastrarte. Antes
  *   hacíamos `scrollIntoView` en cada cambio y te sacaba de donde estabas.
- * - Saber si queda contenido arriba o abajo, para pintar los bordes y el botón
- *   de bajar solo cuando de verdad hacen falta.
+ * - Saber si queda contenido por debajo, para que el botón de bajar aparezca
+ *   solo cuando de verdad hace falta.
  *
  * Los estilos son todos nuestros: el paquete no trae ninguno.
  */
@@ -32,7 +32,6 @@ export function Thread({ children }: { children: ReactNode }) {
         >
           <MessageScroller.Content className="space-y-6 pb-8 pt-5">{children}</MessageScroller.Content>
         </MessageScroller.Viewport>
-        <EdgeFades />
         <ScrollToEnd />
       </MessageScroller.Root>
     </MessageScroller.Provider>
@@ -44,22 +43,17 @@ export function ThreadTurn({ id, children }: { id: string; children: ReactNode }
   return <MessageScroller.Item messageId={id}>{children}</MessageScroller.Item>
 }
 
-/** Difuminado en los bordes, solo del lado donde queda contenido por ver. */
-function EdgeFades() {
-  const { start, end } = useMessageScrollerScrollable()
-  return (
-    <>
-      <div
-        aria-hidden
-        className={`pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-slate-50 to-transparent transition-opacity duration-[var(--duration-control)] ${start ? 'opacity-100' : 'opacity-0'}`}
-      />
-      <div
-        aria-hidden
-        className={`pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-50 to-transparent transition-opacity duration-[var(--duration-control)] ${end ? 'opacity-100' : 'opacity-0'}`}
-      />
-    </>
-  )
-}
+/* SIN DIFUMINADO EN LOS BORDES (ago 2026). Los dos degradados de aquí eran los únicos
+   del producto fuera de la landing, donde la doctrina solo admite el barrido del
+   skeleton. Y encima estaban cableados a `from-slate-50`: el fundido solo era honesto
+   sobre el fondo de la app y mentía en cuanto este hilo se apoyara en una tarjeta
+   blanca, que es lo que pasa con cualquier pieza que se pinta su propia superficie en
+   vez de heredarla.
+
+   A dónde va la señal que llevaban: la de abajo ("queda conversación por leer") la dice
+   ya el botón de bajar, que aparece con la MISMA condición (`end`) y además se puede
+   pulsar; la de arriba la dan la barra de desplazamiento y el filo de la cabecera, que
+   cierra la zona por encima. */
 
 /** Aparece solo si hay algo por debajo. Inactivo ya llega `inert` desde el paquete. */
 function ScrollToEnd() {

@@ -11,7 +11,20 @@ import { interestEmailPreview } from '../lib/interestEmail'
 import { textoInteres } from '../../supabase/functions/_shared/whatsapp/render'
 import { INTEREST_BATCH_LIMIT, previewInterestCandidates, type InterestOmissionReason, type InterestSendResult } from '../lib/interest'
 import type { Campaign, Candidate, InterestChannel } from '../lib/types'
-import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
+import { DUR, EASE } from '../lib/motion'
+
+/**
+ * El movimiento del diálogo, con las duraciones del sistema.
+ *
+ * Framer Motion no lee los tokens del CSS y, sin `transition`, pone su default:
+ * un MUELLE en `scale`/`y` y 300ms en la opacidad, o sea un rebote y un tiempo
+ * por encima del techo de 240ms, en un diálogo. Entra en `enter` (180ms, algo
+ * aparece) y sale en `control` (150ms): cerrar responde a tu dedo. Mismo
+ * contrato que `ui/Modal`.
+ */
+const ENTRA = { duration: DUR.enter, ease: EASE.out }
+const SALE = { duration: DUR.control, ease: EASE.out }
 
 const REASON_LABEL: Record<InterestOmissionReason | 'duplicate' | 'not_visible', string> = {
   missing_email: 'Sin correo válido',
@@ -210,17 +223,20 @@ export function InterestCheckDialog({
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="interest-dialog-title">
-          <motion.div className="absolute inset-0 bg-slate-900/40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={close} />
+          <motion.div className="absolute inset-0 bg-slate-900/40" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: ENTRA }} exit={{ opacity: 0, transition: SALE }} onClick={close} />
           <motion.div
             ref={panelRef}
             tabIndex={-1}
-            className="relative max-h-[calc(100svh-2rem)] w-full max-w-[520px] overflow-y-auto rounded-2xl bg-white p-5 shadow-pop outline-none sm:p-6"
-            initial={{ opacity: 0, scale: 0.97, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.98, y: 6 }}
+            className="relative max-h-[calc(100svh-2rem)] w-full max-w-[520px] overflow-y-auto rounded-xl bg-white p-5 shadow-pop outline-none sm:p-6"
+            initial={{ opacity: 0, scale: 0.97, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0, transition: ENTRA }} exit={{ opacity: 0, scale: 0.98, y: 6, transition: SALE }}
           >
-            <button type="button" onClick={close} disabled={busy} className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50" aria-label="Cerrar">
+            {/* Fabricada con la pieza de la casa: a mano medía 32px y no crecía en
+                táctil (el mínimo son 44), y su glifo iba en `slate-400`, que es
+                tinta de icono decorativo y no de algo que se pulsa. */}
+            <button type="button" onClick={close} disabled={busy} className={botonIcono('ghost', 'md', 'absolute right-4 top-4 disabled:opacity-50')} aria-label="Cerrar">
               <X className="size-5" aria-hidden />
             </button>
-            <div className="flex items-start gap-3 pr-9">
+            <div className="flex items-start gap-3 pr-11">
               <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600"><Icono className="size-5" aria-hidden /></span>
               <div>
                 <h2 id="interest-dialog-title" className="text-lg font-semibold text-slate-950">Comprobar interés</h2>
@@ -233,21 +249,32 @@ export function InterestCheckDialog({
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-500" id="interest-canal-label">Por dónde</p>
                 {/* Radios NATIVOS, no botones con role="radio": así las flechas
                     del teclado mueven la elección sin escribir nada, que es lo
-                    que un lector de pantalla anuncia que va a pasar. */}
-                <div className="mt-2 flex gap-1 rounded-xl bg-slate-100 p-1" role="radiogroup" aria-labelledby="interest-canal-label">
-                  {(['email', 'whatsapp'] as const).map((id) => {
+                    que un lector de pantalla anuncia que va a pasar.
+
+                    La PINTURA es la del conmutador de la casa (`SwitchVista`, en
+                    Dashboard): caja RECTANGULAR con filo y divisoria interior, no
+                    un carril gris con una pastilla blanca deslizándose dentro,
+                    que es el patrón que se retiró en ago 2026. `overflow-clip`
+                    porque los hijos son cajas cuadradas que llegan al filo y en la
+                    curva de la esquina se comerían el borde. */}
+                <div className="mt-2 flex h-10 overflow-clip rounded-lg filo bg-white pointer-coarse:h-11" role="radiogroup" aria-labelledby="interest-canal-label">
+                  {(['email', 'whatsapp'] as const).map((id, i) => {
                     const activo = canalActivo === id
                     const enEspera = id === 'whatsapp' && whatsappEnEspera
                     const C = CANAL[id].icono
                     return (
                       <label
                         key={id}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-indigo-600 ${
+                        className={`flex h-full flex-1 items-center justify-center gap-2 px-3 text-[13px] font-medium transition-colors duration-[var(--duration-control)] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-indigo-500/40 ${
+                          // La divisoria la pinta la mitad de la derecha: un
+                          // `divide-x` en el padre lo taparía el fondo del activo.
+                          i > 0 ? 'border-l border-slate-200' : ''
+                        } ${
                           activo
-                            ? 'bg-white text-slate-900 ring-1 ring-slate-200'
+                            ? 'bg-indigo-100 text-indigo-700'
                             : enEspera
                               ? 'cursor-not-allowed text-slate-400'
-                              : 'cursor-pointer text-slate-500 hover:text-slate-800'
+                              : 'cursor-pointer text-slate-800 hover:bg-slate-50'
                         } ${busy ? 'pointer-events-none opacity-60' : ''}`}
                       >
                         <input
@@ -288,7 +315,7 @@ export function InterestCheckDialog({
               </div>
             ) : result ? (
               <div className="mt-5">
-                <div className={`rounded-xl border px-4 py-4 ${result.ok ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+                <div className={`rounded-xl px-4 py-4 ${result.ok ? 'filo-emerald-200 bg-emerald-50' : 'filo-amber-200 bg-amber-50'}`}>
                   <p className={`text-sm font-semibold ${result.ok ? 'text-emerald-950' : 'text-amber-950'}`}>
                     {result.duplicate
                       ? 'Este envío ya se había procesado'

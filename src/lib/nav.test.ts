@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { navGroups, type NavContext } from './nav'
-import { MERIDIAN_CHAT_ENABLED } from './meridian'
 
 /**
  * EL GUARDIÁN DEL MENÚ.
@@ -21,7 +20,7 @@ const CONTEXTO_BASE: NavContext = {
   empresa: 'Construcciones Teide',
   isStaff: false,
   demo: false,
-  counts: { bandeja: 0, equipo: 0, meridian: 0 },
+  counts: { bandeja: 0, equipo: 0 },
 }
 
 const ctx = (parcial: Partial<NavContext>): NavContext => ({ ...CONTEXTO_BASE, ...parcial })
@@ -46,7 +45,7 @@ describe('el menú se declara, no se improvisa', () => {
   it('toda señal de novedad dice de qué es', () => {
     // El menú pinta un PUNTO, no una cifra: el número entero solo existe para
     // quien usa lector de pantalla. Sin ese texto, la señal es un punto mudo.
-    for (const it of items(ctx({ counts: { bandeja: 3, equipo: 3, meridian: 3 } }))) {
+    for (const it of items(ctx({ counts: { bandeja: 3, equipo: 3 } }))) {
       if (it.novedades !== undefined) {
         expect(it.novedadesLabel, `"${it.label}" lleva señal de novedad y no dice de qué: añádele novedadesLabel.`).toBeTypeOf('function')
         // Aquí el número SÍ va en el texto (es lo único que lo lleva), pero el
@@ -94,7 +93,7 @@ describe('el menú se declara, no se improvisa', () => {
     // Notificaciones tiene número, pero se lo pinta el propio timbre, que es
     // quien lo sabe. Declararlo aquí sería llevar la misma cuenta en dos sitios
     // y verlos discrepar el día que una se quede atrás.
-    for (const it of items(ctx({ counts: { bandeja: 3, equipo: 3, meridian: 3 } }))) {
+    for (const it of items(ctx({ counts: { bandeja: 3, equipo: 3 } }))) {
       if (it.capa) {
         expect(it.novedades, `"${it.label}" abre una capa y además declara señal: que la lleve quien pinta la capa.`).toBeUndefined()
       }
@@ -130,9 +129,10 @@ describe('el menú es el mismo para todos los planes', () => {
     }
   })
 
-  it('Meridian sigue la llave de su flag, no la del plan', () => {
-    // Mientras el hilo esté fuera no hay entrada, tenga el plan lo que tenga.
-    expect(ids(ctx({ plan: 'proceso' })).includes('meridian')).toBe(MERIDIAN_CHAT_ENABLED)
+  it('el hilo de Meridian no deja entrada en el menú', () => {
+    // Se retiró en ago 2026 y no vuelve. El guardián se queda para que nadie la
+    // devuelva sin darse cuenta: el TRIAJE sigue vivo, la pantalla no.
+    expect(ids(ctx({ plan: 'proceso' })).includes('meridian')).toBe(false)
   })
 })
 

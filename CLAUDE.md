@@ -335,6 +335,26 @@ sobre el DOM propio contesta en un minuto lo que una tarde de retoques no.
   los 30 de la referencia: nuestra columna es más estrecha y más densa, y la
   jerarquía la dan antes el peso y el color que el tamaño.
 - **Una pantalla se lee en TRES FRANJAS, en este orden**: título (con su contador
+- **Y la cabecera de una pantalla mide LO MISMO en todas.** `PageHeader` se había
+  quedado medio peldaño por debajo del panel del puesto, que es donde esas medidas
+  se afinaron a ojo: `font-semibold` contra `font-bold`, subtítulo en peso normal
+  contra `font-medium`, y 12px menos de aire arriba porque el panel se lo añadía
+  por su cuenta. Nadie lo decidió: al ir del panel a Bandeja o a Entrevistas el
+  título adelgazaba y saltaba. Ahora las nueve pantallas del shell dan **28px de
+  aire sobre el título y 24px/700** medidos, y ese aire vive en la PIEZA, no en
+  cada pantalla, que es lo que impide que vuelvan a separarse. Si el panel cambia,
+  cambia `PageHeader`: son la misma cabecera.
+- **Y el ANCHO DE COLUMNA son DOS, con nombre, no cinco números sueltos** (Mario,
+  ago 2026). Había 1240, 1180, 1100, 820 y 768 repartidos por las pantallas. Los
+  tres primeros son casi el mismo número, y eso es lo peor que le puede pasar a
+  una medida: no se lee como una decisión, se lee como un descuido, y al navegar
+  el contenido da un salto lateral que nadie sabe explicar. Ahora **`max-w-trabajo`
+  (1240)** para listas, rejillas y paneles, que es el del panel del puesto, la
+  pantalla más densa y la que fijó la medida; y **`max-w-lectura` (820)** para una
+  columna que se lee de arriba abajo, donde estirar hasta 1240 dejaría líneas de
+  150 caracteres (hoy Facturación y el tablón de Equipo). Se declaran en `@theme`
+  (`--container-*`) y no como número en cada pantalla, así que **una pantalla
+  nueva elige entre dos nombres en vez de inventar un sexto número**.
   inline y sus acciones a la derecha), herramientas (filtros, buscador, vistas) y
   trabajo. Las acciones de pantalla van en la línea del título, que es la fila
   más alta y la primera que barre el ojo; metidas entre los filtros se pierden.

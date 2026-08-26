@@ -1,6 +1,5 @@
-import { Bell, Briefcase, CalendarDays, CreditCard, Gauge, Inbox, LayoutGrid, MessagesSquare, Search, Settings, Sparkles, Users } from 'lucide-react'
+import { Bell, Briefcase, CalendarDays, CreditCard, Gauge, Inbox, LayoutGrid, MessagesSquare, Search, Settings, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian } from './meridian'
 
 /**
  * Registro de navegación del menú lateral (ago 2026, reescrito con la identidad
@@ -24,7 +23,7 @@ import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian } from './meridian'
  * 1. **Lo que no está disponible no se pinta.** Nada de tabs bloqueadas en el
  *    menú: el límite se descubre en su contexto, no con un candado en la
  *    navegación. (Con el pago por proceso ya no hay features por plan, pero la
- *    regla sigue viva para banderas como MERIDIAN_CHAT_ENABLED o el admin.)
+ *    regla sigue viva para banderas como WHATSAPP_LISTO o el admin.)
  * 2. **Un grupo sin ítems visibles no existe.** Ni cabecera huérfana ni hueco.
  *    Por eso `navGroups()` filtra al final y no hay que acordarse en cada sitio.
  * 3. **Un contador se DICE, no se enseña, y aquí se cumple literalmente.** El
@@ -93,8 +92,6 @@ export type NavContext = {
     bandeja: number
     /** Movimiento del tablón del equipo. */
     equipo: number
-    /** Candidaturas nuevas que Meridian destaca y no has revisado. */
-    meridian: number
   }
 }
 
@@ -108,7 +105,7 @@ const plural = (n: number, uno: string, varios: string) => (n === 1 ? uno : vari
  * empresa, con su nombre de cabecera y todo lo que se hace dentro de ella.
  */
 export function navGroups(ctx: NavContext): NavGroup[] {
-  const { plan, empresa, isStaff, demo, counts } = ctx
+  const { empresa, isStaff, demo, counts } = ctx
 
   const grupos: NavGroup[] = [
     {
@@ -138,18 +135,6 @@ export function navGroups(ctx: NavContext): NavGroup[] {
           novedades: counts.bandeja,
           novedadesLabel: (n) => plural(n, 'candidatura nueva', 'candidaturas nuevas'),
         },
-        ...(MERIDIAN_CHAT_ENABLED && hasMeridian(plan)
-          ? [
-              {
-                id: 'meridian',
-                to: '/meridian',
-                label: MERIDIAN_NAME,
-                Icon: Sparkles,
-                novedades: counts.meridian,
-                novedadesLabel: (n: number) => plural(n, 'candidatura destacada', 'candidaturas destacadas'),
-              },
-            ]
-          : []),
         {
           // SIN señal: las citas por venir no son "algo nuevo que no has visto",
           // son tu agenda, y la agenda se mira en su pantalla. Llevaba una chapa

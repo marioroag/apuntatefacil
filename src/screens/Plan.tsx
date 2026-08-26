@@ -10,6 +10,7 @@ import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { PageHeader } from '../components/ui/PageHeader'
 import { pollPlanAndReload } from '../lib/planSync'
 
 // Facturación del PAGO POR PROCESO (ago 2026). Sustituye al catálogo de tres
@@ -126,15 +127,22 @@ export function Plan() {
     && !['active', 'trialing', 'past_due'].includes(company?.subscription_status ?? '')
   const esLegacy = plan === 'esencial' || plan === 'pro' || plan === 'multi'
 
+  // Se iguala la ESCALA DE RELLENO con las demás pantallas del shell (`py-6
+  // sm:px-6 lg:px-8`): estaba en `py-8 sm:px-8` y era la única con otro reparto,
+  // así que en ventanas estrechas los bordes no caían donde en el resto.
+  // El ANCHO es `max-w-lectura` (820) y no el de trabajo (1240) a propósito:
+  // Facturación es una columna que se lee de arriba abajo, con un total y una
+  // lista corta, y a 1240 las líneas se irían a 150 caracteres. Los dos anchos y
+  // su porqué viven en `@theme` (index.css).
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8">
+    <div className="mx-auto max-w-lectura px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
       <Link to="/app" className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
         <ArrowLeft className="size-4" aria-hidden /> Volver al panel
       </Link>
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900">Facturación</h1>
-      <p className="mt-1.5 text-slate-600">
-        {PRECIO_PROCESO} € al mes + IVA por proceso abierto. Sin permanencia: cierras un proceso y deja de cobrarse.
-      </p>
+      <PageHeader
+        titulo="Facturación"
+        sub={`${PRECIO_PROCESO} € al mes + IVA por proceso abierto. Sin permanencia: cierras un proceso y deja de cobrarse.`}
+      />
 
       {/* ---- En prueba -------------------------------------------------- */}
       {plan === 'trial' && (

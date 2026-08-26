@@ -83,7 +83,16 @@ export function AgendaGrid({
   }, [clave, desde])
 
   return (
-    <div className="overflow-hidden rounded-xl bg-white shadow-card ring-1 ring-slate-200/70">
+    // El marco, a DOS MANOS (`filo`): el hairline de 1px solo es nítido mientras
+    // cae en la rejilla de píxeles, y en el arco de la esquina pierde hasta un 23%
+    // de tinta. Aquí importa más que en otras tarjetas, porque la cabecera de días
+    // es una caja CUADRADA con fondo propio que llega hasta el filo y en la curva
+    // pintaría encima del borde. Y `overflow-clip` y no `hidden` porque es la regla
+    // de la casa para toda superficie con radio: recorta igual y no convierte la
+    // caja en contenedor de scroll. (Aquí el `sticky` de dentro no dependía de
+    // esto: cuelga del div con `overflow-y-auto` de la línea de abajo, que es su
+    // contenedor de scroll más cercano se ponga lo que se ponga aquí fuera.)
+    <div className="overflow-clip rounded-xl filo bg-white shadow-card">
       <div ref={scroll} className="max-h-[62vh] overflow-y-auto overscroll-contain">
         {/* Cabecera de días. Pegada arriba: al bajar por la tarde hay que seguir
             sabiendo de qué día es cada columna. La vista de un día la pinta
@@ -254,7 +263,7 @@ function BloqueCita({
       }}
       className={`absolute z-10 flex flex-col overflow-hidden rounded-lg py-1 text-left ring-1 ring-inset transition-shadow hover:z-20 hover:shadow-card ${
         estrecho ? 'pl-1.5 pr-1' : 'pl-2.5 pr-1.5'
-      } ${meta.chip} ${pasada ? 'opacity-60' : ''}`}
+      } ${meta.chip} ${meta.borde} ${pasada ? 'opacity-60' : ''}`}
     >
       {/* El filo de color dice el estado sin gastar una palabra de las pocas que caben. */}
       <span className={`absolute inset-y-0 left-0 w-[3px] ${meta.dot}`} aria-hidden />

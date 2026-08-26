@@ -32,7 +32,7 @@ export function Equipo() {
     })
 
   return (
-    <div className="mx-auto max-w-[820px] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-lectura px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
       <PageHeader
         titulo="Equipo"
         sub={

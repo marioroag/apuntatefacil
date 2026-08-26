@@ -1,11 +1,10 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, Building2, ChevronRight, Clock, PauseCircle, Sparkles, Trash2 } from 'lucide-react'
+import { Briefcase, Building2, ChevronRight, Clock, PauseCircle, Trash2 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { miles } from '../lib/format'
-import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME, hasMeridian, candidateFit } from '../lib/meridian'
 import { useToast } from '../components/ui/Toast'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { PageHeader } from '../components/ui/PageHeader'
@@ -22,7 +21,7 @@ const STALE_DAYS = 7
 // que ya las lista. El menú lateral solo la usa de separador.
 export function Resumen() {
   const { campaigns, candidates, newCountFor, sites, renameSite, deleteSite } = useStore()
-  const { company, role } = useAuth()
+  const { role } = useAuth()
   const base = useAppBase()
   const toast = useToast()
   // La sede se administra AQUÍ, que es el único sitio donde ya está toda la lista.
@@ -31,9 +30,6 @@ export function Resumen() {
   const [editando, setEditando] = useState<string | null>(null)
   const [aBorrar, setABorrar] = useState<Site | null>(null)
   const [borrando, setBorrando] = useState(false)
-  // La tarjeta lleva al hilo de Meridian: fuera mientras el hilo esté apagado.
-  const showMeridian = MERIDIAN_CHAT_ENABLED && hasMeridian(company?.plan)
-  const meridianDestacados = candidates.filter((c) => c.status === 'nuevo' && (candidateFit(c.ai) ?? -1) >= 70).length
 
   const staleCut = Date.now() - STALE_DAYS * 86400000
   const nuevosTotal = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
@@ -91,7 +87,7 @@ export function Resumen() {
     : []
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
       {/* El mismo nombre que su entrada en el menú: un destino, un nombre. */}
       <PageHeader titulo="Vista general" sub="Cómo van todos tus puestos de un vistazo." />
 
@@ -99,12 +95,9 @@ export function Resumen() {
         <Empty text="Aún no tienes puestos. Crea el primero para ver aquí cómo van tus puestos." />
       ) : (
         <>
-          {showMeridian && (
-            <MeridianHomeCard base={base} destacados={meridianDestacados} nuevos={nuevosTotal} />
-          )}
-
-          {/* KPIs */}
-          <div className={`grid grid-cols-2 gap-3 sm:grid-cols-4 ${showMeridian ? 'mt-4' : ''}`}>
+          {/* Aquí vivía una tarjeta que llevaba al hilo de Meridian. Se fue con
+              el hilo (Mario, ago 2026): no va a volver. El triaje sigue entero. */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Kpi label="Candidatos" n={candidates.length} />
             <Kpi label="Nuevos sin revisar" n={nuevosTotal} />
             <Kpi label="Contratados" n={contratados} />
@@ -152,7 +145,12 @@ export function Resumen() {
                       >
                         <Briefcase className="size-4 shrink-0 text-slate-500" aria-hidden />
                         <span className="min-w-0 flex-1 truncate text-sm text-slate-800">{c.title}</span>
-                        <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[11px] font-bold num text-slate-700">{n}</span>
+                        {/* La chapa va APAGADA: aquí hay una por fila y se pintan hasta seis a
+                            la vez, así que en negrita la columna se leía como un marcador y le
+                            robaba el sitio a lo único que se lee de un vistazo, los nombres de
+                            los puestos. La negrita es para cuando hay UNA. La cifra se queda
+                            (en Vista general sí cambia una decisión: dice a qué puesto entrar). */}
+                        <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[11px] font-medium num text-slate-700">{n}</span>
                       </Link>
                     </li>
                   ))}
@@ -386,7 +384,10 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
         >
           {/* Línea de máximo: da escala para leer las alturas. */}
           <line x1={padL} y1={maxY} x2={w - padR} y2={maxY} className="stroke-slate-200" strokeDasharray="2 4" />
-          <text x={w - padR} y={maxY - 5} textAnchor="end" className="fill-slate-400 text-[10px] num">{max}</text>
+          {/* slate-500, no slate-400: 400 es 2,6:1 sobre blanco y vale para un glifo (la
+              línea de puntos, el punto hueco), no para una cifra, que es texto con
+              significado y tiene su suelo en 4,5:1. */}
+          <text x={w - padR} y={maxY - 5} textAnchor="end" className="fill-slate-500 text-[10px] num">{max}</text>
           {/* Área + línea RECTA (honesta con datos discretos). */}
           <path d={area} className="fill-slate-700/10" />
           <path d={solidLine} fill="none" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" className="stroke-slate-700" />
@@ -402,8 +403,11 @@ function IntakeChartBody({ weeks }: { weeks: Week[] }) {
             return (
               <g key={weeks[i].start}>
                 <circle cx={p.x} cy={p.y} r="2.5" strokeWidth="2" className={partial ? 'fill-white stroke-slate-400' : 'fill-slate-700 stroke-white'} />
+                {/* La semana en curso se distingue por FORMA (línea de puntos y punto hueco)
+                    y por el `aria-label`, no solo por el gris: la cifra ya no puede bajar de
+                    slate-500 sin dejar de cumplir el suelo de contraste. */}
                 {(labelEach || i === n - 1) && p.v !== max && (
-                  <text x={p.x} y={p.y - 8} textAnchor="middle" className={`text-[10px] num ${partial ? 'fill-slate-400' : 'fill-slate-600'}`}>{p.v}</text>
+                  <text x={p.x} y={p.y - 8} textAnchor="middle" className={`text-[10px] num ${partial ? 'fill-slate-500' : 'fill-slate-600'}`}>{p.v}</text>
                 )}
               </g>
             )
@@ -478,32 +482,6 @@ function weeklyIntake(candidates: Candidate[]): Week[] {
 
 // Tarjeta de entrada al Parte de Meridian (ritual diario). Voz de asistente,
 // honesta con lo que hay. El acento solo en la acción (el enlace al parte).
-function MeridianHomeCard({ base, destacados, nuevos }: { base: string; destacados: number; nuevos: number }) {
-  const line =
-    destacados > 0
-      ? `He revisado tus candidaturas nuevas. Te destaco ${destacados} que ${destacados === 1 ? 'encaja' : 'encajan'} bien.`
-      : nuevos > 0
-        ? `He revisado tus ${nuevos} ${nuevos === 1 ? 'candidatura nueva' : 'candidaturas nuevas'}. Hoy no destaco a nadie de lleno, pero échales un ojo.`
-        : 'Estás al día. Cuando entren candidaturas nuevas, te las reviso y destaco a quien encaja.'
-  return (
-    <div className="flex items-center gap-3.5 rounded-xl filo bg-white p-4 shadow-card">
-      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-slate-900 text-white">
-        <Sparkles className="size-5" aria-hidden />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[12px] font-semibold text-slate-500">Parte de {MERIDIAN_NAME}</p>
-        <p className="text-sm leading-5 text-slate-800">{line}</p>
-      </div>
-      <Link
-        to={`${base}/meridian`}
-        className="shrink-0 whitespace-nowrap text-sm font-medium text-indigo-600 hover:text-indigo-700"
-      >
-        Ver el parte
-      </Link>
-    </div>
-  )
-}
-
 function Kpi({ label, n }: { label: string; n: number }) {
   return (
     <div className="rounded-xl filo bg-white px-4 py-3 shadow-card">

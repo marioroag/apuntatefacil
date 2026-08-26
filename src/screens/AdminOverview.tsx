@@ -4,6 +4,7 @@ import { ArrowLeft, Briefcase, Building2, ChevronRight, CreditCard, Gauge, Loade
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { SlideOver } from '../components/ui/SlideOver'
+import { PageHeader } from '../components/ui/PageHeader'
 import { miles, relativeDate } from '../lib/format'
 import { PLAN_LABEL, PRECIO_PROCESO } from '../lib/pricing'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
@@ -159,11 +160,8 @@ export function AdminOverview() {
   const maxPlan = Math.max(1, data.plans.trial, data.plans.proceso ?? 0, data.plans.esencial, data.plans.pro, data.plans.multi)
 
   return (
-    <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-5">
-        <h1 className="text-xl font-semibold text-slate-900">Panel</h1>
-        <p className="mt-0.5 text-sm text-slate-500">El pulso de Apúntate Fácil de un vistazo.</p>
-      </header>
+    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
+      <PageHeader titulo="Panel" sub="El pulso de Apúntate Fácil de un vistazo." />
 
       {/* KPIs principales */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -201,7 +199,7 @@ export function AdminOverview() {
           <div className="flex items-baseline justify-between">
             <h2 className="text-sm font-semibold text-slate-900">Suscripciones por plan</h2>
             <span className="num text-[13px] font-semibold text-slate-900">
-              {miles(Math.round(mrr))} €/mes<span className="font-normal text-slate-400"> MRR</span>
+              {miles(Math.round(mrr))} €/mes<span className="font-normal text-slate-500"> MRR</span>
             </span>
           </div>
           <ul className="mt-4 space-y-2.5">
@@ -225,7 +223,7 @@ export function AdminOverview() {
           <div className="flex items-baseline justify-between">
             <h2 className="text-sm font-semibold text-slate-900">Candidaturas, últimos 14 días</h2>
             <span className="num text-[13px] font-semibold text-slate-900">
-              {miles(data.candidates.new_30d)}<span className="font-normal text-slate-400"> en 30 días</span>
+              {miles(data.candidates.new_30d)}<span className="font-normal text-slate-500"> en 30 días</span>
             </span>
           </div>
           <div className="mt-4 flex h-28 items-end gap-1.5" aria-hidden>
@@ -238,7 +236,7 @@ export function AdminOverview() {
               />
             ))}
           </div>
-          <div className="mt-1.5 flex justify-between text-[11px] text-slate-400">
+          <div className="mt-1.5 flex justify-between text-[11px] text-slate-500">
             <span>{dayLabel(data.series_candidates_14d[0]?.day)}</span>
             <span>Hoy</span>
           </div>
@@ -353,7 +351,7 @@ export function AdminOverview() {
               {selected.subscription_status && (
                 <span className="text-[12px] text-slate-500">{selected.subscription_status}</span>
               )}
-              <span className="text-[12px] text-slate-400">Cuenta creada el {shortDate(selected.created_at)}</span>
+              <span className="text-[12px] text-slate-500">Cuenta creada el {shortDate(selected.created_at)}</span>
             </div>
 
             <div className="mt-4 grid grid-cols-3 gap-3 px-2">
@@ -407,7 +405,7 @@ export function AdminOverview() {
                         </span>
                         <span className="num shrink-0 text-[13px] font-semibold text-slate-900">
                           {miles(ca.candidates)}
-                          <span className="font-normal text-slate-400"> cand.</span>
+                          <span className="font-normal text-slate-500"> cand.</span>
                         </span>
                       </li>
                     ))}
@@ -480,16 +478,20 @@ function StatCard({
     </>
   )
   const cls = 'block rounded-xl filo bg-white p-5 shadow-card'
+  // `hover:border-slate-300` sobre una superficie con `filo` NO SE VE: el outline
+  // de la segunda mano se pinta encima del borde y tapa el cambio de color. La
+  // variante `filo-*` mueve las dos manos a la vez, que es lo que ya hacía bien
+  // la tarjeta de Soporte de esta misma pantalla.
   if (to) {
     return (
-      <Link to={to} className={`${cls} transition-colors hover:border-slate-300`}>
+      <Link to={to} className={`${cls} transition-colors hover:filo-slate-300`}>
         {inner}
       </Link>
     )
   }
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={`${cls} w-full cursor-pointer text-left transition-colors hover:border-slate-300`}>
+      <button type="button" onClick={onClick} className={`${cls} w-full cursor-pointer text-left transition-colors hover:filo-slate-300`}>
         {inner}
       </button>
     )

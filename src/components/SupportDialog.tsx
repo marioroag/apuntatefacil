@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, X } from 'lucide-react'
 import { Button } from './ui/Button'
+import { botonIcono } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { SUPPORT_EMAIL, supportMailto } from '../lib/brand'
 
@@ -151,9 +152,12 @@ export function SupportDialog({
             exit={{ opacity: 0, scale: 0.97, y: 6 }}
             transition={{ duration: 0.18, ease: [0, 0, 0.2, 1] }}
           >
+            {/* La equis sale de `botonIcono`, no de un `p-1.5` a mano: medía 28px
+                y no crecía en táctil, y en un diálogo que se abre desde la landing
+                en un móvil ese es el único control para salir. */}
             <button
               onClick={onClose}
-              className="absolute right-3 top-3 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              className={botonIcono('ghost', 'md', 'absolute right-3 top-3')}
               aria-label="Cerrar"
             >
               <X className="size-4" aria-hidden />
@@ -182,7 +186,11 @@ export function SupportDialog({
                 <div className="mt-5 space-y-3.5">
                   <div>
                     <label htmlFor="support-name" className="mb-1 block text-[13px] font-medium text-slate-700">
-                      Nombre <span className="font-normal text-slate-400">(opcional)</span>
+                      {/* `slate-500`, no `slate-400`: "(opcional)" dice si tienes que
+                          rellenar el campo, o sea que es texto con significado y su
+                          suelo son 4,5:1 (el 400 se queda en 2,6:1). Es el mismo tono
+                          que ya usa la pieza de referencia en el panel. */}
+                      Nombre <span className="font-normal text-slate-500">(opcional)</span>
                     </label>
                     <input
                       ref={firstRef}

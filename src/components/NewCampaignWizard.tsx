@@ -13,7 +13,7 @@ import type { SectorTemplate } from '../lib/templates'
 import { blankCampaignInput } from '../lib/defaults'
 import { useAppBase } from '../lib/useAppBase'
 import { PLAN_LABEL, PLAN_PROCESS_LIMIT, PRECIO_PROCESO } from '../lib/pricing'
-import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 
 const ICONS: Record<string, LucideIcon> = {
   UtensilsCrossed, HardHat, Truck, Sparkles, ShoppingBag, HeartHandshake,
@@ -177,8 +177,12 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }} onClick={onClose}
           />
+          {/* `overflow-clip` y no `hidden`: quien llega a las dos esquinas de abajo
+              es el bloque con scroll (`max-h-[60vh] overflow-y-auto`), y `clip` lo
+              recorta con el radio SIN convertir el panel en contenedor de scroll,
+              que es lo que rompería cualquier `sticky` de dentro. */}
           <motion.div
-            className="relative w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-pop"
+            className="relative w-full max-w-lg overflow-clip rounded-xl bg-white shadow-pop"
             initial={{ opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
@@ -186,7 +190,11 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
           >
             {atLimit ? (
               <div className="relative p-6 text-center">
-                <button onClick={onClose} aria-label="Cerrar" className="absolute right-3 top-3 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                {/* Las tres equis de este modal salen de `botonIcono`, no de un
+                    `p-1.5` a mano: así se quedaban en 32px y sin crecer en táctil
+                    (`md` da 36 y 44 con puntero grueso), y sin el press de la
+                    rampa, que es por donde derivan siempre los clones. */}
+                <button onClick={onClose} aria-label="Cerrar" className={botonIcono('ghost', 'md', 'absolute right-3 top-3')}>
                   <X className="size-5" aria-hidden />
                 </button>
                 <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
@@ -214,7 +222,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
               </div>
             ) : cobro ? (
               <div className="relative p-6">
-                <button onClick={() => setCobro(null)} aria-label="Volver" className="absolute right-3 top-3 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                <button onClick={() => setCobro(null)} aria-label="Volver" className={botonIcono('ghost', 'md', 'absolute right-3 top-3')}>
                   <X className="size-5" aria-hidden />
                 </button>
                 <h2 id="wizard-title" className="text-lg font-semibold text-slate-900">Abrir otro proceso</h2>
@@ -246,7 +254,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                     <h2 id="wizard-title" className="text-lg font-semibold text-slate-900">Crear puesto</h2>
                     <p className="mt-0.5 text-[13px] text-slate-500">Elige un punto de partida. Podrás cambiarlo todo después.</p>
                   </div>
-                  <button onClick={onClose} aria-label="Cerrar" className="-mr-1 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                  <button onClick={onClose} aria-label="Cerrar" className={botonIcono('ghost', 'md', '-mr-1')}>
                     <X className="size-5" aria-hidden />
                   </button>
                 </div>

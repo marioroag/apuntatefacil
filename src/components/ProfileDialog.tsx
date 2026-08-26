@@ -6,7 +6,7 @@ import { useProfiles } from '../lib/profiles'
 import { useToast } from './ui/Toast'
 import { Avatar } from './ui/Avatar'
 import { Button } from './ui/Button'
-import { BTN_SECONDARY_SM } from '../lib/buttons'
+import { BTN_SECONDARY_SM, botonClase } from '../lib/buttons'
 
 /**
  * Tu perfil: nombre y foto. Nada más, a propósito.
@@ -171,11 +171,14 @@ export function ProfileDialog({ open, onClose }: { open: boolean; onClose: () =>
                   {foto ? 'Cambiar foto' : 'Subir foto'}
                 </button>
                 {foto && (
+                  /* El botón fantasma ya existe en `buttons.ts` (variante `ghost`)
+                     y este era uno de sus clones a mano: se había quedado en dos
+                     peldaños de la rampa, así que al pulsarlo no pasaba nada. */
                   <button
                     type="button"
                     onClick={quitarFoto}
                     disabled={subiendo}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:opacity-60"
+                    className={botonClase('ghost', 'sm', 'disabled:opacity-60')}
                   >
                     <Trash2 className="size-3.5" aria-hidden />
                     Quitar

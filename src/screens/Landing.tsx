@@ -728,7 +728,7 @@ function Team() {
           <TeamBoardMock />
         </Reveal>
         <Reveal>
-          <p className="text-sm font-semibold text-slate-500">Equipo, desde el plan Pro</p>
+          <p className="text-sm font-semibold text-slate-500">Equipo, incluido en todos los procesos</p>
           <h2 className="mt-3 max-w-xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
             Coordina necesidades internas con tu base de candidatos
           </h2>

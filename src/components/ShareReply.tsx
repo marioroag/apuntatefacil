@@ -1,6 +1,6 @@
 import { Check, Copy, ExternalLink, Pencil, RotateCcw, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
-import { BTN_PRIMARY } from '../lib/buttons'
+import { BTN_PRIMARY, botonIcono } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
 import {
   editableReplyBody,
@@ -9,11 +9,12 @@ import {
 } from '../lib/shareReply'
 import { useToast } from './ui/Toast'
 
-const ICON_ACTION =
-  'inline-flex size-8 max-sm:size-11 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors ' +
-  'hover:bg-slate-100 hover:text-slate-800 ' +
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ' +
-  'disabled:opacity-50'
+// El botón fantasma de solo icono ya está en `buttons.ts`; esto era una copia a
+// mano de su pintura, y como todas las copias había derivado: sin el tercer
+// peldaño de la rampa (`active:`), así que al pulsarlo no pasaba nada. El
+// `max-sm:size-11` se conserva tal cual porque es el objetivo de toque que ya
+// tenía; el foco lo pone `:focus-visible` global, no hace falta repetirlo.
+const ICON_ACTION = botonIcono('ghost', 'sm', 'max-sm:size-11 disabled:opacity-50')
 
 const TEXT_ACTION =
   'inline-flex min-h-8 max-sm:min-h-11 items-center gap-1.5 rounded-lg px-1.5 text-[13px] font-medium text-slate-600 ' +
@@ -160,7 +161,7 @@ export function ShareReply({
               type="button"
               onClick={onClose}
               aria-label="Cerrar"
-              className="-mr-1.5 -mt-1 inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+              className={botonIcono('ghost', 'md', '-mr-1.5 -mt-1')}
             >
               <X className="size-4" aria-hidden />
             </button>
@@ -226,21 +227,18 @@ export function ShareReply({
         </p>
       )}
 
+      {/* SIN ICONO, y no es una simplificación: un botón a ancho completo centra
+          el conjunto icono+texto, así que el rótulo queda descentrado (12px
+          medidos en el caso del lateral). El icono acompaña al texto en botones
+          estrechos con la etiqueta a la izquierda, donde no centra nada. El
+          acuse de copiado no se pierde: lo dice la palabra. */}
       <button
         type="button"
         onClick={() => void copyReply()}
         disabled={disabled || saving}
         className={`${BTN_PRIMARY} mt-3 w-full max-sm:min-h-11 disabled:opacity-50`}
       >
-        {copied === 'reply' ? (
-          <>
-            <Check className="size-4 text-indigo-200" aria-hidden /> Copiado
-          </>
-        ) : (
-          <>
-            <Copy className="size-4 text-indigo-200" aria-hidden /> Copiar respuesta
-          </>
-        )}
+        {copied === 'reply' ? 'Copiado' : 'Copiar respuesta'}
       </button>
 
       <div className="mt-2 flex min-w-0 items-center gap-1 rounded-xl filo bg-slate-50 py-1 pl-3 pr-1">

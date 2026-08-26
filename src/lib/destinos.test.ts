@@ -43,6 +43,8 @@ const RUTAS_SIN_DESTINO: Record<string, string> = {
   'ajustes/:seccion': 'Es la misma pantalla que "ajustes", y cada interruptor entra por su fila con enlace directo.',
   sedes: 'Ruta retirada (ago 2026): redirige. "Sedes" sí se encuentra, y lleva a Vista general, que es donde se administran.',
   marcas: 'Ruta retirada (ago 2026): redirige. La identidad se encuentra y lleva al constructor, que es donde se edita.',
+  meridian:
+    'Hilo retirado (ago 2026, Mario): no vuelve, y la ruta solo redirige. El TRIAJE de Meridian sigue vivo, pero no es un sitio al que ir: se lee en la columna Encaje y en el informe de la ficha.',
 }
 
 /** Secciones de ajustes que se traen su propia pantalla y por eso no se pueden buscar por dentro. */
@@ -101,7 +103,7 @@ function entradasDelMenu(): string[] {
     empresa: 'Construcciones Teide',
     isStaff: true,
     demo: false,
-    counts: { bandeja: 0, equipo: 0, meridian: 0 },
+    counts: { bandeja: 0, equipo: 0 },
   })
   // Solo las filas que LLEVAN a un sitio. Las que abren una capa (Buscar,
   // Notificaciones) no son destinos: buscar "Buscar" desde el buscador es una

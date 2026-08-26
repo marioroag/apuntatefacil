@@ -5,9 +5,10 @@ import type { TeamRequest } from '../lib/types'
 import { TEAM_REQUEST_STATUS_META } from '../lib/types'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { candidateName, initials, memberAvatarTone, relativeDate } from '../lib/format'
+import { candidateName, memberAvatarTone, relativeDate } from '../lib/format'
 import { useProfiles } from '../lib/profiles'
 import { BTN_PRIMARY } from '../lib/buttons'
+import { Avatar } from '../components/ui/Avatar'
 import { useToast } from '../components/ui/Toast'
 import { TeamRequestPanel } from './TeamRequestPanel'
 
@@ -221,8 +222,19 @@ export function EquipoTablon() {
                 key={key}
                 onClick={() => setFilter(key)}
                 aria-pressed={filter === key}
+                // ACENTO SÓLIDO, y esto es una excepción declarada, no un olvido.
+                // Se probó pasarlo a la cápsula teñida del panel para tener una sola
+                // gramática y se midió que era peor: aquí las tres cápsulas están
+                // SIEMPRE presentes, así que el relleno es el único portador de cuál
+                // está puesta, y `indigo-50` contra `slate-100` se separan 1,02:1, o
+                // sea nada. Los chips del panel sí pueden ir teñidos porque allí un
+                // chip solo existe si filtra: su PRESENCIA es la señal. Y un control
+                // con `aria-pressed` es una SELECCIÓN, que es uno de los cuatro usos
+                // permitidos del ultramarine junto a la acción y el foco.
                 className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                  filter === key ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  filter === key
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 {label}
@@ -324,15 +336,19 @@ function RequestCard({
             className="ml-auto flex shrink-0 items-center"
             aria-label={`${proposalNames.length} candidatos propuestos`}
           >
+            {/* La cara sale de `ui/Avatar`. Repintada aquí era un TERCER negro
+                (slate-700, contra el slate-900 del panel y el tono estable de la
+                lista de miembros) y la letra se quedaba al 36% del círculo. El aro
+                blanco se queda: es un halo, la excepción declarada al `ring-inset`. */}
             {proposalNames.slice(0, 3).map((name, i) => (
-              <span
-                key={i}
-                title={name ?? 'Sin acceso'}
-                className={`-ml-1 grid size-5 place-items-center rounded-full text-[9px] font-bold ring-2 ring-white first:ml-0 ${
-                  name ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-500'
-                }`}
-              >
-                {name ? initials(name) : '?'}
+              <span key={i} title={name ?? 'Sin acceso'} className="-ml-1 flex first:ml-0">
+                {name ? (
+                  <Avatar name={name} size={20} className="ring-2 ring-white" />
+                ) : (
+                  <span className="grid size-5 place-items-center rounded-full bg-slate-200 text-[9px] font-bold text-slate-500 ring-2 ring-white">
+                    ?
+                  </span>
+                )}
               </span>
             ))}
             {proposalNames.length > 3 && (

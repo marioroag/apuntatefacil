@@ -167,7 +167,7 @@ function Agenda({ demo }: { demo: boolean }) {
   }, [vista, buckets.proximas, enTramo, candidates])
 
   return (
-    <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
       <PageHeader
         titulo="Entrevistas"
         sub="Todas tus citas con candidatos, del puesto que sean."
@@ -208,8 +208,21 @@ function Agenda({ demo }: { demo: boolean }) {
                 <div className="flex items-center gap-2">
                   {/* Grupo segmentado: no es un botón, es la CARCASA de dos. Lleva la
                       misma pintura de hairline que el secundario (y su `ring-inset`,
-                      o el grupo se vería 2px más ancho que el botón "Hoy" de al lado). */}
-                  <div className="flex items-center overflow-hidden rounded-lg bg-white shadow-control ring-1 ring-inset ring-slate-300/80">
+                      o el grupo se vería 2px más ancho que el botón "Hoy" de al lado).
+                      Llevaba `shadow-control` y `ring-slate-300/80`, que es la pintura
+                      del secundario de ANTES del botón plano (ago 2026): el anillo subió
+                      a `slate-200` y la sombra de contacto se retiró entera. Aquí se
+                      notaba porque en esta misma fila hay un `BTN_SECONDARY_SM` de
+                      verdad, o sea dos lenguajes en pareja.
+                      `overflow-clip` y no `hidden`: recorta igual con el radio (los dos
+                      hijos son cajas cuadradas que llegan al filo) pero no convierte la
+                      carcasa en contenedor de scroll. */}
+                  {/* `filo` y no `ring-1 ring-inset`: es la misma superficie con radio que el
+                      conmutador que tiene 8px a la derecha, y con dos vocabularios en la misma
+                      fila una corregía el antialias de la esquina y la otra no. `filo` es
+                      `border`, ocupa hacia dentro con `border-box`, así que la carcasa sigue
+                      midiendo sus 32px contra el botón de al lado. */}
+                  <div className="flex items-center overflow-clip rounded-lg filo bg-white">
                     <button
                       type="button"
                       onClick={() => setCursor((c) => sumarDias(c, -salto))}
@@ -282,7 +295,7 @@ function Agenda({ demo }: { demo: boolean }) {
                     abajo cada vez, y eso costaba más que lo que ahorraba. La
                     semana vacía ya se ve vacía. */}
                 {visibles.length === 0 && (
-                  <div className="mb-3 rounded-xl bg-white px-3.5 py-2.5 text-[13px] text-slate-500 shadow-card ring-1 ring-slate-200/70">
+                  <div className="mb-3 rounded-xl filo bg-white px-3.5 py-2.5 text-[13px] text-slate-500 shadow-card">
                     {soloDe
                       ? `${nombreDelFiltro} todavía no tiene ninguna entrevista.`
                       : WHATSAPP_LISTO
@@ -358,7 +371,27 @@ function useCompacto(): boolean {
 /**
  * Semana / Día / Lista. Es un cambio de VISTA, no de sección: por eso va en un
  * grupo segmentado y no en las pestañas de arriba, que reparten contenido
- * distinto. El activo se marca con relieve y tinta, sin gastar el acento.
+ * distinto.
+ *
+ * Anatomía de `SwitchVista` (Dashboard.tsx), que es la del conmutador de la casa
+ * desde ago 2026: caja RECTANGULAR con filo y divisoria interior, no un carril
+ * gris con una pastilla blanca deslizándose dentro. Esto era lo segundo, o sea el
+ * patrón exacto que aquel sustituyó, y encima con el hijo activo en
+ * `rounded-[6px]`, un radio que no existe en la escala (controles 8px).
+ *
+ * Tres detalles que no son opcionales, y son los mismos de allí: `overflow-clip`
+ * (los hijos son cajas cuadradas que llegan al filo y en la curva se comerían el
+ * borde), la divisoria la pinta la mitad de la DERECHA con un `border-l` (un
+ * `divide-x` del padre lo taparía el fondo del hijo activo) y el activo se dice
+ * con TINTA de acento, que es uno de los cuatro usos permitidos del ultramarine:
+ * seleccionar. El peso NO cambia entre activo e inactivo, o cada cambio de vista
+ * ensancharía su segmento y movería a los vecinos.
+ *
+ * `h-8` y no los 40px de `SwitchVista`: aquí la fila entera es de 32 (las flechas
+ * de semana y el botón "Hoy"), y una fila se lee por su línea de base común.
+ *
+ * Es un `radiogroup` de verdad con flechas, no tres `<button aria-pressed>`
+ * sueltos: son tres estados excluyentes de una misma cosa.
  */
 function Segmentado<T extends string>({
   valor,
@@ -369,21 +402,40 @@ function Segmentado<T extends string>({
   onChange: (v: T) => void
   opciones: { value: T; label: string }[]
 }) {
+  const mover = (dir: 1 | -1) => {
+    const i = opciones.findIndex((o) => o.value === valor)
+    onChange(opciones[(i + dir + opciones.length) % opciones.length].value)
+  }
   return (
-    <div role="group" aria-label="Cómo ver la agenda" className="inline-flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5">
-      {opciones.map((o) => {
+    <div
+      role="radiogroup"
+      aria-label="Cómo ver la agenda"
+      className="inline-flex h-8 shrink-0 items-center overflow-clip rounded-lg filo bg-white"
+    >
+      {opciones.map((o, i) => {
         const activo = o.value === valor
         return (
           <button
             key={o.value}
             type="button"
-            aria-pressed={activo}
+            role="radio"
+            aria-checked={activo}
+            tabIndex={activo ? 0 : -1}
             onClick={() => onChange(o.value)}
-            className={`inline-flex h-7 items-center rounded-[6px] px-2.5 text-[13px] transition-colors ${
-              activo
-                ? 'bg-white font-semibold text-slate-900 shadow-control'
-                : 'font-medium text-slate-500 hover:text-slate-800'
-            }`}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); mover(1) }
+              else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); mover(-1) }
+            }}
+            className={`flex h-full items-center px-3 text-[13px] font-medium outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+              i > 0 ? 'border-l border-slate-200' : ''
+            } ${
+                // El relleno del activo va al paso 100 y no al 50/60 de `SwitchVista`: allí la
+                // mitad activa lleva ADEMÁS su cifra rellena en `indigo-600`, que es la mitad
+                // del contraste, y aquí no hay cifra. Medido: el 50 al 60% sobre blanco da
+                // 1,04:1, por debajo del 1,05 en que esta doctrina declaró que una cápsula
+                // teñida deja de leerse como forma; el 100 da 1,23:1.
+                activo ? 'bg-indigo-100 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'
+              }`}
           >
             {o.label}
           </button>
@@ -495,7 +547,12 @@ function Fila({
     <button
       type="button"
       onClick={() => onAbrir(entrevista.candidateId)}
-      className="flex w-full items-center gap-3 rounded-xl bg-white p-3 text-left shadow-card ring-1 ring-slate-200/70 transition-shadow hover:ring-slate-300"
+      // El marco, a DOS MANOS (`filo`): con una sola, el hairline de 1px pierde
+      // hasta un 23% de tinta en el arco de la esquina y ahí es donde se nota,
+      // porque ya es de 1,15:1 a propósito. Y el hover mueve las dos a la vez
+      // (`hover:filo-slate-300`): la segunda mano es un outline pintado ENCIMA
+      // del borde, así que un `hover:border-*` suelto no se vería.
+      className="flex w-full flex-wrap items-center gap-3 rounded-xl filo bg-white p-3 text-left shadow-card transition-colors duration-[var(--duration-control)] hover:filo-slate-300"
     >
       {/* La hora es el dato que se busca al mirar la agenda: va primero y en cifras tabulares. */}
       <div className="w-14 shrink-0 text-center">
@@ -504,7 +561,10 @@ function Fila({
             {clockTimeInZone(entrevista.startsAt, entrevista.timezone)}
           </span>
         ) : (
-          <span className="text-[13px] text-slate-400">Sin hora</span>
+          // Texto con significado, no un glifo: `slate-400` es 2,6:1 sobre blanco
+          // y el suelo son 4,5. Que una cita no tenga hora es justo lo que hay
+          // que leer en esa columna.
+          <span className="text-[13px] text-slate-500">Sin hora</span>
         )}
       </div>
 
@@ -541,9 +601,20 @@ function Fila({
           Una palabra y no una frase: la fila es estrecha y lo que se le quite
           aquí se lo come a la dirección, que ya se corta. El detalle entero va
           en el title. */}
+      {/* EN MÓVIL LAS SEÑALES NO DESAPARECEN, BAJAN A SU PROPIA LÍNEA (ago 2026).
+          Estaban en `hidden ... sm:inline-flex` y no dejaban NADA en su sitio, ni
+          un `sr-only`: en un teléfono, la pestaña "En marcha" pintaba filas
+          idénticas y no había forma de saber cuál te estaba esperando, porque el
+          motivo vivía en un `title`, que en táctil no existe.
+          Meterlas en la fila tampoco valía: con la hora (56) y el chevron, al
+          nombre le quedan ~245px y una chapa de "Necesita que entres" se lleva
+          140. Así que la fila ENVUELVE y ellas se van a la segunda línea,
+          sangradas hasta donde empieza el nombre (56 de la hora + 12 de hueco).
+          Se pinta UNA sola vez y lo coloca el CSS: nada montado dos veces. */}
+      <span className="flex items-center gap-3 max-sm:order-last max-sm:mt-0.5 max-sm:basis-full max-sm:pl-[68px]">
       {entrevista.reconfirmedAt && (
         <span
-          className="hidden shrink-0 items-center gap-1 text-[13px] font-medium text-emerald-700 sm:inline-flex"
+          className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-emerald-700"
           title={`Confirmó que viene, el ${fullDateTimeInZone(entrevista.reconfirmedAt, entrevista.timezone)}`}
         >
           <CheckCheck className="size-4" aria-hidden />
@@ -557,7 +628,7 @@ function Fila({
           motivo entero va en el title. */}
       {atencion ? (
         <span
-          className="hidden shrink-0 items-center gap-1.5 rounded-full bg-amber-50 px-2 py-0.5 text-[13px] font-semibold text-amber-800 ring-1 ring-inset ring-amber-200 sm:inline-flex"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[13px] font-semibold text-amber-800"
           title={atencion}
         >
           <span className="size-2 rounded-full bg-amber-500" aria-hidden />
@@ -565,12 +636,13 @@ function Fila({
         </span>
       ) : (
         <span
-          className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ring-1 ring-inset sm:inline-flex ${meta.chip}`}
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ${meta.chip}`}
         >
           <span className={`size-2 rounded-full ${meta.dot}`} aria-hidden />
           {meta.label}
         </span>
       )}
+      </span>
       <ChevronRight className="size-4 shrink-0 text-slate-400" aria-hidden />
     </button>
   )
@@ -617,7 +689,7 @@ function ListaSkeleton() {
   return (
     <ul className="space-y-2" role="status" aria-label="Cargando entrevistas">
       {[0, 1, 2].map((i) => (
-        <li key={i} className="flex items-center gap-3 rounded-xl bg-white p-3 ring-1 ring-slate-200/70">
+        <li key={i} className="flex items-center gap-3 rounded-xl filo bg-white p-3">
           <div className="skeleton h-4 w-10 rounded" />
           <div className="flex-1 space-y-1.5">
             <div className="skeleton h-3.5 w-40 rounded" />

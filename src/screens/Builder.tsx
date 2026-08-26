@@ -48,7 +48,7 @@ import { SWATCHES, accentPassesWhite, readableOn } from '../lib/colors'
 import { FORM_WELCOME_DEFAULT, FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
-import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { AssetBox } from '../components/BrandAssets'
 import { useBrandAssetUpload, type BrandAssetPatch } from '../lib/brandUpload'
@@ -56,6 +56,14 @@ import { PLAN_BRAND_LIMIT } from '../lib/pricing'
 import { ACENTO_MARCA } from '../lib/colors'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
+
+// LA PINTURA DE UN CAMPO de este panel, declarada una vez. Estaba copiada en seis
+// controles y los seis habían derivado por el mismo sitio: radio de 8px, que es el de
+// un BOTÓN. Un campo va a 10px (`rounded-xl`), igual que el campo de referencia del
+// panel (el de "Guardar vista", `Dashboard.tsx`), y aquí el desajuste se veía a dos
+// dedos: el nombre de la marca a 8 pegado a la caja de su foto a 10, en la misma fila.
+const CAMPO =
+  'rounded-xl border border-slate-300 bg-white px-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15'
 
 let fc = 0
 function newField(type: FieldType): FormField {
@@ -328,7 +336,10 @@ export function Builder() {
                     y closestCenter (que usa el rect del elemento activo) calcula bien el destino. */}
                 <DragOverlay>
                   {activeField ? (
-                    <div className="overflow-hidden rounded-xl border border-indigo-300 bg-white shadow-pop">
+                    // El marco, a dos manos (`filo-indigo-300`): un `border` suelto pierde
+                    // hasta un 23% de tinta en el arco de la esquina, y esta tarjeta se ve
+                    // levantada y en movimiento, o sea mirándose el canto todo el rato.
+                    <div className="overflow-clip rounded-xl filo-indigo-300 bg-white shadow-pop">
                       <FieldRowHeader field={activeField} index={activeIndex} total={fields.length} expanded={false} overlay />
                     </div>
                   ) : null}
@@ -394,7 +405,11 @@ export function Builder() {
                 type="button"
                 onClick={() => setPreviewOpen(false)}
                 aria-label="Cerrar vista previa"
-                className="-mr-1 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                // De `botonIcono`, no de un `p-1.5` a mano: así se quedaba en 32px y sin
+                // crecer en táctil (`md` da 36, y 44 con puntero grueso), que es justo
+                // donde vive esta capa, y sin el press de la rampa, que es por donde
+                // derivan siempre los clones.
+                className={botonIcono('ghost', 'md', '-mr-1')}
               >
                 <X className="size-5" aria-hidden />
               </button>
@@ -532,7 +547,11 @@ function SortableFieldRow({
     <li
       ref={setNodeRef}
       style={style}
-      className={`overflow-hidden rounded-xl border bg-white ${isDragging ? 'border-indigo-300 opacity-50' : 'border-slate-200'}`}
+      // Las dos manos del filo se mueven a la vez (`filo` / `filo-indigo-300`). Con un
+      // `border` suelto la segunda mano no existe; y dejando el color en el ternario y el
+      // outline fijo, al arrastrar cambiaría solo una de las dos y el canto saldría a
+      // medio teñir.
+      className={`overflow-clip rounded-xl bg-white ${isDragging ? 'filo-indigo-300 opacity-50' : 'filo'}`}
     >
       <FieldRowHeader
         field={field}
@@ -605,7 +624,7 @@ function LabeledInput({ label, value, onChange, onBlur, placeholder }: { label: 
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         placeholder={placeholder}
-        className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+        className={`${CAMPO} h-9 w-full`}
       />
     </label>
   )
@@ -621,7 +640,7 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o:
             <input
               value={o}
               onChange={(e) => onChange(options.map((x, j) => (j === i ? e.target.value : x)))}
-              className="h-9 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+              className={`${CAMPO} h-9 flex-1`}
             />
             <button
               onClick={() => onChange(options.filter((_, j) => j !== i))}
@@ -743,7 +762,7 @@ function Identidad({ campaign }: { campaign: Campaign }) {
           así que en reposo ocupa una fila y no media pantalla. La fila enseña la
           foto y el nombre REALES, así que se comprueba de un vistazo sin abrirla.
           Se abre sola cuando no hay nada puesto: entonces sí hay algo que hacer. */}
-      <div className="overflow-hidden rounded-xl filo bg-white">
+      <div className="overflow-clip rounded-xl filo bg-white">
         <button
           type="button"
           onClick={() => setOpen(!abierta)}
@@ -774,7 +793,7 @@ function Identidad({ campaign }: { campaign: Campaign }) {
                 <select
                   value={campaign.brandId ?? ''}
                   onChange={(e) => void updateCampaign(campaign.id, { brandId: e.target.value || null })}
-                  className="h-9 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+                  className={`${CAMPO} h-9 w-full text-slate-800`}
                 >
                   <option value="">Sin marca, usa el nombre de la empresa</option>
                   {brands.map((b) => (
@@ -918,7 +937,7 @@ function CabeceraEditor({
             onBlur={onNameBlur}
             placeholder={namePlaceholder}
             aria-label="Nombre que ve el candidato"
-            className="h-10 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+            className={`${CAMPO} h-10 min-w-0 flex-1 font-medium text-slate-800`}
           />
         </div>
       </div>
@@ -959,7 +978,7 @@ function Branding({ campaign }: { campaign: Campaign }) {
             onChange={(e) => updateBranding(campaign.id, { welcome: e.target.value })}
             rows={2}
             placeholder={FORM_WELCOME_DEFAULT}
-            className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+            className={`${CAMPO} w-full resize-y py-2`}
           />
         </label>
         <label className="block">
@@ -969,7 +988,7 @@ function Branding({ campaign }: { campaign: Campaign }) {
             onChange={(e) => updateBranding(campaign.id, { thanks: e.target.value })}
             rows={2}
             placeholder={FORM_THANKS_DEFAULT}
-            className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+            className={`${CAMPO} w-full resize-y py-2`}
           />
         </label>
 
@@ -989,12 +1008,17 @@ function Branding({ campaign }: { campaign: Campaign }) {
             ))}
             {/* Picker de color libre (selector nativo del sistema) */}
             <label
-              className="relative ml-1 inline-flex size-7 cursor-pointer items-center justify-center overflow-hidden rounded-lg ring-1 ring-slate-300 transition-transform hover:scale-110"
+              // El hairline va `ring-inset` y lo pinta el DEGRADADO, no la etiqueta. Sin
+              // `inset` el anillo se pinta fuera de la caja, así que el picker medía 30px
+              // al lado de swatches de 28: la única pieza descuadrada de la fila. Y no
+              // puede ir en la etiqueta porque un `ring` inset se pinta sobre el fondo
+              // pero POR DEBAJO de los hijos, y el degradado ocupa `inset-0`: lo taparía.
+              className="relative ml-1 inline-flex size-7 cursor-pointer items-center justify-center overflow-clip rounded-lg transition-transform hover:scale-110"
               title="Elegir otro color"
             >
               <span
                 aria-hidden
-                className="absolute inset-0"
+                className="absolute inset-0 rounded-lg ring-1 ring-inset ring-slate-300"
                 style={{ background: 'conic-gradient(from 0deg, #ef4444, #eab308, #22c55e, #06b6d4, #6366f1, #d946ef, #ef4444)' }}
               />
               <Plus className="relative size-3.5 text-white drop-shadow" aria-hidden />
@@ -1048,12 +1072,16 @@ function DeviceToggle({ device, setDevice }: { device: 'mobile' | 'desktop'; set
 function PreviewFrame({ device, children }: { device: 'mobile' | 'desktop'; children: React.ReactNode }) {
   if (device === 'mobile') {
     return (
-      <div className="w-[380px] overflow-hidden rounded-[2rem] border-[8px] border-slate-900 bg-white shadow-pop">
+      <div className="w-[380px] overflow-clip rounded-[2rem] border-[8px] border-slate-900 bg-white shadow-pop">
         <div className="max-h-[640px] overflow-y-auto p-5">{children}</div>
       </div>
     )
   }
-  return <div className="w-full max-w-[520px] overflow-hidden rounded-2xl filo bg-white p-7 shadow-pop">{children}</div>
+  // `shadow-card`, no `shadow-pop`: esta hoja está APOYADA en el panel gris, no
+  // flotando sobre nada. `shadow-pop` es el vocabulario de los overlays de verdad
+  // (menús, paneles, modales). El bastidor de móvil de arriba sí es un objeto, un
+  // teléfono puesto encima de la mesa, y conserva la suya.
+  return <div className="w-full max-w-[520px] overflow-clip rounded-2xl filo bg-white p-7 shadow-card">{children}</div>
 }
 
 function Preview({ campaign }: { campaign: Campaign }) {

@@ -103,7 +103,18 @@ export function FieldRenderer({
     <div>
       <label id={labelId} htmlFor={id} className="mb-1.5 block break-words text-sm font-semibold text-slate-800">
         {field.label}
-        {field.required && <span className="ml-0.5 text-red-500" aria-hidden>*</span>}
+        {/* El rojo tiene dos usos, error de verdad y acción destructiva, y este no es
+            ninguno: este mismo fichero pinta el error a unas líneas de aquí, así que un
+            asterisco rojo en el rótulo lee como "esto ya está mal" en un formulario
+            recién abierto. Baja a la tinta de apoyo. Y como el asterisco va `aria-hidden`
+            y el control no declara `required`, lo que decía el glifo no llegaba a un
+            lector de pantalla: se escribe. */}
+        {field.required && (
+          <>
+            <span className="ml-0.5 text-slate-500" aria-hidden>*</span>
+            <span className="sr-only"> (obligatorio)</span>
+          </>
+        )}
       </label>
       {field.helpText && (
         <p id={descId} className="mb-1.5 break-words text-[13px] text-slate-500">
@@ -413,7 +424,11 @@ function MultiSelectControl({
             key={o}
             aria-pressed={sel}
             onClick={() => toggle(o)}
-            className={`inline-flex max-w-full items-center gap-1.5 break-words rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
+            // 44px de alto (`min-h-11`): con `py-2` se quedaban en 38 y esto es el
+            // formulario PÚBLICO, que se rellena con el pulgar. Sin variante táctil, a
+            // todos los anchos, igual que los 48px de los inputs de al lado: aquí no hay
+            // densidad de escritorio que proteger.
+            className={`inline-flex min-h-11 max-w-full items-center gap-1.5 break-words rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
               sel ? 'text-on-accent' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
             }`}
             style={sel ? { backgroundColor: 'var(--accent)', borderColor: 'var(--accent)' } : undefined}
@@ -515,7 +530,11 @@ function FileControl({
         <button
           type="button"
           onClick={() => { onChange(undefined); onFile?.(null) }}
-          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          // Es el único camino para corregir un CV equivocado desde el móvil y medía 28px
+          // de alto. La diana se DESPEGA del dibujo con un `::after` invisible (28 + 8 + 8
+          // = 44) en vez de engordar el botón, que estiraría la fila del archivo entera.
+          // Es el mismo recurso que la cápsula de estado del puesto.
+          className="relative inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-medium text-slate-500 after:absolute after:inset-x-0 after:-inset-y-2 after:content-[''] hover:bg-slate-100 hover:text-slate-700"
         >
           <X className="size-4" aria-hidden /> Quitar
         </button>

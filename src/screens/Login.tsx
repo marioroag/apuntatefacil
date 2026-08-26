@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, Eye, EyeOff, Loader2, Mail } from 'lucide-react'
 import { useAuth } from '../lib/auth'
@@ -36,6 +36,12 @@ function GoogleIcon() {
 type Mode = 'signin' | 'signup'
 type View = 'form' | 'confirm-sent' | 'reset-request' | 'reset-sent'
 
+/** Las dos mitades del conmutador, en el orden en que se leen y se recorren. */
+const MODOS: readonly { value: Mode; label: string }[] = [
+  { value: 'signin', label: 'Entrar' },
+  { value: 'signup', label: 'Crear cuenta' },
+]
+
 const inputClass = (invalid: boolean) =>
   `h-11 w-full rounded-xl border bg-white px-3.5 text-base outline-none placeholder:text-slate-500 focus:ring-4 focus:ring-indigo-500/15 ${invalid ? 'border-red-400' : 'border-slate-300 focus:border-indigo-500'}`
 
@@ -63,6 +69,18 @@ export function Login() {
     setMode(m)
     setError(null)
     setUnconfirmed(false)
+  }
+  // Flechas del `radiogroup`: llevan a la otra mitad dando la vuelta. Sin esto
+  // serían dos botones sueltos, que es lo que eran.
+  // El foco SIGUE a lo marcado: ver el mismo mecanismo (y el mismo porque) en
+  // `SwitchVista`, en Dashboard.tsx. Sin esto, la flecha mueve el tinte y deja el
+  // anillo de foco sobre la mitad que acaba de quedarse fuera del tabulador.
+  const refsModo = useRef<(HTMLButtonElement | null)[]>([])
+  const moverModo = (dir: 1 | -1) => {
+    const i = MODOS.findIndex((m) => m.value === mode)
+    const j = (i + dir + MODOS.length) % MODOS.length
+    switchMode(MODOS[j].value)
+    requestAnimationFrame(() => refsModo.current[j]?.focus())
   }
   const backToForm = () => {
     setView('form')
@@ -209,23 +227,66 @@ export function Login() {
               </h1>
               <p className="mt-1 text-sm text-slate-500">Gestiona tus puestos y candidatos.</p>
 
-              <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1.5">
-                <button
-                  type="button"
-                  onClick={() => switchMode('signin')}
-                  aria-pressed={mode === 'signin'}
-                  className={`rounded-lg py-2 text-sm font-semibold transition-colors ${mode === 'signin' ? 'bg-white text-slate-900 shadow-control' : 'text-slate-500 hover:text-slate-900'}`}
-                >
-                  Entrar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchMode('signup')}
-                  aria-pressed={mode === 'signup'}
-                  className={`rounded-lg py-2 text-sm font-semibold transition-colors ${mode === 'signup' ? 'bg-white text-slate-900 shadow-control' : 'text-slate-500 hover:text-slate-900'}`}
-                >
-                  Crear cuenta
-                </button>
+              {/* La anatomía de `SwitchVista` (Dashboard.tsx): caja rectangular con
+                  filo y divisoria interior, no un carril gris con una pastilla blanca
+                  deslizándose dentro, que es justo el patrón que se retiró en agosto.
+                  Y es un `radiogroup` de verdad con flechas: son dos estados
+                  excluyentes de una misma cosa, no dos botones sueltos con
+                  `aria-pressed`. Es además el primer control que toca cualquiera que
+                  abre el producto.
+                  Dos medidas que aquí NO son las de `SwitchVista`: el radio es de
+                  CAMPO (10px) y el alto es 44px, porque este conmutador ocupa todo el
+                  ancho dentro de una pila de inputs de 44 y radio 10, y es el mismo
+                  argumento por el que `botonBloque` sube a `rounded-xl` en vez de
+                  quedarse en el radio de control.
+                  Y una tercera, que también se declara: se cae el `shadow-control`
+                  de la caja. Allí se apoya sobre la página gris; aquí vive DENTRO de
+                  una tarjeta blanca y su vecino inmediato es el botón de Google, que
+                  es blanco con anillo y sin sombra. Con sombra, era la única pieza
+                  elevada de una pila plana.
+                  `overflow-clip` porque las dos mitades son cajas cuadradas que llegan
+                  al filo: en la curva de la esquina se comerían el borde. */}
+              <div
+                role="radiogroup"
+                aria-label="Entrar o crear cuenta"
+                className="mt-5 grid h-11 grid-cols-2 overflow-clip rounded-xl filo bg-white"
+              >
+                {MODOS.map((m, i) => {
+                  const activa = mode === m.value
+                  return (
+                    <button
+                      key={m.value}
+                      ref={(el) => { refsModo.current[i] = el }}
+                      type="button"
+                      role="radio"
+                      aria-checked={activa}
+                      tabIndex={activa ? 0 : -1}
+                      onClick={() => switchMode(m.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); moverModo(1) }
+                        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); moverModo(-1) }
+                      }}
+                      className={`flex h-full items-center justify-center text-sm font-medium outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+                        // La divisoria la pinta la mitad de la DERECHA: un `divide-x`
+                        // en el padre lo taparía el fondo de la mitad activa.
+                        i > 0 ? 'border-l border-slate-200' : ''
+                      } ${
+                        // El relleno del activo va al paso 100 y NO al 50/60 de
+                        // `SwitchVista`, y está medido: sobre la tarjeta blanca, el
+                        // 50 al 60% da #f5f7fe, o sea 1,07:1, por debajo del 1,16 que
+                        // esta doctrina ya fijó una vez como el suelo para que una
+                        // cápsula teñida se lea como FORMA (fue lo que subió las
+                        // pastillas de estado del 50 al 100). El 100 da 1,23:1.
+                        // Allí el 50 basta porque la mitad activa lleva ADEMÁS su
+                        // cifra rellena en `indigo-600`, que es la mitad del
+                        // contraste; aquí no hay cifra y el relleno va solo.
+                        activa ? 'bg-indigo-100 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  )
+                })}
               </div>
 
               <button
@@ -289,6 +350,7 @@ export function Login() {
                             <span className="size-3.5 shrink-0 rounded-full border border-slate-300" aria-hidden />
                           )}
                           {r.label}
+                          <span className="sr-only">, {ok ? 'cumplido' : 'pendiente'}</span>
                         </li>
                       )
                     })}
@@ -332,7 +394,11 @@ export function Login() {
                     Reenviar email de confirmación
                   </button>
                 )}
-                {note && <p className="mt-1.5 text-[12px] font-medium text-indigo-700">{note}</p>}
+                {/* El acuse ("te lo hemos reenviado") es un estado, no algo que se
+                    pulse: el ultramarine es solo para acción, foco y selección. El
+                    MISMO `note` ya va en `slate-600` en la vista de confirmación de
+                    arriba, así que además eran dos tintas para el mismo texto. */}
+                {note && <p className="mt-1.5 text-[12px] font-medium text-slate-600">{note}</p>}
 
                 <button
                   type="submit"

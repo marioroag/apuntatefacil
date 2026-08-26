@@ -31,7 +31,7 @@ import { FAVORITO_STAR, SOURCE_META, STATUS_META } from '../lib/types'
 import { answerText, candidateName, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM, botonIcono } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { copyText } from '../lib/clipboard'
@@ -259,6 +259,12 @@ export function CandidateModal({
                 <p className="truncate text-[13px] text-slate-500">{campaign.title}</p>
               </div>
             </div>
+            {/* Los tres botones de esta cabecera (las dos flechas y la equis) salen de
+                `botonIcono('ghost')`, no de una pintura escrita aquí. La copia a mano
+                llevaba dos peldaños de la rampa (reposo y hover) y se quedaba sin el
+                tercero: al pulsarla no pasaba nada. El comentario vive en el div que
+                los engloba a los tres, no dentro del de las flechas, porque si no,
+                quien venga a tocar el cerrar no lo ve. */}
             <div className="flex shrink-0 items-center gap-0.5">
               {puedeNavegar && (
                 <div className="mr-1 hidden items-center gap-0.5 sm:flex">
@@ -267,7 +273,7 @@ export function CandidateModal({
                     aria-label="Candidato anterior"
                     disabled={i === 0}
                     onClick={() => irA(i - 1)}
-                    className="grid size-9 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:text-slate-300"
+                    className={botonIcono('ghost', 'md', 'disabled:pointer-events-none disabled:text-slate-300')}
                   >
                     <ArrowLeft className="size-[18px]" aria-hidden />
                   </button>
@@ -279,7 +285,7 @@ export function CandidateModal({
                     aria-label="Candidato siguiente"
                     disabled={i === siblings!.length - 1}
                     onClick={() => irA(i + 1)}
-                    className="grid size-9 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:text-slate-300"
+                    className={botonIcono('ghost', 'md', 'disabled:pointer-events-none disabled:text-slate-300')}
                   >
                     <ArrowRight className="size-[18px]" aria-hidden />
                   </button>
@@ -289,7 +295,7 @@ export function CandidateModal({
                 type="button"
                 aria-label="Cerrar"
                 onClick={onClose}
-                className="grid size-9 pointer-coarse:size-11 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                className={botonIcono('ghost', 'md')}
               >
                 <X className="size-5" aria-hidden />
               </button>
@@ -1010,6 +1016,12 @@ function MenuAcciones({ candidate, cvName, onEliminar, size = 'md' }: { candidat
 
   return (
     <>
+      {/* La pintura del secundario estaba copiada a mano aquí y sale de `botonIcono`.
+          Lo que NO se toca es el objetivo de toque: `TALLA_ICONO.sm` es `size-8` a secas,
+          sin `pointer-coarse`, y la clase que había sí crecía a 44. La fila compacta que
+          lo contiene es `hidden sm:flex`, y `sm` arranca en 640px, o sea que se pinta en
+          cualquier tablet: ahí sí hay dedo, y la doctrina dice que la densidad de
+          escritorio no se paga con un dedo que falla. */}
       <button
         ref={btnRef}
         type="button"
@@ -1017,7 +1029,7 @@ function MenuAcciones({ candidate, cvName, onEliminar, size = 'md' }: { candidat
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className={`grid ${size === 'sm' ? 'size-8' : 'size-9'} pointer-coarse:size-11 shrink-0 place-items-center rounded-lg text-slate-500 ring-1 ring-inset ring-slate-200 transition-colors hover:bg-slate-50 hover:ring-slate-300 hover:text-slate-700 active:bg-slate-100`}
+        className={botonIcono('secondary', size, size === 'sm' ? 'pointer-coarse:size-11' : '')}
       >
         {/* El icono también acompaña: los vecinos _SM llevan size-3.5. */}
         <MoreHorizontal className={size === 'sm' ? 'size-3.5' : 'size-4'} aria-hidden />

@@ -19,3 +19,20 @@ export const DUR = {
   /** 240ms: el techo. Overlays grandes que recorren distancia. */
   max: 0.24,
 } as const
+
+/**
+ * Las curvas, por el mismo motivo y con el mismo cuidado. Framer Motion tampoco
+ * lee `--ease-*`, así que se declaran aquí una vez.
+ *
+ * Y este caso era peor que el de las duraciones: había CINCO constantes llamadas
+ * `CURVA` sueltas por `components/ui` con DOS valores distintos, así que el
+ * siguiente que las subiera a un sitio común vería declaraciones "iguales", haría
+ * el hoist y se llevaría por delante la que no lo era, porque se llama igual.
+ * Dos curvas, dos nombres.
+ */
+export const EASE = {
+  /** `--ease-out`. Lo que RESPONDE a tu dedo: entra rápido y frena al final. */
+  out: [0, 0, 0.2, 1] as const,
+  /** `--ease-standard`. Lo que TRANSFORMA algo de un estado a otro: entra y sale despacio. */
+  standard: [0.4, 0, 0.2, 1] as const,
+} as const

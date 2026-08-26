@@ -1,5 +1,4 @@
-import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
@@ -72,7 +71,7 @@ import { ShareReply } from '../components/ShareReply'
 import { useOnboarding } from '../lib/onboarding'
 import { useAppBase } from '../lib/useAppBase'
 import { useEsMovil } from '../lib/media'
-import { colocarFlotante } from '../lib/flotante'
+import { ChipDimension, ValoresDimension, CHIP_ALTO, type DimensionFiltro } from '../components/FiltroChip'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
 import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SUPERFICIE, botonIcono } from '../lib/buttons'
@@ -797,12 +796,15 @@ export function Dashboard() {
 
   return (
     <PullToRefresh onRefresh={refresh}>
-    {/* `max-sm:pt-4`: en móvil el título arranca a 28px del filo (16 de aquí + 12
-          de la cabecera) y no a 36. Encima hay ya una barra con la marca, así que
-          ese hueco no está separando el título de nada: solo empuja la primera
-          candidatura fuera de la pantalla. En escritorio se queda como estaba,
-          donde el aire de arriba es lo único que separa el título del borde. */}
-      <div className="mx-auto max-w-[1240px] px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
+    {/* `max-sm:pt-4`: en móvil el título arranca a 28px del filo y no a 36. Encima
+          hay ya una barra con la marca, así que ese hueco no está separando el
+          título de nada: solo empuja la primera candidatura fuera de la pantalla.
+          En escritorio se queda como estaba, donde el aire de arriba es lo único
+          que separa el título del borde.
+          Lo llevan las NUEVE pantallas del shell (Mario, ago 2026): el reparto de
+          aire es de la app, no de una pantalla, y con solo el panel corregido se
+          notaba el escalón al navegar. */}
+      <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
       {/* Acción del buscador mientras este puesto esté abierto: exporta lo que ves,
           con los filtros puestos. Lleva el nombre del puesto porque el buscador se
           usa desde cualquier sitio y "Exportar a Excel" a secas no diría de qué. */}
@@ -1290,7 +1292,7 @@ export function Dashboard() {
           className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white px-4 pt-3 shadow-pop sm:hidden"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
-          <div className="mx-auto max-w-[1240px] space-y-2">
+          <div className="mx-auto max-w-trabajo space-y-2">
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -1916,200 +1918,6 @@ function RangeSlider({ min, max, from, to, onChange }: {
   )
 }
 
-/**
- * BARRA DE FILTROS POR CATEGORÍAS (referencia que dio Mario, ago 2026).
- *
- * Lo que sustituye eran TRES franjas para una sola idea: una fila de controles que
- * no decía nada ("Filtros", "Vistas", un cuadrado de buscar), debajo una línea gris
- * con "127 candidatos, 2 filtros activos", y debajo una tira de chips con lo que
- * había puesto. Ponías el filtro arriba y leías la consecuencia abajo, en dos
- * sitios distintos. Ahora el control y su lectura son la misma cosa.
- *
- * La idea que lo ordena todo, y que es de la referencia: **"Filtros" no abre un
- * panel con todo dentro, AÑADE una dimensión.** Cada dimensión añadida es un chip
- * que enseña cuántos valores tiene puestos, y se puede quitar. Eso tiene una
- * consecuencia que vale más que el aspecto: **las preguntas de ESTE puesto son
- * dimensiones igual que Estado o Etiquetas**, así que el panel aparte que hacía
- * falta para la cola larga desaparece. Un solo mecanismo en vez de dos.
- *
- * **Un chip existe si FILTRA, y punto.** Hubo un estado paralelo de "categorías
- * añadidas" para poder enseñar una cápsula vacía nada más elegirla, y el efecto
- * fue el contrario del buscado: al desmarcar el último valor el chip seguía ahí,
- * diciendo "Estado" sin filtrar por ningún estado. Derivarlo de `n > 0` lo arregla
- * y además hace que una vista guardada enseñe sus filtros sola.
- */
-type DimensionFiltro = {
-  id: string
-  label: string
-  icon: LucideIcon
-  /** Cuántos valores tiene puestos. 0 = no filtra, y entonces no se pinta chip. */
-  n: number
-  /**
-   * Las preguntas de ESTE puesto viven dentro de una categoría "Preguntas" en vez
-   * de sueltas en la raíz: son las únicas que cambian de puesto en puesto, así que
-   * en la raíz eran cinco filas de títulos largos ("¿Vehículo propio para
-   * desplaza…") que empujaban hacia abajo a las cuatro que sí están siempre. Se
-   * DECLARA aquí y no se deduce del prefijo del id: el id es una clave, no una
-   * taxonomía.
-   */
-  grupo?: 'preguntas'
-  limpiar: () => void
-  /**
-   * Sus valores. Se declaran como DATOS y no como un panel ya pintado, porque los
-   * pinta quien los enseña: la página de la categoría dentro de "Filtros" y el
-   * desplegable del chip son la misma lista, y además el campo de arriba tiene que
-   * poder filtrarla ("Elegir estado" con quince opciones no se barre de un vistazo).
-   * Con el panel pre-pintado, ese buscador no podía existir.
-   */
-  opciones?: { valor: string; label: string; leading?: ReactNode }[]
-  seleccionadas?: Set<string>
-  onToggle?: (valor: string) => void
-  /** Escotilla para las dimensiones que NO son una lista (los rangos numéricos). */
-  panel?: ReactNode
-}
-
-/** Lo que se ve dentro de una dimensión: su lista filtrable, o su panel a medida. */
-function ValoresDimension({ dim, q }: { dim: DimensionFiltro; q: string }) {
-  if (dim.panel) return <>{dim.panel}</>
-  const busca = q.trim().toLowerCase()
-  const lista = (dim.opciones ?? []).filter((o) => !busca || o.label.toLowerCase().includes(busca))
-  if (lista.length === 0) return <p className="px-2.5 py-3 text-[13px] text-slate-500">Ningún valor se llama así.</p>
-  return (
-    <>
-      {lista.map((o) => (
-        <label
-          key={o.valor}
-          className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-[14px] text-slate-700 hover:bg-slate-50 sm:py-1.5 sm:text-[13px]"
-        >
-          <Checkbox checked={dim.seleccionadas?.has(o.valor) ?? false} onChange={() => dim.onToggle?.(o.valor)} />
-          {o.leading}
-          <span className="min-w-0 flex-1 truncate">{o.label}</span>
-        </label>
-      ))}
-    </>
-  )
-}
-
-/**
- * Alto de la franja: 36px, el mismo que TODO lo que hay en su línea (el buscador y
- * el conmutador Activos/Rechazados). Estuvo a 32 con el argumento de que un chip de
- * filtro no es una acción y conviene que se lea en otro registro; el argumento no
- * era malo, pero el resultado sí: en la misma fila convivían controles de 32 y de
- * 36 y se veía descuadrada. **Una fila se lee por su línea de base común**, así que
- * el registro se dice con la pintura (tinte y peso), no con la altura.
- * En táctil sube a 44, que es el objetivo de toque.
- *
- * 40px y no 36 (Mario, ago 2026): es la fila con la que más se trabaja de la
- * pantalla y estaba a la misma talla que los botones de la cabecera, que se usan
- * mucho menos. Lo que se toca a menudo se hace más grande, no más pequeño.
- */
-const CHIP_ALTO = 'h-10 pointer-coarse:h-11'
-
-function ChipDimension({ dim }: { dim: DimensionFiltro }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  // EN UN PORTAL Y CON POSICIÓN FIJA, no `absolute` dentro del chip. La tira de
-  // chips se desplaza en horizontal, y `overflow-x` obliga al navegador a
-  // recortar también en vertical: colgado del chip, el desplegable se quedaba
-  // dentro de una caja de 40px de alto y no se veía. Es la misma regla que ya
-  // gobierna los tooltips y el panel de avisos: lo que flota se coloca contra la
-  // VENTANA, así ningún `overflow` de un antepasado puede alcanzarlo.
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-
-  useLayoutEffect(() => {
-    if (!open) return
-    const colocar = () => {
-      const ancla = ref.current?.getBoundingClientRect()
-      const panel = panelRef.current?.getBoundingClientRect()
-      if (!ancla || !panel) return
-      const { top, left } = colocarFlotante(
-        ancla,
-        { width: panel.width, height: panel.height },
-        { width: window.innerWidth, height: window.innerHeight },
-        // Alineado a la IZQUIERDA del chip, que es de donde parece colgar; si no
-        // cabe, `colocarFlotante` lo aprieta contra el filo en vez de sacarlo.
-        { alinear: 'izquierda' },
-      )
-      setPos({ top, left })
-    }
-    colocar()
-    window.addEventListener('resize', colocar)
-    // El main y la propia tira se desplazan: sin reposicionar, el panel se queda
-    // huérfano flotando donde estaba el chip.
-    const main = document.getElementById('contenido')
-    main?.addEventListener('scroll', colocar, { passive: true })
-    const tira = ref.current?.parentElement
-    tira?.addEventListener('scroll', colocar, { passive: true })
-    return () => {
-      window.removeEventListener('resize', colocar)
-      main?.removeEventListener('scroll', colocar)
-      tira?.removeEventListener('scroll', colocar)
-    }
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    const dentro = (t: Node | null) =>
-      (ref.current?.contains(t as Node) ?? false) || (panelRef.current?.contains(t as Node) ?? false)
-    const onDoc = (e: MouseEvent) => !dentro(e.target as Node) && setOpen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
-  useEffect(() => { if (!open) setPos(null) }, [open])
-
-  return (
-    <div className="relative shrink-0" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        className={`${CHIP_ALTO} inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3.5 text-sm font-medium text-indigo-700 outline-none transition-colors duration-[var(--duration-control)] hover:bg-indigo-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40`}
-      >
-        <span className="truncate">{dim.label}</span>
-        {/* El recuento entre paréntesis, como en la referencia: dice cuánto hay
-            puesto sin tener que abrir. Siempre hay al menos uno, porque sin
-            ninguno el chip no existiría. */}
-        <span className="num shrink-0">({dim.n})</span>
-        <ChevronDown className={`size-3 shrink-0 opacity-70 transition-transform duration-[var(--duration-control)] ${open ? 'rotate-180' : ''}`} aria-hidden />
-      </button>
-
-      {open && createPortal(
-        <div
-          ref={panelRef}
-          className="fixed z-50 w-64 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop"
-          // Hasta que está medido se pinta fuera de la vista: colocado en 0,0 y
-          // saltando después, se vería el salto en el primer fotograma.
-          style={pos ? { top: pos.top, left: pos.left } : { top: -9999, left: -9999 }}
-        >
-          <div className="max-h-72 space-y-0.5 overflow-y-auto">
-            <ValoresDimension dim={dim} q="" />
-          </div>
-          {/* Quitar la dimensión vive DENTRO de su desplegable y no como una equis
-              en el chip: en una fila que puede llevar seis chips, seis equis son
-              seis controles más, y la doctrina dice que en una fila no se meten
-              controles que no sean imprescindibles. */}
-          <button
-            type="button"
-            onClick={() => { dim.limpiar(); setOpen(false) }}
-            className="mt-1 flex w-full items-center gap-2 border-t border-slate-100 px-2.5 pb-0.5 pt-2 text-left text-[13px] font-medium text-slate-500 transition-colors hover:text-slate-800"
-          >
-            <X className="size-3.5" aria-hidden /> Quitar este filtro
-          </button>
-        </div>,
-        document.body,
-      )}
-    </div>
-  )
-}
-
 /** Fila de categoría del menú de filtros: lleva a otra página de la misma caja. */
 function FilaCategoria({
   icon: Icon,
@@ -2597,9 +2405,18 @@ function SwitchVista({
     { value: 'activos' as const, label: 'Activos', n: nActivos },
     { value: 'rechazados' as const, label: 'Rechazados', n: nRechazados },
   ]
+  // EL FOCO SIGUE A LO MARCADO, que es lo que distingue un `radiogroup` de dos
+  // botones. Con `tabIndex` rotatorio, cambiar la seleccion y dejar el foco donde
+  // estaba deja el anillo sobre una mitad que acaba de pasar a `tabIndex={-1}`: el
+  // teclado dice una cosa y la pintura otra. Se guarda un `ref` por mitad y el foco
+  // se mueve DESPUES del commit (`requestAnimationFrame`), porque en el momento del
+  // manejador el `tabIndex` nuevo todavia no esta puesto.
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
   const mover = (dir: 1 | -1) => {
     const i = opciones.findIndex((o) => o.value === vista)
-    onChange(opciones[(i + dir + opciones.length) % opciones.length].value)
+    const j = (i + dir + opciones.length) % opciones.length
+    onChange(opciones[j].value)
+    requestAnimationFrame(() => refs.current[j]?.focus())
   }
   return (
     // Caja RECTANGULAR con filo y divisoria interior, no una pastilla gris con un
@@ -2619,6 +2436,7 @@ function SwitchVista({
         return (
           <button
             key={o.value}
+            ref={(el) => { refs.current[i] = el }}
             type="button"
             role="radio"
             aria-checked={activa}

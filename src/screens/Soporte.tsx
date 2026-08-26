@@ -3,6 +3,7 @@ import { Building2, Copy, Globe, Loader2, LifeBuoy, Mail } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { SlideOver } from '../components/ui/SlideOver'
+import { PageHeader } from '../components/ui/PageHeader'
 import { CHAT_ALTO_MAX, CHAT_ROW, CHAT_SURFACE, CHAT_TEXTAREA, ChatSend } from '../components/ui/Chat'
 import { relativeDate, fullDateTime } from '../lib/format'
 import { copyText } from '../lib/clipboard'
@@ -184,11 +185,8 @@ export function Soporte() {
   }
 
   return (
-    <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-5">
-        <h1 className="text-xl font-semibold text-slate-900">Soporte</h1>
-        <p className="mt-0.5 text-sm text-slate-500">Consultas de clientes y de la web, con la conversación entera aquí.</p>
-      </header>
+    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
+      <PageHeader titulo="Soporte" sub="Consultas de clientes y de la web, con la conversación entera aquí." />
 
       <div className="mb-3 flex items-center gap-2">
         {(['abierto', 'cerrado'] as Filter[]).map((f) => (
@@ -216,7 +214,7 @@ export function Soporte() {
           <p className="text-sm text-slate-500">{filter === 'abierto' ? 'No hay consultas abiertas. Todo al día.' : 'No hay consultas cerradas.'}</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl filo bg-white shadow-card">
+        <div className="overflow-clip rounded-xl filo bg-white shadow-card">
           <ul className="divide-y divide-slate-100" aria-label="Consultas de soporte">
             {visible.map((t) => {
               const { Icon } = ORIGEN[t.source]
@@ -239,7 +237,7 @@ export function Soporte() {
                       </div>
                       <p className="mt-0.5 truncate text-[13px] text-slate-500">{t.preview}</p>
                     </div>
-                    <span className="num shrink-0 text-[12px] text-slate-400">{relativeDate(t.last_message_at)}</span>
+                    <span className="num shrink-0 text-[12px] text-slate-500">{relativeDate(t.last_message_at)}</span>
                   </button>
                 </li>
               )
@@ -341,7 +339,7 @@ function Bubble({ m }: { m: ThreadMessage }) {
         >
           {m.body}
         </div>
-        <p className={`num mt-1 text-[11px] text-slate-400 ${out ? 'text-right' : 'text-left'}`}>
+        <p className={`num mt-1 text-[11px] text-slate-500 ${out ? 'text-right' : 'text-left'}`}>
           {out ? 'Equipo' : m.from_email ?? 'Cliente'} · {relativeDate(m.created_at)}
         </p>
       </div>

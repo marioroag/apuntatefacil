@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { useToast } from './ui/Toast'
+import { Checkbox } from './ui/Checkbox'
 import { PLAN_LABEL, PLAN_PROCESS_LIMIT } from '../lib/pricing'
 import { BTN_PRIMARY } from '../lib/buttons'
 
@@ -75,7 +76,10 @@ export function DowngradeReconcileDialog() {
 
   return (
     <div
-      className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/50 p-4"
+      // El telón, al 40% como las otras cuatro capas del sistema. Estaba al 50%:
+      // una capa más oscura que las demás se lee como "esto es más grave", y aquí
+      // no lo es más que en cualquier otro diálogo bloqueante.
+      className="fixed inset-0 z-[60] grid place-items-center bg-slate-900/40 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="reconcile-title"
@@ -99,27 +103,34 @@ export function DowngradeReconcileDialog() {
               const disabled = !selected && atMax
               return (
                 <li key={c.id}>
-                  <button
-                    type="button"
-                    onClick={() => toggle(c.id)}
-                    disabled={disabled}
-                    aria-pressed={selected}
-                    className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] ${
+                  {/* Elegir de una lista es un CHECKBOX, y el de la casa es
+                      `ui/Checkbox`: esto era una casilla dibujada a mano, de 20px y
+                      `rounded-md`, cuando la primitiva mide 16 y va a 5px. Un input
+                      no puede vivir dentro de un `<button>`, así que la fila pasa a
+                      `<label>`: el control es real, el estado lo dice `checked` en vez
+                      de un `aria-pressed` prestado, y pulsar en cualquier parte de la
+                      fila sigue marcando, igual que antes.
+
+                      El marco, a DOS MANOS (`filo-*`). Y las dos se mueven a la vez
+                      en el hover a propósito: la segunda mano es un outline pintado
+                      encima del borde, así que un `hover:border-*` suelto no se
+                      vería. */}
+                  <label
+                    // `focus-within` en la FILA y no solo el anillo de la casilla: al
+                    // pasar de `<button aria-pressed>` a `<label>` + `ui/Checkbox`, la
+                    // señal de foco bajó de un contorno alrededor de toda la fila a un
+                    // aro sobre una caja de 16px. Este diálogo BLOQUEA y su única tarea
+                    // es recorrer estas filas con el teclado, así que el foco tiene que
+                    // decir en qué fila estás, no solo en qué casilla.
+                    className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-indigo-600 ${
                       selected
-                        ? 'border-indigo-300 bg-indigo-50/50'
+                        ? 'cursor-pointer filo-indigo-300 bg-indigo-50/50'
                         : disabled
-                          ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-55'
-                          : 'border-slate-200 hover:border-slate-300'
+                          ? 'cursor-not-allowed filo-slate-200 bg-slate-50 opacity-55'
+                          : 'cursor-pointer filo-slate-200 hover:filo-slate-300'
                     }`}
                   >
-                    <span
-                      aria-hidden
-                      className={`grid size-5 shrink-0 place-items-center rounded-md border ${
-                        selected ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-slate-300 bg-white'
-                      }`}
-                    >
-                      {selected && <Check className="size-3.5 [stroke-width:3]" />}
-                    </span>
+                    <Checkbox checked={selected} disabled={disabled} onChange={() => toggle(c.id)} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-slate-900">{c.title}</span>
                       <span className="block truncate text-[12px] text-slate-500 num">
@@ -130,7 +141,7 @@ export function DowngradeReconcileDialog() {
                     <span className="shrink-0 text-[11px] font-medium text-slate-500">
                       {selected ? 'Activo' : 'En pausa'}
                     </span>
-                  </button>
+                  </label>
                 </li>
               )
             })}

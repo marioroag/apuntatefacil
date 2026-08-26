@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from 'react'
 import { ArrowDown, ArrowUp, FileText, Loader2 } from 'lucide-react'
 import { fullDateTime, memberAvatarTone, plural, relativeDate } from '../../lib/format'
-import { botonIcono } from '../../lib/buttons'
+import { BTN_MOTION, BTN_SUPERFICIE, botonIcono } from '../../lib/buttons'
 import type { CompanyMember } from '../../lib/types'
 import { ES_MENCION, MENTION_SPLIT_RE, mentionHandle, mentionToken, resolveMentions } from '../../lib/mentions'
 import { useProfiles } from '../../lib/profiles'
@@ -198,10 +198,25 @@ export function ChatNuevos({ nuevos, onClick }: { nuevos: number; onClick: () =>
   if (nuevos <= 0) return null
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+      {/* La PINTURA sale de `buttons.ts`, no se escribe aquí. A mano se había
+          quedado en dos peldaños de la rampa del sólido (600 al reposo, 700 al
+          hover) y sin el tercero, así que al pulsar no pasaba nada: es por donde
+          derivan siempre los clones del botón. El movimiento va con `BTN_MOTION`
+          por la CURVA, no por la duración: `transition-colors` ya iba a 150ms
+          (`--default-transition-duration` en index.css), pero con la curva de
+          fábrica de Tailwind, que es la estándar; un control que responde al dedo
+          lleva `--ease-out`. El foco se queda en el `:focus-visible` global, que
+          ya pinta exactamente ese mismo anillo de acento.
+
+          Lo único propio es la FORMA: es una píldora flotante encima del hilo, no
+          un control en fila, y por eso no se fabrica con `botonClase`. Pasarle
+          `rounded-full` como extra tampoco valdría, porque choca con su
+          `rounded-lg` en la misma utilidad de Tailwind y eso lo resuelve el orden
+          del CSS compilado, no el del `className` (la lección del `px-0`). */}
       <button
         type="button"
         onClick={onClick}
-        className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-indigo-600 py-1.5 pl-3 pr-3.5 text-[13px] font-semibold text-white shadow-pop transition-colors hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+        className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-full py-1.5 pl-3 pr-3.5 text-[13px] font-semibold shadow-pop ${BTN_MOTION} ${BTN_SUPERFICIE.primary}`}
       >
         <ArrowDown className="size-3.5" aria-hidden />
         {plural(nuevos, 'mensaje nuevo', 'mensajes nuevos')}

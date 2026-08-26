@@ -109,7 +109,7 @@ function CitaAMano({
         </p>
       </div>
 
-      <dl className="mx-auto mt-5 max-w-[36ch] divide-y divide-slate-200 rounded-xl bg-slate-50 px-3 text-[13px] ring-1 ring-inset ring-slate-200">
+      <dl className="mx-auto mt-5 max-w-[36ch] divide-y divide-slate-200 rounded-xl filo bg-slate-50 px-3 text-[13px]">
         <Linea etiqueta="Puesto" valor={campaign.title} />
         <Linea
           etiqueta="Cuándo"
@@ -241,7 +241,12 @@ function Inicio({
       return
     }
     if (res.status === 'plan') {
-      setError('Las entrevistas son del plan Pro.')
+      // El RPC sigue devolviendo 'plan' (migración 20260801120000_interviews.sql),
+      // pero los tiers murieron con el pago por proceso: hoy este caso solo puede
+      // significar que el proceso no está al día de pago. Las dos superficies que
+      // lo pintan (aquí y `InterviewConversation`) dicen lo MISMO, porque salen
+      // del mismo hecho.
+      setError('Este proceso no está al día de pago. Actívalo en Facturación para agendar entrevistas.')
       return
     }
     toast.error('No se pudo iniciar la invitación.')
@@ -264,7 +269,7 @@ function Inicio({
 
       {/* Revisión antes de enviar. Cinco líneas, no un formulario: lo normal es
           confirmar de un vistazo, así que los controles se piden aparte. */}
-      <dl className="mx-auto mt-5 max-w-[36ch] divide-y divide-slate-200 rounded-xl bg-slate-50 px-3 text-[13px] ring-1 ring-inset ring-slate-200">
+      <dl className="mx-auto mt-5 max-w-[36ch] divide-y divide-slate-200 rounded-xl filo bg-slate-50 px-3 text-[13px]">
         <Linea etiqueta="Puesto" valor={campaign.title} />
         <Linea etiqueta="Modalidad" valor={INTERVIEW_MODE_META[modo].label} />
         <Linea etiqueta="Duración" valor={`${duracion} min`} />
@@ -436,8 +441,13 @@ function Linea({ etiqueta, valor, apagado = false, num = false }: {
       <dt className="shrink-0 text-slate-500">{etiqueta}</dt>
       {/* Sin truncar: esto existe para REVISAR antes de enviar, así que un valor
           cortado con puntos suspensivos rompe justo lo que la pantalla hace.
-          Si no cabe, salta de línea. */}
-      <dd className={`min-w-0 text-right font-medium ${num ? 'num' : ''} ${apagado ? 'text-slate-400' : 'text-slate-800'}`}>
+          Si no cabe, salta de línea.
+
+          Lo APAGADO va en `slate-500`, no en `slate-400`: aquí ese gris es el que
+          pinta "Falta la dirección", "Falta el enlace" y "No dejó teléfono", o sea
+          la advertencia, y `slate-400` es 2,6:1 sobre blanco (vale para un glifo,
+          no para texto que dice algo). Apagar no es dejar de cumplir el 4,5:1. */}
+      <dd className={`min-w-0 text-right font-medium ${num ? 'num' : ''} ${apagado ? 'text-slate-500' : 'text-slate-800'}`}>
         {valor}
       </dd>
     </div>
@@ -665,7 +675,15 @@ function Burbuja({ mensaje }: { mensaje: ConversationMessage }) {
   )
 }
 
-/** Estado de entrega. Solo se pinta lo que informa: un fallo, o que llegó. */
+/**
+ * Estado de entrega. Solo se pinta lo que informa: un fallo, o que llegó.
+ *
+ * "Leído" NO va en el acento (era `indigo-600`, ago 2026): el ultramarine es
+ * acción, foco y selección, nunca un estado, y este es el estado de un mensaje.
+ * Se dice con TINTA contra el gris apagado de "entregado", que es el mismo
+ * mecanismo con el que el lateral distingue un puesto en marcha de uno parado.
+ * El color no es el único portador: cada glifo lleva su `aria-label`.
+ */
 function Entrega({
   estado,
   error,
@@ -681,7 +699,7 @@ function Entrega({
       </span>
     )
   }
-  if (estado === 'leido') return <CheckCheck className="size-3 text-indigo-600" aria-label="Leído" />
+  if (estado === 'leido') return <CheckCheck className="size-3 text-slate-700" aria-label="Leído" />
   if (estado === 'entregado') return <CheckCheck className="size-3 text-slate-400" aria-label="Entregado" />
   if (estado === 'enviado') return <Check className="size-3 text-slate-400" aria-label="Enviado" />
   return <Clock className="size-3 text-slate-300" aria-label="Pendiente" />

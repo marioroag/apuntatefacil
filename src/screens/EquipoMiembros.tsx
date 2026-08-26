@@ -7,7 +7,7 @@ import { useAuth } from '../lib/auth'
 import { personLabel, relativeDate } from '../lib/format'
 import { useProfiles } from '../lib/profiles'
 import { Avatar } from '../components/ui/Avatar'
-import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { SEED_INVITES, SEED_MEMBERS, freshenDemoIso } from '../lib/seed'
 
@@ -376,7 +376,12 @@ function RolePill({ active, onClick, label, hint }: { active: boolean; onClick: 
       // ring-indigo-200` a la vez: dos hairlines de 1px pegados, es decir un canto de
       // 2px que además hacía la tarjeta más grande que la inactiva. La selección se
       // dice con el color del borde y el tinte del fondo; no hace falta engordarla.
-      className={`flex-1 rounded-xl border px-3 py-2 text-left transition-colors ${active ? 'border-indigo-300 bg-indigo-50/60' : 'border-slate-200 hover:bg-slate-50'}`}
+      // El marco va con `filo`, que lo pinta a DOS MANOS (borde + outline a -1px).
+      // Una sola mano pierde hasta un 23% de tinta en el arco de la esquina, que en
+      // un hairline de 1,15:1 es la diferencia entre canto y difuminado. Las dos
+      // manos se mueven a la vez porque el color cambia con la selección: un
+      // `hover:border-*` suelto lo taparía el outline, que se pinta encima.
+      className={`flex-1 rounded-xl px-3 py-2 text-left transition-colors ${active ? 'filo-indigo-300 bg-indigo-50/60' : 'filo-slate-200 hover:bg-slate-50'}`}
     >
       <span className="block text-sm font-medium text-slate-800">{label}</span>
       <span className="block text-[12px] text-slate-500">{hint}</span>
@@ -399,6 +404,15 @@ function SedePicker({ sites, selected, onToggle }: { sites: { id: string; name: 
               type="button"
               onClick={() => onToggle(s.id)}
               aria-pressed={on}
+              // ACENTO SÓLIDO, y esto es una excepción declarada, no un olvido.
+              // Se probó pasarlo a la cápsula teñida del panel para tener una sola
+              // gramática y se midió que era peor: aquí las cápsulas están
+              // SIEMPRE presentes, así que el relleno es el único portador de cuáles están
+              // puestas, y `indigo-50` contra `slate-100` se separan 1,02:1, o
+              // sea nada. Los chips del panel sí pueden ir teñidos porque allí un
+              // chip solo existe si filtra: su PRESENCIA es la señal. Y un control
+              // con `aria-pressed` es una SELECCIÓN, que es uno de los cuatro usos
+              // permitidos del ultramarine junto a la acción y el foco.
               className={`rounded-full px-3 py-1 text-[13px] font-medium transition-colors ${on ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
               {s.name}
@@ -432,7 +446,11 @@ function MemberEditor({
       </div>
       {role === 'encargado' && <SedePicker sites={sites} selected={sel} onToggle={(id) => setSel((s) => toggle(s, id))} />}
       <div className="mt-3 flex justify-end gap-2">
-        <button onClick={onCancel} className={BTN_SECONDARY}>
+        {/* Un botón de solo icono se fabrica con `botonIcono`, que le da caja
+            cuadrada: con `BTN_SECONDARY` conservaba el relleno horizontal del botón
+            con texto y salía rectangular. Y `aria-label` porque era el único de esta
+            pareja sin nombre accesible: para un lector de pantalla no existía. */}
+        <button onClick={onCancel} aria-label="Cancelar" className={botonIcono('secondary')}>
           <X className="size-4" aria-hidden />
         </button>
         <button onClick={() => onSave(role, [...sel])} className={BTN_PRIMARY}>

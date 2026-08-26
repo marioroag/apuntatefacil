@@ -2,6 +2,15 @@ import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Button } from './Button'
+import { DUR, EASE } from '../../lib/motion'
+
+/**
+ * La curva del panel, la misma que su hermano `Modal`. No es ninguna de las
+ * `--ease-*` del CSS, y por eso se nombra: Framer Motion no lee variables, así
+ * que un número suelto dentro del `transition` es el que deriva sin que nadie lo
+ * vea. El telón iba además a 0.16, que no es ninguna de las tres duraciones del
+ * sistema (`lib/motion.ts`); ahora entra en `enter`, como todo lo que aparece.
+ */
 
 // Modal de confirmación centrado. Foco atrapado, cierre con Escape o clic fuera,
 // scroll del fondo bloqueado. La animación respeta reduced-motion (MotionConfig global).
@@ -72,7 +81,7 @@ export function ConfirmDialog({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.16 }}
+            transition={{ duration: DUR.enter }}
             onClick={() => !loading && onClose()}
           />
           <motion.div
@@ -82,7 +91,7 @@ export function ConfirmDialog({
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.97, y: 6 }}
-            transition={{ duration: 0.18, ease: [0, 0, 0.2, 1] }}
+            transition={{ duration: DUR.enter, ease: EASE.out }}
           >
             <h2 id="confirm-title" className="text-lg font-semibold text-slate-900">{title}</h2>
             <div className="mt-2 text-sm leading-relaxed text-slate-600">{children}</div>

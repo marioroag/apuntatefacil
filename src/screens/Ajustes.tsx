@@ -52,7 +52,7 @@ export function Ajustes() {
   }
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
       {/* Sin subtítulo: "Ajustes" ya se explica solo, y una línea gris debajo
           repitiéndolo sería la segunda cosa que se lee en la pantalla. */}
       <PageHeader titulo="Ajustes" />
@@ -77,11 +77,18 @@ function Menu({ secciones, base }: { secciones: SeccionAjustes[]; base: string }
         <NavLink
           key={s.id}
           to={`${base}/ajustes/${s.id}`}
+          // EL PESO SE DECLARA UNA VEZ, en la base, y ningún estado lo toca:
+          // misma regla que `FILA` en `filaLateral.ts`. Iba de `font-medium` a
+          // `font-semibold` al activarse, y una etiqueta que engorda ensancha su
+          // botón y empuja a las vecinas, así que la fila entera tiembla cada vez
+          // que cambias de sección. El activo ya se dice con la tinta, el relleno
+          // de la píldora (escritorio) y el subrayado (móvil): tres señales, sin
+          // mover un píxel de nadie.
           className={({ isActive }) =>
-            `relative flex shrink-0 items-center gap-2 whitespace-nowrap px-2.5 py-2 text-sm transition-colors lg:h-9 lg:w-full lg:rounded-xl lg:py-0 ${
+            `relative flex shrink-0 items-center gap-2 whitespace-nowrap px-2.5 py-2 text-sm font-medium transition-colors lg:h-9 lg:w-full lg:rounded-xl lg:py-0 ${
               isActive
-                ? 'font-semibold text-slate-900 lg:bg-indigo-50'
-                : 'font-medium text-slate-600 hover:text-slate-900 lg:hover:bg-slate-100'
+                ? 'text-slate-900 lg:bg-indigo-50'
+                : 'text-slate-600 hover:text-slate-900 lg:hover:bg-slate-100'
             }`
           }
         >
@@ -230,7 +237,7 @@ function Nota({ children }: { children: React.ReactNode }) {
 
 function SinAjustes() {
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
       <PageHeader titulo="Ajustes" sub="Tu plan todavía no tiene nada que ajustar aquí." />
     </div>
   )

@@ -16,8 +16,9 @@ import type { Candidate, CompanyMember, TeamRequest, TeamRequestComment } from '
 import { STATUS_META, TEAM_REQUEST_STATUS_META } from '../lib/types'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { candidateName, initials } from '../lib/format'
-import { BTN_SECONDARY_SM } from '../lib/buttons'
+import { candidateName } from '../lib/format'
+import { BTN_SECONDARY_SM, botonIcono } from '../lib/buttons'
+import { Avatar } from '../components/ui/Avatar'
 import { SlideOver } from '../components/ui/SlideOver'
 import {
   CHAT_ACTIONS, CHAT_ALTO_MAX, CHAT_SURFACE, CHAT_TEXTAREA_BLOQUE, ChatSend, ChatSkeleton, ChatThread,
@@ -326,7 +327,7 @@ export function TeamRequestPanel({
                 onClick={() => void setTeamRequestStatus(request.id, isOpen ? 'completada' : 'abierta')}
                 aria-label={isOpen ? 'Marcar completada' : 'Reabrir'}
                 title={isOpen ? 'Marcar completada' : 'Reabrir'}
-                className="grid size-9 pointer-coarse:size-11 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                className={botonIcono('ghost', 'md')}
               >
                 {isOpen ? <CheckCircle2 className="size-5" aria-hidden /> : <RotateCcw className="size-5" aria-hidden />}
               </button>
@@ -335,7 +336,7 @@ export function TeamRequestPanel({
                 onClick={() => setConfirmDelete(true)}
                 aria-label="Eliminar petición"
                 title="Eliminar"
-                className="grid size-9 pointer-coarse:size-11 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600"
+                className={botonIcono('ghost', 'md', 'hover:bg-red-50 hover:text-red-600 active:bg-red-100')}
               >
                 <Trash2 className="size-5" aria-hidden />
               </button>
@@ -526,12 +527,11 @@ function ThreadProposals({
         onClick={() => onOpen(only)}
         className="mt-2.5 flex min-h-11 w-full max-w-md items-center gap-2.5 rounded-xl filo bg-white py-2 pl-2 pr-3 text-left transition-colors hover:bg-slate-50"
       >
-        <span
-          className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
-          aria-hidden
-        >
-          {initials(candidateName(only))}
-        </span>
+        {/* La cara sale de la primitiva, no se repinta aquí. Pintada a mano se
+            había quedado con la letra al 36% del círculo (10px en uno de 28) contra
+            el 44% de `ui/Avatar`, y con un negro fijo en vez del tono estable de la
+            persona: la misma cara salía negra aquí y de color en la tabla. */}
+        <Avatar name={candidateName(only)} size={28} />
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-800">{label}</span>
         <ChevronRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
       </button>
@@ -549,20 +549,25 @@ function ThreadProposals({
         className="flex min-h-11 w-full items-center gap-2.5 rounded-xl filo bg-white py-2 pl-2 pr-3 text-left transition-colors hover:bg-slate-50"
       >
         <span className="flex shrink-0 items-center pl-0.5" aria-hidden>
-          {preview.map(({ id, candidate }, i) => {
-            const mark = candidate ? initials(candidateName(candidate)) : '?'
-            return (
-              <span
-                key={id}
-                className={`grid size-7 place-items-center rounded-full text-[10px] font-bold ring-2 ring-white ${
-                  candidate ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-500'
-                } ${i > 0 ? '-ml-1.5' : ''}`}
-                style={{ zIndex: preview.length - i }}
-              >
-                {mark}
-              </span>
-            )
-          })}
+          {/* El aro blanco de la pila SÍ se queda: es un halo (separa una cara de
+              la que tiene detrás), la excepción declarada al `ring-inset`. Lo que
+              se va es el círculo pintado a mano de dentro. El `z-index` necesita
+              seguir en el hijo directo del flex, así que la cara va envuelta. */}
+          {preview.map(({ id, candidate }, i) => (
+            <span key={id} className={`flex ${i > 0 ? '-ml-1.5' : ''}`} style={{ zIndex: preview.length - i }}>
+              {candidate ? (
+                <Avatar name={candidateName(candidate)} size={28} className="ring-2 ring-white" />
+              ) : (
+                // Sin acceso no es una persona: no tiene nombre del que sacar cara.
+                // El glifo va al 44% del círculo, como `ui/Avatar` (12px en uno de 28):
+                // con los 10px de antes, el "?" se leía más pequeño que las iniciales
+                // que tiene al lado en la misma pila.
+                <span className="grid size-7 place-items-center rounded-full bg-slate-200 text-[12px] font-bold text-slate-500 ring-2 ring-white">
+                  ?
+                </span>
+              )}
+            </span>
+          ))}
           {extra > 0 && (
             <span className="num -ml-1.5 grid h-7 min-w-7 place-items-center rounded-full bg-slate-100 px-1 text-[10px] font-bold text-slate-600 ring-2 ring-white">
               +{extra}
@@ -600,12 +605,7 @@ function ThreadProposals({
                       onClick={() => onOpen(candidate)}
                       className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-slate-50"
                     >
-                      <span
-                        className="grid size-6 shrink-0 place-items-center rounded-full bg-slate-900 text-[9px] font-bold text-white"
-                        aria-hidden
-                      >
-                        {initials(candidateName(candidate))}
-                      </span>
+                      <Avatar name={candidateName(candidate)} size={24} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-medium text-slate-800">
                           {candidateName(candidate)}
@@ -802,20 +802,21 @@ function ProposalsSection({
         className="inline-flex min-h-11 max-w-full items-center gap-2.5 rounded-xl filo bg-white py-1.5 pl-1.5 pr-3 text-left transition-colors hover:bg-slate-50"
       >
         <span className="flex shrink-0 items-center pl-0.5" aria-hidden>
-          {preview.map(({ proposal, candidate }, i) => {
-            const mark = candidate ? initials(candidateName(candidate)) : '?'
-            return (
-              <span
-                key={proposal.candidateId}
-                className={`grid size-6 place-items-center rounded-full text-[9px] font-bold ring-2 ring-white ${
-                  candidate ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-500'
-                } ${i > 0 ? '-ml-1.5' : ''}`}
-                style={{ zIndex: preview.length - i }}
-              >
-                {mark}
-              </span>
-            )
-          })}
+          {preview.map(({ proposal, candidate }, i) => (
+            <span
+              key={proposal.candidateId}
+              className={`flex ${i > 0 ? '-ml-1.5' : ''}`}
+              style={{ zIndex: preview.length - i }}
+            >
+              {candidate ? (
+                <Avatar name={candidateName(candidate)} size={24} className="ring-2 ring-white" />
+              ) : (
+                <span className="grid size-6 place-items-center rounded-full bg-slate-200 text-[11px] font-bold text-slate-500 ring-2 ring-white">
+                  ?
+                </span>
+              )}
+            </span>
+          ))}
           {extra > 0 && (
             <span className="num -ml-1.5 grid h-6 min-w-6 place-items-center rounded-full bg-slate-100 px-1 text-[10px] font-bold text-slate-600 ring-2 ring-white">
               +{extra}
@@ -891,12 +892,7 @@ function ProposalRow({
         onClick={() => onOpen(candidate)}
         className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-slate-50"
       >
-        <span
-          className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
-          aria-hidden
-        >
-          {initials(name)}
-        </span>
+        <Avatar name={name} size={28} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-medium leading-4 text-slate-900">{name}</span>
           <span className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden">
@@ -1041,8 +1037,11 @@ function Composer({
         ? 'Todos los candidatos de la base ya están propuestos.'
         : 'No hay más candidatos que proponer.'
 
+  // `ring-inset`: un `ring-1` a secas se pinta FUERA de la caja, así que estos
+  // chips se veían 2px más altos que el min-h que declaran y no casaban con el
+  // borde del panel que tienen encima.
   const chipClass = (active: boolean) =>
-    `inline-flex min-h-8 pointer-coarse:min-h-11 shrink-0 items-center rounded-full px-2.5 text-[12px] font-medium ring-1 transition-colors ${
+    `inline-flex min-h-8 pointer-coarse:min-h-11 shrink-0 items-center rounded-full px-2.5 text-[12px] font-medium ring-1 ring-inset transition-colors ${
       active
         ? 'bg-slate-900 text-white ring-slate-900'
         : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50'
@@ -1120,12 +1119,7 @@ function Composer({
                             proposed ? 'cursor-default opacity-60' : 'hover:bg-slate-50'
                           }`}
                         >
-                          <span
-                            className="grid size-7 shrink-0 place-items-center rounded-full bg-slate-900 text-[10px] font-bold text-white"
-                            aria-hidden
-                          >
-                            {initials(candidateName(c))}
-                          </span>
+                          <Avatar name={candidateName(c)} size={28} />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm text-slate-800">{candidateName(c)}</span>
                             <span className="mt-0.5 block">
@@ -1176,14 +1170,21 @@ function Composer({
               return (
                 <span
                   key={id}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 py-0.5 pl-2.5 pr-1 text-[13px] font-medium text-slate-700 ring-1 ring-slate-200"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 py-0.5 pl-2.5 pr-1 text-[13px] font-medium text-slate-700 ring-1 ring-inset ring-slate-200"
                 >
                   {name}
                   <button
                     type="button"
                     onClick={() => onAttach(attached.filter((x) => x !== id))}
                     aria-label={`Quitar a ${name}`}
-                    className="grid size-5 pointer-coarse:size-11 place-items-center rounded-full text-slate-400 hover:bg-slate-200/80 hover:text-slate-700"
+                    // El objetivo de toque se DESPEGA del dibujo con un `::after`
+                    // invisible, el recurso de la cápsula de estado del puesto
+                    // (Dashboard). Con `pointer-coarse:size-11` el botón engordaba a
+                    // 44px DENTRO de una cápsula de 24 y la deformaba: la cápsula
+                    // pasaba de 24 a 48 y dejaba de ser una cápsula. Los 12px de
+                    // `-inset-3` sobre un glifo de 20 dan los 44 del mínimo táctil
+                    // sin engordar un solo píxel lo que se ve.
+                    className="relative grid size-5 place-items-center rounded-full text-slate-400 hover:bg-slate-200/80 hover:text-slate-700 pointer-coarse:after:absolute pointer-coarse:after:-inset-3 pointer-coarse:after:content-['']"
                   >
                     <X className="size-3" aria-hidden />
                   </button>

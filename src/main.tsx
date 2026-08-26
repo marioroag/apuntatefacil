@@ -27,7 +27,6 @@ import { AppLayout, FirstCampaignRedirect } from './screens/AppLayout'
 // el panel, ni el panel arrastra el formulario público o el constructor (dnd-kit).
 import { Landing } from './screens/Landing'
 import { Login } from './screens/Login'
-import { MERIDIAN_CHAT_ENABLED } from './lib/meridian'
 
 const ResetPassword = lazy(() => import('./screens/ResetPassword').then((m) => ({ default: m.ResetPassword })))
 const Privacidad = lazy(() => import('./screens/Legal').then((m) => ({ default: m.Privacidad })))
@@ -37,7 +36,6 @@ const InterestResponse = lazy(() => import('./screens/InterestResponse').then((m
 const Dashboard = lazy(() => import('./screens/Dashboard').then((m) => ({ default: m.Dashboard })))
 const Bandeja = lazy(() => import('./screens/Bandeja').then((m) => ({ default: m.Bandeja })))
 const Resumen = lazy(() => import('./screens/Resumen').then((m) => ({ default: m.Resumen })))
-const MeridianBriefing = lazy(() => import('./screens/MeridianBriefing').then((m) => ({ default: m.MeridianBriefing })))
 const Equipo = lazy(() => import('./screens/Equipo').then((m) => ({ default: m.Equipo })))
 const Entrevistas = lazy(() => import('./screens/Entrevistas').then((m) => ({ default: m.Entrevistas })))
 const Invitacion = lazy(() => import('./screens/Invitacion').then((m) => ({ default: m.Invitacion })))
@@ -51,12 +49,13 @@ const Playground = import.meta.env.DEV
   ? lazy(() => import('./screens/Playground').then((m) => ({ default: m.Playground })))
   : null
 
-// El hilo de Meridian está apagado (MERIDIAN_CHAT_ENABLED). La ruta no se borra:
-// redirige a Vista general, así quien la tuviera guardada aterriza en su panel
-// y no en la landing por el comodín del final.
-const meridianRoute = MERIDIAN_CHAT_ENABLED
-  ? <Route path="meridian" element={<MeridianBriefing />} />
-  : <Route path="meridian" element={<Navigate to="../resumen" replace />} />
+// EL HILO DE MERIDIAN SE RETIRÓ (Mario, ago 2026): no va a volver. La ruta se
+// queda redirigiendo porque quien la tuviera guardada aterriza en su panel y no
+// en la landing por el comodín del final, que es lo mismo que hacen las rutas de
+// Sedes y Marcas. Lo que se fue es la pantalla, su bandera y sus dos entradas.
+// El TRIAJE de Meridian sigue vivo entero: la columna Encaje, el informe de la
+// ficha y el orden por encaje no dependían de esto.
+const meridianRoute = <Route path="meridian" element={<Navigate to="../resumen" replace />} />
 
 // Sedes y Marcas dejaron de ser pantallas (ago 2026): la sede se gestiona en Vista general
 // y en los ajustes del puesto, y la marca en el constructor del formulario.

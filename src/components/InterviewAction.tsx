@@ -3,7 +3,7 @@ import { CalendarDays, CalendarPlus, Loader2, MessageCircle, X } from 'lucide-re
 import { Modal } from './ui/Modal'
 import { useStore } from '../lib/store'
 import { useToast } from './ui/Toast'
-import { BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import { currentInterview } from '../lib/interviews'
 import { useAnfitrion } from '../lib/anfitrion'
 import { WHATSAPP_LISTO } from '../lib/whatsapp'
@@ -199,7 +199,12 @@ export function AgendarManualDialog({
       return
     }
     if (res.status === 'plan') {
-      setError('Las entrevistas son del plan Pro.')
+      // El RPC sigue devolviendo 'plan' (migración 20260801120000_interviews.sql),
+      // pero los tiers murieron con el pago por proceso: hoy este caso solo puede
+      // significar que el proceso no está al día de pago. Las dos superficies que
+      // lo pintan (aquí y `InterviewConversation`) dicen lo MISMO, porque salen
+      // del mismo hecho.
+      setError('Este proceso no está al día de pago. Actívalo en Facturación para agendar entrevistas.')
       return
     }
     setError('No se pudo agendar. Inténtalo de nuevo.')
@@ -346,7 +351,12 @@ export function AgendarManualDialog({
 
       <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-3">
         <button type="button" onClick={onClose} className={BTN_SECONDARY}>Cancelar</button>
-        <button type="button" onClick={() => void guardar()} disabled={guardando} className={BTN_PRIMARY_SM.replace('h-8', 'h-9')}>
+        {/* El pie de un modal es una PAREJA, así que las dos mitades van en la
+            misma talla. Estaba fabricado con un `.replace('h-8','h-9')` sobre la
+            talla `sm`: alto de `md` con el relleno de `sm` y sin el mínimo táctil
+            (44px), al lado de un Cancelar que sí lo tiene. Un botón se coge de
+            `buttons.ts`, no se repinta aquí. */}
+        <button type="button" onClick={() => void guardar()} disabled={guardando} className={BTN_PRIMARY}>
           {guardando ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
           {guardando ? 'Agendando' : 'Agendar'}
         </button>

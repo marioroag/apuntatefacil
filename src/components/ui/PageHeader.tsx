@@ -15,6 +15,12 @@
  *   más estrecha y más densa, y la doctrina dice que la jerarquía la dan el peso
  *   y el color antes que el tamaño. Con `-0.012em`, el tracking de titular: a
  *   este cuerpo el espaciado de texto corrido se ve blando.
+ * · **Las MEDIDAS SON LAS DEL PANEL DEL PUESTO** (Mario, ago 2026), que es la
+ *   pantalla donde se afinaron a ojo: `font-bold` y no `semibold`, y el subtítulo
+ *   en `font-medium` y no en peso normal. Esta pieza se había quedado medio
+ *   peldaño por debajo en las dos cosas, así que al ir del panel a Bandeja o a
+ *   Entrevistas el título adelgazaba sin que nadie lo hubiera decidido. Si el
+ *   panel cambia, cambia esto; son la misma cabecera.
  * · **El contador va INLINE, al lado del título y en tinta de apoyo** ("Bandeja
  *   274"), no en una línea aparte ni dentro de una chapa. Es el tamaño de la
  *   pantalla, no una alarma.
@@ -45,9 +51,14 @@ export function PageHeader({
   className?: string
 }) {
   return (
-    <header className={`mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 ${className}`}>
+    // `pt-3`: el mismo aire de arriba que la cabecera del panel del puesto, que es
+    // donde se afinó a ojo. El contenedor de las pantallas pone 24 (16 en móvil) y
+    // el panel añadía 12 por su cuenta, así que al ir del panel a Bandeja o a
+    // Entrevistas el título saltaba 12px hacia arriba. El aire vive en la pieza y
+    // no en cada pantalla, que es lo que impide que vuelvan a separarse.
+    <header className={`mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 pt-3 ${className}`}>
       <div className="min-w-0">
-        <h1 className="flex items-baseline gap-2 text-2xl font-semibold tracking-[-0.012em] text-slate-900">
+        <h1 className="flex items-baseline gap-2 text-2xl font-bold leading-tight tracking-[-0.012em] text-slate-900">
           <span className="min-w-0 truncate">{titulo}</span>
           {cuenta !== undefined && (
             // `slate-500` y no `slate-400`: es texto con significado y el 400 se
@@ -59,7 +70,7 @@ export function PageHeader({
             </span>
           )}
         </h1>
-        {sub && <p className="mt-1 text-sm text-slate-500">{sub}</p>}
+        {sub && <p className="mt-1 text-sm font-medium text-slate-500">{sub}</p>}
       </div>
       {acciones && <div className="flex shrink-0 items-center gap-2">{acciones}</div>}
     </header>

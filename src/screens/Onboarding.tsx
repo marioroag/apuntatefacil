@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, Loader2, Users } from 'lucide-react'
+import { Loader2, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/Logo'
 import { StepProgress } from '../components/OnboardingGuide'
-import { BTN_PRIMARY } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_PRIMARY_BLOCK } from '../lib/buttons'
 
 type Invite = { id: string; token: string; company_name: string; role: string }
 
@@ -150,12 +150,20 @@ export function Onboarding() {
           className={`h-11 w-full rounded-xl border bg-white px-3.5 text-base outline-none placeholder:text-slate-500 focus:ring-4 focus:ring-indigo-500/15 ${error ? 'border-red-400' : 'border-slate-300 focus:border-indigo-500'}`}
         />
         {error && <p className="mt-1.5 text-[13px] font-medium text-red-600">{error}</p>}
+        {/* Botón de BLOQUE, no `BTN_PRIMARY + w-full`: era el único de la familia
+            Login/Invitación/Reset que se quedó fuera, y se le notaba (36px de alto y
+            radio de control debajo de un input de 44 y radio de campo). El bloque trae
+            además su propio `disabled`, que aquí estaba escrito a mano con otra
+            opacidad.
+            Y SIN la flecha: en un botón a ancho completo con la etiqueta centrada, lo
+            que el ojo centra es el TEXTO y no el grupo icono+texto, así que el rótulo
+            queda descentrado (12px medidos en el "Crear puesto" del lateral). */}
         <button
           type="submit"
           disabled={busy}
-          className={`${BTN_PRIMARY} mt-4 w-full disabled:opacity-70`}
+          className={`mt-4 ${BTN_PRIMARY_BLOCK}`}
         >
-          {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Creando...</> : <>Crear y empezar <ArrowRight className="size-4" aria-hidden /></>}
+          {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Creando...</> : 'Crear y empezar'}
         </button>
       </form>
 

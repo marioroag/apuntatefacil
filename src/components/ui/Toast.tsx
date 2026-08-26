@@ -2,6 +2,15 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Info, TriangleAlert, X } from 'lucide-react'
+import { DUR, EASE } from '../../lib/motion'
+
+/**
+ * La curva del aviso, que es `--ease-standard` de `index.css` escrita en
+ * números porque Framer Motion no lee variables CSS. Aquí estaba copiada suelta
+ * dentro del `transition`, junto a un 0.18 que era `DUR.enter`: los dos son
+ * exactamente el número anónimo que la regla del acabado prohíbe, el que nadie
+ * vuelve a tocar cuando el sistema cambia.
+ */
 
 type ToastKind = 'success' | 'info' | 'error'
 interface Toast {
@@ -19,9 +28,16 @@ interface ToastApi {
 
 const Ctx = createContext<ToastApi | null>(null)
 
+// El icono de `info` va en gris de apoyo y NO en el acento. `info` es el `kind`
+// por defecto de `show()`, o sea el toast más frecuente del producto: su
+// ultramarine era el único de la caja que no se podía pulsar, justo al lado del
+// que sí (el botón de acción de abajo). Verde y rojo se quedan porque son paleta
+// de estado, no de marca. No se pierde nada al quitar el color: el glifo es
+// `aria-hidden` y lo que informa es el texto del aviso, con su `role` status o
+// alert según el tipo.
 const ICON: Record<ToastKind, ReactNode> = {
   success: <Check className="size-4 text-green-600" aria-hidden />,
-  info: <Info className="size-4 text-indigo-600" aria-hidden />,
+  info: <Info className="size-4 text-slate-500" aria-hidden />,
   error: <TriangleAlert className="size-4 text-red-600" aria-hidden />,
 }
 
@@ -63,7 +79,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               initial={{ opacity: 0, y: 12, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+              transition={{ duration: DUR.enter, ease: EASE.standard }}
               role={t.kind === 'error' ? 'alert' : 'status'}
               className="pointer-events-auto flex items-start gap-3 rounded-xl filo bg-white p-3 pl-3.5 shadow-pop"
             >

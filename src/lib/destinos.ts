@@ -9,13 +9,11 @@ import {
   MessagesSquare,
   Palette,
   SlidersHorizontal,
-  Sparkles,
   Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { FUERTE, scoreEntrada } from './search'
 import { gruposVisibles, seccionesVisibles, type AjustesCtx } from './settings'
-import { MERIDIAN_CHAT_ENABLED, MERIDIAN_NAME } from './meridian'
 
 /**
  * EL MAPA DE LA APP. Única fuente de verdad de a qué sitios se puede ir y qué se
@@ -103,15 +101,6 @@ export const DESTINOS: Destino[] = [
     icon: LayoutGrid,
     claves: ['inicio', 'resumen', 'panel', 'cifras', 'estadisticas'],
     to: (c) => `${c.base}/resumen`,
-  },
-  {
-    id: 'meridian',
-    label: MERIDIAN_NAME,
-    hint: 'El parte diario: quién encaja y por qué.',
-    icon: Sparkles,
-    claves: ['ia', 'inteligencia artificial', 'triaje', 'parte diario'],
-    disponible: () => MERIDIAN_CHAT_ENABLED,
-    to: (c) => `${c.base}/meridian`,
   },
   {
     id: 'bandeja',

@@ -271,16 +271,29 @@ export const INTERVIEW_LIVE: InterviewStatus[] = ['invitada', 'proponiendo', 'co
  * del candidato ya significa, y las dos cosas se ven juntas en la misma ficha.
  * Nada va en rojo: cancelar una entrevista es rutina, no un error.
  */
-export const INTERVIEW_STATUS_META: Record<InterviewStatus, { label: string; dot: string; chip: string }> = {
-  invitada:      { label: 'Invitada',      dot: 'bg-blue-500',  chip: 'bg-blue-50 text-blue-700 ring-blue-200' },
-  proponiendo:   { label: 'Eligiendo',     dot: 'bg-blue-500',  chip: 'bg-blue-50 text-blue-700 ring-blue-200' },
-  confirmada:    { label: 'Confirmada',    dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700 ring-amber-200' },
-  reprogramando: { label: 'Reprogramando', dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700 ring-amber-200' },
-  realizada:     { label: 'Realizada',     dot: 'bg-green-500', chip: 'bg-green-50 text-green-700 ring-green-200' },
-  cancelada:     { label: 'Cancelada',     dot: 'bg-slate-300', chip: 'bg-slate-50 text-slate-500 ring-slate-200' },
-  rechazada:     { label: 'No le interesa', dot: 'bg-slate-300', chip: 'bg-slate-50 text-slate-500 ring-slate-200' },
-  sin_respuesta: { label: 'Sin respuesta', dot: 'bg-slate-300', chip: 'bg-slate-50 text-slate-500 ring-slate-200' },
-  fallida:       { label: 'No se pudo',    dot: 'bg-slate-300', chip: 'bg-slate-50 text-slate-500 ring-slate-200' },
+/*
+ * SIN ANILLO Y AL PASO 100, como las pastillas de estado del candidato desde ago
+ * 2026. Los dos cambios van juntos y no son independientes: quitado el borde, un
+ * relleno del paso 50 sobre blanco se queda en ~1,05:1 y la cápsula deja de leerse
+ * como FORMA, así que el relleno sube al 100 (y el texto al 800 para conservar el
+ * contraste encima). Es la misma medida que ya obligó a subir la cápsula de estado
+ * del puesto y la del candidato.
+ *
+ * `borde` sale del `chip` y se declara aparte porque tiene UN solo consumidor y no
+ * es una pastilla: el bloque del calendario (`AgendaGrid`), que sí necesita canto
+ * propio para separarse de sus vecinos y de la rejilla. Mezclado dentro de `chip`,
+ * la pastilla se lo llevaba puesto sin quererlo.
+ */
+export const INTERVIEW_STATUS_META: Record<InterviewStatus, { label: string; dot: string; chip: string; borde: string }> = {
+  invitada:      { label: 'Invitada',      dot: 'bg-blue-500',  chip: 'bg-blue-100 text-blue-800',   borde: 'ring-blue-200' },
+  proponiendo:   { label: 'Eligiendo',     dot: 'bg-blue-500',  chip: 'bg-blue-100 text-blue-800',   borde: 'ring-blue-200' },
+  confirmada:    { label: 'Confirmada',    dot: 'bg-amber-500', chip: 'bg-amber-100 text-amber-800', borde: 'ring-amber-200' },
+  reprogramando: { label: 'Reprogramando', dot: 'bg-amber-500', chip: 'bg-amber-100 text-amber-800', borde: 'ring-amber-200' },
+  realizada:     { label: 'Realizada',     dot: 'bg-green-500', chip: 'bg-green-100 text-green-800', borde: 'ring-green-200' },
+  cancelada:     { label: 'Cancelada',     dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
+  rechazada:     { label: 'No le interesa', dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
+  sin_respuesta: { label: 'Sin respuesta', dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
+  fallida:       { label: 'No se pudo',    dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
 }
 
 /**

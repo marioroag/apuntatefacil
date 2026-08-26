@@ -9,7 +9,7 @@ import { useToast } from './ui/Toast'
 import { TemplateGrid, useCreateFromTemplate } from './NewCampaignWizard'
 import type { SectorTemplate } from '../lib/templates'
 import { PRUEBA_CANDIDATOS } from '../lib/pricing'
-import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 import type { Campaign } from '../lib/types'
 
 // ----------------------------------------------------------------------------
@@ -109,17 +109,25 @@ export function OnboardingGuide() {
   const testCandidate = candidates.find((c) => c.source === 'prueba')
 
   return (
+    // El hueco contra el lateral es el MISMO que la tarjeta se deja por los otros
+    // dos lados (20px, `bottom-5`/`left-5`). Estaba en 16.25rem = 260px contra un
+    // lateral de 256 + 1 de filo: 3px de aire, o sea pegada por un lado y suelta
+    // por los otros dos. La cuenta se deja escrita para que se mueva con el
+    // lateral si alguna vez cambia de ancho.
     <div
-      className="fixed inset-x-3 bottom-3 z-40 sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-[380px] lg:left-[16.25rem]"
+      className="fixed inset-x-3 bottom-3 z-40 sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-[380px] lg:left-[calc(16rem+1px+1.25rem)]"
       style={{ animation: 'reveal-up .18s var(--ease-out) both' }}
       role="complementary"
       aria-label="Guía de primeros pasos"
     >
       <div className="relative rounded-xl filo bg-white p-4 shadow-pop">
+        {/* De `botonIcono`, no de un `p-1.5` a mano: medía 28px y no crecía en
+            táctil, y en un móvil esta tarjeta vive fija abajo, así que cerrarla es
+            lo único que se puede hacer con ella. */}
         <button
           onClick={dismiss}
           aria-label="Cerrar la guía"
-          className="absolute right-2 top-2 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          className={botonIcono('ghost', 'md', 'absolute right-2 top-2')}
         >
           <X className="size-4" aria-hidden />
         </button>
@@ -127,7 +135,7 @@ export function OnboardingGuide() {
         {phase === 'puesto' && (
           <>
             <StepProgress current={2} />
-            <p className="mt-2 text-[15px] font-semibold text-slate-900">Crea tu primer puesto</p>
+            <p className="mt-2 pr-9 text-[15px] font-semibold text-slate-900">Crea tu primer puesto</p>
             <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
               Con una plantilla de tu sector lo tienes listo en un minuto.
             </p>
@@ -140,7 +148,7 @@ export function OnboardingGuide() {
         {phase === 'formulario' && (
           <>
             <StepProgress current={3} />
-            <p className="mt-2 text-[15px] font-semibold text-slate-900">Esto es lo que verá quien abra tu enlace</p>
+            <p className="mt-2 pr-9 text-[15px] font-semibold text-slate-900">Esto es lo que verá quien abra tu enlace</p>
             <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
               Retoca las preguntas si quieres. Los cambios se guardan solos.
             </p>
@@ -156,7 +164,7 @@ export function OnboardingGuide() {
         {phase === 'probar' && (
           <>
             <StepProgress current={4} />
-            <p className="mt-2 text-[15px] font-semibold text-slate-900">Pruébalo tú mismo</p>
+            <p className="mt-2 pr-9 text-[15px] font-semibold text-slate-900">Pruébalo tú mismo</p>
             <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
               Te falta enviarte una candidatura de prueba para ver cómo llega.
             </p>
@@ -187,7 +195,10 @@ export function OnboardingGuide() {
                 <path d="M20 6 9 17l-5-5" pathLength={1} />
               </svg>
             </span>
-            <div className="min-w-0 pr-5">
+            {/* El hueco que se reserva a la derecha sigue a la equis: con el botón
+                a 36px (44 en táctil) y pegado a 8px del filo, un `pr-5` dejaba el
+                final de la línea por debajo del control. */}
+            <div className="min-w-0 pr-9">
               <p className="text-[15px] font-semibold text-slate-900">Ya está. Tu primera candidatura ha llegado</p>
               <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
                 Así entrará cada persona que rellene tu enlace: ordenada y con sus respuestas.

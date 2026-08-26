@@ -342,7 +342,12 @@ export function AjustesCalendario() {
           apuntas a mano, así que siguen gobernando algo de verdad. Lo que se
           dice arriba es lo único que hoy no pasa: que hablemos nosotros. */}
       {!WHATSAPP_LISTO && <AvisoWhatsappPendiente />}
-      <section className="rounded-xl bg-white p-4 shadow-card ring-1 ring-slate-200 sm:p-5">
+      {/* Las tres tarjetas de esta pantalla llevan el marco a DOS MANOS (`filo`)
+          y no un `ring-1` suelto: el hairline de 1px solo es nítido mientras cae
+          en la rejilla de píxeles, y en el arco de la esquina pierde hasta un 23%
+          de tinta. Con un borde que ya es de 1,15:1 a propósito, ese 23% es la
+          diferencia entre canto mecanizado y difuminado. */}
+      <section className="rounded-xl filo bg-white p-4 shadow-card sm:p-5">
         <h2 className="text-[15px] font-semibold text-slate-900">Cómo entrevistas</h2>
         <p className="mt-0.5 text-[13px] text-slate-500">
           {WHATSAPP_LISTO
@@ -393,7 +398,7 @@ export function AjustesCalendario() {
         </div>
       </section>
 
-      <section className="rounded-xl bg-white p-4 shadow-card ring-1 ring-slate-200 sm:p-5">
+      <section className="rounded-xl filo bg-white p-4 shadow-card sm:p-5">
         <h2 className="text-[15px] font-semibold text-slate-900">Cuándo puedes entrevistar</h2>
         <p className="mt-0.5 text-[13px] text-slate-500">
           Solo ofreceremos huecos dentro de estas horas.
@@ -418,20 +423,27 @@ export function AjustesCalendario() {
                 <div className="flex-1 space-y-2">
                   {(dias[d.n] ?? []).map((t, i) => (
                     <div key={i} className="flex items-center gap-2">
+                      {/* Radio de CAMPO (10px, `rounded-xl`), no de control (8px):
+                          los dos `time` y el `select` de "Cómo proponemos las citas"
+                          iban a 8 mientras el input de Dirección, en esta misma
+                          pantalla, ya iba a 10. Dos radios de campo a pocos píxeles
+                          uno del otro. */}
                       <input
                         type="time"
                         value={t.inicio}
                         onChange={(e) => cambiarTramo(d.n, i, 'inicio', e.target.value)}
                         aria-label={`${d.largo}, hora de inicio`}
-                        className="num h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-[14px] text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none"
+                        className="num h-10 rounded-xl border border-slate-300 bg-white px-2.5 text-[14px] text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none"
                       />
-                      <span className="text-[13px] text-slate-400">a</span>
+                      {/* "a" es texto con significado (de esta hora A esta otra), no
+                          un glifo: `slate-400` es 2,6:1 sobre blanco y el suelo es 4,5. */}
+                      <span className="text-[13px] text-slate-500">a</span>
                       <input
                         type="time"
                         value={t.fin}
                         onChange={(e) => cambiarTramo(d.n, i, 'fin', e.target.value)}
                         aria-label={`${d.largo}, hora de fin`}
-                        className="num h-10 rounded-lg border border-slate-300 bg-white px-2.5 text-[14px] text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none"
+                        className="num h-10 rounded-xl border border-slate-300 bg-white px-2.5 text-[14px] text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none"
                       />
                       {(dias[d.n]?.length ?? 0) > 1 && (
                         <button
@@ -455,14 +467,17 @@ export function AjustesCalendario() {
                   )}
                 </div>
               ) : (
-                <p className="pt-2 text-[13px] text-slate-400">Sin entrevistas</p>
+                // "Sin entrevistas" es lo único que se lee de un día apagado, o
+                // sea texto con significado: sube a `slate-500` (4,5:1), que
+                // `slate-400` se queda en 2,6.
+                <p className="pt-2 text-[13px] text-slate-500">Sin entrevistas</p>
               )}
             </div>
           ))}
         </div>
       </section>
 
-      <section className="rounded-xl bg-white p-4 shadow-card ring-1 ring-slate-200 sm:p-5">
+      <section className="rounded-xl filo bg-white p-4 shadow-card sm:p-5">
         <h2 className="text-[15px] font-semibold text-slate-900">Cómo proponemos las citas</h2>
         <p className="mt-0.5 text-[13px] text-slate-500">
           Con esto calculamos los huecos que le ofrecemos a cada candidato.
@@ -540,7 +555,9 @@ function Campo({
         id={id}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-1 h-10 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-[14px] text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none"
+        // Radio de CAMPO (10px), el mismo que el input de Dirección de esta
+        // pantalla: un `select` es un campo, no un control pequeño.
+        className="mt-1 h-10 w-full rounded-xl border border-slate-300 bg-white px-2.5 text-[14px] text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none"
       >
         {/* Si el valor guardado no está en la lista (por ejemplo tras cambiar
             estas opciones), se añade para no perderlo en silencio al guardar. */}

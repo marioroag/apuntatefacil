@@ -7,7 +7,6 @@ import { useStore } from '../lib/store'
 import { useAppBase } from '../lib/useAppBase'
 import { useIsSupportStaff } from '../lib/useSupportStaff'
 import { BRAND } from '../lib/brand'
-import { MERIDIAN_CHAT_ENABLED, hasMeridian, candidateFit } from '../lib/meridian'
 import { PUESTO_ICON, navGroups, type NavGroup, type NavItem } from '../lib/nav'
 import { BTN_PRIMARY_LATERAL } from '../lib/buttons'
 import { Logo } from './Logo'
@@ -312,21 +311,13 @@ export function Sidebar({
   /** Solo en la demo: recarga los datos de ejemplo (pide confirmación). */
   onReiniciarDemo: () => void
 }) {
-  const { campaigns, candidates, newCountFor, boardNewCount } = useStore()
+  const { campaigns, newCountFor, boardNewCount } = useStore()
   const { company, role } = useAuth()
   const base = useAppBase()
   const demo = base === '/demo'
   const isStaff = useIsSupportStaff()
 
   const totalNuevos = campaigns.reduce((s, c) => s + newCountFor(c.id), 0)
-  // Meridian: candidaturas nuevas que destaca (encajan bien) y no has revisado.
-  // Apagado mientras el hilo esté fuera (MERIDIAN_CHAT_ENABLED); el triaje sigue
-  // vivo en cada candidatura.
-  const meridianDestacados =
-    MERIDIAN_CHAT_ENABLED && hasMeridian(company?.plan)
-      ? candidates.filter((c) => c.status === 'nuevo' && (candidateFit(c.ai) ?? -1) >= 70).length
-      : 0
-
   const grupos = navGroups({
     plan: company?.plan,
     empresa: company?.name ?? '',
@@ -335,7 +326,6 @@ export function Sidebar({
     counts: {
       bandeja: totalNuevos,
       equipo: boardNewCount,
-      meridian: meridianDestacados,
     },
   })
 

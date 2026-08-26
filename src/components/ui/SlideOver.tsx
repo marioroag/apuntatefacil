@@ -2,6 +2,16 @@ import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { X } from 'lucide-react'
+import { botonIcono } from '../../lib/buttons'
+import { DUR, EASE } from '../../lib/motion'
+
+/**
+ * La curva del panel, la misma que sus hermanos `Modal` y `ConfirmDialog`. Se
+ * nombra porque Framer Motion no lee variables CSS y un `cubic-bezier` suelto
+ * dentro de un `transition` es exactamente el número que deriva sin que nadie lo
+ * vea. Las duraciones salen de `lib/motion.ts`: el telón entra en `enter` y el
+ * cajón en `max`, que es el techo declarado para lo que recorre distancia.
+ */
 
 export function SlideOver({
   open,
@@ -105,7 +115,7 @@ export function SlideOver({
             initial={reducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.18 }}
+            transition={{ duration: reducedMotion ? 0 : DUR.enter }}
             onClick={inert ? undefined : onClose}
           />
           <motion.div
@@ -115,7 +125,7 @@ export function SlideOver({
             initial={reducedMotion ? false : { x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0, 0, 0.2, 1] }}
+            transition={{ duration: reducedMotion ? 0 : DUR.max, ease: EASE.out }}
           >
             <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-5">
               {/* flex-1: sin esto, un título con contenido inline-flex (p. ej. un botón
@@ -124,11 +134,16 @@ export function SlideOver({
               <div className="min-w-0 flex-1" id="slideover-title">{title}</div>
               <div className="-mr-1 flex shrink-0 items-center gap-0.5">
                 {actions}
+                {/* La equis se fabrica con `botonIcono`, como cualquier otro botón de
+                    solo icono. Escrita a mano se había quedado en dos peldaños de la
+                    rampa (reposo y hover) y sin el tercero, así que al pulsarla no
+                    pasaba nada: es por donde derivan siempre los clones. La variante
+                    `ghost` existía en `buttons.ts` sin que la usara nadie. */}
                 <button
                   type="button"
                   onClick={onClose}
                   aria-label="Cerrar panel"
-                  className="grid size-9 pointer-coarse:size-11 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                  className={botonIcono('ghost')}
                 >
                   <X className="size-5" aria-hidden />
                 </button>

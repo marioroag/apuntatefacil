@@ -1,11 +1,11 @@
 import { memo, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, ChevronDown, CircleDot, Clock, Inbox, Phone, User } from 'lucide-react'
+import { Briefcase, CircleDot, Clock, Inbox, Phone, SearchX, User } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
-import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
-import { ColHead, TABLE, ROW, CELL, MOBILE_ROW } from '../components/ui/DataTable'
+import { StatusSelect } from '../components/ui/StatusPill'
+import { ColHead, TABLE, ROW, CELL } from '../components/ui/DataTable'
 import { CandidateModal } from './CandidateModal'
 import { relativeDate, formatPhone, candidateName } from '../lib/format'
 import { clickDeFila } from '../lib/fila'
@@ -15,9 +15,14 @@ import { MaskedPhone } from '../components/MaskedPhone'
 import { useAppBase } from '../lib/useAppBase'
 import { TAGS_ENABLED } from '../lib/pricing'
 import { ManageTagsModal } from '../components/Tags'
-import { STATUS_META } from '../lib/types'
 import type { Campaign, Candidate, CandidateStatus } from '../lib/types'
 import { PageHeader } from '../components/ui/PageHeader'
+import { useEsMovil } from '../lib/media'
+import { BTN_SECONDARY } from '../lib/buttons'
+import { ChipDimension, type DimensionFiltro } from '../components/FiltroChip'
+
+/** Las columnas de la cola. El ORDEN se declara aparte: cambia con el ancho. */
+type ColKeyBandeja = 'candidato' | 'puesto' | 'telefono' | 'estado' | 'recibida'
 
 function answer(c: Candidate, id: string): string {
   const v = c.answers[id]
@@ -46,7 +51,6 @@ const ListaNuevos = memo(function ListaNuevos({
   getCampaign,
   setStatus,
   onOpen,
-  onStatusSheet,
   maskPhone,
   base,
 }: {
@@ -54,83 +58,55 @@ const ListaNuevos = memo(function ListaNuevos({
   getCampaign: (id: string) => Campaign | undefined
   setStatus: (id: string, status: CandidateStatus) => void
   onOpen: (id: string) => void
-  onStatusSheet: (c: Candidate) => void
   maskPhone: boolean
   base: string
 }) {
+  const esMovil = useEsMovil()
+  // EL ORDEN DE LAS COLUMNAS ES LA PRIORIDAD, y en movil se nota, igual que en el
+  // panel del puesto: con la tabla desplazandose a lo ancho, lo que va primero es
+  // lo unico que se ve sin empujar, asi que ESTADO sube a la segunda posicion.
+  // Aqui ademas el estado ES el trabajo de la pantalla: la Bandeja existe para
+  // sacar candidatos de "nuevo".
+  const orden: ColKeyBandeja[] = esMovil
+    ? ['candidato', 'estado', 'puesto', 'telefono', 'recibida']
+    : ['candidato', 'puesto', 'telefono', 'estado', 'recibida']
+  // Suma EXACTA de lo que se pinta en movil. Candidato (196) y Estado (144) caben
+  // juntos en los 341 de contenido de una pantalla de 375: quien es y en que
+  // estado esta se leen sin empujar. Los 144 son la pastilla mas ancha medida
+  // ("Contactado", 128) mas los 16 de relleno de celda en movil.
+  const anchoMovil = 196 + 144 + 180 + 116
+
   return (
-    <div className="overflow-hidden rounded-xl filo bg-white shadow-card">
-      {/* Móvil: fichas de dos líneas, la misma forma que la lista del puesto
-          (arriba quién, abajo sus datos y el estado). Así el puesto entero cabe
-          en su chip en vez de cortarse por la mitad para dejarle sitio a la
-          pastilla, que antes vivía en la línea del nombre. */}
-      <ul className="md:hidden" aria-label="Candidatos nuevos de todos los puestos">
-        {rows.map((c) => {
-          const camp = getCampaign(c.campaignId)
-          const name = candidateName(c) || 'Sin nombre'
-          const m = STATUS_META[c.status]
-          return (
-            <li
-              key={c.id}
-              onClick={(e) => clickDeFila(e) && onOpen(c.id)}
-              className={`${MOBILE_ROW} flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors active:bg-slate-50`}
-            >
-              <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={36} />
-              <div className="min-w-0 flex-1">
-                {/* La fila entera abre la ficha; el nombre sigue siendo un
-                    <button> de verdad, que es lo que la hace alcanzable con
-                    teclado y lo que anuncia el lector. */}
-                <button
-                  type="button"
-                  onClick={() => onOpen(c.id)}
-                  className="block min-w-0 max-w-full truncate text-left text-[15px] font-medium text-slate-900"
-                >
-                  {name}
-                </button>
-                {/* Sin "hace 3 h" en móvil: todos son nuevos y la cola ya va
-                    del más reciente al más antiguo, así que la hora ocupaba
-                    sitio sin decidir nada. Sigue en la tabla de escritorio. */}
-                <div className="mt-1 flex items-center gap-2">
-                  {/* El chip abraza a su texto: quien reparte el ancho es este
-                      hueco, no la pastilla del puesto (estirada de lado a lado
-                      parecía un campo vacío). */}
-                  <span className="min-w-0 flex-1">
-                    {camp && (
-                      <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 py-0.5 pl-1.5 pr-2 text-[12px] font-medium text-slate-600">
-                        <Briefcase className="size-3 shrink-0 text-slate-500" aria-hidden />
-                        <span className="truncate">{camp.title}</span>
-                      </span>
-                    )}
-                  </span>
-                  {/* El área de toque se estira con un ::after invisible hasta
-                      ~44px sin engordar la pastilla. */}
-                  <button
-                    type="button"
-                    onClick={() => onStatusSheet(c)}
-                    aria-label={`Estado: ${m.label}. Tocar para cambiar`}
-                    className={`relative inline-flex shrink-0 items-center gap-1 rounded-full py-0.5 pl-2 pr-1.5 text-[12px] font-semibold ring-1 ring-inset transition-[filter] after:absolute after:-inset-x-2 after:-inset-y-2.5 after:content-[''] ${m.chip} active:brightness-95`}
-                  >
-                    <span className={`size-1.5 rounded-full ${m.dot}`} aria-hidden />
-                    {m.label}
-                    <ChevronDown className="size-3 opacity-60" aria-hidden />
-                  </button>
-                </div>
-              </div>
-            </li>
-          )
-        })}
-      </ul>
-      {/* Escritorio: tabla */}
-      <div className="hidden overflow-x-auto md:block">
-        <table className={`min-w-[680px] ${TABLE}`}>
+    <div className="overflow-clip rounded-xl filo bg-white shadow-card">
+      {/* UNA SOLA VISTA A TODOS LOS ANCHOS: la rejilla, que en movil se desplaza a
+          lo ancho. Aqui vivia una lista de fichas de dos lineas, que era la forma
+          que tenia la lista del puesto; el panel la retiro en ago 2026 y la
+          Bandeja se quedo siendo su unica consumidora, con un comentario que
+          afirmaba una paridad que ya no existia. Dos listas de candidatos que se
+          leen distinto es exactamente lo que este repaso viene a quitar. */}
+      <div className="overflow-x-auto">
+        <table className={`min-w-[680px] ${TABLE}`} style={esMovil ? { minWidth: anchoMovil } : undefined}>
           <caption className="sr-only">Candidatos nuevos de todos los puestos</caption>
           <thead>
             <tr className="bg-slate-50/60">
-              <ColHead icon={User}>Candidato</ColHead>
-              <ColHead icon={Briefcase}>Puesto</ColHead>
-              <ColHead icon={Phone} className="hidden w-[150px] lg:table-cell">Teléfono</ColHead>
-              <ColHead icon={CircleDot} className="w-[148px]">Estado</ColHead>
-              <ColHead icon={Clock} align="right" className="w-[116px]">Recibida</ColHead>
+              {orden.map((k) => {
+                switch (k) {
+                  case 'candidato':
+                    // El unico ancho que cambia con la ventana: en escritorio no lo
+                    // declara nadie (absorbe el sobrante, que es lo que hace crecer
+                    // el nombre) y en movil se fija, porque alli el sobrante no
+                    // existe y hay que dejarle sitio al estado.
+                    return <ColHead key={k} icon={User} className={esMovil ? 'w-[196px]' : ''}>Candidato</ColHead>
+                  case 'puesto':
+                    return <ColHead key={k} icon={Briefcase} className={esMovil ? 'w-[180px]' : ''}>Puesto</ColHead>
+                  case 'telefono':
+                    return <ColHead key={k} icon={Phone} className="hidden w-[150px] lg:table-cell">Teléfono</ColHead>
+                  case 'estado':
+                    return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[148px]'}>Estado</ColHead>
+                  case 'recibida':
+                    return <ColHead key={k} icon={Clock} align="right" className="w-[116px]">Recibida</ColHead>
+                }
+              })}
             </tr>
           </thead>
           <tbody>
@@ -144,38 +120,72 @@ const ListaNuevos = memo(function ListaNuevos({
                   onClick={(e) => clickDeFila(e) && onOpen(c.id)}
                   className={`${ROW} group cursor-pointer hover:bg-slate-50`}
                 >
-                  <td className={CELL}>
-                    <div className="flex items-center gap-2.5">
-                      <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={28} />
-                      {/* Mismo gesto que en la tabla del puesto: el nombre se
-                          subraya al pasar por la fila, que es lo que abre la ficha. */}
-                      <span className="truncate text-[14px] font-medium text-slate-900 decoration-slate-400 underline-offset-[3px] group-hover:underline" title={name}>{name}</span>
-                    </div>
-                  </td>
-                  <td className={CELL}>
-                    {camp ? (
-                      <Link
-                        to={`${base}/puestos/${camp.id}`}
-                        className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
-                      >
-                        <Briefcase className="size-3.5 shrink-0 text-slate-500" aria-hidden />
-                        <span className="truncate">{camp.title}</span>
-                      </Link>
-                    ) : (
-                      <span className="text-[12px] text-slate-500">–</span>
-                    )}
-                  </td>
-                  <td className={`${CELL} num hidden text-[13px] text-slate-600 lg:table-cell`}>
-                    <span className="block truncate">
-                      {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
-                    </span>
-                  </td>
-                  <td className={`${CELL} whitespace-nowrap`}>
-                    <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
-                  </td>
-                  <td className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
-                    <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
-                  </td>
+                  {orden.map((k) => {
+                    switch (k) {
+                      case 'candidato':
+                        return (
+                          <td key={k} className={CELL}>
+                            <div className="flex items-center gap-2.5">
+                              <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={28} />
+                              {/* UN BOTON DE VERDAD, no un `<span>` subrayado al
+                                  pasar por encima. Los unicos elementos enfocables
+                                  de la fila eran el enlace del puesto y el selector
+                                  de estado, asi que la accion principal de esta
+                                  pantalla, abrir la ficha, no se podia hacer con
+                                  teclado. Y sin subrayado, como la tabla del puesto
+                                  desde ago 2026: la fila ENTERA abre la ficha, asi
+                                  que subrayar solo el nombre promete un objetivo mas
+                                  pequeño del que hay. El foco no se queda sin señal,
+                                  pasa a anillo. */}
+                              <button
+                                type="button"
+                                onClick={() => onOpen(c.id)}
+                                title={name}
+                                className="block min-w-0 truncate rounded-sm text-left text-[14px] font-medium text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+                              >
+                                {name}
+                              </button>
+                            </div>
+                          </td>
+                        )
+                      case 'puesto':
+                        return (
+                          <td key={k} className={CELL}>
+                            {camp ? (
+                              <Link
+                                to={`${base}/puestos/${camp.id}`}
+                                className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
+                              >
+                                <Briefcase className="size-3.5 shrink-0 text-slate-500" aria-hidden />
+                                <span className="truncate">{camp.title}</span>
+                              </Link>
+                            ) : (
+                              <span className="text-[12px] text-slate-500">–</span>
+                            )}
+                          </td>
+                        )
+                      case 'telefono':
+                        return (
+                          <td key={k} className={`${CELL} num hidden text-[13px] text-slate-600 lg:table-cell`}>
+                            <span className="block truncate">
+                              {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
+                            </span>
+                          </td>
+                        )
+                      case 'estado':
+                        return (
+                          <td key={k} className={`${CELL} whitespace-nowrap`}>
+                            <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
+                          </td>
+                        )
+                      case 'recibida':
+                        return (
+                          <td key={k} className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
+                            <time dateTime={c.submittedAt} className="num">{relativeDate(c.submittedAt)}</time>
+                          </td>
+                        )
+                    }
+                  })}
                 </tr>
               )
             })}
@@ -201,22 +211,64 @@ export function Bandeja() {
   const maskPhone = demo
   const canManageTags = role !== 'encargado'
   const [openId, setOpenId] = useState<string | null>(null)
-  const [statusFor, setStatusFor] = useState<Candidate | null>(null) // cambiar estado (móvil)
   const [manageTagsOpen, setManageTagsOpen] = useState(false)
 
-  const nuevos = useMemo(
+  const [puestoFilter, setPuestoFilter] = useState<Set<string>>(new Set())
+
+  const todosNuevos = useMemo(
     () =>
       candidates
         .filter((c) => c.status === 'nuevo')
         .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
     [candidates],
   )
+  const nuevos = useMemo(
+    () => (puestoFilter.size === 0 ? todosNuevos : todosNuevos.filter((c) => puestoFilter.has(c.campaignId))),
+    [todosNuevos, puestoFilter],
+  )
+
+  // FILTRAR POR PUESTO (Mario, ago 2026). La cola mezcla puestos a proposito, que
+  // es de lo que va la Bandeja, pero cuando el dia se va en uno solo hay que poder
+  // quedarse en el.
+  //
+  // Solo se ofrecen los puestos que TIENEN gente nueva, y con su cifra: un filtro
+  // que devuelve cero no es un filtro, es una via muerta, y aqui ademas la cifra
+  // decide (dice si merece la pena entrar en ese monton). Sale de `todosNuevos` y
+  // no de `nuevos`, o al marcar uno desapareceria del propio menu.
+  const opcionesPuesto = useMemo(() => {
+    const cuenta = new Map<string, number>()
+    todosNuevos.forEach((c) => cuenta.set(c.campaignId, (cuenta.get(c.campaignId) ?? 0) + 1))
+    return [...cuenta.entries()]
+      .map(([id, n]) => ({ valor: id, label: getCampaign(id)?.title ?? 'Puesto eliminado', n }))
+      .sort((a, b) => b.n - a.n)
+      .map((o) => ({
+        valor: o.valor,
+        label: o.label,
+        leading: <span className="num shrink-0 text-[12px] text-slate-500">{o.n}</span>,
+      }))
+  }, [todosNuevos, getCampaign])
+
+  const dimPuesto: DimensionFiltro = {
+    id: 'puesto',
+    label: 'Puesto',
+    icon: Briefcase,
+    n: puestoFilter.size,
+    limpiar: () => setPuestoFilter(new Set()),
+    seleccionadas: puestoFilter,
+    onToggle: (v) =>
+      setPuestoFilter((p) => {
+        const n = new Set(p)
+        n.has(v) ? n.delete(v) : n.add(v)
+        return n
+      }),
+    opciones: opcionesPuesto,
+  }
 
   const openCandidate = openId ? candidates.find((c) => c.id === openId) ?? null : null
   const openCampaign = openCandidate ? getCampaign(openCandidate.campaignId) ?? null : null
 
   return (
-    <div className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
       {/* El contador va en la línea del título: es el tamaño de la cola, y en la
           chapa del menú ya se ve el mismo número. */}
       <PageHeader
@@ -226,19 +278,35 @@ export function Bandeja() {
         sub="Candidatos nuevos de todos tus puestos, en una sola cola."
       />
 
-      {nuevos.length === 0 ? (
+      {/* Aqui habia una segunda linea con la MISMA cifra que ya lleva el titulo
+          veinte lineas mas arriba, en gris y en prosa. El panel resolvio esto
+          pasandola a `sr-only` y dejandola SIEMPRE montada: una region viva que se
+          monta y se desmonta deja de anunciar, y es lo unico que le dice a quien no
+          ve la lista cuantos quedan al mover el filtro. `sr-only` la saca ademas
+          del flujo, asi que no ocupa nada. */}
+      <p className="sr-only" role="status">
+        {nuevos.length} {nuevos.length === 1 ? 'candidato nuevo' : 'candidatos nuevos'} sin revisar
+      </p>
+
+      {/* La franja de herramientas: hoy solo el filtro por puesto, y solo si hay
+          mas de un puesto con gente nueva. Con uno, filtrar por el es no filtrar. */}
+      {opcionesPuesto.length > 1 && (
+        <div className="mb-3 flex items-start gap-2">
+          <ChipDimension dim={dimPuesto} />
+        </div>
+      )}
+
+      {todosNuevos.length === 0 ? (
         <EmptyInbox />
+      ) : nuevos.length === 0 ? (
+        <EmptySinResultado onLimpiar={() => setPuestoFilter(new Set())} />
       ) : (
         <>
-          <p className="mb-3 text-[13px] text-slate-500" role="status">
-            {nuevos.length} {nuevos.length === 1 ? 'candidato nuevo' : 'candidatos nuevos'} sin revisar
-          </p>
           <ListaNuevos
             rows={nuevos}
             getCampaign={getCampaign}
             setStatus={setStatus}
             onOpen={setOpenId}
-            onStatusSheet={setStatusFor}
             maskPhone={maskPhone}
             base={base}
           />
@@ -266,12 +334,29 @@ export function Bandeja() {
         <ManageTagsModal open={manageTagsOpen} onClose={() => setManageTagsOpen(false)} />
       )}
 
-      <StatusPickerSheet
-        open={!!statusFor}
-        status={statusFor?.status ?? null}
-        onPick={(s) => statusFor && setStatus(statusFor.id, s)}
-        onClose={() => setStatusFor(null)}
-      />
+      {/* Aqui vivia la hoja de estado de movil, que abria la pastilla de la
+          tarjeta. Se va con la tarjeta: en la rejilla el estado se cambia con el
+          mismo `StatusSelect` a todos los anchos, que es el que ya usa el panel. */}
+    </div>
+  )
+}
+
+/**
+ * Vacio DE FILTRO, distinto del vacio de la cola. "Todo al dia" seria mentira:
+ * hay gente esperando, solo que no en el puesto que has marcado. Y lleva la
+ * salida puesta, porque el usuario no tiene por que recordar que dejo un filtro.
+ */
+function EmptySinResultado({ onLimpiar }: { onLimpiar: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl filo bg-white px-6 py-16 text-center shadow-card">
+      <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
+        <SearchX className="size-6" aria-hidden />
+      </div>
+      <h3 className="mt-4 text-lg font-semibold text-slate-900">Ningún candidato nuevo en ese puesto</h3>
+      <p className="mt-1 max-w-sm text-sm text-slate-500">Sigue habiendo gente esperando en los demás.</p>
+      <button type="button" onClick={onLimpiar} className={`${BTN_SECONDARY} mt-4`}>
+        Ver todos los puestos
+      </button>
     </div>
   )
 }

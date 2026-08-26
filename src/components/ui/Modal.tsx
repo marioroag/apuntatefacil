@@ -1,10 +1,9 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { DUR } from '../../lib/motion'
+import { DUR, EASE } from '../../lib/motion'
 
 /** La curva de salida del panel, la misma que traía. Un fundido no la necesita. */
-const CURVA = [0, 0, 0.2, 1] as const
 
 /**
  * Modal centrado GRANDE (detalle del candidato). Hermano de ConfirmDialog: mismo
@@ -110,8 +109,8 @@ export function Modal({
   // Entra en `enter` (180ms, "algo aparece") y sale en `control` (150ms): cerrar
   // es una respuesta a tu dedo y lo que se va no hay que anunciarlo. Las dos son
   // duraciones del sistema, no números escritos aquí (ver `lib/motion.ts`).
-  const entra = { duration: reducedMotion ? 0 : DUR.enter, ease: CURVA }
-  const sale = { duration: reducedMotion ? 0 : DUR.control, ease: CURVA }
+  const entra = { duration: reducedMotion ? 0 : DUR.enter, ease: EASE.out }
+  const sale = { duration: reducedMotion ? 0 : DUR.control, ease: EASE.out }
 
   return (
     <AnimatePresence>

@@ -79,6 +79,25 @@
      no sale de una opacidad puesta a ojo. Si aparece un quinto, se discute.
      Ninguno es el acento: la marca salió de la navegación con la identidad nueva
      y se quedó solo en la acción (Crear puesto), el foco y la selección. */
+  /* --- ANCHO DE COLUMNA (Mario, ago 2026) --------------------------------
+     Había CINCO por la app: 1240, 1180, 1100, 820 y 768. Los tres primeros son
+     casi el mismo número, y eso es lo peor que puede pasarle a una medida: no se
+     lee como una decisión, se lee como un descuido, y al navegar el contenido da
+     un salto lateral que nadie sabe explicar.
+
+     Dos, y cada uno con su trabajo:
+     · TRABAJO (1240): listas, rejillas y paneles. Es el del panel del puesto, que
+       es la pantalla más densa y la que fijó la medida.
+     · LECTURA (820): una sola columna que se lee de arriba abajo, donde estirar
+       hasta 1240 dejaría líneas de 150 caracteres. Hoy son Facturación y el
+       tablón de Equipo.
+
+     Se declaran en `@theme` y no como número suelto en cada pantalla para que
+     Tailwind genere `max-w-trabajo` y `max-w-lectura`: una pantalla nueva elige
+     entre dos nombres, no inventa un sexto número. */
+  --container-trabajo: 1240px;
+  --container-lectura: 820px;
+
   --color-lateral: #ffffff;
   --color-lateral-filo: #e5e7eb;
   --color-lateral-hover: #f4f5f7;

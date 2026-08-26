@@ -122,13 +122,18 @@ export function ResetPassword() {
                   {PWD_RULES.map((r) => {
                     const ok = r.test(password)
                     return (
-                      <li key={r.label} className={`flex items-center gap-2 text-[12px] ${ok ? 'text-indigo-600' : 'text-slate-500'}`}>
+                      // Una regla cumplida es un ESTADO, no una acción: se dice con
+                      // peso y tinta, igual que el mismo listado de `Login.tsx`, que ya
+                      // se neutralizó. El color no era el portador (lo es el glifo:
+                      // check contra círculo vacío), así que no se pierde nada.
+                      <li key={r.label} className={`flex items-center gap-2 text-[12px] ${ok ? 'font-medium text-slate-800' : 'text-slate-500'}`}>
                         {ok ? (
                           <Check className="size-3.5 shrink-0" aria-hidden />
                         ) : (
                           <span className="size-3.5 shrink-0 rounded-full border border-slate-300" aria-hidden />
                         )}
                         {r.label}
+                        <span className="sr-only">, {ok ? 'cumplido' : 'pendiente'}</span>
                       </li>
                     )
                   })}
