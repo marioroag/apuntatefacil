@@ -228,7 +228,7 @@ export function ApplicationForm({
         type="submit"
         disabled={busy || preview}
         aria-busy={busy}
-        className="on-accent mt-4 flex w-full items-center justify-center gap-2 rounded-xl text-base font-semibold text-on-accent shadow-raised ring-1 ring-inset ring-black/10 transition-[filter,transform] duration-[var(--duration-control)] ease-[var(--ease-out)] hover:brightness-[1.06] active:translate-y-px active:shadow-pressed disabled:opacity-70"
+        className="on-accent mt-4 flex w-full items-center justify-center gap-2 rounded-xl text-base font-semibold text-on-accent ring-1 ring-inset ring-black/10 transition-[filter] duration-[var(--duration-control)] ease-[var(--ease-out)] hover:brightness-[1.06] active:brightness-95 disabled:opacity-70"
         style={{ backgroundColor: accent, height: 52 }}
       >
         {busy && <Loader2 className="size-5 shrink-0 animate-spin" aria-hidden />}

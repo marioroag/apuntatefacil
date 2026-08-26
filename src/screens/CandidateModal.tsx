@@ -477,7 +477,7 @@ function Favorito({ value, onChange }: { value: boolean; onChange: (v: boolean) 
       aria-pressed={value}
       aria-label={value ? 'Quitar de favoritos' : 'Guardar en favoritos'}
       onClick={() => onChange(!value)}
-      className="group -my-1 grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] active:translate-y-px"
+      className="group -my-1 grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)]"
     >
       {/* El press es `translate-y-px` en el botón, nunca `scale` en el icono: un
           control se hunde, no se encoge. El `scale` es lenguaje de dibujo animado
@@ -1017,7 +1017,7 @@ function MenuAcciones({ candidate, cvName, onEliminar, size = 'md' }: { candidat
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className={`grid ${size === 'sm' ? 'size-8' : 'size-9'} pointer-coarse:size-11 shrink-0 place-items-center rounded-lg text-slate-500 ring-1 ring-inset ring-slate-300/80 transition-colors hover:bg-slate-50 hover:text-slate-700`}
+        className={`grid ${size === 'sm' ? 'size-8' : 'size-9'} pointer-coarse:size-11 shrink-0 place-items-center rounded-lg text-slate-500 ring-1 ring-inset ring-slate-200 transition-colors hover:bg-slate-50 hover:ring-slate-300 hover:text-slate-700 active:bg-slate-100`}
       >
         {/* El icono también acompaña: los vecinos _SM llevan size-3.5. */}
         <MoreHorizontal className={size === 'sm' ? 'size-3.5' : 'size-4'} aria-hidden />

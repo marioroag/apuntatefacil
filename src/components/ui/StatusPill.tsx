@@ -11,7 +11,7 @@ export function StatusPill({ status, className = '' }: { status: CandidateStatus
   const m = STATUS_META[status]
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ring-1 ring-inset ${m.chip} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-semibold ${m.chip} ${className}`}
     >
       <span className={`size-2 rounded-full ${m.dot}`} aria-hidden />
       {m.label}
@@ -112,7 +112,7 @@ export function StatusSelect({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ring-1 ring-inset transition-colors ${m.chip} hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-semibold transition-colors ${m.chip} hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
       >
         <span className={`size-2 shrink-0 rounded-full ${m.dot}`} aria-hidden />
         {m.label}

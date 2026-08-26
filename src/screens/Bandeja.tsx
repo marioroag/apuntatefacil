@@ -75,7 +75,7 @@ const ListaNuevos = memo(function ListaNuevos({
               onClick={(e) => clickDeFila(e) && onOpen(c.id)}
               className={`${MOBILE_ROW} flex cursor-pointer items-start gap-3 px-4 py-3 transition-colors active:bg-slate-50`}
             >
-              <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={40} />
+              <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={36} />
               <div className="min-w-0 flex-1">
                 {/* La fila entera abre la ficha; el nombre sigue siendo un
                     <button> de verdad, que es lo que la hace alcanzable con
@@ -146,7 +146,7 @@ const ListaNuevos = memo(function ListaNuevos({
                 >
                   <td className={CELL}>
                     <div className="flex items-center gap-2.5">
-                      <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={32} />
+                      <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={28} />
                       {/* Mismo gesto que en la tabla del puesto: el nombre se
                           subraya al pasar por la fila, que es lo que abre la ficha. */}
                       <span className="truncate text-[14px] font-medium text-slate-900 decoration-slate-400 underline-offset-[3px] group-hover:underline" title={name}>{name}</span>

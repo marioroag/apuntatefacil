@@ -530,11 +530,19 @@ export const STATUS_META: Record<
   CandidateStatus,
   { label: string; dot: string; chip: string }
 > = {
-  nuevo: { label: 'Nuevo', dot: 'bg-slate-500', chip: 'bg-slate-100 text-slate-700 ring-slate-200' },
-  contactado: { label: 'Contactado', dot: 'bg-blue-500', chip: 'bg-blue-50 text-blue-700 ring-blue-200' },
-  entrevista: { label: 'Entrevista', dot: 'bg-amber-500', chip: 'bg-amber-50 text-amber-700 ring-amber-200' },
-  contratado: { label: 'Contratado', dot: 'bg-green-500', chip: 'bg-green-50 text-green-700 ring-green-200' },
-  descartado: { label: 'Descartado', dot: 'bg-slate-300', chip: 'bg-slate-50 text-slate-500 ring-slate-200' },
+  // SIN anillo (Mario, ago 2026): la pastilla es un relleno teñido y ya está,
+  // igual que las etiquetas. Con el borde puesto, una columna de 142 filas era una
+  // columna de 142 cápsulas perfiladas y el perfil pesaba más que la palabra.
+  // Los rellenos suben del paso 50 al 100 al quitarlo: el 50 sobre el blanco de la
+  // fila se queda en ~1,05:1 y sin borde la cápsula dejaba de leerse como forma
+  // (lo mismo que ya se midió en la cápsula de estado del puesto).
+  nuevo: { label: 'Nuevo', dot: 'bg-slate-500', chip: 'bg-slate-100 text-slate-700' },
+  contactado: { label: 'Contactado', dot: 'bg-blue-500', chip: 'bg-blue-100 text-blue-800' },
+  entrevista: { label: 'Entrevista', dot: 'bg-amber-500', chip: 'bg-amber-100 text-amber-800' },
+  contratado: { label: 'Contratado', dot: 'bg-green-500', chip: 'bg-green-100 text-green-800' },
+  // "Descartado" sigue siendo el apagado: mismo relleno neutro que "nuevo" pero
+  // con la tinta y el punto más flojos. Es rutina y es reversible, nunca rojo.
+  descartado: { label: 'Descartado', dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-500' },
 }
 
 // La estrella de FAVORITO, en un solo sitio: ficha, tabla, tarjeta de móvil y

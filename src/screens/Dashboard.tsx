@@ -2,32 +2,35 @@ import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMem
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
-  Archive,
+  ArrowUpRight,
   Bookmark,
   Briefcase,
+  Bell,
+  BellOff,
   Building2,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleDot,
   Clock,
   Copy,
   Download,
+  Eye,
   Filter,
   Globe,
   Inbox,
-  Loader2,
+  ListFilter,
   Lock,
   MailCheck,
-  Pause,
+  MoreHorizontal,
   PenLine,
   Phone,
-  Play,
   Plus,
   RefreshCw,
   Search,
   SearchX,
   Share2,
-  SlidersHorizontal,
   Sparkles,
   Star,
   MessagesSquare,
@@ -36,11 +39,14 @@ import {
   User,
   X,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
 import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, MOBILE_ROW } from '../components/ui/DataTable'
+import { Avatar } from '../components/ui/Avatar'
+import { useProfiles } from '../lib/profiles'
 import { StatusSelect, StatusPickerSheet } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -56,7 +62,7 @@ import { clickDeFila } from '../lib/fila'
 import { MeridianAvatar, FitLabel } from '../components/Meridian'
 import { candidateFit, hasMeridian } from '../lib/meridian'
 import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
-import type { Brand, Campaign, Candidate, CandidateInterestState, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
+import type { Campaign, Candidate, CandidateInterestState, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
 import { PRECIO_PROCESO, PRUEBA_CANDIDATOS, PRUEBA_DIAS, TAGS_ENABLED } from '../lib/pricing'
 import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
@@ -66,7 +72,7 @@ import { useOnboarding } from '../lib/onboarding'
 import { useAppBase } from '../lib/useAppBase'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
-import { BTN_DANGER, BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SUPERFICIE, botonIcono } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
 import { supabase } from '../lib/supabase'
 import { searchScore } from '../lib/search'
@@ -91,21 +97,14 @@ function numberFields(campaign: Campaign): FormField[] {
   return campaign.fields.filter((f) => f.type === 'number')
 }
 
-// Etiqueta legible de un filtro numérico para el chip.
-function numberFilterLabel(nf: NumberFilter): string {
-  if (nf.min != null && nf.max != null) return `${nf.min}–${nf.max}`
-  if (nf.min != null) return `≥ ${nf.min}`
-  return `≤ ${nf.max}`
-}
-
-// "Ninguna candidatura bloqueada", con identidad fija: ver `lockedDates`.
 const SIN_FECHAS: string[] = []
 
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, createSite, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany } = useStore()
-  const { company, role } = useAuth()
+  const { company, role, user } = useAuth()
+  const profiles = useProfiles()
   const toast = useToast()
   const base = useAppBase()
   const navigate = useNavigate()
@@ -155,6 +154,11 @@ export function Dashboard() {
       // en el historial del navegador.
       { replace: true },
     ), [])
+  // Activos / Rechazados: NO es un filtro más, es en cuál de las dos mitades de la
+  // lista estás. "Descartado" es el único estado del que se sale por decisión y no
+  // por avance, así que separa la lista en dos y por eso vive en un conmutador y no
+  // en el menú de filtros (donde sigue estando el resto de estados).
+  const [vista, setVista] = useState<'activos' | 'rechazados'>('activos')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [interestDialogOpen, setInterestDialogOpen] = useState(false)
   const [selectMode, setSelectMode] = useState(false) // modo selección múltiple (móvil)
@@ -166,7 +170,6 @@ export function Dashboard() {
   // mediciones y el observer, que seguían corriendo en cada render del panel.
   const [saveViewOpen, setSaveViewOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false) // hoja de ajustes del puesto (móvil)
   const [duplicating, setDuplicating] = useState(false)
   const [confirmClose, setConfirmClose] = useState(false)
   const [closing, setClosing] = useState(false)
@@ -198,7 +201,6 @@ export function Dashboard() {
     setDuplicating(true)
     const copy = await duplicateCampaign(campaign.id)
     setDuplicating(false)
-    setSettingsOpen(false)
     if (copy) {
       toast.success('Puesto duplicado.')
       navigate(`${base}/puestos/${copy.id}/formulario`)
@@ -232,7 +234,6 @@ export function Dashboard() {
     const ok = await reabrirProceso(campaign.id)
     setReopening(false)
     setConfirmReopen(null)
-    setSettingsOpen(false)
     if (ok) toast.success('Puesto reabierto.')
   }
   // Cerrar: un clic, sin fricción. Deja de aceptar candidaturas y de cobrarse;
@@ -243,7 +244,6 @@ export function Dashboard() {
     const ok = await cerrarProceso(campaign.id)
     setClosing(false)
     setConfirmClose(false)
-    setSettingsOpen(false)
     if (ok) {
       toast.success(
         company?.plan === 'proceso'
@@ -260,7 +260,6 @@ export function Dashboard() {
     const ok = await deleteCampaign(campaign.id)
     setDeleting(false)
     setConfirmDelete(false)
-    setSettingsOpen(false)
     if (ok) {
       toast.success('Puesto eliminado.')
       navigate(base)
@@ -333,6 +332,14 @@ export function Dashboard() {
   }
 
   const all = useMemo(() => (campaign ? candidatesFor(campaign.id) : []), [campaign, candidatesFor])
+  // "Actualizado hace X": la candidatura más reciente. El puesto no guarda un
+  // `updatedAt` y no se inventa uno; lo que se pregunta en la cabecera es cuándo
+  // fue la última vez que aquí pasó algo, y eso es que entró alguien.
+  const ultimaEntrada = useMemo(
+    () => all.reduce<string | null>((max, c) => (!max || c.submittedAt > max ? c.submittedAt : max), null),
+    [all],
+  )
+  const nRechazados = useMemo(() => all.filter((c) => c.status === 'descartado').length, [all])
 
   // IDs de candidatos que "acaban de llegar" (en vivo por realtime, por refresco
   // manual o por tirar para refrescar) mientras el usuario ya tenía el puesto
@@ -431,6 +438,8 @@ export function Dashboard() {
     }
 
     let list = base0.filter((c) => {
+      // La mitad de la lista en la que estás, antes que cualquier filtro.
+      if ((c.status === 'descartado') !== (vista === 'rechazados')) return false
       if (statusFilter.size && !statusFilter.has(c.status)) return false
       if (interestFilter.size && !interestFilter.has(candidateInterestState(campaign, c))) return false
       if (favoritosOnly && !c.favorito) return false
@@ -484,7 +493,7 @@ export function Dashboard() {
       })
     }
     return list
-  }, [all, campaign, q, rpcIds, base, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
+  }, [all, campaign, q, rpcIds, base, vista, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
 
   // Dominio real (mín/máx) de cada pregunta numérica, para acotar sus sliders.
   const numberDomains = useMemo(() => {
@@ -522,6 +531,142 @@ export function Dashboard() {
   // pintan (el aviso de upsell sí sigue saliendo, va por el recuento aparte).
   const showLockedRows = !isFiltered && sort.key === 'fecha' && sort.dir === 'desc'
 
+  // Estos tres hooks viven POR ENCIMA del `return` temprano de "puesto no
+  // encontrado", igual que los `useCallback` de la tabla y por el mismo motivo: un
+  // componente montado tiene que llamar siempre los mismos hooks y en el mismo
+  // orden. Lo cazó `hooks.test.ts` cuando los puse debajo.
+  // Qué dimensiones se pueden filtrar en ESTE puesto. Es un registro, no una
+  // pantalla: la barra no conoce ningún filtro, pinta lo que haya aquí. Añadir una
+  // dimensión (un campo nuevo, un criterio nuevo) es una entrada más, nunca UI.
+  // Las preguntas del puesto entran igual que Estado o Etiquetas, y por eso ya no
+  // hace falta un panel aparte para "la cola larga".
+  const dimensiones = useMemo<DimensionFiltro[]>(() => {
+    if (!campaign) return []
+    const d: DimensionFiltro[] = [
+      {
+        id: 'estado',
+        label: 'Estado',
+        icon: CircleDot,
+        n: statusFilter.size,
+        limpiar: () => setStatusFilter(new Set()),
+        seleccionadas: statusFilter as Set<string>,
+        onToggle: (v) => setStatusFilter((p) => {
+          const n = new Set(p); const s2 = v as CandidateStatus
+          n.has(s2) ? n.delete(s2) : n.add(s2); return n
+        }),
+        opciones: STATUS_ORDER.map((v) => ({
+          valor: v,
+          label: STATUS_META[v].label,
+          leading: <span className={`size-2 shrink-0 rounded-full ${STATUS_META[v].dot}`} aria-hidden />,
+        })),
+      },
+      {
+        id: 'favoritos',
+        label: 'Favoritos',
+        icon: Star,
+        n: favoritosOnly ? 1 : 0,
+        limpiar: () => setFavoritosOnly(false),
+        seleccionadas: new Set(favoritosOnly ? ['si'] : []),
+        onToggle: () => setFavoritosOnly((v) => !v),
+        opciones: [{
+          valor: 'si',
+          label: 'Solo favoritos',
+          leading: <Star className={`size-4 shrink-0 ${FAVORITO_STAR}`} aria-hidden />,
+        }],
+      },
+      {
+        id: 'interes',
+        label: 'Interés',
+        icon: MailCheck,
+        n: interestFilter.size,
+        limpiar: () => setInterestFilter(new Set()),
+        seleccionadas: interestFilter as Set<string>,
+        onToggle: (v) => setInterestFilter((p) => {
+          const n = new Set(p); const s2 = v as CandidateInterestState
+          n.has(s2) ? n.delete(s2) : n.add(s2); return n
+        }),
+        opciones: (['interested', 'not_interested', 'sent', 'no_response', 'never', 'unavailable'] as CandidateInterestState[])
+          .map((v) => ({ valor: v, label: INTEREST_STATE_LABEL[v] })),
+      },
+    ]
+    if (TAGS_ENABLED && tags.length > 0) {
+      d.push({
+        id: 'etiquetas',
+        label: 'Etiquetas',
+        icon: Tag,
+        n: tagFilter.size,
+        limpiar: () => setTagFilter(new Set()),
+        seleccionadas: tagFilter,
+        onToggle: (v) => setTagFilter((p) => { const n = new Set(p); n.has(v) ? n.delete(v) : n.add(v); return n }),
+        opciones: tags.map((t) => ({ valor: t.id, label: t.name })),
+      })
+    }
+    // Las preguntas de ESTE puesto: cada una es una dimensión más, igual que
+    // Estado. Es lo que permitió retirar el panel aparte de "la cola larga".
+    for (const f of filterableFields(campaign)) {
+      const opciones = f.type === 'boolean' ? ['Sí', 'No'] : f.options ?? []
+      d.push({
+        id: `campo-${f.id}`,
+        label: f.label,
+        icon: ListFilter,
+        grupo: 'preguntas',
+        n: valueFilters.filter((v) => v.fieldId === f.id).length,
+        limpiar: () => setValueFilters((p) => p.filter((v) => v.fieldId !== f.id)),
+        seleccionadas: new Set(valueFilters.filter((v) => v.fieldId === f.id).map((v) => v.value)),
+        onToggle: (opt) => setValueFilters((p) => p.some((v) => v.fieldId === f.id && v.value === opt)
+          ? p.filter((v) => !(v.fieldId === f.id && v.value === opt))
+          : [...p, { fieldId: f.id, label: f.label, value: opt }]),
+        opciones: opciones.map((opt) => ({ valor: opt, label: opt })),
+      })
+    }
+    for (const f of numberFields(campaign)) {
+      const dom = numberDomains[f.id]
+      if (!dom) continue // sin rango útil (sin datos o todos iguales): no hay slider
+      const [lo, hi] = dom
+      const nf = numberFilters.find((x) => x.fieldId === f.id)
+      const from = nf?.min ?? lo
+      const to = nf?.max ?? hi
+      d.push({
+        id: `num-${f.id}`,
+        label: f.label,
+        icon: ListFilter,
+        grupo: 'preguntas',
+        n: nf ? 1 : 0,
+        limpiar: () => setNumberFilters((p) => p.filter((x) => x.fieldId !== f.id)),
+        // No es una lista, es un rango: usa la escotilla del panel a medida.
+        panel: (
+          <div className="px-2 py-2">
+            <div className="mb-2 flex items-baseline justify-between">
+              <span className="text-[12px] text-slate-500">Rango</span>
+              <span className="num text-[12px] font-medium text-slate-700">{from} – {to}</span>
+            </div>
+            <RangeSlider
+              min={lo}
+              max={hi}
+              from={from}
+              to={to}
+              onChange={(nFrom, nTo) => setNumberFilters((p) => {
+                const resto = p.filter((x) => x.fieldId !== f.id)
+                // Rango completo = sin filtro: no se guarda una restricción que no
+                // restringe (dejaría el chip contando 1 sin quitar a nadie).
+                if (nFrom <= lo && nTo >= hi) return resto
+                return [...resto, { fieldId: f.id, label: f.label, min: nFrom, max: nTo }]
+              })}
+            />
+          </div>
+        ),
+      })
+    }
+    return d
+  }, [campaign, statusFilter, favoritosOnly, interestFilter, tags, tagFilter, valueFilters, numberFilters, numberDomains])
+
+  // UN CHIP EXISTE SI FILTRA. No hay un estado paralelo de "categorías añadidas":
+  // lo hubo, y dejaba el chip vivo después de desmarcar su último valor, o sea una
+  // cápsula que dice "Estado" sin filtrar por ningún estado. Derivarlo de `n > 0`
+  // hace además que una vista guardada enseñe sus filtros sola, sin que nadie
+  // tenga que acordarse de sincronizar la otra lista.
+  const dimensionesVisibles = useMemo(() => dimensiones.filter((d) => d.n > 0), [dimensiones])
+
   if (!campaign) {
     return (
       <div className="grid h-full place-items-center px-6 py-16">
@@ -542,6 +687,12 @@ export function Dashboard() {
   }
 
   const activeFilterCount = statusFilter.size + interestFilter.size + valueFilters.length + numberFilters.length + (favoritosOnly ? 1 : 0) + tagFilter.size
+  // Los dos inquilinos de la línea de contexto. Se nombran porque de ellos depende
+  // que esa fila separe o no separe: vacía no debe ocupar nada.
+  // Buscar también estrecha la lista: si solo se mirasen los filtros, escribir un
+  // nombre dejaba la pantalla sin decir cuántos han quedado, ni en voz alta.
+  const hayContexto = loading || activeFilterCount > 0 || q.length > 0
+  const puedeSeleccionar = !loading && filtered.length > 0 && !selectMode
   // Aquí vivía `cols` (highlightFields): las dos respuestas del formulario que la
   // tabla pintaba como columnas. Fuera desde ago 2026 (Mario): cambiaban de puesto en
   // puesto, se comían el ancho de lo que sí es común a todos (encaje, etiquetas,
@@ -579,13 +730,6 @@ export function Dashboard() {
     })
     setSaveViewOpen(false)
     if (ok) toast.success('Vista guardada')
-  }
-
-  // La marca aporta el nombre, el logo y el banner del formulario, en vivo: cambiar
-  // de marca NO pisa el color ni los textos de este puesto (eso es suyo y se edita
-  // en el constructor). Sin sorpresas visuales al cambiar la etiqueta.
-  const applyBrand = (brandId: string | null) => {
-    updateCampaign(campaign.id, { brandId })
   }
 
   const clearFilters = () => {
@@ -661,17 +805,66 @@ export function Dashboard() {
         claves={['excel', 'xlsx', 'exportar', 'descargar', 'hoja de calculo']}
         hacer={() => void doExport()}
       />
-      {/* Cabecera del puesto */}
-      <header className="mb-5">
-        {/* Título + acciones: solo Compartir y Editar visibles; el resto en Ajustes del puesto. */}
-        <div className="flex items-center gap-2.5">
-          <h1 className="min-w-0 truncate text-[22px] font-semibold leading-tight tracking-[-0.02em] text-slate-900">{campaign.title}</h1>
-          {campaign.status !== 'activa' && (
-            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[12px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
-              {campaign.status === 'pausada' ? 'Pausado' : 'Cerrado'}
+      {/* CABECERA DEL PUESTO · maquetación de Figma (Mario, ago 2026).
+          Cuatro franjas: identidad + acciones, contexto, pestañas y herramientas.
+          El título va a 20px y NO a los 24 de `PageHeader`: aquí la fila de arriba
+          lleva ya cinco cosas y el peso hace la jerarquía. Por eso esta pantalla no
+          usa `PageHeader`; es la única con pestañas y conmutador propios. */}
+      <header className="mb-0">
+        {/* `pb-3` y no `pb-6`: medido, había 40px por encima de los filtros y 28 por
+            debajo. Los 12 de aquí más los 16 del `py-4` de la fila dan los mismos 28
+            de abajo, así que la franja de herramientas queda centrada en su hueco en
+            vez de colgada del título. */}
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 pb-3 pt-3">
+          <div className="min-w-0">
+            {/* 12px y no 8 entre el nombre y su estado: la cápsula encogió a 24px y
+                pegada al título se leía como parte de la palabra. Cuanto más
+                pequeño el accesorio, más aire necesita para leerse como una cosa
+                aparte. */}
+            <div className="flex min-w-0 items-center gap-3">
+              <h1 className="min-w-0 truncate text-2xl font-bold leading-tight tracking-[-0.012em] text-slate-900">{campaign.title}</h1>
+              <EstadoPuesto
+                status={campaign.status}
+                canManage={canManage}
+                cobraPorProceso={company?.plan === 'proceso'}
+                onPauseResume={() => void togglePause()}
+                onClosePuesto={() => setConfirmClose(true)}
+                onReopen={() => void reopen()}
+              />
+            </div>
+            {/* Contexto: dónde es y de qué tamaño es. El total del puesto vive aquí,
+                no en una línea propia debajo de los filtros, y no cambia al filtrar:
+                es el tamaño del puesto, no el del resultado. */}
+            <p className="mt-1 text-sm font-medium text-slate-500">
+              {[[campaign.sector, campaign.location].map((t) => t?.trim()).filter(Boolean).join(', ')]
+                .filter(Boolean)
+                .concat(`${miles(all.length)} ${all.length === 1 ? 'candidatura' : 'candidaturas'}`)
+                .join(' · ')}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2.5">
+            {/* Última señal de vida del puesto: la candidatura más reciente. No hay
+                `updatedAt` en el puesto y no se inventa uno: lo que de verdad se
+                pregunta aquí es cuándo entró la última persona. */}
+            {ultimaEntrada && (
+              <span className="hidden text-[13px] text-slate-500 lg:inline">
+                Actualizado {relativeDate(ultimaEntrada)}
+              </span>
+            )}
+            {/* Aire extra DESPUÉS de tu cara: a la izquierda queda el contexto
+                (cuándo pasó algo, quién eres) y a la derecha los verbos. Con el
+                hueco uniforme de 10px, tu cara quedaba pegada a "Compartir" y se
+                leía como el primer botón de la serie. El aire ES jerarquía: dos
+                cosas con propósitos distintos no se pegan. */}
+            <span className="hidden sm:block sm:mr-1.5">
+              <Avatar
+                name={profiles.nameFor(user?.id ?? null, user?.email ?? null) || 'Tu cuenta'}
+                seed={user?.email ?? user?.id}
+                src={profiles.avatarFor(user?.id ?? null)}
+                size={28}
+              />
             </span>
-          )}
-          <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
             <ShareMenu
               campaignId={campaign.id}
               title={campaign.title}
@@ -681,299 +874,248 @@ export function Dashboard() {
               canEdit={canManage}
               demo={base === '/demo'}
             />
-            {/* En móvil los dos botones de la cabecera son cuadrados de 44px: solo
-                icono, mismo tamaño y mismo alto. Antes este medía 32 de alto y
-                llevaba texto, y el de compartir 44, así que quedaban desparejos.
-                44 es además el mínimo de objetivo táctil. */}
-            {canManage && (
-              <Link
-                to={`${base}/puestos/${campaign.id}/formulario`}
-                className={`${BTN_PRIMARY} max-sm:size-11 max-sm:px-0`}
-                title="Editar formulario"
-                aria-label="Editar formulario"
-              >
-                <PenLine className="size-4 shrink-0 text-indigo-200" aria-hidden />
-                <span className="max-sm:hidden">Editar</span>
-              </Link>
-            )}
-          </div>
-        </div>
-        <p className="mt-1 text-sm text-slate-500">
-          {[campaign.sector, campaign.location].map((s) => s?.trim()).filter(Boolean).join(', ')}
-        </p>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-100 px-3 text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
-        >
-          <SlidersHorizontal className="size-3.5 text-slate-400" aria-hidden /> Ajustes del puesto
-        </button>
-      </header>
-
-      {/* Resumen de estados. Oculto en móvil (poco esencial y come pantalla); el
-          filtro por estado sigue disponible en el menú Filtros. */}
-      <StatusSummary all={all} statusFilter={statusFilter} onToggle={(s) => {
-        setStatusFilter((prev) => {
-          const next = new Set(prev)
-          next.has(s) ? next.delete(s) : next.add(s)
-          return next
-        })
-      }} />
-
-      {/* Barra de filtros */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div className="flex min-w-0 w-full flex-1 items-center gap-2 sm:min-w-[200px]">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
-            {/* El alto acompaña al de los botones de la fila en los dos punteros: 36px en
-                escritorio y 44px en táctil, igual que BTN_SECONDARY. El filo no necesita
-                nada especial porque los anillos de los botones son `ring-inset` (ver
-                lib/buttons.ts): pintan dentro de su caja, como este `border`. */}
-            <input
-              type="search"
-              aria-label="Buscar candidatos"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre, teléfono..."
-              className="h-9 pointer-coarse:h-11 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-900 outline-none transition-shadow placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+            {/* "Editar" era un botón aquí Y el primer ítem del menú (Mario, ago
+                2026): la doctrina decía que el menú es el inventario y los botones
+                los atajos, y por eso repetirse estaba bien. Se retira el atajo y se
+                queda el inventario. La cabecera baja a dos controles, que es lo que
+                de verdad se usa a diario: compartir el enlace y todo lo demás. */}
+            {/* El inventario completo de lo que puede hacerse con este puesto. */}
+            <PuestoMenu
+              campaign={campaign}
+              sites={sites}
+              canManage={canManage}
+              editHref={`${base}/puestos/${campaign.id}/formulario`}
+              publicUrl={publicFormUrl(campaign.slug, brandLabel)}
+              exportCount={filtered.length}
+              exportTotal={all.length}
+              onExport={doExport}
+              onSetSite={(siteId) => updateCampaign(campaign.id, { siteId })}
+              onCreateSite={createSite}
+              onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
+              onDuplicate={handleDuplicate}
+              duplicating={duplicating}
+              onRefresh={async () => {
+                const r = await refresh()
+                if (r.message) r.ok ? toast.show(r.message) : toast.error(r.message)
+              }}
+              refreshing={refreshing}
+              onDelete={() => setConfirmDelete(true)}
             />
           </div>
-          <button
-            type="button"
-            onClick={async () => {
-              const r = await refresh()
-              if (r.message) r.ok ? toast.show(r.message) : toast.error(r.message)
-            }}
-            disabled={refreshing}
-            className={`${BTN_SECONDARY} max-sm:hidden shrink-0 disabled:opacity-60`}
-            title="Refrescar candidatos"
-            aria-label="Refrescar candidatos"
-          >
-            <RefreshCw className={`size-4 text-slate-400 ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
-          </button>
         </div>
 
-        {/* Acciones: en móvil reparten el ancho de la fila a partes iguales (limpio,
-            sin huecos). En sm+ recuperan su tamaño natural y se alinean a la derecha.
-            [&>*] = el wrapper de cada control; [&>*>button] = solo su botón disparador
-            (no los botones internos de los desplegables). */}
-        <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none [&>*>button]:w-full sm:[&>*>button]:w-auto">
-          <FilterMenu
-            campaign={campaign}
-            statusFilter={statusFilter}
-            setStatusFilter={setStatusFilter}
-            interestFilter={interestFilter}
-            setInterestFilter={setInterestFilter}
-            valueFilters={valueFilters}
-            setValueFilters={setValueFilters}
-            numberFilters={numberFilters}
-            setNumberFilters={setNumberFilters}
-            numberDomains={numberDomains}
-            favoritosOnly={favoritosOnly}
-            setFavoritosOnly={setFavoritosOnly}
-            tags={tags}
-            tagFilter={tagFilter}
-            setTagFilter={setTagFilter}
-            count={activeFilterCount}
+        {/* Aquí vivieron unas pestañas Solicitudes / Tienda / Publicaciones, del
+            diseño de Figma, y debajo un filo que cerraba la banda de identidad. Las
+            dos cosas se retiraron (Mario, ago 2026): detrás de dos de las tres
+            pestañas no hay producto, y el filo dejó de hacer falta porque quien
+            separa la identidad de las herramientas es el HUECO. Una raya solo vale
+            si separa algo que el hueco no separa. */}
+      </header>
+
+      <div>
+        {/* FILTROS POR CATEGORÍAS (referencia de Mario, ago 2026). "Filtros" no
+            abre un panel con todo dentro: AÑADE una dimensión, y cada dimensión
+            añadida es un chip que dice cuántos valores tiene puestos. El espacio
+            que ahorra el buscador plegado se lo lleva esta fila, que es donde de
+            verdad se trabaja. Refrescar salió de aquí: no actúa sobre la vista sino
+            sobre los datos, o sea que es un verbo, y los verbos viven en el `···`. */}
+        {/* DOS COLUMNAS, no una fila que envuelve. Con un solo `flex-wrap`, en
+            cuanto los chips llenaban la línea el grupo de la derecha (buscar, la
+            mitad de la lista, Vistas) caía debajo y se montaba con ellos. Ahora los
+            chips crecen hacia abajo DENTRO de su columna y la derecha no se mueve
+            nunca: son dos ejes distintos y no pueden pisarse.
+            `items-start` para que la derecha se quede arriba cuando los chips
+            ocupan varias líneas, y no centrada respecto a un bloque que crece.
+            Por debajo de `sm` se apilan A PROPÓSITO (no cabe la derecha al lado),
+            que es distinto de apilarse por accidente. */}
+        <div className="flex flex-col gap-2 py-4 sm:flex-row sm:items-start sm:gap-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <MenuAnadirFiltro
+            dimensiones={dimensiones}
+            hayFiltros={activeFilterCount > 0}
+            vistas={myViews}
+            onAplicarVista={applyView}
+            onBorrarVista={deleteSavedView}
+            onGuardarVista={() => setSaveViewOpen(true)}
+            puedeGuardar={canSaveView}
+            onLimpiarTodo={clearFilters}
           />
 
-          <SavedViewsMenu
-            views={myViews}
-            onApply={applyView}
-            onDelete={deleteSavedView}
-            onSave={() => setSaveViewOpen(true)}
-            canSave={canSaveView}
-          />
-
-        </div>
-      </div>
-
-      {/* Chips de filtros activos */}
-      {(statusFilter.size > 0 || interestFilter.size > 0 || valueFilters.length > 0 || numberFilters.length > 0 || favoritosOnly || tagFilter.size > 0) && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-          <button onClick={clearFilters} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[13px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700">
-            <X className="size-3.5" aria-hidden /> Limpiar
-          </button>
-          {[...statusFilter].map((s) => (
-            <Chip key={`s-${s}`} label={`Estado: ${STATUS_META[s].label}`} onRemove={() => setStatusFilter((p) => { const n = new Set(p); n.delete(s); return n })} />
+          {dimensionesVisibles.map((d) => (
+            <ChipDimension key={d.id} dim={d} />
           ))}
-          {[...interestFilter].map((s) => (
-            <Chip key={`i-${s}`} label={`Interés: ${INTEREST_STATE_LABEL[s]}`} onRemove={() => setInterestFilter((p) => { const n = new Set(p); n.delete(s); return n })} />
-          ))}
-          {valueFilters.map((vf, i) => (
-            <Chip key={`v-${i}`} label={`${vf.label}: ${vf.value}`} onRemove={() => setValueFilters((p) => p.filter((_, j) => j !== i))} />
-          ))}
-          {numberFilters.map((nf) => (
-            <Chip key={`n-${nf.fieldId}`} label={`${nf.label}: ${numberFilterLabel(nf)}`} onRemove={() => setNumberFilters((p) => p.filter((x) => x.fieldId !== nf.fieldId))} />
-          ))}
-          {favoritosOnly && (
-            <Chip label="Solo favoritos" onRemove={() => setFavoritosOnly(false)} />
-          )}
-          {[...tagFilter].map((id) => {
-            const t = tags.find((x) => x.id === id)
-            if (!t) return null
-            return (
-              <Chip key={`t-${id}`} label={`Etiqueta: ${t.name}`} onRemove={() => setTagFilter((p) => { const n = new Set(p); n.delete(id); return n })} />
-            )
-          })}
-        </div>
-      )}
 
-      {/* Línea de contexto + entrada al modo selección (móvil) */}
-      <div className="mt-3 flex items-center gap-3">
-        <p className="text-[13px] text-slate-500" role="status">
-          {loading ? (
-            'Cargando candidatos'
-          ) : (
-            <>
-              <span className="num font-medium text-slate-700">{miles(filtered.length)}</span>{' '}
-              {filtered.length === 1 ? 'candidato' : 'candidatos'}
-              {activeFilterCount > 0 && (
-                <>
-                  {', '}
-                  <span className="num">{activeFilterCount}</span> {activeFilterCount === 1 ? 'filtro activo' : 'filtros activos'}
-                </>
-              )}
-            </>
-          )}
-        </p>
-        {!loading && filtered.length > 0 && !selectMode && (
-          <button
-            type="button"
-            onClick={() => setSelectMode(true)}
-            className="ml-auto text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 sm:hidden"
-          >
-            Seleccionar
-          </button>
-        )}
-      </div>
-
-      {/* Barra de selección (escritorio): aparece al marcar filas con los checks. */}
-      {selected.size > 0 && !loading && (
-        <div className="mt-3 hidden flex-wrap items-center gap-2.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm text-white shadow-card sm:flex">
-          <span className="font-semibold">{selected.size} seleccionados</span>
-          <button
-            type="button"
-            onClick={() => setInterestDialogOpen(true)}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1 font-semibold text-indigo-700 shadow-control hover:bg-indigo-50"
-          >
-            <MailCheck className="size-4" aria-hidden /> Comprobar interés
-          </button>
-          {TAGS_ENABLED && (
-            <div className="flex items-center gap-2">
-              <BulkTagMenu
-                mode="add"
-                selectedIds={[...selected]}
-                canManage={canManageTags}
-                triggerClass="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
-              />
-              <BulkTagMenu
-                mode="remove"
-                selectedIds={[...selected]}
-                canManage={canManageTags}
-                triggerClass="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
-              />
-            </div>
-          )}
-          <button
-            onClick={async () => {
-              // Exporta TODA la selección, también filas que un filtro posterior
-              // haya ocultado (si no, exportaría menos de lo que dice la barra).
-              const subset = all.filter((c) => selected.has(c.id))
-              const name = await exportCandidatesToExcel(campaign, subset, tags, [], await loadCommentsForMany(subset.map((c) => c.id)))
-              toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
-            }}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
-          >
-            <Download className="size-4" aria-hidden /> Exportar selección
-          </button>
-          <button onClick={() => setSelected(new Set())} className="rounded-lg p-1 hover:bg-white/15" aria-label="Quitar selección">
-            <X className="size-4" aria-hidden />
-          </button>
-        </div>
-      )}
-
-      {/* Aviso de candidaturas bloqueadas (prueba agotada por cupo o por días):
-          se siguen recibiendo, pero solo se ven hasta el tope. Invita a añadir
-          el método de pago, sin urgencia falsa. */}
-      {lockedCount > 0 && !loading && (
-        <div className="mt-3 flex flex-col gap-3 rounded-xl filo bg-white px-4 py-3.5 shadow-card sm:flex-row sm:items-center">
-          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
-            <Lock className="size-[18px]" aria-hidden />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-slate-900">
-              {lockedCount === 1 ? 'Tienes 1 candidatura esperando' : `Tienes ${lockedCount} candidaturas esperando`}
-            </p>
-            <p className="mt-0.5 text-[13px] leading-relaxed text-slate-500">
-              {pruebaCaducada
-                ? `Tu prueba de ${PRUEBA_DIAS} días terminó, pero las seguimos recibiendo. Añade tu método de pago y las ves todas al momento.`
-                : `Las seguimos recibiendo, pero la prueba te deja ver ${PRUEBA_CANDIDATOS}. Añade tu método de pago y las ves todas al momento.`}
-            </p>
           </div>
-          <button onClick={() => navigate(`${base}/plan`)} className={`${BTN_PRIMARY} shrink-0 max-sm:w-full max-sm:justify-center`}>
-            Añadir método de pago
-          </button>
-        </div>
-      )}
 
-      {/* Tabla / estados */}
-      {/* En escritorio va `overflow-clip`, ni `visible` ni `hidden`, y las tres
-          palabras importan (ago 2026). Con `visible`, la banda de la cabecera (una
-          caja CUADRADA que arranca 1px dentro de la tarjeta) se metía en el arco de
-          las esquinas y pintaba su `bg-slate-50/60` ENCIMA del filo: el borde de la
-          esquina se veía de otro color, y no era cosa del antialias. Medido con
-          `elementsFromPoint` sobre el arco a 45 grados: lo que hay ahí arriba del
-          todo es el fondo del `<th>`, no el borde de la tarjeta. Con `hidden` se
-          arregla el color y se rompe la cabecera pegajosa, porque convierte la
-          tarjeta en contenedor de scroll y el sticky pasa a pegarse a ELLA en vez de
-          al scroll de verdad; por eso estaba en `visible`. `clip` recorta con el
-          mismo radio y NO crea contenedor de scroll, así que arregla lo uno sin
-          romper lo otro. Y nada de dentro necesita salirse: el menú de estado va en
-          un portal con posición fija (por eso mismo) y el CTA de las bloqueadas vive
-          dentro del envoltorio. Corolario: una tarjeta con radio no puede dejar que
-          su contenido llegue al filo sin recortar; el borde es de 1px y cualquier
-          fondo hijo se lo come justo en la curva. */}
-      <div className="mt-3 overflow-hidden rounded-xl filo bg-white shadow-card md:overflow-clip">
-        {loading ? (
-          <SkeletonRows showFit={showFit} />
-        ) : filtered.length === 0 ? (
-          all.length === 0 ? (
-            // Durante la guía de primer uso, el paso 4 ("pruébalo tú mismo") vive
-            // aquí: en el hueco exacto donde aparecerá la candidatura de prueba.
-            onboarding.active && onboarding.phase === 'probar' && onboarding.campaign?.id === campaign.id ? (
-              <OnboardingTestCard campaign={campaign} shareUrl={publicFormUrl(campaign.slug, brandLabel)} onCopy={copyLink} />
+          <div className="flex shrink-0 items-center gap-2 max-sm:w-full">
+            <BuscadorPuesto value={search} onChange={setSearch} />
+            <SwitchVista
+              vista={vista}
+              onChange={setVista}
+              nActivos={all.length - nRechazados}
+              nRechazados={nRechazados}
+            />
+          </div>
+        </div>
+
+        {/* El recuento NO SE VE, ni siquiera filtrando (Mario, ago 2026): con la
+            franja de chips puesta, cada filtro dice ya su nombre y cuánto lleva, y
+            el tamaño del puesto está en el título. Una tercera cifra en gris entre
+            las herramientas y la tabla era la misma información contada peor.
+
+            Pero **no se borra: cambia de canal**, que es lo que esta doctrina hace
+            siempre con los contadores. Sigue siendo `role="status"` y sigue SIEMPRE
+            montado (una región viva que se monta y se desmonta deja de anunciar):
+            en `sr-only` es lo único que le dice a quien no ve la lista cuántos han
+            quedado al mover un filtro. Y `sr-only` lo saca del flujo, así que la
+            fila vacía no ocupa nada y solo separa cuando de verdad la habita el
+            botón de móvil. */}
+        <div className={`flex items-center gap-3 ${puedeSeleccionar ? 'mt-3 sm:mt-0' : ''}`}>
+          <p className="sr-only" role="status">
+            {loading ? (
+              'Cargando candidatos'
+            ) : hayContexto ? (
+              `${miles(filtered.length)} ${filtered.length === 1 ? 'candidato' : 'candidatos'}`
+            ) : null}
+          </p>
+          {puedeSeleccionar && (
+            <button
+              type="button"
+              onClick={() => setSelectMode(true)}
+              className="ml-auto text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 sm:hidden"
+            >
+              Seleccionar
+            </button>
+          )}
+        </div>
+
+        {/* Barra de selección (escritorio): aparece al marcar filas con los checks. */}
+        {selected.size > 0 && !loading && (
+          <div className="mt-3 hidden flex-wrap items-center gap-2.5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm text-white shadow-card sm:flex">
+            <span className="font-semibold">{selected.size} seleccionados</span>
+            <button
+              type="button"
+              onClick={() => setInterestDialogOpen(true)}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1 font-semibold text-indigo-700 hover:bg-indigo-50 active:bg-indigo-100"
+            >
+              <MailCheck className="size-4" aria-hidden /> Comprobar interés
+            </button>
+            {TAGS_ENABLED && (
+              <div className="flex items-center gap-2">
+                <BulkTagMenu
+                  mode="add"
+                  selectedIds={[...selected]}
+                  canManage={canManageTags}
+                  triggerClass="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
+                />
+                <BulkTagMenu
+                  mode="remove"
+                  selectedIds={[...selected]}
+                  canManage={canManageTags}
+                  triggerClass="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
+                />
+              </div>
+            )}
+            <button
+              onClick={async () => {
+                // Exporta TODA la selección, también filas que un filtro posterior
+                // haya ocultado (si no, exportaría menos de lo que dice la barra).
+                const subset = all.filter((c) => selected.has(c.id))
+                const name = await exportCandidatesToExcel(campaign, subset, tags, [], await loadCommentsForMany(subset.map((c) => c.id)))
+                toast.success(`Excel listo con ${subset.length} ${subset.length === 1 ? 'candidato' : 'candidatos'}, ${name}`)
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1 font-semibold hover:bg-white/25"
+            >
+              <Download className="size-4" aria-hidden /> Exportar selección
+            </button>
+            <button onClick={() => setSelected(new Set())} className="rounded-lg p-1 hover:bg-white/15" aria-label="Quitar selección">
+              <X className="size-4" aria-hidden />
+            </button>
+          </div>
+        )}
+
+        {/* Aviso de candidaturas bloqueadas (prueba agotada por cupo o por días):
+            se siguen recibiendo, pero solo se ven hasta el tope. Invita a añadir
+            el método de pago, sin urgencia falsa. */}
+        {lockedCount > 0 && !loading && (
+          <div className="mt-3 flex flex-col gap-3 rounded-xl filo bg-white px-4 py-3.5 shadow-card sm:flex-row sm:items-center">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
+              <Lock className="size-[18px]" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-slate-900">
+                {lockedCount === 1 ? 'Tienes 1 candidatura esperando' : `Tienes ${lockedCount} candidaturas esperando`}
+              </p>
+              <p className="mt-0.5 text-[13px] leading-relaxed text-slate-500">
+                {pruebaCaducada
+                  ? `Tu prueba de ${PRUEBA_DIAS} días terminó, pero las seguimos recibiendo. Añade tu método de pago y las ves todas al momento.`
+                  : `Las seguimos recibiendo, pero la prueba te deja ver ${PRUEBA_CANDIDATOS}. Añade tu método de pago y las ves todas al momento.`}
+              </p>
+            </div>
+            <button onClick={() => navigate(`${base}/plan`)} className={`${BTN_PRIMARY} shrink-0 max-sm:w-full max-sm:justify-center`}>
+              Añadir método de pago
+            </button>
+          </div>
+        )}
+
+        {/* Tabla / estados */}
+        {/* En escritorio va `overflow-clip`, ni `visible` ni `hidden`, y las tres
+            palabras importan (ago 2026). Con `visible`, la banda de la cabecera (una
+            caja CUADRADA que arranca 1px dentro de la tarjeta) se metía en el arco de
+            las esquinas y pintaba su `bg-slate-50/60` ENCIMA del filo: el borde de la
+            esquina se veía de otro color, y no era cosa del antialias. Medido con
+            `elementsFromPoint` sobre el arco a 45 grados: lo que hay ahí arriba del
+            todo es el fondo del `<th>`, no el borde de la tarjeta. Con `hidden` se
+            arregla el color y se rompe la cabecera pegajosa, porque convierte la
+            tarjeta en contenedor de scroll y el sticky pasa a pegarse a ELLA en vez de
+            al scroll de verdad; por eso estaba en `visible`. `clip` recorta con el
+            mismo radio y NO crea contenedor de scroll, así que arregla lo uno sin
+            romper lo otro. Y nada de dentro necesita salirse: el menú de estado va en
+            un portal con posición fija (por eso mismo) y el CTA de las bloqueadas vive
+            dentro del envoltorio. Corolario: una tarjeta con radio no puede dejar que
+            su contenido llegue al filo sin recortar; el borde es de 1px y cualquier
+            fondo hijo se lo come justo en la curva. */}
+        <div className="mt-3 overflow-hidden rounded-xl filo bg-white shadow-card md:overflow-clip">
+          {loading ? (
+            <SkeletonRows showFit={showFit} />
+          ) : filtered.length === 0 ? (
+            all.length === 0 ? (
+              // Durante la guía de primer uso, el paso 4 ("pruébalo tú mismo") vive
+              // aquí: en el hueco exacto donde aparecerá la candidatura de prueba.
+              onboarding.active && onboarding.phase === 'probar' && onboarding.campaign?.id === campaign.id ? (
+                <OnboardingTestCard campaign={campaign} shareUrl={publicFormUrl(campaign.slug, brandLabel)} onCopy={copyLink} />
+              ) : (
+                <EmptyFirstUse publicUrl={publicUrl} onCopy={copyLink} />
+              )
             ) : (
-              <EmptyFirstUse publicUrl={publicUrl} onCopy={copyLink} />
+              // El texto cita `q`, no lo que hay tecleado: describe la lista que se
+              // está enseñando, que es la de la última búsqueda ya aplicada.
+              <EmptyNoResults search={q} hasFilters={statusFilter.size + valueFilters.length + numberFilters.length > 0} onClear={clearFilters} />
             )
           ) : (
-            // El texto cita `q`, no lo que hay tecleado: describe la lista que se
-            // está enseñando, que es la de la última búsqueda ya aplicada.
-            <EmptyNoResults search={q} hasFilters={statusFilter.size + valueFilters.length + numberFilters.length > 0} onClear={clearFilters} />
-          )
-        ) : (
-          <CandidateTable
-            campaign={campaign}
-            showFit={showFit}
-            rows={filtered}
-            justArrived={justArrived}
-            lockedDates={showLockedRows ? lockedDates : SIN_FECHAS}
-            onLockedClick={openLockedDialog}
-            tags={tags}
-            sort={sort}
-            onSort={toggleSort}
-            selected={selected}
-            setSelected={setSelected}
-            onOpen={setOpenId}
-            maskPhone={maskPhone}
-            selectMode={selectMode}
-            onEnterSelect={enterSelectMode}
-          />
-        )}
-      </div>
+            <CandidateTable
+              campaign={campaign}
+              showFit={showFit}
+              rows={filtered}
+              justArrived={justArrived}
+              lockedDates={showLockedRows ? lockedDates : SIN_FECHAS}
+              onLockedClick={openLockedDialog}
+              tags={tags}
+              sort={sort}
+              onSort={toggleSort}
+              selected={selected}
+              setSelected={setSelected}
+              onOpen={setOpenId}
+              maskPhone={maskPhone}
+              selectMode={selectMode}
+              onEnterSelect={enterSelectMode}
+            />
+          )}
+        </div>
 
-      {/* Hueco para que la barra inferior fija no tape la última tarjeta (móvil) */}
-      {selectMode && <div className="h-20 sm:hidden" aria-hidden />}
+        {/* Hueco para que la barra inferior fija no tape la última tarjeta (móvil) */}
+        {selectMode && <div className="h-20 sm:hidden" aria-hidden />}
+      </div>
 
       <ConfirmDialog
         open={lockedDialogOpen}
@@ -1027,27 +1169,6 @@ export function Dashboard() {
         campaignTitle={campaign.title}
       />
 
-      <PuestoSettingsSheet
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        campaign={campaign}
-        sites={sites}
-        brands={brands}
-        canManage={canManage}
-        exportCount={filtered.length}
-        exportTotal={all.length}
-        onExport={doExport}
-        onSetSite={(siteId) => updateCampaign(campaign.id, { siteId })}
-        onCreateSite={createSite}
-        onSetBrand={applyBrand}
-        onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
-        onDuplicate={handleDuplicate}
-        duplicating={duplicating}
-        onPauseResume={togglePause}
-        onReopen={reopen}
-        onClosePuesto={() => setConfirmClose(true)}
-        onDelete={() => setConfirmDelete(true)}
-      />
 
       <ConfirmDialog
         open={confirmClose}
@@ -1175,54 +1296,6 @@ export function Dashboard() {
 }
 
 // --- Resumen de estados (tarjetas-filtro) ----------------------------------
-function StatusSummary({
-  all,
-  statusFilter,
-  onToggle,
-}: {
-  all: Candidate[]
-  statusFilter: Set<CandidateStatus>
-  onToggle: (s: CandidateStatus) => void
-}) {
-  const counts = STATUS_ORDER.map((s) => ({ s, n: all.filter((c) => c.status === s).length }))
-  const total = all.length
-  return (
-    // Lectura de instrumento: una sola superficie segmentada por hairlines, no 5
-    // tarjetas sueltas. Cada segmento es un filtro por estado (toggle). Solo
-    // escritorio: en móvil el filtro por estado vive en Filtros.
-    <div className="hidden overflow-hidden rounded-xl filo bg-white shadow-card sm:grid sm:grid-cols-5 sm:divide-x sm:divide-slate-200">
-      {counts.map(({ s, n }) => {
-        const active = statusFilter.has(s)
-        const m = STATUS_META[s]
-        const pct = total > 0 ? Math.round((n / total) * 100) : 0
-        return (
-          <button
-            key={s}
-            onClick={() => onToggle(s)}
-            aria-pressed={active}
-            title={`${m.label}: ${n} de ${total} (${pct}%). Filtrar.`}
-            className={`group relative flex flex-col gap-1.5 px-4 py-3.5 text-left transition-colors duration-[var(--duration-control)] ${
-              active ? 'bg-indigo-50/70' : 'hover:bg-slate-50'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <span className={`size-2 rounded-full ${m.dot}`} aria-hidden />
-              <span className="text-[12px] font-medium text-slate-600">{m.label}</span>
-            </span>
-            <span className="num text-2xl font-semibold leading-none tracking-[-0.01em] text-slate-900">{n}</span>
-            {/* Proporción: hairline de fondo + tramo lleno del color del estado. */}
-            <span className="mt-1 block h-1 overflow-hidden rounded-full bg-slate-100" aria-hidden>
-              <span className={`block h-full rounded-full ${m.dot} transition-[width] duration-[var(--duration-max)] ease-[var(--ease-out)]`} style={{ width: `${pct}%` }} />
-            </span>
-            {/* Acento de "filtro activo" en la base del segmento. */}
-            {active && <span className="absolute inset-x-0 bottom-0 h-[2px] rounded-t-full bg-indigo-600" aria-hidden />}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 // --- Tabla -----------------------------------------------------------------
 /**
  * Señales de la fila: si está en favoritos y si hay conversación. Sin esto, el
@@ -1495,7 +1568,7 @@ const CandidateTable = memo(function CandidateTable({
           // dejaba la columna de estados en serrucho y esa fila parecía un fallo de
           // pintado, no un énfasis. Que ha llegado ahora ya lo dicen el fondo teñido
           // de la fila y la fecha en negrita, que es donde de verdad se pregunta.
-          const statusChipClass = `${m.chip} inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ring-1 ring-inset`
+          const statusChipClass = `${m.chip} inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[12px] font-semibold`
           const statusDotClass = `size-1.5 rounded-full ${m.dot}`
           // Tap: en modo selección alterna; si no, abre el detalle. El guard
           // longPressed evita que el click tras la pulsación larga lo deshaga.
@@ -1534,7 +1607,9 @@ const CandidateTable = memo(function CandidateTable({
              <div className="flex items-start gap-3">
               {selectMode ? (
                 <span
-                  className={`grid size-10 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+                  // Mide lo MISMO que el avatar al que sustituye (36): si no, entrar
+                  // en modo selección movería la fila entera 4px.
+                  className={`grid size-9 shrink-0 place-items-center rounded-full border-2 transition-colors ${
                     sel ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-white'
                   }`}
                   aria-hidden
@@ -1542,7 +1617,7 @@ const CandidateTable = memo(function CandidateTable({
                   {sel && <Check className="size-5 text-white" />}
                 </span>
               ) : (
-                <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={40} />
+                <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={36} />
               )}
               <div className="min-w-0 flex-1">
                 {/* Línea 1: quién, y cuándo llegó. */}
@@ -1716,7 +1791,7 @@ const CandidateTable = memo(function CandidateTable({
                 </td>
                 <td className={CELL}>
                   <div className="flex items-center gap-2.5">
-                    <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={32} />
+                    <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={28} />
                     <div className="flex min-w-0 flex-1 items-center gap-1.5">
                       {/* Sin subrayado permanente (se probó, ago 2026): la fila ENTERA
                           abre la ficha, así que subrayar solo el nombre promete un
@@ -1725,7 +1800,12 @@ const CandidateTable = memo(function CandidateTable({
                       <button
                         type="button"
                         onClick={() => onOpen(c.id)}
-                        className="block min-w-0 truncate text-left text-[14px] font-medium text-slate-900 decoration-slate-400 underline-offset-[3px] hover:underline focus-visible:underline"
+                        // Sin subrayado (Mario, ago 2026): la fila ENTERA abre la
+                        // ficha, así que subrayar el nombre promete un objetivo más
+                        // pequeño del que hay. El foco de teclado NO se queda sin
+                        // señal por eso: pasa a anillo, que es lo que la doctrina
+                        // pide y lo que el subrayado estaba haciendo de prestado.
+                        className="block min-w-0 truncate rounded-sm text-left text-[14px] font-medium text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
                         title={name}
                       >
                         {name}
@@ -1822,85 +1902,96 @@ function RangeSlider({ min, max, from, to, onChange }: {
   )
 }
 
-function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
+/**
+ * BARRA DE FILTROS POR CATEGORÍAS (referencia que dio Mario, ago 2026).
+ *
+ * Lo que sustituye eran TRES franjas para una sola idea: una fila de controles que
+ * no decía nada ("Filtros", "Vistas", un cuadrado de buscar), debajo una línea gris
+ * con "127 candidatos, 2 filtros activos", y debajo una tira de chips con lo que
+ * había puesto. Ponías el filtro arriba y leías la consecuencia abajo, en dos
+ * sitios distintos. Ahora el control y su lectura son la misma cosa.
+ *
+ * La idea que lo ordena todo, y que es de la referencia: **"Filtros" no abre un
+ * panel con todo dentro, AÑADE una dimensión.** Cada dimensión añadida es un chip
+ * que enseña cuántos valores tiene puestos, y se puede quitar. Eso tiene una
+ * consecuencia que vale más que el aspecto: **las preguntas de ESTE puesto son
+ * dimensiones igual que Estado o Etiquetas**, así que el panel aparte que hacía
+ * falta para la cola larga desaparece. Un solo mecanismo en vez de dos.
+ *
+ * **Un chip existe si FILTRA, y punto.** Hubo un estado paralelo de "categorías
+ * añadidas" para poder enseñar una cápsula vacía nada más elegirla, y el efecto
+ * fue el contrario del buscado: al desmarcar el último valor el chip seguía ahí,
+ * diciendo "Estado" sin filtrar por ningún estado. Derivarlo de `n > 0` lo arregla
+ * y además hace que una vista guardada enseñe sus filtros sola.
+ */
+type DimensionFiltro = {
+  id: string
+  label: string
+  icon: LucideIcon
+  /** Cuántos valores tiene puestos. 0 = no filtra, y entonces no se pinta chip. */
+  n: number
+  /**
+   * Las preguntas de ESTE puesto viven dentro de una categoría "Preguntas" en vez
+   * de sueltas en la raíz: son las únicas que cambian de puesto en puesto, así que
+   * en la raíz eran cinco filas de títulos largos ("¿Vehículo propio para
+   * desplaza…") que empujaban hacia abajo a las cuatro que sí están siempre. Se
+   * DECLARA aquí y no se deduce del prefijo del id: el id es una clave, no una
+   * taxonomía.
+   */
+  grupo?: 'preguntas'
+  limpiar: () => void
+  /**
+   * Sus valores. Se declaran como DATOS y no como un panel ya pintado, porque los
+   * pinta quien los enseña: la página de la categoría dentro de "Filtros" y el
+   * desplegable del chip son la misma lista, y además el campo de arriba tiene que
+   * poder filtrarla ("Elegir estado" con quince opciones no se barre de un vistazo).
+   * Con el panel pre-pintado, ese buscador no podía existir.
+   */
+  opciones?: { valor: string; label: string; leading?: ReactNode }[]
+  seleccionadas?: Set<string>
+  onToggle?: (valor: string) => void
+  /** Escotilla para las dimensiones que NO son una lista (los rangos numéricos). */
+  panel?: ReactNode
+}
+
+/** Lo que se ve dentro de una dimensión: su lista filtrable, o su panel a medida. */
+function ValoresDimension({ dim, q }: { dim: DimensionFiltro; q: string }) {
+  if (dim.panel) return <>{dim.panel}</>
+  const busca = q.trim().toLowerCase()
+  const lista = (dim.opciones ?? []).filter((o) => !busca || o.label.toLowerCase().includes(busca))
+  if (lista.length === 0) return <p className="px-2.5 py-3 text-[13px] text-slate-500">Ningún valor se llama así.</p>
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 py-1 pl-2.5 pr-1 text-[13px] font-medium text-indigo-700 ring-1 ring-inset ring-indigo-200">
-      {label}
-      <button onClick={onRemove} aria-label={`Quitar filtro ${label}`} className="grid size-5 place-items-center rounded-full hover:bg-indigo-100">
-        <X className="size-3" aria-hidden />
-      </button>
-    </span>
+    <>
+      {lista.map((o) => (
+        <label
+          key={o.valor}
+          className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-[14px] text-slate-700 hover:bg-slate-50 sm:py-1.5 sm:text-[13px]"
+        >
+          <Checkbox checked={dim.seleccionadas?.has(o.valor) ?? false} onChange={() => dim.onToggle?.(o.valor)} />
+          {o.leading}
+          <span className="min-w-0 flex-1 truncate">{o.label}</span>
+        </label>
+      ))}
+    </>
   )
 }
 
-function FilterPanelHeader({
-  count,
-  onClear,
-  variant,
-}: {
-  count: number
-  onClear: () => void
-  variant: 'dropdown' | 'sheet'
-}) {
-  const activeText = count === 1 ? '1 activo' : count > 1 ? `${count} activos` : null
-  return (
-    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2.5">
-      <p className="min-w-0 truncate text-sm font-semibold text-slate-900">
-        {variant === 'dropdown' ? (
-          'Filtros'
-        ) : activeText ? (
-          <span className="num font-medium text-slate-600">{activeText}</span>
-        ) : (
-          <span className="font-normal text-slate-500">Sin filtros activos</span>
-        )}
-      </p>
-      <button
-        type="button"
-        onClick={onClear}
-        disabled={count === 0}
-        className="shrink-0 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-40"
-      >
-        Limpiar
-      </button>
-    </div>
-  )
-}
+/**
+ * Alto de la franja: 36px, el mismo que TODO lo que hay en su línea (el buscador y
+ * el conmutador Activos/Rechazados). Estuvo a 32 con el argumento de que un chip de
+ * filtro no es una acción y conviene que se lea en otro registro; el argumento no
+ * era malo, pero el resultado sí: en la misma fila convivían controles de 32 y de
+ * 36 y se veía descuadrada. **Una fila se lee por su línea de base común**, así que
+ * el registro se dice con la pintura (tinte y peso), no con la altura.
+ * En táctil sube a 44, que es el objetivo de toque.
+ *
+ * 40px y no 36 (Mario, ago 2026): es la fila con la que más se trabaja de la
+ * pantalla y estaba a la misma talla que los botones de la cabecera, que se usan
+ * mucho menos. Lo que se toca a menudo se hace más grande, no más pequeño.
+ */
+const CHIP_ALTO = 'h-10 pointer-coarse:h-11'
 
-function FilterMenu({
-  campaign,
-  statusFilter,
-  setStatusFilter,
-  interestFilter,
-  setInterestFilter,
-  valueFilters,
-  setValueFilters,
-  numberFilters,
-  setNumberFilters,
-  numberDomains,
-  favoritosOnly,
-  setFavoritosOnly,
-  tags,
-  tagFilter,
-  setTagFilter,
-  count,
-}: {
-  campaign: Campaign
-  statusFilter: Set<CandidateStatus>
-  setStatusFilter: React.Dispatch<React.SetStateAction<Set<CandidateStatus>>>
-  interestFilter: Set<CandidateInterestState>
-  setInterestFilter: React.Dispatch<React.SetStateAction<Set<CandidateInterestState>>>
-  valueFilters: { fieldId: string; label: string; value: string }[]
-  setValueFilters: React.Dispatch<React.SetStateAction<{ fieldId: string; label: string; value: string }[]>>
-  numberFilters: NumberFilter[]
-  setNumberFilters: React.Dispatch<React.SetStateAction<NumberFilter[]>>
-  numberDomains: Record<string, [number, number]>
-  favoritosOnly: boolean
-  setFavoritosOnly: React.Dispatch<React.SetStateAction<boolean>>
-  tags: TagType[]
-  tagFilter: Set<string>
-  setTagFilter: React.Dispatch<React.SetStateAction<Set<string>>>
-  count: number
-}) {
+function ChipDimension({ dim }: { dim: DimensionFiltro }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -1915,244 +2006,343 @@ function FilterMenu({
     }
   }, [open])
 
-  const hasValue = (fieldId: string, value: string) => valueFilters.some((v) => v.fieldId === fieldId && v.value === value)
-  const toggleValue = (f: FormField, value: string) =>
-    setValueFilters((p) =>
-      hasValue(f.id, value)
-        ? p.filter((v) => !(v.fieldId === f.id && v.value === value))
-        : [...p, { fieldId: f.id, label: f.label, value }],
-    )
-
-  const numFor = (fieldId: string) => numberFilters.find((n) => n.fieldId === fieldId)
-  // El slider va de [lo, hi]; guardamos min/max solo cuando se estrecha respecto al
-  // dominio (null en los extremos -> chip "≥"/"≤"; rango completo -> sin filtro).
-  const setRange = (f: FormField, lo: number, hi: number, from: number, to: number) => {
-    const min = from > lo ? from : null
-    const max = to < hi ? to : null
-    setNumberFilters((p) => {
-      const rest = p.filter((n) => n.fieldId !== f.id)
-      return min == null && max == null ? rest : [...rest, { fieldId: f.id, label: f.label, min, max }]
-    })
-  }
-
-  const toggleTag = (id: string) =>
-    setTagFilter((p) => {
-      const n = new Set(p)
-      n.has(id) ? n.delete(id) : n.add(id)
-      return n
-    })
-
-  // Limpia solo los filtros (no la búsqueda); lo usa el pie de la hoja en móvil.
-  const clearAll = () => {
-    setStatusFilter(new Set())
-    setInterestFilter(new Set())
-    setValueFilters([])
-    setNumberFilters([])
-    setFavoritosOnly(false)
-    setTagFilter(new Set())
-  }
-
-  // Controles compartidos por el desplegable de escritorio y la hoja inferior de
-  // móvil. Las filas son cómodas al tacto (≥44px) en móvil y compactas en sm+.
-  const rowClass =
-    'flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2.5 text-[15px] text-slate-700 hover:bg-slate-50 sm:gap-2 sm:px-1.5 sm:py-1 sm:text-sm'
-  const controls = (
-    <>
-      {/* Favoritos primero: es el filtro de una línea que más se usa ("enséñame
-          a los que quiero"), y antes vivía al final del panel como cinco
-          estrellas, que era el widget más grande para la decisión más simple. */}
-      <label className={`${rowClass} mb-4 sm:mb-3`}>
-        <Checkbox checked={favoritosOnly} onChange={() => setFavoritosOnly((v) => !v)} />
-        {/* La estrella del filtro va dorada y RELLENA, igual que la marca que
-            filtra: aquí no decora, identifica. Hueca y gris se leería como "no
-            es favorito", que es justo lo contrario de lo que hace la fila. */}
-        <Star className={`size-4 shrink-0 ${FAVORITO_STAR}`} aria-hidden />
-        Solo favoritos
-      </label>
-
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Estado</p>
-      <div className="mb-4 space-y-0.5 sm:mb-3">
-        {STATUS_ORDER.map((s) => (
-          <label key={s} className={rowClass}>
-            <Checkbox
-              checked={statusFilter.has(s)}
-              onChange={() =>
-                setStatusFilter((p) => {
-                  const n = new Set(p)
-                  n.has(s) ? n.delete(s) : n.add(s)
-                  return n
-                })
-              }
-            />
-            <span className={`size-2 rounded-full ${STATUS_META[s].dot}`} aria-hidden />
-            {STATUS_META[s].label}
-          </label>
-        ))}
-      </div>
-
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Interés</p>
-      <div className="mb-4 space-y-0.5 sm:mb-3">
-        {(['interested', 'not_interested', 'sent', 'no_response', 'never', 'unavailable'] as CandidateInterestState[]).map((state) => (
-          <label key={state} className={rowClass}>
-            <Checkbox
-              checked={interestFilter.has(state)}
-              onChange={() => setInterestFilter((previous) => {
-                const next = new Set(previous)
-                next.has(state) ? next.delete(state) : next.add(state)
-                return next
-              })}
-            />
-            {INTEREST_STATE_LABEL[state]}
-          </label>
-        ))}
-      </div>
-
-      {/* Etiquetas: justo debajo de Estado (ambos son clasificación del empresario).
-          Si la empresa aún no tiene etiquetas, el grupo se oculta (sin ruido). */}
-      {TAGS_ENABLED && tags.length > 0 && (
-        <div className="mb-4 sm:mb-3">
-          <p id="flt-tags" className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Etiquetas</p>
-          <div role="group" aria-labelledby="flt-tags" className="space-y-0.5">
-            {tags.map((t) => (
-              <label key={t.id} className={rowClass}>
-                <Checkbox
-                  checked={tagFilter.has(t.id)}
-                  onChange={() => toggleTag(t.id)}
-                />
-                <span className="min-w-0 truncate">{t.name}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {filterableFields(campaign).map((f) => (
-        <div key={f.id} className="mb-4 sm:mb-3">
-          <p id={`flt-${f.id}`} className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{f.label}</p>
-          <div role="group" aria-labelledby={`flt-${f.id}`} className="space-y-0.5">
-            {(f.type === 'boolean' ? ['Sí', 'No'] : f.options ?? []).map((opt) => (
-              <label key={opt} className={rowClass}>
-                <Checkbox
-                  checked={hasValue(f.id, opt)}
-                  onChange={() => toggleValue(f, opt)}
-                />
-                {opt}
-              </label>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {numberFields(campaign).map((f) => {
-        const dom = numberDomains[f.id]
-        if (!dom) return null // sin rango útil (sin datos o todos iguales): no hay slider
-        const [lo, hi] = dom
-        const nf = numFor(f.id)
-        const from = nf?.min ?? lo
-        const to = nf?.max ?? hi
-        return (
-          <div key={f.id} className="mb-4 sm:mb-3">
-            <div className="mb-2 flex items-baseline justify-between">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{f.label}</p>
-              <span className="text-[12px] font-medium num text-slate-600">{from} – {to}</span>
-            </div>
-            <RangeSlider min={lo} max={hi} from={from} to={to} onChange={(nFrom, nTo) => setRange(f, lo, hi, nFrom, nTo)} />
-          </div>
-        )
-      })}
-
-    </>
-  )
-
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative shrink-0" ref={ref}>
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className={`${BTN_SECONDARY} relative`}
+        aria-haspopup="menu"
+        className={`${CHIP_ALTO} inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3.5 text-sm font-medium text-indigo-700 outline-none transition-colors duration-[var(--duration-control)] hover:bg-indigo-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40`}
       >
-        <Filter className="size-4 text-slate-400" aria-hidden /> Filtros
-        {/* Badge en la esquina: absoluto, no altera el ancho del botón. */}
-        {count > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold leading-none text-white num ring-2 ring-white">
-            {count}
-          </span>
-        )}
+        <span className="truncate">{dim.label}</span>
+        {/* El recuento entre paréntesis, como en la referencia: dice cuánto hay
+            puesto sin tener que abrir. Siempre hay al menos uno, porque sin
+            ninguno el chip no existiría. */}
+        <span className="num shrink-0">({dim.n})</span>
+        <ChevronDown className={`size-3 shrink-0 opacity-70 transition-transform duration-[var(--duration-control)] ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
 
-      {/* Escritorio: desplegable anclado al botón */}
       {open && (
-        <div className="absolute left-0 z-50 mt-1 hidden max-h-[60vh] w-72 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl filo bg-white shadow-pop sm:flex">
-          <FilterPanelHeader count={count} onClear={clearAll} variant="dropdown" />
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">{controls}</div>
+        <div className="absolute left-0 z-40 mt-1.5 w-64 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop">
+          <div className="max-h-72 space-y-0.5 overflow-y-auto">
+            <ValoresDimension dim={dim} q="" />
+          </div>
+          {/* Quitar la dimensión vive DENTRO de su desplegable y no como una equis
+              en el chip: en una fila que puede llevar seis chips, seis equis son
+              seis controles más, y la doctrina dice que en una fila no se meten
+              controles que no sean imprescindibles. */}
+          <button
+            type="button"
+            onClick={() => { dim.limpiar(); setOpen(false) }}
+            className="mt-1 flex w-full items-center gap-2 border-t border-slate-100 px-2.5 pb-0.5 pt-2 text-left text-[13px] font-medium text-slate-500 transition-colors hover:text-slate-800"
+          >
+            <X className="size-3.5" aria-hidden /> Quitar este filtro
+          </button>
         </div>
       )}
-
-      {/* Móvil: hoja inferior */}
-      <BottomSheet
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Filtros"
-        footer={
-          <div className="border-t border-slate-200 px-4 py-3">
-            <button onClick={() => setOpen(false)} className={`${BTN_PRIMARY} w-full`}>
-              Ver resultados
-            </button>
-          </div>
-        }
-      >
-        <div className="sticky top-0 z-10">
-          <FilterPanelHeader count={count} onClear={clearAll} variant="sheet" />
-        </div>
-        <div className="px-4 pb-3 pt-3">{controls}</div>
-      </BottomSheet>
     </div>
   )
 }
 
-function SettingsExportButton({
-  count,
-  total,
-  onExport,
+/** Fila de categoría del menú de filtros: lleva a otra página de la misma caja. */
+function FilaCategoria({
+  icon: Icon,
+  label,
+  n,
+  onClick,
 }: {
-  count: number
-  total: number
-  onExport: () => void | Promise<void>
+  icon: LucideIcon
+  label: string
+  n: number
+  onClick: () => void
 }) {
-  const [busy, setBusy] = useState(false)
-  const filtered = count !== total
-  const run = async () => {
-    if (busy) return
-    setBusy(true)
-    try {
-      await onExport()
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return (
     <button
       type="button"
-      onClick={run}
-      disabled={count === 0 || busy}
-      className={`${BTN_SECONDARY} w-full disabled:opacity-60`}
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-800 outline-none transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 sm:py-1.5 sm:text-[13px]"
     >
-      {busy ? (
-        <Loader2 className="size-4 animate-spin text-slate-400" aria-hidden />
-      ) : (
-        <Download className="size-4 text-slate-400" aria-hidden />
-      )}
-      {busy
-        ? 'Generando Excel…'
-        : count === 0
-          ? 'No hay candidatos para exportar'
-          : `Exportar ${miles(count)} ${filtered ? 'filtrados' : count === 1 ? 'candidato' : 'candidatos'} a Excel`}
+      <Icon className="size-4 shrink-0 text-slate-500" aria-hidden />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {/* El recuento ahorra entrar a mirar si esta categoría ya filtra. */}
+      {n > 0 && <span className="num shrink-0 text-[12px] font-medium text-indigo-600">({n})</span>}
+      <ChevronRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
     </button>
   )
 }
 
-// --- Estados ----------------------------------------------------------------
+/**
+ * "FILTROS": elige la CATEGORÍA y dentro sus valores, en la misma caja.
+ *
+ * Dos páginas, no dos capas: la raíz lista las categorías y al pulsar una, el mismo
+ * desplegable pasa a enseñar SUS valores, con el campo de arriba convertido en
+ * "Elegir <categoría>". Es un gesto continuo (abrir, categoría, valores) en vez de
+ * dos (añadir el chip, luego abrirlo), y sobre todo **evita que la fila se llene de
+ * chips del mismo tipo**: los tres estados que quieres van dentro de "Estado", no
+ * en tres cápsulas seguidas. Mario, ago 2026.
+ *
+ * Una segunda capa colgando de la primera se saldría de la pantalla y en móvil no
+ * tendría dónde ponerse; es la misma decisión que ya tomó el submenú de Sede.
+ *
+ * "Limpiar todos los filtros" solo aparece cuando hay algo que limpiar: una acción
+ * que no puede hacer nada es una puerta cerrada pintada en la pared.
+ */
+function MenuAnadirFiltro({
+  dimensiones,
+  onLimpiarTodo,
+  hayFiltros,
+  vistas,
+  onAplicarVista,
+  onBorrarVista,
+  onGuardarVista,
+  puedeGuardar,
+}: {
+  dimensiones: DimensionFiltro[]
+  onLimpiarTodo: () => void
+  hayFiltros: boolean
+  /**
+   * Las vistas guardadas viven DENTRO de Filtros desde ago 2026 (Mario), no en un
+   * botón aparte: una vista guardada ES una combinación de filtros, así que fuera
+   * estaba en otro dominio. En la raíz aparece como una página más (`Vistas ›`),
+   * junto a "Limpiar todos": esa zona del pie es la de las operaciones sobre el
+   * CONJUNTO de filtros (recuperar uno entero, vaciarlos todos), y las categorías
+   * de arriba son las de añadir uno.
+   */
+  vistas: SavedView[]
+  onAplicarVista: (v: SavedView) => void
+  onBorrarVista: (id: string) => void
+  onGuardarVista: () => void
+  puedeGuardar: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  // RUTA y no una sola página: hay tres niveles (raíz -> Preguntas -> una pregunta)
+  // y volver atrás desde una pregunta tiene que devolverte a la LISTA de preguntas,
+  // no a la raíz. Con un solo `pagina` no hay forma de saber por dónde entraste.
+  const [ruta, setRuta] = useState<string[]>([])
+  const [q, setQ] = useState('')
+  const ref = useRef<HTMLDivElement>(null)
+  const campoRef = useRef<HTMLInputElement>(null)
+  const botonRef = useRef<HTMLButtonElement>(null)
+
+  const hoja = ruta[ruta.length - 1] ?? null
+  const PAGINAS = ['preguntas', 'vistas']
+  const dim = hoja && !PAGINAS.includes(hoja) ? dimensiones.find((d) => d.id === hoja) ?? null : null
+  const enPreguntas = hoja === 'preguntas'
+  const enVistas = hoja === 'vistas'
+  const preguntas = dimensiones.filter((d) => d.grupo === 'preguntas')
+  const raizDims = dimensiones.filter((d) => !d.grupo)
+  const nPreguntas = preguntas.reduce((t, d) => t + d.n, 0)
+
+  const entrar = (id: string) => { setRuta((r) => [...r, id]); setQ('') }
+  const volver = () => { setRuta((r) => r.slice(0, -1)); setQ('') }
+
+  const cerrar = useCallback(() => {
+    setOpen(false)
+    // La ruta vuelve a la raíz al CERRAR, no al abrir: al abrir se vería el salto
+    // de vuelta durante la animación.
+    setRuta([])
+    setQ('')
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && cerrar()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // Escape sube UN nivel; en la raíz, cierra. Así no se sale de todo por querer
+      // deshacer un paso, ni hacen falta dos Escapes para salir de tres niveles.
+      if (ruta.length) {
+        e.stopPropagation()
+        volver()
+        return
+      }
+      cerrar()
+      botonRef.current?.focus()
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open, ruta, cerrar])
+
+  // El foco entra al campo en un efecto y no en el click: al pulsar todavía no
+  // existe. Se repite al cambiar de página, que es cuando el campo cambia de papel.
+  useEffect(() => {
+    if (open) campoRef.current?.focus()
+  }, [open, hoja])
+
+  const busca = q.trim().toLowerCase()
+  // Buscando desde la raíz se mira TODO, preguntas incluidas: quien escribe
+  // "carnet" quiere ese filtro, no que le manden a abrir "Preguntas" primero. El
+  // agrupado es para ojear, no una jaula.
+  const vistasFiltradas = vistas.filter((v) => !busca || v.name.toLowerCase().includes(busca))
+  const enBusqueda = !!busca && !dim && !enVistas
+  const listaRaiz = enBusqueda
+    ? dimensiones.filter((d) => d.label.toLowerCase().includes(busca))
+    : enPreguntas
+      ? preguntas
+      : raizDims
+
+  return (
+    <div className="relative shrink-0" ref={ref}>
+      <button
+        ref={botonRef}
+        type="button"
+        onClick={() => (open ? cerrar() : setOpen(true))}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className={`${CHIP_ALTO} inline-flex items-center gap-1.5 rounded-lg px-3.5 text-sm font-medium outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+          // Teñido cuando hay filtros puestos: el botón dice el estado de la franja
+          // entera, igual que cada chip dice el suyo. Sin teñir, la pintura sale de
+          // `BTN_SUPERFICIE` y NO se escribe a mano: pintada aquí se quedó con el
+          // anillo y la sombra del botón con relieve, así que al pasar el sistema a
+          // plano fue el único control de la fila que no se enteró.
+          hayFiltros
+            ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+            : `${BTN_SUPERFICIE.secondary} ${open ? 'bg-slate-50' : ''}`
+        }`}
+      >
+        <Filter className={`size-4 shrink-0 ${hayFiltros ? 'text-indigo-500' : 'text-slate-400'}`} aria-hidden />
+        Filtros
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label={dim ? `Elegir ${dim.label}` : enPreguntas ? 'Preguntas de este puesto' : enVistas ? 'Vistas guardadas' : 'Filtros'}
+          className="absolute left-0 z-40 mt-1.5 w-72 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop"
+        >
+          {/* El campo cambia de papel según la página: busca CATEGORÍAS en la raíz
+              y VALORES dentro de una. El placeholder es lo que dice dónde estás. */}
+          <div className="relative mb-1 flex items-center gap-1">
+            {ruta.length > 0 && (
+              <button
+                type="button"
+                onClick={volver}
+                aria-label="Volver"
+                className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+              >
+                <ChevronLeft className="size-4" aria-hidden />
+              </button>
+            )}
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+              <input
+                ref={campoRef}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={dim ? `Elegir ${dim.label.toLowerCase()}` : enPreguntas ? 'Buscar pregunta' : enVistas ? 'Buscar vista' : 'Buscar filtro'}
+                aria-label={dim ? `Buscar en ${dim.label}` : enPreguntas ? 'Buscar una pregunta' : enVistas ? 'Buscar una vista' : 'Buscar un filtro'}
+                className="h-9 w-full rounded-lg bg-slate-100 pl-8 pr-2.5 text-[13px] text-slate-900 outline-none placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40"
+              />
+            </div>
+          </div>
+
+          <div className="max-h-72 space-y-0.5 overflow-y-auto">
+            {enVistas ? (
+              <>
+                {vistasFiltradas.length === 0 ? (
+                  <p className="px-2.5 py-3 text-[13px] leading-relaxed text-slate-500">
+                    {q
+                      ? 'Ninguna vista se llama así.'
+                      : 'Aún no has guardado ninguna vista. Filtra como quieras y guarda la combinación.'}
+                  </p>
+                ) : (
+                  vistasFiltradas.map((v) => (
+                    <div key={v.id} className="group flex items-center gap-1 rounded-lg hover:bg-slate-50">
+                      <button
+                        type="button"
+                        onClick={() => { onAplicarVista(v); cerrar() }}
+                        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-800 outline-none sm:py-1.5 sm:text-[13px]"
+                      >
+                        {/* Global (vale para cualquier puesto) o de ESTE puesto: el
+                            glifo lo dice sin gastar una palabra. */}
+                        {v.campaignId === null
+                          ? <Globe className="size-4 shrink-0 text-slate-500" aria-hidden />
+                          : <Briefcase className="size-4 shrink-0 text-slate-500" aria-hidden />}
+                        <span className="min-w-0 flex-1 truncate">{v.name}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onBorrarVista(v.id)}
+                        aria-label={`Eliminar vista ${v.name}`}
+                        className="mr-1 grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
+                      >
+                        <Trash2 className="size-3.5" aria-hidden />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </>
+            ) : dim ? (
+              <ValoresDimension dim={dim} q={q} />
+            ) : listaRaiz.length === 0 && !(!enBusqueda && !enPreguntas && preguntas.length > 0) ? (
+              <p className="px-2.5 py-3 text-[13px] text-slate-500">
+                {enPreguntas ? 'Ninguna pregunta se llama así.' : 'Ningún filtro se llama así.'}
+              </p>
+            ) : (
+              <>
+                {listaRaiz.map((d) => (
+                  <FilaCategoria key={d.id} icon={d.icon} label={d.label} n={d.n} onClick={() => entrar(d.id)} />
+                ))}
+                {/* "Preguntas" solo en la raíz y solo si el puesto tiene alguna.
+                    Buscando NO se pinta, porque ahí la lista ya trae las preguntas
+                    mezcladas y entrar en el grupo sería dar un rodeo. */}
+                {!enBusqueda && !enPreguntas && preguntas.length > 0 && (
+                  <FilaCategoria
+                    icon={ListFilter}
+                    label="Preguntas del formulario"
+                    n={nPreguntas}
+                    onClick={() => entrar('preguntas')}
+                  />
+                )}
+              </>
+            )}
+          </div>
+
+          {/* El PIE es la zona de las operaciones sobre el CONJUNTO de filtros:
+              recuperar uno entero (Vistas) o vaciarlos todos. Las categorías de
+              arriba son para añadir uno. */}
+          {!dim && !enPreguntas && !enVistas && (
+            <div className="mt-1 border-t border-slate-100 pt-1">
+              <FilaCategoria icon={Bookmark} label="Vistas guardadas" n={vistas.length} onClick={() => entrar('vistas')} />
+              {hayFiltros && (
+                <button
+                  type="button"
+                  onClick={() => { onLimpiarTodo(); cerrar() }}
+                  className="w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 sm:py-1.5"
+                >
+                  Limpiar todos los filtros
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Guardar vive DENTRO de Vistas, que es donde estás cuando piensas en
+              ellas. Apagado sin nada que guardar, y SIN una nota explicándolo: el
+              vacío de la lista, justo encima, ya dice "filtra como quieras y guarda
+              la combinación". Dos frases para el mismo hecho es una de más. */}
+          {enVistas && (
+            <div className="mt-1 border-t border-slate-100 pt-1">
+              <button
+                type="button"
+                onClick={() => { cerrar(); onGuardarVista() }}
+                disabled={!puedeGuardar}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:opacity-40 disabled:hover:bg-transparent sm:py-1.5"
+              >
+                <Plus className="size-4 shrink-0" aria-hidden /> Guardar los filtros de ahora
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SkeletonRows({ showFit }: { showFit: boolean }) {
   // Replica la rejilla real de la fila (checkbox · nombre, y a la derecha
   // encaje/etiquetas/teléfono/estado/fecha) para que el paso a datos no salte.
@@ -2182,6 +2372,711 @@ function TestChip() {
     <span className="inline-flex shrink-0 items-center rounded-full bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
       Prueba
     </span>
+  )
+}
+
+/**
+ * BUSCAR EN EL PUESTO. Una lupa que se abre en campo, con la lupa a la DERECHA en
+ * su bloque teñido (diseño de Mario, ago 2026).
+ *
+ * El campo ocupaba la fila entera y empujaba todo lo demás contra el filo derecho;
+ * plegado deja el sitio a lo que se mira más veces, que son los filtros y en qué
+ * mitad de la lista estás. Se abre al pulsar y **no se cierra si has escrito algo**:
+ * plegarlo con texto dentro borraría un filtro sin decirlo, que es peor que ocupar
+ * ancho. Escape con el campo vacío (o pulsar la lupa) lo vuelve a plegar.
+ *
+ * No toca el mecanismo de tres ritmos del buscador (`search` urgente, `q` en
+ * transición, `dq` con debounce): eso vive en la pantalla y aquí solo cambia CÓMO
+ * se enseña el campo. El `value` sigue siendo el de la pantalla, así que plegar y
+ * desplegar no pierde lo escrito.
+ */
+function BuscadorPuesto({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [abierto, setAbierto] = useState(false)
+  const ref = useRef<HTMLInputElement>(null)
+  const visible = abierto || value.length > 0
+
+  // El foco va en un efecto y NO en el propio click: `requestAnimationFrame`
+  // programado dentro del manejador puede dispararse ANTES de que React comita el
+  // render, y entonces el `ref` del campo todavía es null y el foco no llega a
+  // ninguna parte. El efecto corre después del commit.
+  useEffect(() => {
+    if (abierto) ref.current?.focus()
+  }, [abierto])
+
+  return (
+    <div className="flex min-w-0 items-center">
+      {/* Lo que se anima es un envoltorio que SOLO envuelve al campo, y la lupa se
+          queda FUERA. Primero lo hice al revés (una caja única que crecía con el
+          botón dentro) y el botón viajaba con ella: el campo parecía empujar a la
+          lupa. Con la lupa anclada, el campo se desenrolla por detrás de ella y lo
+          único que se mueve es lo que aparece. */}
+      <div
+        style={{ transitionProperty: 'width, opacity' }}
+        className={`overflow-hidden transition-[width,opacity] duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none ${
+          visible ? 'w-full opacity-100 sm:w-48' : 'w-0 opacity-0'
+        }`}
+      >
+        <input
+          ref={ref}
+          type="search"
+          aria-label="Buscar candidatos"
+          aria-hidden={!visible}
+          tabIndex={visible ? 0 : -1}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && !value) {
+              e.stopPropagation()
+              setAbierto(false)
+            }
+          }}
+          onBlur={() => !value && setAbierto(false)}
+          placeholder="Buscar candidatos..."
+          // Sin borde derecho y con las esquinas izquierdas redondeadas: el campo y
+          // la lupa son UNA pieza partida en dos, no dos controles pegados. El
+          // anillo de foco va `inset` (y no el `ring-4` de un campo suelto), o se
+          // derramaría por encima del botón que tiene al lado.
+          className="h-10 w-full rounded-l-lg border border-r-0 border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-inset focus:ring-indigo-500/40 pointer-coarse:h-11"
+        />
+      </div>
+      {/* La lupa cambia de PAPEL con el estado: plegada es un icono suelto (sin
+          caja, gris); abierta es la tapa derecha del campo, teñida de acento. */}
+      <button
+        type="button"
+        onClick={() => {
+          if (!visible) { setAbierto(true); return }
+          // Abierta y vacía se pliega (la vuelta con el ratón, porque Escape es de
+          // teclado); con algo escrito NO se pliega, solo enfoca: plegarla borraría
+          // un filtro sin decirlo.
+          if (!value) setAbierto(false)
+          else ref.current?.focus()
+        }}
+        aria-label={visible ? 'Buscar candidatos' : 'Abrir el buscador de candidatos'}
+        className={`grid h-10 w-10 shrink-0 place-items-center outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 pointer-coarse:h-11 pointer-coarse:w-11 ${
+          visible
+            ? 'rounded-r-lg border border-slate-300 bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
+            : 'rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+        }`}
+      >
+        <Search className="size-4" aria-hidden />
+      </button>
+    </div>
+  )
+}
+
+/**
+ * ACTIVOS / RECHAZADOS. En qué mitad de la lista estás (maquetación de Figma).
+ *
+ * No es un filtro más y por eso no vive en el menú de Filtros: "descartado" es el
+ * único estado del que se sale por una DECISIÓN y no por avanzar, así que parte la
+ * lista en dos montones que casi nunca se miran juntos. Los otros cuatro estados
+ * siguen filtrándose desde Filtros, dentro del montón en el que estés.
+ *
+ * El conmutador lleva su cifra porque aquí el número SÍ cambia una decisión: dice
+ * si merece la pena ir a mirar el otro montón. Es un `radiogroup` de verdad (dos
+ * `<button role="radio">` con flechas), no dos botones sueltos: son dos estados
+ * excluyentes de una misma cosa.
+ */
+function SwitchVista({
+  vista,
+  onChange,
+  nActivos,
+  nRechazados,
+}: {
+  vista: 'activos' | 'rechazados'
+  onChange: (v: 'activos' | 'rechazados') => void
+  nActivos: number
+  nRechazados: number
+}) {
+  const opciones = [
+    { value: 'activos' as const, label: 'Activos', n: nActivos },
+    { value: 'rechazados' as const, label: 'Rechazados', n: nRechazados },
+  ]
+  const mover = (dir: 1 | -1) => {
+    const i = opciones.findIndex((o) => o.value === vista)
+    onChange(opciones[(i + dir + opciones.length) % opciones.length].value)
+  }
+  return (
+    // Caja RECTANGULAR con filo y divisoria interior, no una pastilla gris con un
+    // botón blanco deslizándose dentro (Mario, ago 2026). Lo activo se dice con
+    // TINTA de acento y su cifra rellena; lo inactivo, en tinta normal con la cifra
+    // apagada. Sin fondo gris de carril: el filo ya cierra la caja, y un carril
+    // teñido debajo de dos mitades blancas era una tercera superficie sin trabajo.
+    // `overflow-clip` porque los hijos son cajas cuadradas que llegan al filo: en
+    // la curva de la esquina se comerían el borde (misma razón que en la tabla).
+    <div
+      role="radiogroup"
+      aria-label="Candidatos que ves"
+      className="flex h-10 shrink-0 items-center overflow-clip rounded-lg filo bg-white shadow-control pointer-coarse:h-11"
+    >
+      {opciones.map((o, i) => {
+        const activa = vista === o.value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={activa}
+            tabIndex={activa ? 0 : -1}
+            onClick={() => onChange(o.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); mover(1) }
+              else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); mover(-1) }
+            }}
+            className={`flex h-full items-center gap-1.5 pl-3 pr-2 text-[13px] font-medium outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+              // La divisoria la pinta la mitad de la derecha: un `divide-x` en el
+              // padre no serviría, porque el hijo activo pinta fondo encima.
+              i > 0 ? 'border-l border-slate-200' : ''
+            } ${activa ? 'bg-indigo-50/60 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'}`}
+          >
+            {o.label}
+            {/* La chapa del lado activo va en el acento porque es donde estás; la del
+                otro, apagada. Es el único par de cifras de la pantalla y compara dos
+                montones: aquí el número informa, no decora. */}
+            <span
+              className={`num grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-semibold ${
+                activa ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'
+              }`}
+            >
+              {o.n}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * EL ESTADO DEL PUESTO, en la línea del título y como CONTROL.
+ *
+ * Antes solo se pintaba cuando NO estaba activo (una chapa "Pausado"/"Cerrado") y
+ * para cambiarlo había que abrir Ajustes del puesto, bajar hasta "Acciones" y
+ * pulsar allí: tres pasos para lo que decide si el enlace acepta gente y si el
+ * proceso se está cobrando. Ahora se lee siempre y se cambia desde donde se lee.
+ *
+ * Es la cápsula verde del diseño: punto de color, palabra y chevron. Vive junto al
+ * TÍTULO y no entre las acciones, que es lo que la separa de la pastilla de estado
+ * de un candidato: aquella está siempre dentro de una fila de la tabla y esta
+ * siempre pegada al nombre del puesto, en la franja de arriba. Aun así comparten
+ * anatomía y el verde de "activo" es vecino del verde de "contratado" de la
+ * columna Estado: si algún día se confunden, la salida es la forma (icono en vez
+ * de punto), no otro tono.
+ *
+ * Pausar y cerrar NO son lo mismo y el menú lo dice donde se decide: pausar
+ * detiene el enlace pero el proceso sigue abierto (y cobrándose), cerrar deja de
+ * cobrar. Es la advertencia que la doctrina de precios exige en la interfaz.
+ */
+const ESTADO_PUESTO = {
+  // Los fondos van al paso 200, no al 50 con el que nacieron. Medido: sobre la
+  // página (#f9fafb) el 100 se queda en 1,05:1, o sea que la cápsula no llega a
+  // leerse como una forma; el 200 da 1,16:1, tres veces la separación, y el texto
+  // encima sigue en 5,91:1 (AA pide 4,5). Los tres suben a la vez: si solo subiera
+  // el verde, "En línea" parecería de otra familia que "Pausado" y "Cerrado".
+  // El hover es `brightness` y no el siguiente paso de la rampa (200 -> 300), que
+  // era un salto entero y se leía como un cambio de estado en vez de como "puedes
+  // pulsar esto". Es además el MISMO mecanismo que ya usan las pastillas de estado
+  // de un candidato: un solo lenguaje de hover para todas las cápsulas teñidas.
+  activa: { label: 'En línea', punto: 'bg-green-600', chapa: 'bg-green-200 text-green-900' },
+  pausada: { label: 'Pausado', punto: 'bg-amber-600', chapa: 'bg-amber-200 text-amber-900' },
+  cerrada: { label: 'Cerrado', punto: 'bg-slate-500', chapa: 'bg-slate-200 text-slate-800' },
+} as const
+
+const ORDEN_ESTADOS = ['activa', 'pausada', 'cerrada'] as const
+
+function EstadoPuesto({
+  status,
+  canManage,
+  cobraPorProceso,
+  onPauseResume,
+  onClosePuesto,
+  onReopen,
+}: {
+  status: Campaign['status']
+  canManage: boolean
+  /** En el pago por proceso, pausar no deja de cobrar: hay que decirlo aquí. */
+  cobraPorProceso: boolean
+  onPauseResume: () => void
+  onClosePuesto: () => void
+  onReopen: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      btnRef.current?.focus()
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const e = ESTADO_PUESTO[status]
+  // El encargado gestiona candidatos pero no el puesto (lo mismo que aplica la
+  // RLS): para él esto es una etiqueta, no un mando. Un botón que no puede hacer
+  // nada es peor que ningún botón.
+  const cara = (
+    <>
+      <span className={`size-1.5 shrink-0 rounded-full ${e.punto}`} aria-hidden />
+      <span className="sr-only">Estado del puesto: </span>
+      {e.label}
+    </>
+  )
+  // 24px en escritorio: es un ACCESORIO del título, no un control de la fila de
+  // acciones, así que va por debajo de los 36 de un botón. En táctil sube a 32,
+  // que no llega al objetivo de toque de 44 pero deja de ser una diana imposible;
+  // antes no tenía variante gruesa ninguna y se quedaba en 28 para todos.
+  const forma = 'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium pointer-coarse:h-8'
+
+  if (!canManage) {
+    return <span className={`${forma} ${e.chapa}`}>{cara}</span>
+  }
+
+  // Qué SIGNIFICA cada estado, no qué botón pulsas. Es la diferencia entre este
+  // menú y el de antes: escrito en paralelo, los tres se comparan de un vistazo y
+  // la consecuencia de facturación viaja pegada a la opción que la causa, en vez
+  // de en una nota al pie que se lee después de haber elegido.
+  const descripcion = (v: Campaign['status']) => {
+    if (v === 'activa') return 'El enlace está publicado y acepta candidaturas.'
+    if (v === 'pausada') {
+      return cobraPorProceso
+        ? 'El enlace deja de aceptar candidaturas. El proceso sigue abierto y se sigue cobrando.'
+        : 'El enlace deja de aceptar candidaturas. El proceso sigue abierto.'
+    }
+    return cobraPorProceso
+      ? 'Deja de aceptar candidaturas y de cobrarse. Tus candidatos siguen aquí y puedes exportarlos.'
+      : 'Deja de aceptar candidaturas. Tus candidatos siguen aquí y puedes exportarlos.'
+  }
+
+  // Desde CERRADO solo se puede volver reabriendo, que es una puerta de
+  // facturación y siempre acaba en "en línea". Ofrecer "Pausado" desde ahí sería
+  // prometer un salto que el store no hace: se enseña, apagado, con el motivo.
+  const bloqueo = (v: Campaign['status']) =>
+    status === 'cerrada' && v === 'pausada' ? 'Reábrelo primero' : null
+
+  const elegir = (v: Campaign['status']) => {
+    setOpen(false)
+    if (v === status) return
+    if (v === 'cerrada') return onClosePuesto()
+    if (status === 'cerrada') return onReopen()
+    // Entre "en línea" y "pausado" el salto es directo: no toca la facturación.
+    onPauseResume()
+  }
+
+  // Flechas entre opciones, saltándose las apagadas: un menú se recorre con el
+  // teclado o no es un menú.
+  const mover = (desde: number, dir: 1 | -1) => {
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]:not([disabled])') ?? [])
+    if (!items.length) return
+    const actual = items.findIndex((el) => el === document.activeElement)
+    const base = actual < 0 ? desde : actual
+    items[(base + dir + items.length) % items.length]?.focus()
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className={`${forma} ${e.chapa} transition-[filter] duration-[var(--duration-control)] hover:brightness-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40`}
+      >
+        {cara}
+        <ChevronDown className={`size-3.5 shrink-0 opacity-70 transition-transform duration-[var(--duration-control)] ${open ? 'rotate-180' : ''}`} aria-hidden />
+      </button>
+
+      {open && (
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label="Estado del puesto"
+          className="absolute left-0 z-50 mt-1.5 w-[19.5rem] overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop"
+        >
+          {ORDEN_ESTADOS.map((v, i) => {
+            const actual = v === status
+            const motivo = bloqueo(v)
+            return (
+              <button
+                key={v}
+                type="button"
+                role="menuitemradio"
+                aria-checked={actual}
+                disabled={!!motivo}
+                onClick={() => elegir(v)}
+                onKeyDown={(ev) => {
+                  if (ev.key === 'ArrowDown') { ev.preventDefault(); mover(i, 1) }
+                  else if (ev.key === 'ArrowUp') { ev.preventDefault(); mover(i, -1) }
+                }}
+                className={`block w-full rounded-lg px-2.5 py-2 text-left outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+                  actual
+                    // El estado actual va en el acento: seleccionar es uno de los
+                    // cuatro usos permitidos del ultramarine (acción, nav, foco y
+                    // selección). Aquí es exactamente selección.
+                    ? 'bg-indigo-50 text-indigo-700'
+                    : motivo
+                      ? 'cursor-not-allowed opacity-55'
+                      : 'text-slate-800 hover:bg-slate-50'
+                }`}
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  {ESTADO_PUESTO[v].label}
+                  {motivo && <span className="text-[11px] font-medium text-slate-500">({motivo})</span>}
+                </span>
+                <span className={`mt-0.5 block text-[12px] leading-relaxed ${actual ? 'text-indigo-600' : 'text-slate-500'}`}>
+                  {descripcion(v)}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * EL MENÚ DEL PUESTO (el `···`). Referencia que dio Mario, ago 2026.
+ *
+ * Antes esto abría un MODAL de pantalla completa que mezclaba dos cosas que no se
+ * parecen: verbos de un clic (duplicar, exportar, eliminar) y configuración con
+ * selectores (sede, marca, un interruptor de avisos). Un modal es para configurar
+ * varias cosas a la vez; para ejecutar UNA acción es un peaje.
+ *
+ * Las cuatro reglas que se sacaron de la referencia y que gobiernan esta pieza:
+ *
+ * 1. **Un ítem de menú es un VERBO y al pulsarlo el menú se cierra.** Es el reverso
+ *    exacto del menú de estado del título, donde eliges un ESTADO y te quedas en
+ *    él. Por eso los avisos ya no son un interruptor metido en una lista: son
+ *    "Activar avisos" / "Desactivar avisos", nombrados por su efecto. Un
+ *    interruptor dentro de un menú es la mezcla de los dos y por eso se sentía raro.
+ * 2. **`›` y `↗` significan cosas distintas y no se intercambian.** `›` es "aquí
+ *    dentro hay más que elegir" (Sede); `↗` es "esto te saca de la app" (ver el
+ *    formulario público). Tener dos glifos y usarlos con criterio ahorra la
+ *    sorpresa de que algo abra una pestaña sin avisar.
+ * 3. **El menú es el INVENTARIO completo; los botones de la cabecera son atajos.**
+ *    Por eso "Editar formulario" está en los dos sitios y no es un descuido: quien
+ *    no encuentre el botón, lo encuentra aquí. (Lo que NO se repite es el estado:
+ *    su selector es una pieza rica que vive pegada al título, a dos dedos.)
+ * La MARCA no se movió aquí: ya se elegía en el bloque Identidad del constructor
+ * ("Marca de este puesto"), que es donde se ve la cara del formulario. La del modal
+ * era un duplicado y se borró. La SEDE sí vive aquí, como submenú, porque es
+ * literalmente un "elige uno de varios" y ese es el patrón del `›`.
+ */
+function PuestoMenu({
+  campaign,
+  sites,
+  canManage,
+  editHref,
+  publicUrl,
+  exportCount,
+  exportTotal,
+  onExport,
+  onSetSite,
+  onCreateSite,
+  onToggleNotify,
+  onDuplicate,
+  duplicating,
+  onRefresh,
+  refreshing,
+  onDelete,
+}: {
+  campaign: Campaign
+  sites: Site[]
+  canManage: boolean
+  editHref: string
+  publicUrl: string
+  exportCount: number
+  exportTotal: number
+  onExport: () => void | Promise<void>
+  onSetSite: (siteId: string | null) => void
+  onCreateSite: (input: { name: string; city: string }) => Promise<Site | null>
+  onToggleNotify: () => void
+  onDuplicate: () => void
+  duplicating: boolean
+  /** Refrescar vivía en la barra de filtros hasta ago 2026. No actúa sobre la
+   *  VISTA (qué ves) sino sobre los DATOS (traer lo que haya nuevo), o sea que es
+   *  un verbo, y los verbos del puesto viven aquí. */
+  onRefresh: () => void
+  refreshing: boolean
+  onDelete: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  // El submenú de sede no es otra capa flotante: es la MISMA caja enseñando otra
+  // página, con su fila de volver. Una segunda capa colgando de la primera se sale
+  // de la pantalla en cuanto el menú está pegado al filo derecho, y en móvil (donde
+  // esto es una hoja) no tendría dónde ponerse.
+  const [pagina, setPagina] = useState<'raiz' | 'sede'>('raiz')
+  const [crearSede, setCrearSede] = useState(false)
+  const [crearSedeKey, setCrearSedeKey] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const toast = useToast()
+  // La hoja de móvil se MONTA solo en móvil, no se esconde con `sm:hidden`.
+  // `BottomSheet` registra su Escape en el documento y atrapa el Tab mientras está
+  // abierta: montada y oculta en escritorio se tragaba el Escape del submenú (que
+  // debe volver atrás, no cerrar) y encima mandaba el foco a elementos en
+  // `display:none`, donde `focus()` no hace nada y el tabulador se queda muerto.
+  // Mismo patrón que `ShareMenu`, que ya tenía este problema resuelto.
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 639px)').matches)
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 639px)')
+    const update = () => setIsMobile(query.matches)
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+
+  const cerrar = useCallback(() => {
+    setOpen(false)
+    // La página vuelve a la raíz al cerrar, no al abrir: si se hiciera al abrir se
+    // vería el salto de vuelta durante la animación de cierre.
+    setPagina('raiz')
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && cerrar()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // Escape dentro del submenú vuelve a la raíz; en la raíz, cierra. Así no se
+      // sale de todo por querer deshacer un paso.
+      if (pagina === 'sede') {
+        e.stopPropagation()
+        setPagina('raiz')
+        return
+      }
+      cerrar()
+      btnRef.current?.focus()
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open, pagina, cerrar])
+
+  const abrirCrearSede = () => {
+    setCrearSedeKey((k) => k + 1)
+    setCrearSede(true)
+  }
+  const crearSedeYAsignar = async (input: { name: string; city: string }) => {
+    const site = await onCreateSite(input)
+    if (!site) return false
+    onSetSite(site.id)
+    setCrearSede(false)
+    cerrar()
+    toast.success('Sede creada y asignada a este puesto')
+    return true
+  }
+
+  const avisos = campaign.notifyNew !== false
+  const sede = sites.find((x) => x.id === campaign.siteId) ?? null
+
+  const FILA = 'flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[14px] outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 sm:py-1.5 sm:text-[13px]'
+  const QUIETA = 'text-slate-800 hover:bg-slate-50'
+  const GLIFO = 'size-4 shrink-0 text-slate-400'
+
+  const raiz = (
+    <>
+      {canManage && (
+        <div className="space-y-0.5 pb-1.5">
+          <Link to={editHref} onClick={cerrar} className={`${FILA} ${QUIETA}`}>
+            <PenLine className={GLIFO} aria-hidden /> Editar formulario
+          </Link>
+          <button
+            type="button"
+            onClick={() => { cerrar(); onDuplicate() }}
+            disabled={duplicating}
+            className={`${FILA} ${QUIETA} disabled:opacity-60`}
+          >
+            <Copy className={GLIFO} aria-hidden /> {duplicating ? 'Duplicando…' : 'Duplicar puesto'}
+          </button>
+        </div>
+      )}
+
+      <div className={`space-y-0.5 py-1.5 ${canManage ? 'border-t border-slate-100' : ''}`}>
+        {/* `↗` y `rel="noreferrer"`: sale de la app y abre pestaña. El texto dice a
+            dónde va, el glifo dice que se va. */}
+        <a
+          href={publicUrl}
+          target="_blank"
+          rel="noreferrer"
+          onClick={cerrar}
+          className={`${FILA} ${QUIETA}`}
+        >
+          <Eye className={GLIFO} aria-hidden />
+          <span className="flex-1">Ver el formulario</span>
+          <ArrowUpRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+          <span className="sr-only">(se abre en otra pestaña)</span>
+        </a>
+        <button
+          type="button"
+          onClick={() => { cerrar(); onRefresh() }}
+          disabled={refreshing}
+          className={`${FILA} ${QUIETA} disabled:opacity-60`}
+        >
+          <RefreshCw className={`${GLIFO} ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
+          {refreshing ? 'Buscando candidaturas…' : 'Buscar candidaturas nuevas'}
+        </button>
+        <button
+          type="button"
+          onClick={() => { void onExport(); cerrar() }}
+          className={`${FILA} ${QUIETA}`}
+        >
+          <Download className={GLIFO} aria-hidden />
+          <span className="flex-1">
+            {exportCount === exportTotal
+              ? 'Exportar a Excel'
+              : `Exportar a Excel (${miles(exportCount)} filtrados)`}
+          </span>
+        </button>
+      </div>
+
+      {canManage && (
+        <div className="space-y-0.5 border-t border-slate-100 py-1.5">
+          {/* "Elige uno de varios" = `›`. El valor actual se lee EN la fila, sin
+              tener que entrar: la fila informa además de llevar. */}
+          <button
+            type="button"
+            onClick={() => setPagina('sede')}
+            aria-haspopup="menu"
+            className={`${FILA} ${QUIETA}`}
+          >
+            <Building2 className={GLIFO} aria-hidden />
+            <span className="flex-1">Sede</span>
+            <span className="max-w-[9rem] truncate text-[12px] text-slate-500">{sede?.name ?? 'Sin sede'}</span>
+            <ChevronRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+          </button>
+          {/* Nombrado por su EFECTO, no por su asunto: en un menú se ejecuta. */}
+          <button
+            type="button"
+            onClick={() => { cerrar(); onToggleNotify() }}
+            className={`${FILA} ${QUIETA}`}
+          >
+            {avisos ? <BellOff className={GLIFO} aria-hidden /> : <Bell className={GLIFO} aria-hidden />}
+            {avisos ? 'Desactivar avisos por email' : 'Activar avisos por email'}
+          </button>
+        </div>
+      )}
+
+      {canManage && (
+        <div className="space-y-0.5 border-t border-slate-100 pt-1.5">
+          <button
+            type="button"
+            onClick={() => { cerrar(); onDelete() }}
+            className={`${FILA} text-red-700 hover:bg-red-50`}
+          >
+            <Trash2 className="size-4 shrink-0 text-red-500" aria-hidden /> Eliminar puesto
+          </button>
+        </div>
+      )}
+
+    </>
+  )
+
+  const paginaSede = (
+    <>
+      <button
+        type="button"
+        onClick={() => setPagina('raiz')}
+        className={`${FILA} ${QUIETA} font-medium`}
+      >
+        <ChevronLeft className={GLIFO} aria-hidden /> Sede
+      </button>
+      <div className="mt-1 space-y-0.5 border-t border-slate-100 pt-1.5">
+        {[null, ...sites.map((x) => x.id)].map((id) => {
+          const s = id ? sites.find((x) => x.id === id) : null
+          const elegida = (campaign.siteId ?? null) === id
+          return (
+            <button
+              key={id ?? 'sin-sede'}
+              type="button"
+              role="menuitemradio"
+              aria-checked={elegida}
+              onClick={() => { onSetSite(id); cerrar() }}
+              className={`${FILA} ${elegida ? 'bg-indigo-50 text-indigo-700' : QUIETA}`}
+            >
+              <Check className={`size-4 shrink-0 ${elegida ? 'text-indigo-600' : 'text-transparent'}`} aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{s ? s.name : 'Sin sede'}</span>
+              {/* La ciudad solo si añade algo: casi todas las sedes se llaman como
+                  su ciudad, y "Valencia Valencia" es la misma palabra dos veces. */}
+              {s?.city && s.city.trim().toLowerCase() !== s.name.trim().toLowerCase() && (
+                <span className="shrink-0 text-[12px] text-slate-500">{s.city}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+      <div className="mt-1 border-t border-slate-100 pt-1.5">
+        <button type="button" onClick={abrirCrearSede} className={`${FILA} ${QUIETA}`}>
+          <Plus className={GLIFO} aria-hidden /> Crear sede
+        </button>
+      </div>
+    </>
+  )
+
+  const cuerpo = pagina === 'sede' ? paginaSede : raiz
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => (open ? cerrar() : setOpen(true))}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        // `botonIcono` y NO `BTN_SECONDARY + px-0`: `px-0` y el `px-3.5` que ya
+        // trae la clase son la MISMA utilidad, así que gana la que Tailwind emita
+        // después, no la que se escriba al final. Ganaba el 3.5, la caja de
+        // contenido se quedaba en 8px y el svg, como hijo flex, se encogía a la
+        // mitad: por eso los tres puntos se veían como unos suspensivos flojos y
+        // no como un icono. La pieza existe justo para no repetir este fallo.
+        className={`${botonIcono('secondary')} ${open ? 'bg-slate-50' : ''}`}
+        title="Más acciones"
+        aria-label="Más acciones del puesto"
+      >
+        {/* Tres puntos horizontales, pero RELLENOS. El icono de lucide dibuja tres
+            `circle` con `fill="none"`, o sea tres AROS de 0,67px de radio trazados
+            a 1,75: a 16px eso no se lee como tres puntos, se lee como unos puntos
+            suspensivos desvaídos, que es justo lo que Mario veía. Con
+            `fill-current` pasan a ser discos sólidos y el glifo recupera su peso.
+            Es un ajuste del RELLENO, no del trazo: la regla del grosor único
+            (`--stroke-icon`) sigue intacta. */}
+        <MoreHorizontal className="size-4 text-slate-500 [&_circle]:fill-current" aria-hidden />
+      </button>
+
+      {/* Escritorio: desplegable anclado al botón y alineado a la derecha, que es
+          donde está el botón: abriendo a la izquierda se saldría de la pantalla. */}
+      {open && (
+        <div
+          role="menu"
+          aria-label="Acciones del puesto"
+          className="absolute right-0 z-50 mt-1.5 hidden w-72 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop sm:block"
+        >
+          {cuerpo}
+        </div>
+      )}
+
+      {/* Móvil: hoja inferior, la misma lista. */}
+      {isMobile && (
+        <BottomSheet open={open} onClose={cerrar} title={pagina === 'sede' ? 'Sede' : 'Acciones del puesto'} inert={crearSede}>
+          <div className="px-2 pb-3 pt-1">{cuerpo}</div>
+        </BottomSheet>
+      )}
+
+      <CrearSedeDialog key={crearSedeKey} open={crearSede} onClose={() => setCrearSede(false)} onCrear={crearSedeYAsignar} />
+    </div>
   )
 }
 
@@ -2272,18 +3167,19 @@ function ShareMenu({
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`${BTN_SECONDARY} max-sm:size-11 max-sm:px-0 ${
-          open ? 'bg-slate-50 ring-slate-300' : ''
-        }`}
+        // Compartir es la acción de acento del puesto (Figma, ago 2026): lo que
+        // pone el puesto en marcha es que el enlace llegue a la gente, no editar
+        // el formulario. Editar baja a secundario, a su lado.
+        className={`${BTN_PRIMARY} max-sm:size-11 max-sm:px-0`}
         title="Compartir"
         aria-label="Compartir"
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        <Share2 className="size-4 shrink-0 text-slate-400" aria-hidden />
+        <Share2 className="size-4 shrink-0 text-indigo-200" aria-hidden />
         <span className="max-sm:hidden">Compartir</span>
         <ChevronDown
-          className={`size-3.5 shrink-0 text-slate-400 transition-transform duration-[var(--duration-control)] max-sm:hidden ${
+          className={`size-3.5 shrink-0 text-indigo-200 transition-transform duration-[var(--duration-control)] max-sm:hidden ${
             open ? 'rotate-180' : ''
           }`}
           aria-hidden
@@ -2384,133 +3280,6 @@ function EmptyNoResults({ search, hasFilters, onClear }: { search: string; hasFi
       <button onClick={onClear} className={`${BTN_SECONDARY} mt-4`}>
         {onlySearch ? 'Borrar búsqueda' : 'Limpiar filtros'}
       </button>
-    </div>
-  )
-}
-
-// --- Vistas guardadas (Pro/Multi) ------------------------------------------
-function SavedViewsMenu({
-  views,
-  onApply,
-  onDelete,
-  onSave,
-  canSave,
-}: {
-  views: SavedView[]
-  onApply: (v: SavedView) => void
-  onDelete: (id: string) => void
-  onSave: () => void
-  canSave: boolean
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
-  // Lista de vistas compartida por el desplegable de escritorio y la hoja de móvil.
-  // En móvil las filas son cómodas al tacto y el botón de borrar SIEMPRE se ve (en
-  // táctil no hay hover); en sm+ se mantiene el borrar que aparece al pasar el ratón.
-  const list =
-    views.length === 0 ? (
-      <p className="px-2.5 py-2 text-[13px] text-slate-500">
-        Aún no has guardado ninguna vista. Filtra como quieras y guarda la combinación.
-      </p>
-    ) : (
-      <ul className="max-h-[60vh] space-y-0.5 overflow-y-auto sm:max-h-[40vh]">
-        {views.map((v) => (
-          <li key={v.id} className="group flex items-center gap-1 rounded-lg hover:bg-slate-50">
-            <button
-              onClick={() => {
-                onApply(v)
-                setOpen(false)
-              }}
-              className="flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-3 text-left text-[15px] text-slate-700 sm:gap-2 sm:py-1.5 sm:text-sm"
-            >
-              {v.campaignId === null ? (
-                <Globe className="size-4 shrink-0 text-slate-400 sm:size-3.5" aria-hidden />
-              ) : (
-                <Briefcase className="size-4 shrink-0 text-slate-400 sm:size-3.5" aria-hidden />
-              )}
-              <span className="truncate">{v.name}</span>
-            </button>
-            <button
-              onClick={() => onDelete(v.id)}
-              aria-label={`Eliminar vista ${v.name}`}
-              className="mr-1 grid size-9 shrink-0 place-items-center rounded-lg text-slate-400 opacity-100 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
-            >
-              <Trash2 className="size-4 sm:size-3.5" aria-hidden />
-            </button>
-          </li>
-        ))}
-      </ul>
-    )
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className={BTN_SECONDARY}
-      >
-        <Bookmark className="size-4 text-slate-400" aria-hidden /> Vistas
-      </button>
-
-      {/* Escritorio: desplegable anclado al botón */}
-      {open && (
-        <div className="absolute left-0 z-50 mt-1 hidden w-72 overflow-hidden rounded-xl filo bg-white p-1.5 shadow-pop sm:block">
-          {list}
-          <div className="mt-1 border-t border-slate-100 pt-1">
-            <button
-              onClick={() => {
-                setOpen(false)
-                onSave()
-              }}
-              disabled={!canSave}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-40 disabled:hover:bg-transparent"
-            >
-              <Plus className="size-4" aria-hidden /> Guardar vista actual
-            </button>
-            {!canSave && (
-              <p className="px-2.5 pb-1 pt-0.5 text-[11px] text-slate-500">Aplica un filtro o una búsqueda para poder guardarla.</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Móvil: hoja inferior */}
-      <BottomSheet
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Vistas"
-        footer={
-          <div className="border-t border-slate-200 px-4 py-3">
-            <button
-              onClick={() => {
-                setOpen(false)
-                onSave()
-              }}
-              disabled={!canSave}
-              className={`${BTN_PRIMARY} w-full disabled:opacity-50`}
-            >
-              <Plus className="size-4" aria-hidden /> Guardar vista actual
-            </button>
-            {!canSave && (
-              <p className="mt-2 text-center text-[12px] text-slate-500">Aplica un filtro o una búsqueda para poder guardarla.</p>
-            )}
-          </div>
-        }
-      >
-        <div className="px-2 py-2">{list}</div>
-      </BottomSheet>
     </div>
   )
 }
@@ -2617,249 +3386,6 @@ function SaveViewDialog({
   )
 }
 
-// --- Ajustes del puesto (hoja con sede, marca, avisos y acciones del puesto) ---
-function SettingSwitch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={onChange}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/15 ${checked ? 'bg-indigo-600' : 'bg-slate-300'}`}
-    >
-      <span className={`block size-5 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-    </button>
-  )
-}
-
-function SettingSelect({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: string | null
-  onChange: (value: string | null) => void
-  options: { value: string | null; label: string; leading?: ReactNode }[]
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const labelId = useRef(`setting-select-${Math.random().toString(36).slice(2, 9)}`).current
-
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
-  const current = options.find((o) => o.value === value) ?? options[0]
-
-  return (
-    <div ref={ref} className="relative">
-      <span id={labelId} className="mb-1.5 block text-sm font-medium text-slate-800">
-        {label}
-      </span>
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-labelledby={labelId}
-        onClick={() => setOpen((o) => !o)}
-        className="flex h-9 w-full items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-left text-sm text-slate-900 shadow-control transition-shadow hover:bg-slate-50 focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/15"
-      >
-        {current.leading}
-        <span className="min-w-0 flex-1 truncate">{current.label}</span>
-        <ChevronDown className="size-4 shrink-0 text-slate-400 opacity-60" aria-hidden />
-      </button>
-      {open && (
-        <ul
-          role="listbox"
-          aria-labelledby={labelId}
-          className="absolute z-50 mt-1 max-h-[min(240px,40vh)] w-full overflow-y-auto rounded-xl filo bg-white py-1 shadow-pop"
-        >
-          {options.map((opt) => {
-            const sel = opt.value === value
-            return (
-              <li key={opt.value ?? '__none'}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={sel}
-                  onClick={() => {
-                    onChange(opt.value)
-                    setOpen(false)
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  {opt.leading}
-                  <span className="min-w-0 flex-1 truncate">{opt.label}</span>
-                  {sel && <Check className="size-4 shrink-0 text-indigo-600" aria-hidden />}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </div>
-  )
-}
-
-function PuestoSettingsDialog({
-  open,
-  onClose,
-  children,
-  inert = false,
-}: {
-  open: boolean
-  onClose: () => void
-  children: ReactNode
-  /** Hay otro diálogo encima: ni foco, ni Escape, ni cierre por telón. */
-  inert?: boolean
-}) {
-  const panelRef = useRef<HTMLDivElement>(null)
-  // El foco vuelve a quien abrió los ajustes solo al cerrarlos. No depende de
-  // `inert`: mientras hay un diálogo encima los ajustes siguen abiertos, y
-  // devolver el foco aquí se lo robaría a ese diálogo.
-  useEffect(() => {
-    if (!open) return
-    const opener = document.activeElement as HTMLElement | null
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    // El foco entra al panel una sola vez, al abrir. Si se reenfocara también al
-    // dejar de estar inerte, al cerrar el pop-up de encima le robaría el foco al
-    // botón que lo abrió.
-    const t = window.setTimeout(() => panelRef.current?.focus(), 50)
-    return () => {
-      document.body.style.overflow = prev
-      window.clearTimeout(t)
-      opener?.focus?.()
-    }
-  }, [open])
-
-  useEffect(() => {
-    if (!open || inert) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, inert, onClose])
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <div
-          className="fixed inset-0 z-50 hidden sm:grid place-items-center p-6"
-          role="dialog"
-          aria-modal={!inert}
-          aria-hidden={inert || undefined}
-          aria-labelledby="puesto-settings-title"
-          inert={inert || undefined}
-        >
-          <motion.div
-            className="absolute inset-0 bg-slate-900/40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.16 }}
-            onClick={onClose}
-          />
-          <motion.div
-            ref={panelRef}
-            tabIndex={-1}
-            className="relative flex max-h-[min(85vh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white shadow-pop outline-none"
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 6 }}
-            transition={{ duration: 0.18, ease: [0, 0, 0.2, 1] }}
-          >
-            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4">
-              <h2 id="puesto-settings-title" className="text-lg font-semibold text-slate-900">
-                Ajustes del puesto
-              </h2>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Cerrar"
-                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-              >
-                <X className="size-5" aria-hidden />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
-  )
-}
-
-// Sede del puesto. La sede no tiene pantalla propia: nace donde se usa, así que
-// aquí se elige una existente o se crea una nueva y queda asignada de una vez.
-// Renombrarla y borrarla va en el bloque "Por sede" de Vista general.
-// Crear no es elegir: los campos vivían aquí dentro, empujando el resto de los
-// ajustes hacia abajo y mezclando "lo que este puesto tiene" con "lo que estoy
-// creando". Ahora el botón abre un pop-up (`CrearSedeDialog`) y esta fila solo
-// elige.
-function SedeSetting({
-  campaign,
-  sites,
-  onSetSite,
-  onCrear,
-}: {
-  campaign: Campaign
-  sites: Site[]
-  onSetSite: (siteId: string | null) => void
-  onCrear: () => void
-}) {
-  // Sin ninguna sede creada, un selector con una sola opción ("Sin sede") no es
-  // una elección: es ruido vendiendo un concepto que quizá no necesitas. Se queda
-  // en una línea discreta, y solo al usarla aparece el campo de verdad.
-  if (sites.length === 0)
-    return (
-      <button onClick={onCrear} className="inline-flex min-h-8 pointer-coarse:min-h-11 items-center gap-1.5 rounded-lg text-[13px] font-medium text-slate-600 hover:text-indigo-700">
-        <Building2 className="size-3.5 text-slate-400" aria-hidden /> Agrupar por sede
-      </button>
-    )
-
-  return (
-    <div>
-      <SettingSelect
-        label="Sede"
-        value={campaign.siteId}
-        onChange={onSetSite}
-        options={[
-          {
-            value: null,
-            label: 'Sin sede',
-            leading: <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />,
-          },
-          ...sites.map((s) => ({
-            value: s.id,
-            label: s.name,
-            leading: <Building2 className="size-4 shrink-0 text-slate-400" aria-hidden />,
-          })),
-        ]}
-      />
-      <button onClick={onCrear} className="mt-2 inline-flex min-h-8 pointer-coarse:min-h-11 items-center gap-1.5 rounded-lg text-[13px] font-medium text-indigo-700 hover:text-indigo-800">
-        <Plus className="size-3.5" aria-hidden /> Crear sede
-      </button>
-    </div>
-  )
-}
-
-// Pop-up para crear la sede, encima de los ajustes del puesto (que quedan inertes
-// mientras está abierto: ni Escape, ni foco, ni cierre por telón). Es una tarea
-// corta y con nombre propio, así que se comporta como tal: título, dos campos,
-// dos botones, y Enter crea desde cualquiera de los campos.
 function CrearSedeDialog({
   open,
   onClose,
@@ -3008,156 +3534,3 @@ function CrearSedeDialog({
   )
 }
 
-function PuestoSettingsSheet({
-  open,
-  onClose,
-  campaign,
-  sites,
-  brands,
-  canManage,
-  exportCount,
-  exportTotal,
-  onExport,
-  onSetSite,
-  onCreateSite,
-  onSetBrand,
-  onToggleNotify,
-  onDuplicate,
-  duplicating,
-  onPauseResume,
-  onReopen,
-  onClosePuesto,
-  onDelete,
-}: {
-  open: boolean
-  onClose: () => void
-  campaign: Campaign
-  sites: Site[]
-  brands: Brand[]
-  canManage: boolean
-  exportCount: number
-  exportTotal: number
-  onExport: () => void | Promise<void>
-  onSetSite: (siteId: string | null) => void
-  onCreateSite: (input: { name: string; city: string }) => Promise<Site | null>
-  onSetBrand: (brandId: string | null) => void
-  onToggleNotify: () => void
-  onDuplicate: () => void
-  duplicating: boolean
-  onPauseResume: () => void
-  onReopen: () => void
-  onClosePuesto: () => void
-  onDelete: () => void
-}) {
-  const notify = campaign.notifyNew !== false
-  const status = campaign.status
-  const toast = useToast()
-  // El pop-up de crear sede se monta UNA vez, fuera de la hoja y del diálogo (que
-  // pintan el mismo `body` a la vez, cada uno para su ancho): dentro se montaría
-  // dos veces y heredaría el `display:none` del que no toca.
-  // El contador es la `key` del pop-up: cada apertura monta uno nuevo, así los
-  // campos empiezan vacíos sin tener que vaciarlos a mano (y sin que se vean
-  // borrarse mientras se cierra).
-  const [crearSede, setCrearSede] = useState(false)
-  const [crearSedeKey, setCrearSedeKey] = useState(0)
-  const abrirCrearSede = () => {
-    setCrearSedeKey((k) => k + 1)
-    setCrearSede(true)
-  }
-  const crearSedeYAsignar = async (input: { name: string; city: string }) => {
-    const site = await onCreateSite(input)
-    if (!site) return false
-    onSetSite(site.id)
-    toast.success('Sede creada y asignada a este puesto')
-    return true
-  }
-  const body = (
-    <div className="space-y-5 px-4 py-4 sm:px-5 sm:py-5">
-              {canManage && (
-              <section className="space-y-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Organización</p>
-                <SedeSetting campaign={campaign} sites={sites} onSetSite={onSetSite} onCrear={abrirCrearSede} />
-                {/* La marca solo se elige cuando hay más de una: con una sola no hay
-                    decisión que tomar. Su nombre, logo y banner se editan en el
-                    constructor del formulario, que es donde se ven. */}
-                {brands.length > 1 && (
-                  <SettingSelect
-                    label="Marca"
-                    value={campaign.brandId}
-                    onChange={onSetBrand}
-                    options={[
-                      {
-                        value: null,
-                        label: 'Sin marca',
-                        leading: <Tag className="size-4 shrink-0 text-slate-400" aria-hidden />,
-                      },
-                      ...brands.map((b) => ({
-                        value: b.id,
-                        label: b.name,
-                        leading: <Tag className="size-4 shrink-0 text-slate-400" aria-hidden />,
-                      })),
-                    ]}
-                  />
-                )}
-              </section>
-              )}
-
-              {canManage && (
-              <section className="flex items-center justify-between gap-3 rounded-xl filo px-3.5 py-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-800">Avisos por email</p>
-                  <p className="mt-0.5 text-[12px] leading-relaxed text-slate-500">Te avisamos cuando entra un candidato nuevo en este puesto.</p>
-                </div>
-                <SettingSwitch checked={notify} onChange={onToggleNotify} label="Avisos por email" />
-              </section>
-              )}
-
-              <section className="space-y-2">
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Datos</p>
-                <SettingsExportButton count={exportCount} total={exportTotal} onExport={onExport} />
-              </section>
-
-              {canManage && (
-              <section className="space-y-2">
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Acciones</p>
-                <button onClick={onDuplicate} disabled={duplicating} className={`${BTN_SECONDARY} w-full disabled:opacity-60`}>
-                  <Copy className="size-4 text-slate-400" aria-hidden />
-                  {duplicating ? 'Duplicando…' : 'Duplicar puesto'}
-                </button>
-                {status !== 'cerrada' && (
-                  <button onClick={onPauseResume} className={`${BTN_SECONDARY} w-full`}>
-                    {status === 'activa' ? <Pause className="size-4 text-slate-400" aria-hidden /> : <Play className="size-4 text-slate-400" aria-hidden />}
-                    {status === 'activa' ? 'Pausar puesto' : 'Reanudar puesto'}
-                  </button>
-                )}
-                {status === 'cerrada' ? (
-                  <button onClick={onReopen} className={`${BTN_SECONDARY} w-full`}>
-                    <Play className="size-4 text-slate-400" aria-hidden />
-                    Reabrir puesto
-                  </button>
-                ) : (
-                  <button onClick={onClosePuesto} className={`${BTN_SECONDARY} w-full`}>
-                    <Archive className="size-4 text-slate-400" aria-hidden />
-                    Cerrar puesto
-                  </button>
-                )}
-                <button onClick={onDelete} className={`${BTN_DANGER} w-full`}>
-                  <Trash2 className="size-4" aria-hidden />
-                  Eliminar puesto
-                </button>
-              </section>
-              )}
-    </div>
-  )
-  return (
-    <>
-      <BottomSheet open={open} onClose={onClose} title="Ajustes del puesto" inert={crearSede}>
-        {body}
-      </BottomSheet>
-      <PuestoSettingsDialog open={open} onClose={onClose} inert={crearSede}>
-        {body}
-      </PuestoSettingsDialog>
-      <CrearSedeDialog key={crearSedeKey} open={crearSede} onClose={() => setCrearSede(false)} onCrear={crearSedeYAsignar} />
-    </>
-  )
-}

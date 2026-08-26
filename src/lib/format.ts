@@ -194,11 +194,22 @@ export function answerText(v: Candidate['answers'][string] | undefined): string 
   return String(v)
 }
 
+/**
+ * La letra de una cara. **UNA sola, al estilo Gmail** (Mario, ago 2026; antes eran
+ * dos, "MR").
+ *
+ * Una letra se lee de un vistazo a cualquier tamaño; dos hay que descifrarlas, y a
+ * 20px (el avatar del hilo del tablón) ya no caben legibles. No se pierde nada
+ * porque **la cara nunca informa sola**: el nombre va siempre escrito al lado, y
+ * quien mira una lista distingue por la posición y el color, no por leer siglas.
+ *
+ * Se queda con la primera letra del nombre, no con la del apellido: es por la que
+ * la gente busca y por la que ordenan las listas.
+ */
 export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 0 || parts[0] === '') return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  const limpio = name.trim()
+  if (!limpio) return '?'
+  return limpio[0].toUpperCase()
 }
 
 /**
@@ -233,6 +244,106 @@ export function memberAvatarTone(seed: string | null | undefined): {
   const key = (seed ?? '').trim().toLowerCase()
   if (!key) return MEMBER_AVATAR_TONES[0]
   return MEMBER_AVATAR_TONES[hashSeed(key) % MEMBER_AVATAR_TONES.length]
+}
+
+/**
+ * TONO DE UNA ETIQUETA. El color que la hace reconocible de un vistazo.
+ *
+ * **La semilla es el ID, nunca el nombre.** Renombrar "Recontactar" a "Volver a
+ * llamar" tiene que dejar la etiqueta del mismo color: es la misma etiqueta. Con
+ * el nombre de semilla, cada corrección de una errata repintaría la columna.
+ *
+ * **Y por eso no hay columna `color` en la base de datos.** El color sale del id,
+ * así que no hay migración, ni relleno de las etiquetas que ya existen, ni riesgo
+ * de que dos clientes pinten distinto lo mismo. Si algún día se quiere ELEGIR el
+ * color, se añade una columna que pise a esta, no que la sustituya.
+ *
+ * **Un hash a secas NO vale, y esto se vio en pantalla.** Con 8 tonos y 6
+ * etiquetas, la probabilidad de que dos caigan en el mismo es del 78% (es el
+ * problema del cumpleaños), y en la demo pasó a la primera: "Cerca de la obra" y
+ * "Documentación OK" salieron del mismo azul, juntas en la misma fila. Dos
+ * etiquetas del mismo color no son reconocibles de un vistazo, que es lo único
+ * para lo que existe el color. Así que el hash PROPONE y el reparto DISPONE: si el
+ * tono preferido está cogido, se avanza al siguiente libre. Con 8 o menos
+ * etiquetas quedan todas distintas; a partir de ahí se repite, que es inevitable.
+ *
+ * El reparto se hace sobre el vocabulario entero ordenado por ID (no por nombre,
+ * que cambia). Crear una etiqueta puede, en el peor caso, mover el tono de UNA
+ * vecina; se prefirió eso a un choque permanente.
+ *
+ * Las clases van escritas ENTERAS, nunca compuestas (`bg-${color}-100`): Tailwind
+ * lee el código fuente como texto y una clase que solo existe al ejecutarse no
+ * llega nunca al CSS compilado. Es el mismo fallo que dejó al `<select>` sin
+ * flecha.
+ *
+ * Fuera de la paleta a propósito: **el rojo y el rosa**, porque el rojo está
+ * reservado a errores y acciones destructivas y una etiqueta rosa se leería como
+ * un problema; y el **ultramarine de marca**, que es acción. El resto de tonos SÍ
+ * coinciden con los de los estados (ámbar es "entrevista", verde "contratado"), y
+ * no chocan porque se distinguen por FORMA: un estado es siempre una cápsula
+ * redonda con punto y palabra, una etiqueta es siempre un rectángulo de 4px sin
+ * punto. Es la misma salida que ya resolvió la estrella dorada contra el ámbar.
+ *
+ * El orden del array no es alfabético ni casual: **tonos consecutivos son hues muy
+ * separados**, porque avanzar al siguiente libre es justo lo que hace el reparto
+ * al resolver un choque. Así el desempate cae en un color que no se parece.
+ */
+const TAG_TONES = [
+  { bg: 'bg-sky-100', text: 'text-sky-800' },
+  { bg: 'bg-amber-100', text: 'text-amber-800' },
+  { bg: 'bg-violet-100', text: 'text-violet-800' },
+  { bg: 'bg-emerald-100', text: 'text-emerald-800' },
+  { bg: 'bg-fuchsia-100', text: 'text-fuchsia-800' },
+  { bg: 'bg-lime-100', text: 'text-lime-800' },
+  { bg: 'bg-teal-100', text: 'text-teal-800' },
+  { bg: 'bg-orange-100', text: 'text-orange-800' },
+] as const
+
+export type TagTone = { bg: string; text: string }
+
+/**
+ * Reparte tonos sobre TODO el vocabulario, sin choques mientras haya tonos libres.
+ * Puro: mismas etiquetas, mismo reparto, en cualquier dispositivo.
+ */
+function repartirTonos(ids: readonly string[]): Map<string, TagTone> {
+  const asignado = new Map<string, TagTone>()
+  const cogidos = new Set<number>()
+  // Por id: es lo único que no cambia cuando el usuario edita sus etiquetas.
+  for (const id of [...ids].sort()) {
+    const preferido = hashSeed(id.trim().toLowerCase()) % TAG_TONES.length
+    let i = preferido
+    // Si la vuelta entera está cogida (más etiquetas que tonos), se queda el
+    // preferido y se repite: mejor un choque honesto que dejar una sin color.
+    for (let paso = 0; paso < TAG_TONES.length && cogidos.has(i); paso++) {
+      i = (i + 1) % TAG_TONES.length
+    }
+    cogidos.add(i)
+    asignado.set(id, TAG_TONES[i])
+  }
+  return asignado
+}
+
+// Memoria de un solo hueco: el vocabulario de una empresa cambia muy de vez en
+// cuando, pero `tagTone` se llama una vez por chip y hay cientos en una tabla.
+// La clave es la lista de ids, así que cualquier alta o baja lo recalcula solo.
+let tonosClave = ''
+let tonosCache = new Map<string, TagTone>()
+
+/**
+ * El tono de una etiqueta dentro de su vocabulario. Sin vocabulario (un chip
+ * suelto, una vista previa) cae al hash pelado, que es lo mejor que se puede hacer
+ * sin saber contra quién compite.
+ */
+export function tagTone(id: string | null | undefined, vocabulario?: readonly { id: string }[]): TagTone {
+  const key = (id ?? '').trim().toLowerCase()
+  if (!key) return TAG_TONES[0]
+  if (!vocabulario) return TAG_TONES[hashSeed(key) % TAG_TONES.length]
+  const clave = vocabulario.map((t) => t.id).join('|')
+  if (clave !== tonosClave) {
+    tonosClave = clave
+    tonosCache = repartirTonos(vocabulario.map((t) => t.id))
+  }
+  return tonosCache.get(id ?? '') ?? TAG_TONES[hashSeed(key) % TAG_TONES.length]
 }
 
 /** Candidato en estado "nuevo" recibido en las últimas 48 h (prioridad de contacto). */

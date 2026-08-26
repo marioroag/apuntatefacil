@@ -5,14 +5,30 @@ import { initials, candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
 import { BTN_SECONDARY } from '../lib/buttons'
 import {
-  CRITERIO_VALOR_LABEL, MERIDIAN_NAME, candidateFit, criterioNombre, fitTier,
+  ANILLO_AJUSTE, CRITERIO_VALOR_LABEL, MERIDIAN_NAME, candidateFit, criterioNombre, fitTier,
 } from '../lib/meridian'
+import { Avatar } from './ui/Avatar'
 
-// Avatar de iniciales del candidato ("PFP") con el ajuste de Meridian pintado como
-// un anillo de progreso alrededor. DOCTRINA: el anillo es grafito neutro y comunica
-// el valor por LONGITUD DE ARCO, nunca por color (el acento se reserva a acción; un
-// score no lleva paleta de estados). Sin ajuste (candidato no analizado): sin anillo.
+// Cara del candidato, con el ajuste de Meridian pintado como un anillo de progreso
+// alrededor. DOCTRINA del anillo: grafito neutro y valor por LONGITUD DE ARCO, nunca
+// por color (el acento se reserva a acción; un score no lleva paleta de estados).
+//
+// **Hoy el anillo está APAGADO** (`ANILLO_AJUSTE`, ago 2026) y esto delega en
+// `ui/Avatar`, la primitiva única de las caras de la app. Es donde debería haber
+// estado siempre la parte de "pintar una cara": aquí había una copia con las mismas
+// proporciones escritas otra vez, y por eso el comentario de abajo tiene que
+// recordar que hay que mantenerlas a mano. Con la bandera en `true` vuelve el anillo.
 export function MeridianAvatar({ name, fit, size = 40 }: { name: string; fit?: number | null; size?: number }) {
+  // Este DECIDE y no pinta, así que no tiene ni un hook: es la forma que pide el
+  // guardián de `hooks.test.ts` para un corte como este. Un `return` temprano con
+  // los hooks del anillo debajo rompía la regla de React (los cazó él, no yo), y
+  // su mensaje dice justo esto: no subas el return, parte el componente.
+  if (!ANILLO_AJUSTE) return <Avatar name={name} size={size} />
+  return <AvatarConAnillo name={name} fit={fit} size={size} />
+}
+
+/** El de siempre: cara + anillo de ajuste. Sin cortes, todos sus hooks fijos. */
+function AvatarConAnillo({ name, fit, size }: { name: string; fit?: number | null; size: number }) {
   const has = typeof fit === 'number'
   const stroke = size >= 40 ? 2.5 : 2
   const r = (size - stroke) / 2

@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Pencil, Plus, Settings2, Tag as TagIcon, Trash2, X } from 'lucide-react'
 import type { Tag } from '../lib/types'
 import { useStore, normalizeTagName } from '../lib/store'
+import { tagTone } from '../lib/format'
 import { useToast } from './ui/Toast'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 import { InfoTooltip } from './ui/Tooltip'
@@ -9,9 +10,19 @@ import { limitesVisibles } from '../lib/flotante'
 import { BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 
 // ---------------------------------------------------------------------------
-// Etiquetas: clasificación libre del empresario. SIEMPRE en gris neutro (slate):
-// nunca el índigo de marca ni los colores de estado. Eso evita el "arcoíris".
-// El candidato nunca las ve. Doctrina: ver CLAUDE.md.
+// Etiquetas: clasificación libre del empresario. El candidato nunca las ve.
+//
+// **Tienen COLOR desde ago 2026, y eso invierte la regla anterior.** Antes era
+// "siempre gris neutro, nunca los colores de estado, así se evita el arcoíris".
+// Mario lo cambió con su diseño delante y el motivo es bueno: en gris, una columna
+// de etiquetas obliga a LEER cada una para saber cómo está clasificada una
+// persona; con color se reconocen de un vistazo y el nombre pasa a confirmar en
+// vez de a informar. El arcoíris que aquella regla temía no aparece porque el tono
+// no lo elige nadie: sale del id (`tagTone`), así que no hay dos empresas pintando
+// lo mismo de distinto ni un usuario decorando su tablero.
+//
+// El color NO informa por sí solo: el nombre va siempre escrito al lado, así que
+// quien no distingue tonos no pierde nada. Doctrina: ver CLAUDE.md.
 // ---------------------------------------------------------------------------
 
 export const TAG_LIMIT_PER_CANDIDATE = 25 // límite blando por candidato
@@ -33,15 +44,39 @@ const COPY = {
   addToSel: 'Añadir etiqueta',
 }
 
-// Chip gris de etiqueta. Glifo opcional; "x" opcional para quitar.
+/**
+ * Chip de etiqueta (diseño de Figma, ago 2026): relleno teñido, texto del mismo
+ * tono más oscuro, **rectángulo de 4px** y sin borde.
+ *
+ * El radio es la parte que hay que respetar aunque la doctrina general diga
+ * "pills/chips 999px": es lo que separa una etiqueta de una pastilla de ESTADO,
+ * que es redonda y lleva punto. Con los dos redondos y los dos teñidos, un ámbar
+ * de "entrevista" y un ámbar de "Recontactar" se leerían igual en la misma fila.
+ * Aquí la forma es la que carga con el significado, no el tono.
+ *
+ * Sin `ring`: el diseño es relleno limpio, y un hairline del mismo tono sobre un
+ * relleno tan claro solo ensucia el filo. El tono lo pone `tagTone(id)`; sin id
+ * (nunca debería pasar) cae al primero de la paleta en vez de romperse.
+ */
 export function TagChip({
+  id,
   name,
+  vocabulario,
   onRemove,
   glyph = false,
   size = 'sm',
   entera = false,
 }: {
+  /** Semilla del color. Es el id, no el nombre: renombrar no repinta. */
+  id?: string
   name: string
+  /**
+   * Todas las etiquetas de la empresa. Va por prop y no por `useStore()` a
+   * propósito: hay cientos de chips en la tabla del puesto y suscribir cada uno al
+   * store lo repintaría todo con cada cambio, justo en la pantalla cuya doctrina
+   * más cuida los repintados. Quien pinta chips ya tiene la lista a mano.
+   */
+  vocabulario?: readonly { id: string }[]
   onRemove?: () => void
   glyph?: boolean
   size?: 'xs' | 'sm'
@@ -53,22 +88,25 @@ export function TagChip({
   entera?: boolean
 }) {
   const pad = size === 'xs' ? 'py-0.5 pl-1.5 pr-1.5 text-[11px]' : 'py-1 pl-2 pr-2 text-[12px]'
+  const tono = tagTone(id ?? name, vocabulario)
   return (
     <span
-      className={`inline-flex min-w-0 items-center gap-1 rounded-full bg-slate-100 font-medium text-slate-700 ring-1 ring-inset ring-slate-200 ${
+      className={`inline-flex min-w-0 items-center gap-1 rounded-sm font-medium ${tono.bg} ${tono.text} ${
         entera ? 'shrink-0' : 'max-w-full'
       } ${onRemove ? (size === 'xs' ? 'pr-0.5' : 'pr-1') : ''} ${pad}`}
     >
-      {glyph && <TagIcon className="size-3 shrink-0 text-slate-500" aria-hidden />}
+      {glyph && <TagIcon className="size-3 shrink-0 opacity-70" aria-hidden />}
       {/* title: donde el chip sí se recorta (contenedores que envuelven), sin esto no
           había forma de leer la etiqueta entera sin abrir la ficha. */}
       <span className={entera ? 'whitespace-nowrap' : 'truncate'} title={name}>{name}</span>
       {onRemove && (
+        // El aspa hereda la tinta del chip (`currentColor`) en vez de ir en gris:
+        // un gris neutro dentro de un relleno de color se lee como suciedad.
         <button
           type="button"
           onClick={onRemove}
           aria-label={`Quitar etiqueta ${name}`}
-          className="grid size-4 shrink-0 place-items-center rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-700 focus-visible:bg-slate-200"
+          className="grid size-4 shrink-0 place-items-center rounded-full opacity-60 transition-opacity hover:opacity-100 focus-visible:opacity-100"
         >
           <X className="size-3" aria-hidden />
         </button>
@@ -109,7 +147,7 @@ export function TagCell({ tagIds, tags }: { tagIds: string[]; tags: Tag[] }) {
   return (
     <div className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {resolved.map((t) => (
-        <TagChip key={t.id} name={t.name} size="xs" entera />
+        <TagChip key={t.id} id={t.id} name={t.name} vocabulario={tags} size="xs" entera />
       ))}
     </div>
   )
@@ -335,7 +373,7 @@ export function TagPicker({
       {applied.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {applied.map((t) => (
-            <TagChip key={t.id} name={t.name} onRemove={() => removeTag(candidateId, t.id)} />
+            <TagChip key={t.id} id={t.id} name={t.name} vocabulario={tags} onRemove={() => removeTag(candidateId, t.id)} />
           ))}
         </div>
       )}
@@ -474,7 +512,7 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
                       </>
                     ) : (
                       <>
-                        <TagChip name={t.name} glyph />
+                        <TagChip id={t.id} name={t.name} vocabulario={tags} glyph />
                         <span className="ml-auto shrink-0 text-[12px] num text-slate-500">
                           {usage} {usage === 1 ? 'candidato' : 'candidatos'}
                         </span>

@@ -62,13 +62,18 @@ export const HEAD_CELL_FLUSH = 'h-10 px-3 text-left align-middle border-b border
  * Vive aquí porque es la otra mitad de la misma tabla, y porque las dos pantallas
  * que la usan tienen que envejecer juntas.
  *
- * El filo va SANGRADO hasta donde empieza el texto (16 de margen + 40 del avatar +
- * 12 de hueco): así la columna de avatares se lee como un raíl y la lista deja de
- * parecer una tabla a la que le faltan las columnas. `divide-y` no vale, porque
+ * El filo va SANGRADO hasta donde empieza el texto (16 de margen + 36 del avatar +
+ * 12 de hueco = 64): así la columna de avatares se lee como un raíl y la lista deja
+ * de parecer una tabla a la que le faltan las columnas. `divide-y` no vale, porque
  * pinta el filo de lado a lado de la fila.
+ *
+ * **Esta medida DEPENDE del tamaño de la cara**: si el avatar cambia, este número
+ * cambia con él o el filo se descuelga del texto. Eran 68 con caras de 40 (ago
+ * 2026); al bajarlas a 36 hubo que bajarlo aquí, y ese es exactamente el corolario
+ * de "cuando se cambia la escala de una zona hay que recorrer sus vecinas".
  */
 export const MOBILE_ROW =
-  'relative after:pointer-events-none after:absolute after:bottom-0 after:left-[68px] after:right-0 after:h-px after:bg-slate-100 last:after:hidden'
+  'relative after:pointer-events-none after:absolute after:bottom-0 after:left-16 after:right-0 after:h-px after:bg-slate-100 last:after:hidden'
 
 type Sort = {
   active: boolean

@@ -20,6 +20,21 @@ export const MERIDIAN_NAME = 'Meridian'
  */
 export const MERIDIAN_CHAT_ENABLED: boolean = false
 
+/**
+ * EL ANILLO DE AJUSTE ALREDEDOR DE LA CARA, apagado por ahora (Mario, ago 2026).
+ *
+ * Una sola bandera, como `MERIDIAN_CHAT_ENABLED` y `WHATSAPP_LISTO`: el código del
+ * anillo (carril reservado, barrido al medir por primera vez, `reduced-motion`) se
+ * queda entero y en un solo sitio, así que devolverlo es poner `true`. Apagado,
+ * `MeridianAvatar` delega en `ui/Avatar`, la primitiva única de las caras, que es
+ * donde debería haber estado siempre la parte de "pintar una cara".
+ *
+ * Lo que NO se apaga: el triaje sigue funcionando y su lectura se sigue viendo,
+ * en la columna Encaje de la tabla (en PALABRAS) y en el informe de la ficha. Se
+ * ha quitado un canal de la misma información, no la información.
+ */
+export const ANILLO_AJUSTE: boolean = false
+
 /** Con el pago por proceso (ago 2026) Meridian está incluido para todo el
  *  mundo: se cobra por procesos abiertos, no por capacidades. Espejo del
  *  gating de servidor (_shared/plans.ts), que sigue fail-closed: un plan

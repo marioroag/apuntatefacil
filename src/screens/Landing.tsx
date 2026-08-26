@@ -693,7 +693,7 @@ function TeamBoardMock() {
           {/* Mock: es un <span>, no un botón, así que lleva la pintura del secundario
               pero sin hover ni press (un mock que reacciona y no hace nada miente).
               Lo que sí comparte es el `ring-inset` y la sombra del vocabulario. */}
-          <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-medium text-slate-800 shadow-control ring-1 ring-inset ring-slate-300/80">
+          <span className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-[13px] font-medium text-slate-800 ring-1 ring-inset ring-slate-200">
             <RotateCcw className="size-3.5" />
             Reabrir
           </span>

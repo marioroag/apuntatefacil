@@ -161,10 +161,13 @@ export function Playground() {
             sin tener que bajar por las secciones de referencia.
         ------------------------------------------------------------------- */}
         <Section title="Sandbox libre" note="Prototipo suelto. Bórralo o muévelo cuando termines.">
-          <p className="text-sm text-slate-400">Vacío por ahora. (La fila de candidatos bloqueados se probó aquí y ya vive en Dashboard.tsx.)</p>
+          <p className="text-sm text-slate-400">
+            Vacío por ahora. (Aquí se compararon los tres tratamientos de botón de ago 2026; ganó
+            el plano y vive ya en <code className="text-slate-500">lib/buttons.ts</code>.)
+          </p>
         </Section>
 
-        <Section title="Botones" note="lib/buttons.ts. Radio 8px, relieve nítido, press = translate-y-px.">
+        <Section title="Botones" note="lib/buttons.ts. Radio 8px, plano, press = oscurece.">
           <Row label="Primario">
             <button className={BTN_PRIMARY}>Guardar</button>
             <button className={BTN_PRIMARY} disabled>

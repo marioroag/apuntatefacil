@@ -31,9 +31,11 @@ export function Avatar({
   const [failed, setFailed] = useState(false)
   const tone = memberAvatarTone(seed ?? name)
   const px = `${size}px`
-  // El tamaño de letra sigue al del círculo; por debajo de 24px dos iniciales no
-  // caben legibles, así que se reduce el peso visual, no la caja.
-  const fontSize = Math.max(9, Math.round(size * 0.4))
+  // El tamaño de letra sigue al del círculo. El 44% (antes 40) es porque desde
+  // ago 2026 la inicial es UNA: dos letras tenían que caber a lo ancho y por eso
+  // se quedaban pequeñas; una sola puede ocupar lo que le corresponde. El suelo de
+  // 9px se mantiene para los avatares de 20px del hilo.
+  const fontSize = Math.max(9, Math.round(size * 0.44))
 
   if (src && !failed) {
     return (

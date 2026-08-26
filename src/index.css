@@ -99,11 +99,15 @@
      línea oscura y APRETADA donde toca (contacto) más una penumbra ancha y suave
      (ambiente). La UI barata solo pone la segunda, muy grande y muy gris, y el
      resultado flota en niebla. Todas van por debajo del 10% de opacidad salvo el
-     relieve del primario, y ninguna es negro puro: van teñidas con la tinta
-     (#131822), porque el negro sobre un fondo frío se enturbia. */
+     relieve, y ninguna es negro puro: van teñidas con la tinta (#131822), porque
+     el negro sobre un fondo frío se enturbia.
+     Se retiró `--shadow-pressed` (el hundido del botón al pulsar) al pasar los
+     botones a planos: nada lo usaba ya, y una pieza de vocabulario sin uso es una
+     invitación a que alguien reintroduzca el relieve sin darse cuenta. */
   --shadow-control: 0 1px 2px rgba(18, 22, 34, 0.06);
+  /* `raised` ya NO lo usa ningún botón (planos desde ago 2026). Queda para lo que
+     de verdad es un objeto: el pomo del `Switch`, un tirador que se desliza. */
   --shadow-raised: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 1px 2px rgba(18, 22, 34, 0.24);
-  --shadow-pressed: inset 0 1px 2px rgba(15, 20, 60, 0.35);
   --shadow-card: 0 1px 2px rgba(18, 22, 34, 0.05), 0 2px 6px -2px rgba(18, 22, 34, 0.08);
   --shadow-pop: 0 16px 40px -12px rgba(18, 22, 34, 0.20), 0 6px 16px -8px rgba(18, 22, 34, 0.12);
   /* Cabecera pegajosa: no es una tarjeta apoyada, es un borde bajo el que PASA el
