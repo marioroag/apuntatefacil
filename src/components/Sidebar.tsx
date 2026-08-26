@@ -7,7 +7,7 @@ import { useStore } from '../lib/store'
 import { useAppBase } from '../lib/useAppBase'
 import { useIsSupportStaff } from '../lib/useSupportStaff'
 import { BRAND } from '../lib/brand'
-import { PUESTO_ICON, navGroups, type NavGroup, type NavItem } from '../lib/nav'
+import { PUESTO_ICON, contarNuevas, contarPuestos, navGroups, type NavGroup, type NavItem } from '../lib/nav'
 import { BTN_PRIMARY_LATERAL } from '../lib/buttons'
 import { Logo } from './Logo'
 import { Avisos } from './Avisos'
@@ -221,8 +221,8 @@ function Puestos({ onNavigate }: { onNavigate: () => void }) {
           aria-hidden
         />
         <span className="sr-only">
-          {campaigns.length === 1 ? '1 puesto' : `${campaigns.length} puestos`}
-          {heredaSenal && `, ${nuevasDentro === 1 ? '1 candidatura nueva' : `${nuevasDentro} candidaturas nuevas`}`}
+          {contarPuestos(campaigns.length)}
+          {heredaSenal && `, ${contarNuevas(nuevasDentro)}`}
         </span>
       </button>
 
@@ -277,7 +277,7 @@ function Puestos({ onNavigate }: { onNavigate: () => void }) {
                         lo lee entero (truncate es solo CSS). */}
                     <span className="min-w-0 flex-1 truncate" title={c.title}>{c.title}</span>
                     {apagado && <span className="sr-only">({c.status === 'pausada' ? 'pausado' : 'cerrado'})</span>}
-                    {count > 0 && <Novedad label={count === 1 ? '1 candidatura nueva' : `${count} candidaturas nuevas`} />}
+                    {count > 0 && <Novedad label={contarNuevas(count)} />}
                   </NavLink>
                 </li>
               )

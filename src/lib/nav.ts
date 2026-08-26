@@ -95,9 +95,35 @@ export type NavContext = {
   }
 }
 
-// El número ya lo lee la chapa: aquí va SOLO el nombre de lo que cuenta, o el
-// lector de pantalla diría "Bandeja 272 272 candidaturas nuevas".
-const plural = (n: number, uno: string, varios: string) => (n === 1 ? uno : varios)
+/**
+ * La cuenta ENTERA, que es el único sitio donde vive el número.
+ *
+ * Aquí ponía lo contrario ("el número ya lo lee la chapa: aquí va SOLO el nombre
+ * de lo que cuenta, o el lector diría 'Bandeja 272 272 candidaturas nuevas'") y
+ * era cierto mientras la fila pintaba un contador. Con el reskin (ago 2026) la
+ * chapa pasó a ser un PUNTO, o sea que el número salió de la pantalla, y nadie
+ * lo movió aquí: en producción, Bandeja se leía "candidaturas nuevas", sin
+ * cuántas, mientras la fila de un puesto justo encima decía "142 candidaturas
+ * nuevas". La misma señal contada de dos maneras en el mismo menú.
+ *
+ * La doctrina no dice que el número se borre, dice que CAMBIA DE CANAL, y este
+ * es el canal. Corolario, que es lo que se aprendió: cuando quites un dato de la
+ * pantalla, comprueba a dónde VA, no si desaparece.
+ */
+const contar = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`
+
+/**
+ * "142 candidaturas nuevas", y se exporta a propósito.
+ *
+ * La frase estaba escrita a mano en tres sitios (aquí, la fila de un puesto y el
+ * padre plegado que hereda la señal), y por eso una de las tres pudo quedarse sin
+ * número sin que se notara. Una sola función: si vuelve a cambiar, cambia en las
+ * tres a la vez.
+ */
+export const contarNuevas = (n: number) => contar(n, 'candidatura nueva', 'candidaturas nuevas')
+
+/** "6 puestos". Misma pieza, otro sustantivo. */
+export const contarPuestos = (n: number) => contar(n, 'puesto', 'puestos')
 
 /**
  * Los grupos del menú, en orden. Dos bloques y la zona de admin: arriba la capa
@@ -133,7 +159,7 @@ export function navGroups(ctx: NavContext): NavGroup[] {
           label: 'Bandeja',
           Icon: Inbox,
           novedades: counts.bandeja,
-          novedadesLabel: (n) => plural(n, 'candidatura nueva', 'candidaturas nuevas'),
+          novedadesLabel: contarNuevas,
         },
         {
           // SIN señal: las citas por venir no son "algo nuevo que no has visto",
@@ -154,7 +180,7 @@ export function navGroups(ctx: NavContext): NavGroup[] {
           label: 'Equipo',
           Icon: Users,
           novedades: counts.equipo,
-          novedadesLabel: (n: number) => plural(n, 'novedad en el tablón', 'novedades en el tablón'),
+          novedadesLabel: (n) => contar(n, 'novedad en el tablón', 'novedades en el tablón'),
         },
         {
           // Ajustes VUELVE al lateral (ago 2026) y es una decisión, no un

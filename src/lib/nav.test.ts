@@ -51,6 +51,12 @@ describe('el menú se declara, no se improvisa', () => {
         // Aquí el número SÍ va en el texto (es lo único que lo lleva), pero el
         // singular y el plural tienen que distinguirse.
         expect(it.novedadesLabel!(1), `El novedadesLabel de "${it.label}" no distingue singular de plural.`).not.toBe(it.novedadesLabel!(2))
+        // Y tiene que decir CUÁNTAS. Esta comprobación llegó tarde: la de arriba
+        // pasaba en verde con la Bandeja leyéndose "candidaturas nuevas", sin
+        // cifra, porque distinguir singular de plural no obliga a contar. El
+        // punto rojo no lleva número, así que si no está aquí no está en ninguna
+        // parte, y quien no ve la pantalla se quedaba sin el dato entero.
+        expect(it.novedadesLabel!(7), `El novedadesLabel de "${it.label}" no dice CUÁNTAS: el punto no lleva cifra, así que el número solo puede vivir aquí.`).toContain('7')
       }
     }
   })
