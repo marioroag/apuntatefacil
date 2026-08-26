@@ -10,14 +10,14 @@ import { BTN_SUPERFICIE } from '../lib/buttons'
    EL CHIP DE UN FILTRO. Pieza compartida.
    ---------------------------------------------------------------------------
    Vivia dentro de `Dashboard.tsx`, que es donde nacio, y salio de ahi cuando la
-   Bandeja necesito su propio filtro por puesto (ago 2026). La alternativa era
+   pantalla de Candidatos necesito su propio filtro por puesto (ago 2026). La alternativa era
    copiarlo, y esa es exactamente la forma en que dos piezas que empiezan iguales
    se separan al primer retoque: el panel del puesto tiene seis dimensiones y la
-   Bandeja una, pero **un chip de filtro se abre, se marca y se quita igual en las
+   Candidatos una, pero **un chip de filtro se abre, se marca y se quita igual en las
    dos**, y quien lo vea tiene que reconocerlo.
 
    Lo que NO sale de aqui es el menu de varias paginas (`MenuAnadirFiltro`): ese
-   sirve para ELEGIR entre muchas categorias y guardar vistas, y la Bandeja no
+   sirve para ELEGIR entre muchas categorias y guardar vistas, y Candidatos no
    tiene ni lo uno ni lo otro. Se queda en el panel hasta que haga falta dos veces.
 --------------------------------------------------------------------------- */
 
@@ -178,9 +178,9 @@ export function ChipDimension({ dim }: { dim: DimensionFiltro }) {
         aria-haspopup="menu"
         // TEÑIDO SOLO CUANDO FILTRA. En el panel del puesto un chip no llega a
         // existir sin valores puestos, asi que alli siempre esta teñido. La
-        // Bandeja lo usa al reves: es su UNICO filtro, asi que se pinta tambien
+        // Candidatos lo usa al reves: es su UNICO filtro, asi que se pinta tambien
         // vacio, y entonces tiene que leerse como lo que es, un control por
-        // pulsar y no un filtro activo. Sin esto, la Bandeja arrancaba diciendo
+        // pulsar y no un filtro activo. Sin esto, Candidatos arrancaba diciendo
         // en acento que estaba filtrando por un puesto cuando no filtraba nada.
         className={`${CHIP_ALTO} inline-flex items-center gap-1.5 rounded-lg px-3.5 text-sm font-medium outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
           dim.n > 0

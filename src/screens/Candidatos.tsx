@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, CircleDot, Clock, Inbox, Phone, SearchX, User } from 'lucide-react'
+import { Briefcase, CircleDot, Clock, ContactRound, Phone, SearchX, User } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
@@ -20,9 +20,10 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { useEsMovil } from '../lib/media'
 import { BTN_SECONDARY } from '../lib/buttons'
 import { ChipDimension, type DimensionFiltro } from '../components/FiltroChip'
+import { vistaPor, type VistaCandidatos } from '../lib/candidatos'
 
 /** Las columnas de la cola. El ORDEN se declara aparte: cambia con el ancho. */
-type ColKeyBandeja = 'candidato' | 'puesto' | 'telefono' | 'estado' | 'recibida'
+type ColKeyCandidatos = 'candidato' | 'puesto' | 'telefono' | 'estado' | 'recibida'
 
 function answer(c: Candidate, id: string): string {
   const v = c.answers[id]
@@ -33,26 +34,27 @@ function answer(c: Candidate, id: string): string {
 }
 
 /**
- * La cola NO se vuelve a pintar porque abras una ficha (`memo`, ago 2026).
+ * La lista NO se vuelve a pintar porque abras una ficha (`memo`, ago 2026).
  *
  * Misma historia que la tabla del puesto, y por el mismo motivo: el pop-up del
  * candidato cuelga de esta pantalla, así que abrirlo, cerrarlo o pasar al
  * siguiente con las flechas volvía a renderizar las 272 filas de debajo. Ese era
  * todo el retraso que se sentía al pulsar; el pop-up nunca fue lento.
  *
- * La cola estaba escrita en línea dentro de `Bandeja`, o sea sin ningún sitio
+ * La lista estaba escrita en línea dentro de la pantalla, o sea sin ningún sitio
  * donde poner el memo. Vive aquí para tenerlo. Para que siga funcionando, lo que
  * llega tiene que ser estable entre renders: `rows` sale de un `useMemo`, y
  * `getCampaign`/`setStatus` del store, que está memoizado. Una función escrita
  * en línea en el JSX lo apagaría en silencio y devolvería el retraso.
  */
-const ListaNuevos = memo(function ListaNuevos({
+const ListaCandidatos = memo(function ListaCandidatos({
   rows,
   getCampaign,
   setStatus,
   onOpen,
   maskPhone,
   base,
+  caption,
 }: {
   rows: Candidate[]
   getCampaign: (id: string) => Campaign | undefined
@@ -60,14 +62,16 @@ const ListaNuevos = memo(function ListaNuevos({
   onOpen: (id: string) => void
   maskPhone: boolean
   base: string
+  /** Qué lista es esta, para quien no la ve. Cambia con la vista. */
+  caption: string
 }) {
   const esMovil = useEsMovil()
   // EL ORDEN DE LAS COLUMNAS ES LA PRIORIDAD, y en movil se nota, igual que en el
   // panel del puesto: con la tabla desplazandose a lo ancho, lo que va primero es
   // lo unico que se ve sin empujar, asi que ESTADO sube a la segunda posicion.
-  // Aqui ademas el estado ES el trabajo de la pantalla: la Bandeja existe para
-  // sacar candidatos de "nuevo".
-  const orden: ColKeyBandeja[] = esMovil
+  // Aqui ademas el estado ES por donde se corta la pantalla (Activos, Contratados,
+  // Todos), asi que es lo primero que se comprueba de cada fila.
+  const orden: ColKeyCandidatos[] = esMovil
     ? ['candidato', 'estado', 'puesto', 'telefono', 'recibida']
     : ['candidato', 'puesto', 'telefono', 'estado', 'recibida']
   // Suma EXACTA de lo que se pinta en movil. Candidato (196) y Estado (144) caben
@@ -81,12 +85,12 @@ const ListaNuevos = memo(function ListaNuevos({
       {/* UNA SOLA VISTA A TODOS LOS ANCHOS: la rejilla, que en movil se desplaza a
           lo ancho. Aqui vivia una lista de fichas de dos lineas, que era la forma
           que tenia la lista del puesto; el panel la retiro en ago 2026 y la
-          Bandeja se quedo siendo su unica consumidora, con un comentario que
+          esta pantalla se quedo siendo su unica consumidora, con un comentario que
           afirmaba una paridad que ya no existia. Dos listas de candidatos que se
           leen distinto es exactamente lo que este repaso viene a quitar. */}
       <div className="overflow-x-auto">
         <table className={`min-w-[680px] ${TABLE}`} style={esMovil ? { minWidth: anchoMovil } : undefined}>
-          <caption className="sr-only">Candidatos nuevos de todos los puestos</caption>
+          <caption className="sr-only">{caption}</caption>
           <thead>
             <tr className="bg-slate-50/60">
               {orden.map((k) => {
@@ -196,13 +200,21 @@ const ListaNuevos = memo(function ListaNuevos({
   )
 })
 
-// Bandeja única: todos los candidatos en estado "nuevo" de TODOS los puestos
-// en una sola cola para triar de una vez, sin entrar puesto por puesto.
-//
-// La fila es DELIBERADAMENTE escueta (Mario, jul 2026): nombre, puesto, estado y
-// cuándo llegó. Sin etiquetas y sin la lectura de encaje, que aquí solo eran ruido
-// para triar: ambas se ven enteras al abrir la ficha del candidato.
-export function Bandeja() {
+/**
+ * CANDIDATOS: tu gente, de todos los puestos, en una sola lista.
+ *
+ * Era la "Bandeja" y solo listaba los `nuevo`: servía para triar de una vez sin
+ * entrar puesto por puesto, y para nada más. La lista COMPLETA de la empresa no
+ * tenía dónde verse. Ahora la pantalla es la lista y lo que cambia es por dónde
+ * la cortas: Activos, Contratados o Todos. Los tres cortes se declaran en
+ * `lib/candidatos.ts` y esta pantalla no conoce ninguno por su nombre.
+ *
+ * La fila sigue siendo DELIBERADAMENTE escueta (Mario, jul 2026): nombre, puesto,
+ * estado y cuándo llegó. Sin etiquetas y sin la lectura de encaje, que aquí solo
+ * eran ruido: ambas se ven enteras al abrir la ficha del candidato.
+ */
+export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
+  const vista = vistaPor(vistaId)
   const { candidates, getCampaign, setStatus, restoreCandidate } = useStore()
   const { role } = useAuth()
   const toast = useToast()
@@ -215,29 +227,29 @@ export function Bandeja() {
 
   const [puestoFilter, setPuestoFilter] = useState<Set<string>>(new Set())
 
-  const todosNuevos = useMemo(
-    () =>
-      candidates
-        .filter((c) => c.status === 'nuevo')
-        .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
-    [candidates],
+  // El conjunto de la VISTA, sin el filtro por puesto: es el tamaño de lo que
+  // hay, y es lo que lleva el contador del título. El del panel del puesto se
+  // comporta igual y por el mismo motivo: filtrar no cambia cuánta gente tienes.
+  const todos = useMemo(
+    () => candidates.filter(vista.incluye).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
+    [candidates, vista],
   )
-  const nuevos = useMemo(
-    () => (puestoFilter.size === 0 ? todosNuevos : todosNuevos.filter((c) => puestoFilter.has(c.campaignId))),
-    [todosNuevos, puestoFilter],
+  const filas = useMemo(
+    () => (puestoFilter.size === 0 ? todos : todos.filter((c) => puestoFilter.has(c.campaignId))),
+    [todos, puestoFilter],
   )
 
-  // FILTRAR POR PUESTO (Mario, ago 2026). La cola mezcla puestos a proposito, que
-  // es de lo que va la Bandeja, pero cuando el dia se va en uno solo hay que poder
-  // quedarse en el.
+  // FILTRAR POR PUESTO (Mario, ago 2026). La lista mezcla puestos a proposito, que
+  // es de lo que va esta pantalla, pero cuando el dia se va en uno solo hay que
+  // poder quedarse en el.
   //
-  // Solo se ofrecen los puestos que TIENEN gente nueva, y con su cifra: un filtro
+  // Solo se ofrecen los puestos que TIENEN gente en esta vista, y con su cifra: un filtro
   // que devuelve cero no es un filtro, es una via muerta, y aqui ademas la cifra
-  // decide (dice si merece la pena entrar en ese monton). Sale de `todosNuevos` y
-  // no de `nuevos`, o al marcar uno desapareceria del propio menu.
+  // decide (dice si merece la pena entrar en ese monton). Sale de `todos` y no de
+  // `filas`, o al marcar uno desapareceria del propio menu.
   const opcionesPuesto = useMemo(() => {
     const cuenta = new Map<string, number>()
-    todosNuevos.forEach((c) => cuenta.set(c.campaignId, (cuenta.get(c.campaignId) ?? 0) + 1))
+    todos.forEach((c) => cuenta.set(c.campaignId, (cuenta.get(c.campaignId) ?? 0) + 1))
     return [...cuenta.entries()]
       .map(([id, n]) => ({ valor: id, label: getCampaign(id)?.title ?? 'Puesto eliminado', n }))
       .sort((a, b) => b.n - a.n)
@@ -246,7 +258,7 @@ export function Bandeja() {
         label: o.label,
         leading: <span className="num shrink-0 text-[12px] text-slate-500">{o.n}</span>,
       }))
-  }, [todosNuevos, getCampaign])
+  }, [todos, getCampaign])
 
   const dimPuesto: DimensionFiltro = {
     id: 'puesto',
@@ -269,13 +281,19 @@ export function Bandeja() {
 
   return (
     <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
-      {/* El contador va en la línea del título: es el tamaño de la cola, y en la
-          chapa del menú ya se ve el mismo número. */}
+      {/* El título es el mismo en las tres vistas porque la PANTALLA es la misma:
+          la que cambia es por dónde la cortas, y eso lo dice el subtítulo. Aquí el
+          subtítulo se lo gana (la doctrina dice que tiene que ganárselo): es lo
+          único que arriba distingue Activos de Contratados. Quién está marcado en
+          el menú lo dice la otra mitad.
+
+          El contador es el de la VISTA sin filtrar: es cuánta gente tienes, no
+          cuánta se ve ahora. Mismo criterio que el total del panel de un puesto. */}
       <PageHeader
-        titulo="Bandeja"
-        cuenta={nuevos.length}
-        cuentaLabel={nuevos.length === 1 ? 'candidatura nueva' : 'candidaturas nuevas'}
-        sub="Candidatos nuevos de todos tus puestos, en una sola cola."
+        titulo="Candidatos"
+        cuenta={todos.length}
+        cuentaLabel={vista.cuenta(todos.length)}
+        sub={vista.sub}
       />
 
       {/* Aqui habia una segunda linea con la MISMA cifra que ya lleva el titulo
@@ -285,7 +303,7 @@ export function Bandeja() {
           ve la lista cuantos quedan al mover el filtro. `sr-only` la saca ademas
           del flujo, asi que no ocupa nada. */}
       <p className="sr-only" role="status">
-        {nuevos.length} {nuevos.length === 1 ? 'candidato nuevo' : 'candidatos nuevos'} sin revisar
+        {filas.length} {vista.cuenta(filas.length)}
       </p>
 
       {/* La franja de herramientas: hoy solo el filtro por puesto, y solo si hay
@@ -296,14 +314,15 @@ export function Bandeja() {
         </div>
       )}
 
-      {todosNuevos.length === 0 ? (
-        <EmptyInbox />
-      ) : nuevos.length === 0 ? (
-        <EmptySinResultado onLimpiar={() => setPuestoFilter(new Set())} />
+      {todos.length === 0 ? (
+        <Vacio titulo={vista.vacio.titulo} texto={vista.vacio.texto} />
+      ) : filas.length === 0 ? (
+        <EmptySinResultado titulo={vista.vacioFiltrado} onLimpiar={() => setPuestoFilter(new Set())} />
       ) : (
         <>
-          <ListaNuevos
-            rows={nuevos}
+          <ListaCandidatos
+            rows={filas}
+            caption={`${vista.label}: ${vista.sub}`}
             getCampaign={getCampaign}
             setStatus={setStatus}
             onOpen={setOpenId}
@@ -325,7 +344,7 @@ export function Bandeja() {
           }
           // La bandeja mezcla puestos: al pasar al siguiente, `openCampaign` se
           // recalcula desde el propio candidato, así que la cabecera acompaña.
-          siblings={nuevos}
+          siblings={filas}
           onNavigate={setOpenId}
         />
       )}
@@ -342,18 +361,20 @@ export function Bandeja() {
 }
 
 /**
- * Vacio DE FILTRO, distinto del vacio de la cola. "Todo al dia" seria mentira:
- * hay gente esperando, solo que no en el puesto que has marcado. Y lleva la
- * salida puesta, porque el usuario no tiene por que recordar que dejo un filtro.
+ * Vacio DE FILTRO, distinto del vacio de la vista. Decir "aun no tienes
+ * candidatos" seria mentira: hay gente, solo que no en el puesto que has marcado.
+ * Y lleva la salida puesta, porque el usuario no tiene por que acordarse de que
+ * dejo un filtro. El titulo lo pone la vista: "ningun contratado en ese puesto"
+ * dice mucho mas que un texto generico.
  */
-function EmptySinResultado({ onLimpiar }: { onLimpiar: () => void }) {
+function EmptySinResultado({ titulo, onLimpiar }: { titulo: string; onLimpiar: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl filo bg-white px-6 py-16 text-center shadow-card">
       <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
         <SearchX className="size-6" aria-hidden />
       </div>
-      <h3 className="mt-4 text-lg font-semibold text-slate-900">Ningún candidato nuevo en ese puesto</h3>
-      <p className="mt-1 max-w-sm text-sm text-slate-500">Sigue habiendo gente esperando en los demás.</p>
+      <h3 className="mt-4 text-lg font-semibold text-slate-900">{titulo}</h3>
+      <p className="mt-1 max-w-sm text-sm text-slate-500">Sigue habiendo gente en los demás.</p>
       <button type="button" onClick={onLimpiar} className={`${BTN_SECONDARY} mt-4`}>
         Ver todos los puestos
       </button>
@@ -361,16 +382,23 @@ function EmptySinResultado({ onLimpiar }: { onLimpiar: () => void }) {
   )
 }
 
-function EmptyInbox() {
+/**
+ * El vacio de VERDAD: en esta vista no hay nadie, y no es cosa de ningun filtro.
+ *
+ * El texto lo pone la vista y no esta pantalla, porque las tres se vacian por
+ * motivos distintos: en Activos significa que aun no ha entrado nadie, y en
+ * Contratados que todavia no has cerrado ninguna contratacion, que no es lo mismo
+ * ni de lejos. Antes decia "Todo al dia", que era cierto de una cola de pendientes
+ * y es falso de una lista de gente.
+ */
+function Vacio({ titulo, texto }: { titulo: string; texto: string }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl filo bg-white px-6 py-16 text-center shadow-card">
       <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
-        <Inbox className="size-6" aria-hidden />
+        <ContactRound className="size-6" aria-hidden />
       </div>
-      <h3 className="mt-4 text-lg font-semibold text-slate-900">Todo al día</h3>
-      <p className="mt-1 max-w-sm text-sm text-slate-500">
-        No tienes candidatos nuevos sin revisar. Cuando entre una candidatura nueva, aparecerá aquí.
-      </p>
+      <h3 className="mt-4 text-lg font-semibold text-slate-900">{titulo}</h3>
+      <p className="mt-1 max-w-sm text-sm text-slate-500">{texto}</p>
     </div>
   )
 }

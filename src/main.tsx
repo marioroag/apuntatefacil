@@ -34,7 +34,7 @@ const Terminos = lazy(() => import('./screens/Legal').then((m) => ({ default: m.
 const PublicForm = lazy(() => import('./screens/PublicForm').then((m) => ({ default: m.PublicForm })))
 const InterestResponse = lazy(() => import('./screens/InterestResponse').then((m) => ({ default: m.InterestResponse })))
 const Dashboard = lazy(() => import('./screens/Dashboard').then((m) => ({ default: m.Dashboard })))
-const Bandeja = lazy(() => import('./screens/Bandeja').then((m) => ({ default: m.Bandeja })))
+const Candidatos = lazy(() => import('./screens/Candidatos').then((m) => ({ default: m.Candidatos })))
 const Resumen = lazy(() => import('./screens/Resumen').then((m) => ({ default: m.Resumen })))
 const Equipo = lazy(() => import('./screens/Equipo').then((m) => ({ default: m.Equipo })))
 const Entrevistas = lazy(() => import('./screens/Entrevistas').then((m) => ({ default: m.Entrevistas })))
@@ -61,6 +61,34 @@ const meridianRoute = <Route path="meridian" element={<Navigate to="../resumen" 
 // y en los ajustes del puesto, y la marca en el constructor del formulario.
 // Las rutas viejas no se borran, redirigen: quien las tuviera guardadas aterriza en
 // su panel y no en la landing por el comodín del final.
+/**
+ * CANDIDATOS Y SUS TRES VISTAS (Mario, ago 2026).
+ *
+ * Tres rutas explícitas y no una con `:vista`: así no existe la ruta inválida
+ * (`/candidatos/loquesea`) que habría que interceptar y redirigir, y el guardián
+ * del buscador ve tres destinos de verdad a los que exigir su entrada. La lista
+ * de vistas manda (`lib/candidatos.ts`); esto solo las cuelga del router.
+ *
+ * La principal NO lleva sufijo: "/candidatos" ES Activos.
+ */
+const rutasCandidatos = (
+  <>
+    {/* El `key` no es decoracion: sin el, React reconcilia las tres rutas como el
+        MISMO componente (mismo tipo, misma posicion) y la pantalla conserva su
+        estado al cambiar de vista. Se quedaba puesto el filtro por puesto, y si
+        ese puesto no tenia a nadie en la vista nueva, el chip decia "Puesto (1)"
+        con la lista de opciones vacia: no habia forma de ver cual estaba marcado.
+        Cada vista es una pantalla distinta, asi que se monta como tal. */}
+    <Route path="candidatos" element={<Candidatos key="activos" vista="activos" />} />
+    <Route path="candidatos/contratados" element={<Candidatos key="contratados" vista="contratados" />} />
+    <Route path="candidatos/todos" element={<Candidatos key="todos" vista="todos" />} />
+    {/* "Bandeja" era la cola de los `nuevo` y ahora es la vista Activos. La ruta
+        vieja no se borra, redirige: quien la tuviera guardada aterriza donde
+        estaba su trabajo y no en la landing por el comodín del final. */}
+    <Route path="bandeja" element={<Navigate to="../candidatos" replace />} />
+  </>
+)
+
 const rutasRetiradas = (
   <>
     <Route path="sedes" element={<Navigate to="../resumen" replace />} />
@@ -111,7 +139,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route index element={<FirstCampaignRedirect />} />
                   <Route path="resumen" element={<Resumen />} />
                   {meridianRoute}
-                  <Route path="bandeja" element={<Bandeja />} />
+                  {rutasCandidatos}
                   <Route path="equipo" element={<Equipo />} />
                   {rutasRetiradas}
                   <Route path="entrevistas" element={<Entrevistas />} />
@@ -138,7 +166,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route index element={<FirstCampaignRedirect />} />
                   <Route path="resumen" element={<Resumen />} />
                   {meridianRoute}
-                  <Route path="bandeja" element={<Bandeja />} />
+                  {rutasCandidatos}
                   <Route path="equipo" element={<Equipo />} />
                   {rutasRetiradas}
                   <Route path="entrevistas" element={<Entrevistas />} />

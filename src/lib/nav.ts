@@ -1,5 +1,6 @@
-import { Bell, Briefcase, CalendarDays, CreditCard, Gauge, Inbox, LayoutGrid, MessagesSquare, Search, Settings, Users } from 'lucide-react'
+import { Bell, Briefcase, CalendarDays, ContactRound, CreditCard, Gauge, LayoutGrid, MessagesSquare, Search, Settings, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { VISTAS, VISTA_PRINCIPAL } from './candidatos'
 
 /**
  * Registro de navegación del menú lateral (ago 2026, reescrito con la identidad
@@ -65,6 +66,31 @@ export type NavItem = {
   novedades?: number
   /** Qué son esas novedades, para el lector de pantalla. */
   novedadesLabel?: (n: number) => string
+  /**
+   * Los cortes de esta fila, si los tiene (hoy, las tres vistas de Candidatos).
+   *
+   * Un padre con hijos SIGUE llevando a un sitio: `to` es el corte principal, así
+   * que pulsar "Candidatos" te deja en Activos y de paso despliega los tres. Es
+   * la diferencia con "Puestos", que se pliega pero no navega porque no hay
+   * ninguna pantalla de "todos los puestos" a la que ir. La regla que los une:
+   * **el chevron siempre pliega; la etiqueta va donde vaya la fila, y si la fila
+   * no va a ninguna parte, la fila entera pliega.**
+   */
+  hijos?: NavHijo[]
+}
+
+/**
+ * Un corte de su madre. Sin icono a propósito: el de la madre ya está puesto
+ * justo encima y repetirlo en cada hija convierte la sangría en ruido, que es lo
+ * que ya se decidió para la lista de puestos.
+ */
+export type NavHijo = {
+  id: string
+  /** Siempre una ruta: un hijo es un sitio, nunca una capa. */
+  to: string
+  label: string
+  novedades?: number
+  novedadesLabel?: (n: number) => string
 }
 
 export type NavGroup = {
@@ -88,8 +114,12 @@ export type NavContext = {
   isStaff: boolean
   demo: boolean
   counts: {
-    /** Candidaturas nuevas sin ver, de todos los puestos. */
-    bandeja: number
+    /**
+     * Candidaturas nuevas sin ver, de todos los puestos. Se llamaba `bandeja`
+     * por la pantalla que las listaba; esa pantalla es ahora Candidatos y sus
+     * tres vistas, así que el nombre pasa a decir QUÉ cuenta y no dónde se veía.
+     */
+    nuevos: number
     /** Movimiento del tablón del equipo. */
     equipo: number
   }
@@ -154,12 +184,32 @@ export function navGroups(ctx: NavContext): NavGroup[] {
       conPuestos: true,
       items: [
         {
-          id: 'bandeja',
-          to: '/bandeja',
-          label: 'Bandeja',
-          Icon: Inbox,
-          novedades: counts.bandeja,
+          // CANDIDATOS, con sus tres vistas (Mario, ago 2026). Era "Bandeja", una
+          // cola de un solo estado (los `nuevo` de todos los puestos): servía para
+          // triar y para nada más, así que la lista completa de gente de la
+          // empresa no tenía dónde verse entera. Ahora la fila es la base de datos
+          // y los hijos son por dónde la cortas. El porqué de cada corte, en
+          // `lib/candidatos.ts`.
+          //
+          // El icono cambia con ella: `Inbox` era la bandeja de entrada, una cosa
+          // que se vacía. Esto no se vacía, es tu gente.
+          id: 'candidatos',
+          to: VISTAS[0].to,
+          label: 'Candidatos',
+          Icon: ContactRound,
+          // La señal vive en la MADRE plegada y en Activos desplegada, y la pinta
+          // el lateral: aquí solo se declara cuántas son. En "Todos" no se pinta
+          // aunque también los contenga, o el mismo aviso se contaría dos veces.
+          novedades: counts.nuevos,
           novedadesLabel: contarNuevas,
+          hijos: VISTAS.map((v) => ({
+            id: `candidatos-${v.id}`,
+            to: v.to,
+            label: v.label,
+            ...(v.id === VISTA_PRINCIPAL
+              ? { novedades: counts.nuevos, novedadesLabel: contarNuevas }
+              : {}),
+          })),
         },
         {
           // SIN señal: las citas por venir no son "algo nuevo que no has visto",

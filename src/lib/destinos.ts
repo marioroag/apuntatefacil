@@ -1,9 +1,9 @@
 import {
   CalendarDays,
+  ContactRound,
   CreditCard,
   FileText,
   Gauge,
-  Inbox,
   LayoutGrid,
   MapPin,
   MessagesSquare,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { FUERTE, scoreEntrada } from './search'
+import { vistaPor } from './candidatos'
 import { gruposVisibles, seccionesVisibles, type AjustesCtx } from './settings'
 
 /**
@@ -102,13 +103,33 @@ export const DESTINOS: Destino[] = [
     claves: ['inicio', 'resumen', 'panel', 'cifras', 'estadisticas'],
     to: (c) => `${c.base}/resumen`,
   },
+  // Las tres vistas de Candidatos son tres destinos, no uno con opciones: a
+  // "contratados" se va escribiendo esa palabra, que es de lo que va el buscador.
+  // Sus rutas y sus nombres salen del mismo sitio que el menú (`lib/candidatos.ts`),
+  // así que no pueden decir cosas distintas.
   {
-    id: 'bandeja',
-    label: 'Bandeja',
-    hint: 'Las candidaturas nuevas de todos los puestos.',
-    icon: Inbox,
-    claves: ['nuevos', 'sin leer', 'entradas', 'candidaturas'],
-    to: (c) => `${c.base}/bandeja`,
+    id: 'candidatos',
+    label: 'Candidatos',
+    hint: 'Tu gente, de todos los puestos. Sin los descartados.',
+    icon: ContactRound,
+    claves: ['activos', 'nuevos', 'sin leer', 'entradas', 'candidaturas', 'base de datos', 'bandeja'],
+    to: (c) => `${c.base}${vistaPor('activos').to}`,
+  },
+  {
+    id: 'candidatos-contratados',
+    label: 'Contratados',
+    hint: 'Quién ya tiene el puesto, de todos tus procesos.',
+    icon: ContactRound,
+    claves: ['contratado', 'fichados', 'altas'],
+    to: (c) => `${c.base}${vistaPor('contratados').to}`,
+  },
+  {
+    id: 'candidatos-todos',
+    label: 'Todos los candidatos',
+    hint: 'La lista entera, incluidos los descartados.',
+    icon: ContactRound,
+    claves: ['todos', 'descartados', 'rechazados', 'historial'],
+    to: (c) => `${c.base}${vistaPor('todos').to}`,
   },
   {
     id: 'equipo',

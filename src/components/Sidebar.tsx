@@ -13,7 +13,7 @@ import { Logo } from './Logo'
 import { Avisos } from './Avisos'
 import { CuentaMenu } from './CuentaMenu'
 import { Combinacion } from './ui/Tecla'
-import { FILA, FILA_ACTIVA, FILA_QUIETA } from './filaLateral'
+import { FILA, FILA_ACTIVA, FILA_CAJA, FILA_CHEVRON, FILA_ENLACE, FILA_HIJA, FILA_QUIETA } from './filaLateral'
 
 /**
  * EL MENÚ LATERAL (reskin ago 2026, identidad nueva de Figma).
@@ -64,12 +64,11 @@ function BloqueLabel({ children }: { children: React.ReactNode }) {
  * SUMA de los seis de arriba: el número más grande de la pantalla era el mismo
  * dato otra vez.
  *
- * EN ROJO (`--color-novedad`, Mario ago 2026). Estuvo en tinta, con el argumento
- * de que algo nuevo no es una acción (para eso está el acento) ni un error (para
- * eso está el rojo). El argumento era bueno sobre el papel y malo en pantalla: un
- * disco de 6px del mismo color que las etiquetas de su fila no se lee como una
- * señal, se lee como parte del texto. Una señal tiene que separarse de lo que
- * señala. El porqué y lo que eso le hace a la doctrina del rojo, en `index.css`.
+ * EN TINTA (`--color-novedad`, Mario ago 2026), y es su segundo cambio de color:
+ * tinta, luego rojo (se separaba mejor de la etiqueta) y otra vez tinta, porque
+ * el ROJO vale más reservado a lo que puede salir mal. Los dos argumentos, y lo
+ * que se paga al volver, están escritos en `index.css`: aquí solo se consume el
+ * token.
  *
  * El número no se pierde, cambia de canal: `label` lo lleva entero al lector de
  * pantalla ("142 candidaturas nuevas"), que es lo que la doctrina quiso decir con
@@ -263,7 +262,7 @@ function Puestos({ onNavigate }: { onNavigate: () => void }) {
                     to={`${base}/puestos/${c.id}`}
                     onClick={onNavigate}
                     className={({ isActive }) =>
-                      `flex h-10 w-full items-center gap-2 rounded-xl pl-12 pr-3.5 text-sm font-medium outline-none lg:h-[30px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)] ${
+                      `${FILA_HIJA} ${
                         isActive
                           ? FILA_ACTIVA
                           : apagado
@@ -283,6 +282,112 @@ function Puestos({ onNavigate }: { onNavigate: () => void }) {
               )
             })
           )}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+/**
+ * UNA FILA CON CORTES DEBAJO (hoy, Candidatos y sus tres vistas).
+ *
+ * Es la segunda plegable del menú y NO se comporta como "Puestos", a propósito:
+ * aquí la etiqueta LLEVA a un sitio (Activos, el corte principal) y el chevron
+ * PLIEGA, mientras que en Puestos pliega la fila entera. La diferencia no es un
+ * capricho de esta pantalla, es la regla: **una fila plegable navega si tiene
+ * adónde ir**, y no existe ninguna pantalla de "todos los puestos". Con una sola
+ * zona pulsable que hiciera las dos cosas habría que adivinar cuál pasa al
+ * pulsar; y sin chevron no habría forma de volver a plegar la lista.
+ *
+ * El contenido de los hijos NO se sabe aquí: sale del registro (`nav.ts`, que a
+ * su vez lo saca de `lib/candidatos.ts`). Esta pieza solo sabe pintar "una fila
+ * con hijos", así que la siguiente que los tenga no cuesta UI nueva.
+ *
+ * Es un `<Link>` y no un `<NavLink>` a propósito. El "estás aquí" de la madre
+ * tiene una regla propia (solo cuando está PLEGADA, heredado de su hija) y
+ * `NavLink` pone su `aria-current` por su cuenta, sin dejar quitarlo: en la ruta
+ * de Activos lo habrían llevado la madre Y la hija a la vez, o sea el mismo
+ * "estás en esta página" dicho dos veces a quien usa lector de pantalla. Es el
+ * mismo problema que la doctrina ya resolvió en lo visual ("desplegado no se
+ * marca el padre"), una capa más abajo.
+ */
+function FilaConHijos({ it, base, onNavigate }: { it: NavItem; base: string; onNavigate: () => void }) {
+  const { pathname } = useLocation()
+  const [abierto, setAbierto] = useState(true)
+  const listaId = useId()
+  const hijos = it.hijos ?? []
+
+  // Plegada, la madre HEREDA el "estás aquí" de su hija. Sin esto, plegar la
+  // lista estando en Contratados dejaba el menú entero sin una sola fila marcada:
+  // la app te decía que no estabas en ninguna parte. Desplegada no se marca,
+  // porque entonces el sitio lo dice la hija y marcar las dos sería decir que
+  // estás en dos.
+  const dentro = hijos.some((h) => pathname === `${base}${h.to}`)
+  const heredaActivo = !abierto && dentro
+
+  // Y hereda la SEÑAL por el mismo motivo: plegar la lista no puede esconder que
+  // hay candidaturas nuevas. Desplegada la lleva la hija a la que hay que ir
+  // (Activos), o el mismo aviso se contaría dos veces.
+  const heredaSenal = !abierto && (it.novedades ?? 0) > 0
+
+  return (
+    <div>
+      <div className={`${FILA_CAJA} ${heredaActivo ? FILA_ACTIVA : FILA_QUIETA}`}>
+        <Link
+          to={`${base}${it.to}`}
+          onClick={onNavigate}
+          aria-current={heredaActivo ? 'page' : undefined}
+          className={FILA_ENLACE}
+        >
+          <FilaIcon Icon={it.Icon} activa={heredaActivo} senal={heredaSenal} />
+          <span className="min-w-0 flex-1 truncate text-left">{it.label}</span>
+          {/* El punto que pinta `FilaIcon` es `aria-hidden`: es una marca, no un
+              texto. Cuando la madre lo HEREDA, la cuenta entera tiene que decirse
+              aquí o no se dice en ninguna parte, porque las hijas (que la llevan
+              desplegadas) ya no están en el DOM. Es el mismo agujero que dejó a la
+              Bandeja leyéndose "candidaturas nuevas" sin cifra, y por eso "Puestos"
+              lo resuelve igual, con un `sr-only` en su propia fila. */}
+          {heredaSenal && it.novedadesLabel && (
+            <span className="sr-only">, {it.novedadesLabel(it.novedades!)}</span>
+          )}
+        </Link>
+        <button
+          type="button"
+          onClick={() => setAbierto((a) => !a)}
+          aria-expanded={abierto}
+          aria-controls={listaId}
+          // La etiqueta dice qué pliega, no solo que pliega: en una lista de
+          // filas, "Desplegar" a secas obliga a recordar sobre cuál estabas.
+          aria-label={`${abierto ? 'Plegar' : 'Desplegar'} las vistas de ${it.label.toLowerCase()}`}
+          className={FILA_CHEVRON}
+        >
+          <ChevronDown
+            className={`size-4 shrink-0 ${heredaActivo ? 'text-slate-900' : 'text-slate-600'} transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none ${abierto ? '' : '-rotate-90'}`}
+            aria-hidden
+          />
+        </button>
+      </div>
+
+      {abierto && (
+        <ul id={listaId} className="space-y-0.5 pb-1 pt-1" aria-label={it.label}>
+          {hijos.map((h) => {
+            const n = h.novedades ?? 0
+            return (
+              <li key={h.id}>
+                {/* `end`: sin él, "/candidatos" se daría por activo estando en
+                    "/candidatos/todos", y se marcarían dos vistas a la vez. */}
+                <NavLink
+                  to={`${base}${h.to}`}
+                  end
+                  onClick={onNavigate}
+                  className={({ isActive }) => `${FILA_HIJA} ${isActive ? FILA_ACTIVA : FILA_QUIETA}`}
+                >
+                  <span className="min-w-0 flex-1 truncate">{h.label}</span>
+                  {n > 0 && <Novedad label={h.novedadesLabel?.(n)} />}
+                </NavLink>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
@@ -324,7 +429,7 @@ export function Sidebar({
     isStaff,
     demo,
     counts: {
-      bandeja: totalNuevos,
+      nuevos: totalNuevos,
       equipo: boardNewCount,
     },
   })
@@ -340,6 +445,8 @@ export function Sidebar({
     // cuenta en dos sitios.
     if (it.capa === 'avisos') return <Avisos key={it.id} label={it.label} />
     if (it.capa === 'buscar') return <BotonFila key={it.id} Icon={it.Icon} label={it.label} onClick={onBuscar} teclas={['⌘', 'K']} />
+    // Con hijos, la fila se parte: la etiqueta lleva y el chevron pliega.
+    if (it.hijos) return <FilaConHijos key={it.id} it={it} base={base} onNavigate={onNavigate} />
     return (
       <EnlaceFila
         key={it.id}

@@ -20,7 +20,7 @@ const CONTEXTO_BASE: NavContext = {
   empresa: 'Construcciones Teide',
   isStaff: false,
   demo: false,
-  counts: { bandeja: 0, equipo: 0 },
+  counts: { nuevos: 0, equipo: 0 },
 }
 
 const ctx = (parcial: Partial<NavContext>): NavContext => ({ ...CONTEXTO_BASE, ...parcial })
@@ -45,7 +45,7 @@ describe('el menú se declara, no se improvisa', () => {
   it('toda señal de novedad dice de qué es', () => {
     // El menú pinta un PUNTO, no una cifra: el número entero solo existe para
     // quien usa lector de pantalla. Sin ese texto, la señal es un punto mudo.
-    for (const it of items(ctx({ counts: { bandeja: 3, equipo: 3 } }))) {
+    for (const it of items(ctx({ counts: { nuevos: 3, equipo: 3 } }))) {
       if (it.novedades !== undefined) {
         expect(it.novedadesLabel, `"${it.label}" lleva señal de novedad y no dice de qué: añádele novedadesLabel.`).toBeTypeOf('function')
         // Aquí el número SÍ va en el texto (es lo único que lo lleva), pero el
@@ -99,7 +99,7 @@ describe('el menú se declara, no se improvisa', () => {
     // Notificaciones tiene número, pero se lo pinta el propio timbre, que es
     // quien lo sabe. Declararlo aquí sería llevar la misma cuenta en dos sitios
     // y verlos discrepar el día que una se quede atrás.
-    for (const it of items(ctx({ counts: { bandeja: 3, equipo: 3 } }))) {
+    for (const it of items(ctx({ counts: { nuevos: 3, equipo: 3 } }))) {
       if (it.capa) {
         expect(it.novedades, `"${it.label}" abre una capa y además declara señal: que la lleve quien pinta la capa.`).toBeUndefined()
       }
@@ -127,11 +127,11 @@ describe('el menú es el mismo para todos los planes', () => {
     }
   })
 
-  it('Vista general y Bandeja también', () => {
+  it('Vista general y Candidatos también', () => {
     // Son el suelo del producto: sin ellas no hay dónde volver ni dónde mirar.
     for (const plan of ['trial', 'proceso', 'esencial', 'pro', 'multi']) {
       expect(ids(ctx({ plan })), `Vista general falta en ${plan}.`).toContain('resumen')
-      expect(ids(ctx({ plan })), `Bandeja falta en ${plan}.`).toContain('bandeja')
+      expect(ids(ctx({ plan })), `Candidatos falta en ${plan}.`).toContain('candidatos')
     }
   })
 
@@ -190,5 +190,56 @@ describe('el bloque de la empresa se llama como la empresa', () => {
     // caen y con qué vecinos. Su contenido son datos y lo pinta el lateral.
     const conPuestos = navGroups(ctx({})).filter((g) => g.conPuestos)
     expect(conPuestos.map((g) => g.id), 'Los puestos tienen que colgar de un bloque y de uno solo.').toEqual(['empresa'])
+  })
+})
+
+describe('una fila con cortes debajo', () => {
+  // "Candidatos" es la primera fila del menú con hijos (ago 2026: Activos,
+  // Contratados, Todos). Lo que se vigila no es que existan esos tres, que es una
+  // decisión de producto y puede cambiar, sino que la RELACIÓN madre-hija se
+  // sostenga: es donde se rompe sola dentro de tres meses.
+  const conHijos = () => items(ctx({ isStaff: true })).filter((i) => i.hijos?.length)
+
+  it('la madre lleva al corte principal, no a una pantalla aparte', () => {
+    // Pulsar "Candidatos" tiene que dejarte EN una de sus vistas, no en una
+    // cuarta pantalla que luego habría que mantener en paralelo. Si la madre
+    // apuntara a otro sitio, el menú marcaría dos filas distintas al llegar.
+    for (const it of conHijos()) {
+      expect(
+        it.hijos!.map((h) => h.to),
+        `"${it.label}" lleva a ${it.to}, que no es ninguno de sus cortes: la madre abre el principal.`,
+      ).toContain(it.to)
+    }
+  })
+
+  it('cada corte lleva a un sitio distinto', () => {
+    for (const it of conHijos()) {
+      const rutas = it.hijos!.map((h) => h.to)
+      expect(new Set(rutas).size, `Dos cortes de "${it.label}" llevan a la misma ruta.`).toBe(rutas.length)
+      const ids = it.hijos!.map((h) => h.id)
+      expect(new Set(ids).size, `Dos cortes de "${it.label}" comparten id.`).toBe(ids.length)
+      for (const h of it.hijos!) {
+        expect(h.to.startsWith('/'), `La ruta de "${h.label}" tiene que empezar por "/": es relativa a /app o /demo.`).toBe(true)
+        expect(h.label, `La etiqueta "${h.label}" lleva guion largo.`).not.toContain('—')
+      }
+    }
+  })
+
+  it('la misma novedad no se cuenta en dos cortes', () => {
+    // La señal la lleva la madre plegada y UN solo corte desplegada. Declararla
+    // en dos (Activos y Todos contienen ambos a los nuevos) pintaría dos puntos
+    // por el mismo aviso, que es justo lo que la doctrina evita al no marcar a la
+    // madre cuando está desplegada.
+    for (const it of conHijos()) {
+      const conSenal = it.hijos!.filter((h) => h.novedades !== undefined)
+      expect(
+        conSenal.map((h) => h.label),
+        `Más de un corte de "${it.label}" declara señal: el mismo aviso se pintaría dos veces.`,
+      ).toHaveLength(conSenal.length === 0 ? 0 : 1)
+      for (const h of conSenal) {
+        expect(h.novedadesLabel, `"${h.label}" lleva señal y no dice de qué.`).toBeTypeOf('function')
+        expect(h.novedadesLabel!(7), `El novedadesLabel de "${h.label}" no dice CUÁNTAS.`).toContain('7')
+      }
+    }
   })
 })

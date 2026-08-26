@@ -43,6 +43,8 @@ const RUTAS_SIN_DESTINO: Record<string, string> = {
   'ajustes/:seccion': 'Es la misma pantalla que "ajustes", y cada interruptor entra por su fila con enlace directo.',
   sedes: 'Ruta retirada (ago 2026): redirige. "Sedes" sí se encuentra, y lleva a Vista general, que es donde se administran.',
   marcas: 'Ruta retirada (ago 2026): redirige. La identidad se encuentra y lleva al constructor, que es donde se edita.',
+  bandeja:
+    'Ruta retirada (ago 2026, Mario): redirige a Candidatos, que es lo que la sustituye. "Bandeja" SÍ se encuentra escribiéndola (es una clave del destino "Candidatos"), así que quien la busque por su nombre viejo llega igual.',
   meridian:
     'Hilo retirado (ago 2026, Mario): no vuelve, y la ruta solo redirige. El TRIAJE de Meridian sigue vivo, pero no es un sitio al que ir: se lee en la columna Encaje y en el informe de la ficha.',
 }
@@ -103,12 +105,22 @@ function entradasDelMenu(): string[] {
     empresa: 'Construcciones Teide',
     isStaff: true,
     demo: false,
-    counts: { bandeja: 0, equipo: 0 },
+    counts: { nuevos: 0, equipo: 0 },
   })
   // Solo las filas que LLEVAN a un sitio. Las que abren una capa (Buscar,
   // Notificaciones) no son destinos: buscar "Buscar" desde el buscador es una
   // pescadilla, y los avisos no tienen pantalla propia a la que ir.
-  return [...new Set(grupos.flatMap((g) => g.items.filter((i) => i.to).map((i) => i.label)))]
+  // Los CORTES de una fila (las vistas de Candidatos) son sitios como cualquier
+  // otro, así que entran en el detector: si mañana alguien añade una vista y se
+  // olvida del buscador, el menú la tendría y el buscador no. Es exactamente el
+  // olvido que este guardián existe para cazar, una capa más abajo.
+  const conCortes = grupos.flatMap((g) => g.items.flatMap((i) => i.hijos ?? []))
+  return [
+    ...new Set([
+      ...grupos.flatMap((g) => g.items.filter((i) => i.to).map((i) => i.label)),
+      ...conCortes.map((h) => h.label),
+    ]),
+  ]
 }
 
 /** Lo que de verdad hace el buscador: ¿escribiendo esto sale algo? */

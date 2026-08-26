@@ -10,7 +10,7 @@ import type { CandidateComment, TeamRequestComment } from './types'
  *
  * Regla de qué entra: algo que **una persona dirige a ti** o que ha cambiado y
  * quieres enterarte. Por eso los candidatos nuevos NO son un aviso: ya los
- * cuenta la Bandeja en el menú lateral, y 272 avisos no avisan de nada.
+ * cuenta Candidatos en el menú lateral, y 272 avisos no avisan de nada.
  *
  * Todo se DERIVA de datos que ya existen; no hay tabla de notificaciones ni
  * nada que mantener. El "visto" es una marca de tiempo por empresa en

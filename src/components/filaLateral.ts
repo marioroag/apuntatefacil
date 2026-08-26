@@ -64,3 +64,54 @@ export const FILA_ACTIVA = 'bg-[var(--color-lateral-activo)] text-slate-900'
  *  una fila lleve `to` o `capa`, nunca las dos. Separadas, la que se retoque un
  *  día no arrastra a la otra. */
 export const FILA_ABIERTA = 'bg-[var(--color-lateral-activo)] text-slate-900'
+
+// -----------------------------------------------------------------------------
+// UNA FILA QUE SE PARTE EN DOS: la etiqueta LLEVA y el chevron PLIEGA.
+//
+// Hace falta desde que "Candidatos" tiene hijos (ago 2026). Es distinta de
+// "Puestos", que se pliega con la fila entera, y la diferencia no es un capricho:
+// **Puestos no navega porque no hay ninguna pantalla de "todos los puestos" a la
+// que ir**, así que su fila solo puede hacer una cosa y la hace entera. Candidatos
+// sí tiene un sitio (Activos), y una fila que llevara Y plegara con el mismo
+// click obligaría a adivinar cuál de las dos cosas va a pasar. La regla que las
+// une: **el chevron siempre pliega; la etiqueta va donde vaya la fila, y si la
+// fila no va a ninguna parte, pliega la fila entera.**
+//
+// Un `<button>` no puede vivir dentro de un `<a>` (interactivo dentro de
+// interactivo: el teclado y el lector se quedan sin saber qué están tocando), así
+// que son dos hermanos dentro de una caja que solo pinta el fondo.
+//
+// El FOCO va aquí `ring-inset` y no con el `ring-offset` del resto del menú, y es
+// a propósito: con el anillo pintado fuera, enfocar la mitad izquierda derramaba
+// el halo por encima de la derecha y no se sabía cuál de las dos tenía el foco.
+// Pintado dentro, el anillo dibuja exactamente la mitad que responde al Intro.
+// -----------------------------------------------------------------------------
+
+/** La caja: solo el fondo y el alto. No es focusable ni pulsable. */
+export const FILA_CAJA =
+  'flex h-11 w-full items-center rounded-xl text-sm font-medium lg:h-[34px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)]'
+
+/** La mitad que lleva a un sitio. Se queda con todo el ancho menos el chevron, y
+ *  repite la geometría de `FILA` (14px de sangría, icono de 20, hueco de 14) para
+ *  que su etiqueta arranque en los mismos 48px que todas las demás del menú. */
+export const FILA_ENLACE =
+  'flex min-w-0 flex-1 items-center gap-3.5 self-stretch rounded-l-xl pl-3.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-600'
+
+/** El chevron. `px-3.5` y no un ancho fijo: así el glifo queda a los mismos 14px
+ *  del filo derecho que el de "Puestos", que va dentro del relleno de su fila. */
+export const FILA_CHEVRON =
+  'grid shrink-0 place-items-center self-stretch rounded-r-xl px-3.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-600'
+
+/** UNA FILA HIJA (un puesto, una vista de candidatos). Sin icono y sangrada a
+ *  48px, que es exactamente donde arranca la etiqueta de su madre.
+ *
+ *  Ocupa el ancho ENTERO y la sangría la lleva la FILA, no la lista: con la lista
+ *  sangrada, el fondo de la hija mide menos que el de la madre y sus señales caen
+ *  6px a la izquierda de las demás (medido). Nadie lo nombra al verlo; todo el
+ *  mundo lo nota como "descosido".
+ *
+ *  Vive aquí y no escrita a mano en cada lista porque ya hay dos consumidoras
+ *  (los puestos y las vistas de Candidatos) y este proyecto ya sabe cómo acaba
+ *  eso: dos filas que empiezan iguales y se separan al primer retoque. */
+export const FILA_HIJA =
+  'flex h-10 w-full items-center gap-2 rounded-xl pl-12 pr-3.5 text-sm font-medium outline-none lg:h-[30px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)]'

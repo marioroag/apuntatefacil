@@ -104,24 +104,28 @@
   --color-lateral-activo: #edeff2;
 
   /* --- "HAY ALGO NUEVO" (Mario, ago 2026) ----------------------------------
-     El punto de novedad pasa de TINTA a ROJO. La regla anterior era la contraria
-     y su argumento era bueno sobre el papel: algo nuevo no es una acción (para
-     eso está el acento) ni un error (para eso está el rojo). Pero en pantalla la
-     tinta no funcionaba: un punto de 6px del mismo color que las etiquetas de
-     su fila no se lee como una señal, se lee como parte del texto, y hay que
-     buscarlo. Una señal tiene que separarse de lo que señala.
+     TINTA. Y es la segunda vez que este punto cambia de color, así que quedan
+     los dos argumentos escritos, que es lo que impide una tercera vuelta a
+     ciegas.
 
-     Lo que esto cambia en la doctrina, y hay que decirlo: **el rojo ya no
-     significa solo "error o acción destructiva"**. Ahora significa también "hay
-     algo aquí sin mirar", y los dos se distinguen por FORMA, no por tono: lo
-     destructivo es siempre un control con borde e icono (`BTN_DANGER`) o un
-     texto de error; esto es siempre un disco de 6px pegado al filo de una fila.
-     Es el mismo desempate que ya resolvió la estrella dorada contra el ámbar de
-     "entrevista". Si algún día aparece un tercer uso del rojo, se discute.
+     Estuvo en tinta, pasó a ROJO porque un disco de 6px del mismo color que las
+     etiquetas de su fila no se separa de ellas (se lee como parte del texto y
+     hay que buscarlo), y vuelve a tinta porque **el rojo vale más reservado**:
+     con el punto en rojo, el color dejaba de significar "esto es un error o algo
+     que destruye" y pasaba a significar dos cosas, y la que se usa cincuenta
+     veces al día se come a la otra. Mario eligió el reparto (ago 2026): el rojo
+     solo avisa de lo que puede salir mal.
 
-     Token propio y no `red-500` a pelo: es una decisión con nombre, y cambiarla
-     tiene que ser una línea. */
-  --color-novedad: #ef4444;
+     Lo que se paga y hay que saberlo: la señal vuelve a estar a un peldaño de la
+     etiqueta que tiene al lado (`slate-900` contra `slate-800`), así que se
+     encuentra peor de un vistazo. Si vuelve a molestar, la salida NO es otro
+     tono: es la FORMA (un disco más grande, o moverlo a donde no compita con
+     texto), que es como esta doctrina desempata siempre dos cosas que comparten
+     paleta.
+
+     Token propio y no `slate-900` a pelo: es una decisión con nombre, y cambiarla
+     tiene que ser una línea. Ya lo ha sido dos veces. */
+  --color-novedad: #131822;
 
   /* Radios: tarjeta/panel/input a 10px (más ajustado = más "instrumento").
      Los botones fijan 8px en su propia clase; las pills siguen en 9999px. */
