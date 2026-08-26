@@ -9,7 +9,6 @@ import { procesosAbiertos } from '../lib/pricing'
 import { initials } from '../lib/format'
 import { FACTURACION_ICON } from '../lib/nav'
 import { Avatar } from './ui/Avatar'
-import { BetaBadge } from './BetaBadge'
 
 // -----------------------------------------------------------------------------
 // EL MENÚ DE CUENTA (antes `CompanyMenu`, en la barra superior).
@@ -215,7 +214,6 @@ export function CuentaMenu({
             <p className="text-[12px] text-slate-500">
               <span className="num">{abiertos}</span> {abiertos === 1 ? 'proceso abierto' : 'procesos abiertos'}
             </p>
-            {!demo && <BetaBadge />}
           </div>
 
           <Separator />

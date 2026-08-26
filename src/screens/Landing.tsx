@@ -11,7 +11,6 @@ import { initials, memberAvatarTone } from '../lib/format'
 import { STATUS_META, type CandidateStatus } from '../lib/types'
 import { BrowserMock } from '../components/BrowserMock'
 import { Logo } from '../components/Logo'
-import { BetaBadge } from '../components/BetaBadge'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { SupportDialog } from '../components/SupportDialog'
 import { PRECIO_PROCESO, PRUEBA_CANDIDATOS, PRUEBA_DIAS, TRIAL_REASSURANCE } from '../lib/pricing'
@@ -126,7 +125,6 @@ function BrandLockup({ compact = false }: { compact?: boolean }) {
     <span className="flex items-center gap-2">
       <Logo className={markSize} />
       <span className={`${textSize} brand-wordmark text-slate-900`} aria-hidden translate="no">apuntatefacil</span>
-      <BetaBadge />
       <span className="sr-only">{BRAND}</span>
     </span>
   )

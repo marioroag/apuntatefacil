@@ -5,7 +5,6 @@ import { Inbox, Loader2, Menu, Plus, Sparkles, X } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
-import { BetaBadge } from '../components/BetaBadge'
 import { seedDemoData } from '../lib/seedDemo'
 import { Sidebar } from '../components/Sidebar'
 import { GlobalSearch } from '../components/GlobalSearch'
@@ -121,9 +120,6 @@ export function AppLayout() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [buscarOpen, setBuscarOpen] = useState(false)
-  const [betaBannerOpen, setBetaBannerOpen] = useState(
-    () => typeof localStorage !== 'undefined' && !localStorage.getItem('apuntatefacil.beta-banner-dismissed')
-  )
 
   // Guía de primer uso, ahora anclada en la barra con su anillo de progreso. El
   // paso que enseña es el MISMO que numera la propia guía ("Paso N de 4"), para
@@ -310,28 +306,6 @@ export function AppLayout() {
             dos accionables no se perdieron: "Crear mi cuenta" y "Reiniciar demo"
             viven en ese menú, que es donde se va a buscar lo que tiene que ver
             con en qué cuenta estás. */}
-        {!demo && betaBannerOpen && (
-          <div className="flex items-center justify-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-1.5 text-center text-[12px] text-slate-500">
-            <BetaBadge />
-            <span>
-              Estás en la versión beta. Si algo no va bien,{' '}
-              <button
-                onClick={() => setSupportOpen(true)}
-                className="font-semibold underline underline-offset-2 hover:text-slate-700"
-              >
-                escríbenos
-              </button>{' '}
-              y lo arreglamos.
-            </span>
-            <button
-              onClick={() => { setBetaBannerOpen(false); localStorage.setItem('apuntatefacil.beta-banner-dismissed', '1') }}
-              className="ml-1 rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
-              aria-label="Cerrar aviso de beta"
-            >
-              <X className="size-3.5" aria-hidden />
-            </button>
-          </div>
-        )}
         {/* Con la guía activa, hueco inferior para que la tarjeta flotante no tape
             el final del contenido (botones de guardar, últimas filas). */}
         <main id="contenido" className={`min-h-0 flex-1 overflow-y-auto overscroll-contain${onboarding.active ? ' pb-28' : ''}`}>
