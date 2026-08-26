@@ -69,6 +69,20 @@ export type DimensionFiltro = {
   opciones?: { valor: string; label: string; leading?: ReactNode }[]
   seleccionadas?: Set<string>
   onToggle?: (valor: string) => void
+  /**
+   * Valores que ahora mismo no se pueden marcar, porque marcarlos no daría ningún
+   * resultado. Hoy solo lo usa Estado: "descartado" y los otros cuatro viven en
+   * lados distintos del conmutador Activos/Rechazados, así que pedir los dos a la
+   * vez es pedir una lista que no existe.
+   *
+   * REGLA QUE NO SE PUEDE SALTAR: aquí NUNCA entra un valor que ya esté marcado. Un
+   * checkbox marcado y deshabilitado es una trampa: no hay forma de quitarlo. Quien
+   * rellene este conjunto tiene que descontar lo que ya está puesto, y eso es
+   * justamente lo que deja salir de una vista guardada con una combinación vieja.
+   */
+  bloqueadas?: Set<string>
+  /** Por qué están bloqueadas. Lo que no se puede cambiar se dice, no se deja mudo. */
+  motivoBloqueo?: string
   /** Escotilla para las dimensiones que NO son una lista (los rangos numéricos). */
   panel?: ReactNode
 }
@@ -81,16 +95,32 @@ export function ValoresDimension({ dim, q }: { dim: DimensionFiltro; q: string }
   if (lista.length === 0) return <p className="px-2.5 py-3 text-[13px] text-slate-500">Ningún valor se llama así.</p>
   return (
     <>
-      {lista.map((o) => (
-        <label
-          key={o.valor}
-          className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-[14px] text-slate-700 hover:bg-slate-50 sm:py-1.5 sm:text-[13px]"
-        >
-          <Checkbox checked={dim.seleccionadas?.has(o.valor) ?? false} onChange={() => dim.onToggle?.(o.valor)} />
-          {o.leading}
-          <span className="min-w-0 flex-1 truncate">{o.label}</span>
-        </label>
-      ))}
+      {lista.map((o) => {
+        const bloqueada = dim.bloqueadas?.has(o.valor) ?? false
+        return (
+          <label
+            key={o.valor}
+            // El motivo va en el `title` y no en un globo: es una lista de cinco
+            // filas dentro de un desplegable, y la causa está a dos dedos (la
+            // casilla que sí está marcada). Un tooltip aquí taparía la propia lista.
+            title={bloqueada ? dim.motivoBloqueo : undefined}
+            className={`flex items-center gap-2.5 rounded-lg px-2 py-2 text-[14px] sm:py-1.5 sm:text-[13px] ${
+              // `slate-400` es el único sitio donde esta doctrina lo admite para
+              // texto: un control deshabilitado está exento del suelo de contraste
+              // justamente porque no se puede usar, y apagarlo es lo que lo dice.
+              bloqueada ? 'cursor-not-allowed text-slate-400' : 'cursor-pointer text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <Checkbox
+              checked={dim.seleccionadas?.has(o.valor) ?? false}
+              disabled={bloqueada}
+              onChange={() => dim.onToggle?.(o.valor)}
+            />
+            <span className={bloqueada ? 'opacity-40' : undefined}>{o.leading}</span>
+            <span className="min-w-0 flex-1 truncate">{o.label}</span>
+          </label>
+        )
+      })}
     </>
   )
 }

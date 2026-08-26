@@ -51,12 +51,11 @@ export type Testimonio = {
 
 export const TESTIMONIOS: Testimonio[] = [
   {
-    // Persona y empresa: reales, confirmadas por Mario (ago 2026).
-    //
-    // OJO CON LA FRASE: viene del Figma, no de una conversación con Sergio. Si no
-    // son sus palabras, se cambia SOLO esta línea. Y es la línea que más cuidado
-    // pide de las tres, porque un porcentaje concreto firmado por un cliente real
-    // es una afirmación que alguien puede pedirte que sostengas.
+    // Las tres cosas, confirmadas por Mario (ago 2026): la persona y la empresa son
+    // reales, hay permiso, y la frase son palabras suyas. El "40%" apareció primero
+    // en el Figma y se comprobó a propósito antes de encender la entrada, porque un
+    // porcentaje firmado por un cliente real es una afirmación que hay que poder
+    // sostener. Es de Sergio.
     cita: 'Redujimos el tiempo de contratación un 40% desde que usamos la plataforma.',
     nombre: 'Sergio Rodríguez',
     cargo: 'CEO, Solera Canarias',

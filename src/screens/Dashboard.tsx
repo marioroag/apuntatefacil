@@ -169,6 +169,70 @@ export function Dashboard() {
   // Estado, igual que los otros cuatro.
   const esMovil = useEsMovil()
   const [vista, setVista] = useState<'activos' | 'rechazados'>('activos')
+
+  /**
+   * EL CONMUTADOR SIGUE AL FILTRO DE ESTADO (Mario, ago 2026).
+   *
+   * El conmutador y la casilla "Descartado" hablan del MISMO hecho desde dos sitios,
+   * y por eso podían contradecirse: marcabas Descartado estando en Activos y la
+   * tabla se quedaba vacía a la fuerza, porque estabas pidiendo a la vez los dos
+   * montones que el conmutador separa. La pantalla no estaba rota, pero te hacía
+   * resolver a ti una contradicción que ella ya podía ver.
+   *
+   * Solo se mueve cuando el lado en el que estás no puede tener NADA, que es lo que
+   * lo hace predecible: si el filtro deja los dos montones con algo que enseñar, no
+   * se toca y mandas tú.
+   *   · solo "descartado"  -> Rechazados (en Activos no habría ni uno)
+   *   · ningún "descartado" -> Activos    (en Rechazados no habría ni uno)
+   *   · mezcla             -> quieto      (los dos lados tienen algo)
+   *
+   * Y se dispara al TOCAR el filtro, no desde un efecto que vigile el estado: un
+   * efecto correctivo te devolvería al otro lado en cuanto movieras el conmutador a
+   * mano, o sea que te quitaría el control en vez de ahorrarte un paso.
+   *
+   * Sin guarda de móvil a propósito: allí el conmutador ni se pinta ni filtra, así
+   * que moverlo no se ve; pero deja los dos de acuerdo, y si la ventana se ensancha
+   * aterrizas en el lado que corresponde en vez de en una lista vacía.
+   */
+  /**
+   * "DESCARTADO" NO SE COMBINA CON LOS OTROS CUATRO (Mario, ago 2026), y al
+   * marcarlo los demás se apagan.
+   *
+   * Es la misma verdad que el conmutador dicha en el otro control: Activos y
+   * Rechazados son dos montones DISJUNTOS, así que pedir "descartado y contratado"
+   * es pedir una lista que no existe en ninguno de los dos lados. Antes se podía
+   * pedir, y lo que salía era una tabla vacía sin explicación. Apagarlos dice la
+   * regla ANTES de que la pises, en vez de enseñarte el resultado de haberla
+   * pisado.
+   *
+   * EN MÓVIL NO SE BLOQUEA NADA, y no es un olvido: allí el conmutador ni se pinta
+   * ni filtra, la lista llega entera y "descartado" es un estado como los otros
+   * cuatro, así que mezclarlos SÍ significa algo. La exclusividad existe porque
+   * existe el conmutador; donde no hay conmutador, no hay exclusividad.
+   *
+   * Y NUNCA se bloquea algo que ya está marcado: un checkbox marcado y
+   * deshabilitado no se puede quitar. Es lo que deja salir de una combinación vieja
+   * guardada en una vista o hecha desde el móvil.
+   */
+  const estadoBloqueado = useMemo(() => {
+    if (esMovil || statusFilter.size === 0) return null
+    if (statusFilter.has('descartado')) {
+      return {
+        bloqueadas: new Set(STATUS_ORDER.filter((v) => v !== 'descartado' && !statusFilter.has(v))),
+        motivo: 'Estás viendo Rechazados. Quita "Descartado" para filtrar por los demás estados.',
+      }
+    }
+    return {
+      bloqueadas: new Set(['descartado']),
+      motivo: 'Estás viendo Activos. Quita los otros estados para poder ver los descartados.',
+    }
+  }, [esMovil, statusFilter])
+
+  const ajustarVista = useCallback((sel: Set<CandidateStatus>) => {
+    if (sel.size === 0) return
+    if (sel.size === 1 && sel.has('descartado')) setVista('rechazados')
+    else if (!sel.has('descartado')) setVista('activos')
+  }, [])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [interestDialogOpen, setInterestDialogOpen] = useState(false)
   const [lockedDialogOpen, setLockedDialogOpen] = useState(false) // aviso al pulsar una candidatura bloqueada
@@ -561,10 +625,17 @@ export function Dashboard() {
         n: statusFilter.size,
         limpiar: () => setStatusFilter(new Set()),
         seleccionadas: statusFilter as Set<string>,
-        onToggle: (v) => setStatusFilter((p) => {
-          const n = new Set(p); const s2 = v as CandidateStatus
-          n.has(s2) ? n.delete(s2) : n.add(s2); return n
-        }),
+        // El nuevo conjunto se calcula FUERA del updater: dentro sería un efecto
+        // colateral en una función que React puede llamar dos veces.
+        onToggle: (v) => {
+          const s2 = v as CandidateStatus
+          const n = new Set(statusFilter)
+          n.has(s2) ? n.delete(s2) : n.add(s2)
+          setStatusFilter(n)
+          ajustarVista(n)
+        },
+        bloqueadas: estadoBloqueado?.bloqueadas,
+        motivoBloqueo: estadoBloqueado?.motivo,
         opciones: STATUS_ORDER.map((v) => ({
           valor: v,
           label: STATUS_META[v].label,
@@ -669,7 +740,7 @@ export function Dashboard() {
       })
     }
     return d
-  }, [campaign, statusFilter, favoritosOnly, interestFilter, tags, tagFilter, valueFilters, numberFilters, numberDomains])
+  }, [campaign, statusFilter, favoritosOnly, interestFilter, tags, tagFilter, valueFilters, numberFilters, numberDomains, ajustarVista, estadoBloqueado])
 
   // UN CHIP EXISTE SI FILTRA. No hay un estado paralelo de "categorías añadidas":
   // lo hubo, y dejaba el chip vivo después de desmarcar su último valor, o sea una
@@ -723,7 +794,11 @@ export function Dashboard() {
 
   const applyView = (v: SavedView) => {
     setSearch(v.payload.search ?? '')
-    setStatusFilter(new Set(v.payload.statuses ?? []))
+    // Una vista guardada trae sus estados, así que necesita el mismo ajuste: sin él,
+    // recuperar una vista de descartados la abriría vacía.
+    const estados = new Set(v.payload.statuses ?? [])
+    setStatusFilter(estados)
+    ajustarVista(estados)
     setInterestFilter(new Set(v.payload.interestStates ?? []))
     setValueFilters(v.payload.valueFilters ?? [])
     setNumberFilters(v.payload.numberFilters ?? [])
