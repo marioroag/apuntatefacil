@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Check, Eye, EyeOff, Loader2, Mail } from 'lucide-react'
-import { useAuth } from '../lib/auth'
+import { consumirSesionCaducada, useAuth } from '../lib/auth'
 import { setRememberMe } from '../lib/supabase'
 import { Logo } from '../components/Logo'
 import { Checkbox } from '../components/ui/Checkbox'
@@ -48,6 +48,9 @@ const inputClass = (invalid: boolean) =>
 export function Login() {
   const { signInWithGoogle, signUpWithPassword, signInWithPassword, sendPasswordReset, resendConfirmation, session, loading } = useAuth()
   const navigate = useNavigate()
+  // Se lee UNA vez al montar, porque leerlo lo borra: si se llamara en el render
+  // se consumiría en el primer pintado y el aviso no llegaría a verse.
+  const [sesionCaducada] = useState(consumirSesionCaducada)
   const [params] = useSearchParams()
   // Destino tras entrar: por defecto /app; respeta ?next= solo si es una ruta
   // INTERNA (evita open redirect: rechaza //, /\ y orígenes externos).
@@ -151,6 +154,13 @@ export function Login() {
   }
 
   // Si ya hay sesión, no enseñamos el login: directo al panel (o al ?next= seguro).
+  //
+  // Ojo con esta línea, porque fue la mitad de un bucle (26-ago-2026): con una
+  // sesión CADUCADA guardada, el usuario venía a entrar, esto lo daba por dentro
+  // y lo mandaba al panel, y el panel, al no poder cargar su empresa, lo mandaba
+  // al onboarding. No había forma de volver a entrar. La otra mitad, y donde
+  // está el arreglo, es que ahora una sesión que la base rechaza se cierra de
+  // verdad (`esSesionMuerta` en auth.tsx), así que aquí ya no hay `session`.
   if (!loading && session) return <Navigate to={dest} replace />
 
   return (
@@ -165,6 +175,16 @@ export function Login() {
             <Logo className="size-9" />
             <span className="text-xl brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
           </div>
+
+          {/* Por qué estás aquí otra vez. Sin esta línea, cerrar la sesión por un
+              token muerto se vive como "me ha echado sin motivo", que es de las
+              cosas que más desconfianza generan en una app con tus datos dentro.
+              Se lee UNA vez: el recado se consume al leerlo. */}
+          {sesionCaducada && (
+            <p role="status" className="mt-5 rounded-xl bg-slate-100 px-3.5 py-2.5 text-[13px] leading-relaxed text-slate-700">
+              Tu sesión había caducado, así que la hemos cerrado. Vuelve a entrar y sigues donde lo dejaste: no se ha perdido nada.
+            </p>
+          )}
 
           {view === 'confirm-sent' ? (
             <div className="mt-6 rounded-xl filo bg-slate-50 p-4 text-center">

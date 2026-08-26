@@ -1,0 +1,34 @@
+-- ----------------------------------------------------------------------------
+-- `my_companies` DEJA DE RESPONDER A QUIEN NO VA AUTENTICADO
+--
+-- EL FALLO, con nombre y apellidos (Mario, 26-ago-2026): entrar en la app con
+-- una cuenta que YA tiene empresa, equipo y puestos, y aterrizar en el
+-- onboarding pidiendo "¿cómo se llama tu empresa?". Y al escribirlo, "No pudimos
+-- crear la empresa".
+--
+-- Los dos síntomas salen de UNA sola causa: la petición llegaba a la base sin
+-- usuario (token caducado o rechazado). Lo que la hizo invisible es que las dos
+-- funciones implicadas contestan a eso de forma DISTINTA:
+--
+--   · `create_company` lleva su `revoke all ... from public, anon` desde el
+--     init, así que sin usuario devuelve 401 (42501). Correcto.
+--   · `my_companies` solo tenía `grant execute ... to authenticated`, y eso NO
+--     quita el EXECUTE que Postgres concede a PUBLIC al crear una función. O sea
+--     que `anon` podía ejecutarla, `auth.uid()` salía null, el `where
+--     m.user_id = auth.uid()` no casaba con nada y devolvía **200 con `[]`**.
+--
+-- Un array vacío con 200 es indistinguible de "este usuario no tiene ninguna
+-- empresa", así que el cliente hacía lo único que podía hacer con esa respuesta:
+-- mandar al onboarding. La sesión rota se disfrazaba de cuenta nueva.
+--
+-- LA REGLA: una función que solo tiene sentido con usuario tiene que FALLAR sin
+-- usuario, no devolver vacío. Un vacío es un dato; un 401 es un diagnóstico.
+-- Es el mismo criterio fail-closed que ya sigue `email_recipients` (si la
+-- consulta falla no sale ningún correo) y que `create_company` ya cumplía.
+--
+-- `grant ... to authenticated` NO implica quitárselo a nadie: para eso hace
+-- falta el revoke. Al escribir una función nueva, las dos líneas van juntas.
+-- ----------------------------------------------------------------------------
+
+revoke all on function public.my_companies() from public, anon;
+grant execute on function public.my_companies() to authenticated;

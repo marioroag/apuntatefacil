@@ -144,7 +144,13 @@ describe('lo que merece un ajuste, tiene un ajuste', () => {
     // La trampa que ya nos mordió una vez: my_companies arma el objeto campo a
     // campo, así que una columna que no esté ahí NUNCA llega al cliente y el
     // ajuste parece no guardarse.
-    const ultimoMyCompanies = texto.lastIndexOf('function public.my_companies()')
+    // Busca la DEFINICIÓN, no cualquier mención. Con `function public.my_companies()`
+    // a secas, un `revoke all on function public.my_companies()` en una migración
+    // posterior se llevaba el `lastIndexOf` (pasó al endurecer sus permisos el
+    // 26-ago-2026) y el detector daba por desaparecidas todas las columnas.
+    // Un guardián que salta por su propia heurística gasta la confianza que
+    // necesita para el día que salte de verdad.
+    const ultimoMyCompanies = texto.lastIndexOf('create or replace function public.my_companies()')
     const cuerpo = ultimoMyCompanies >= 0 ? texto.slice(ultimoMyCompanies) : ''
     const noViajan = candidatas.filter((c) => !cuerpo.includes(`'${c}'`))
     expect(

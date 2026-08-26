@@ -47,6 +47,13 @@ interface AuthApi {
   company: Company | null // empresa ACTIVA
   companies: Company[] // todas las empresas del usuario (para el cambiador de equipos)
   companyLoading: boolean
+  /**
+   * No se pudo AVERIGUAR si tienes empresa. Es un tercer estado y no un booleano
+   * más: "no tiene empresa" manda al onboarding, "no lo sabemos" no puede.
+   */
+  companyError: string | null
+  /** Reintenta la carga. La usa la pantalla de error. */
+  retryCompanies: () => Promise<void>
   role: string | null // rol del usuario en la empresa ACTIVA: owner | member | encargado
   setActiveCompany: (id: string) => void // cambia de equipo
   signInWithGoogle: () => Promise<void>
@@ -87,6 +94,50 @@ export function mapAuthError(message: string): string {
   return 'No hemos podido completar la operación. Inténtalo de nuevo.'
 }
 
+/**
+ * ¿ESTE ERROR SIGNIFICA "TU SESIÓN YA NO VALE"?
+ *
+ * Dos códigos y ni uno más, los dos comprobados contra la API de producción:
+ *
+ *   · `PGRST301` es lo que devuelve PostgREST con un JWT que no puede validar
+ *     (caducado, firmado con otro secreto, corrupto): 401 "JWT cryptographic
+ *     operation failed".
+ *   · `42501` es "permission denied for function". `my_companies` y
+ *     `create_company` solo se conceden a `authenticated`, así que si la base
+ *     dice que no tienes permiso para llamarlas, es que no vas como tal.
+ *
+ * Cualquier otro error (500, red, timeout) NO es esto y no debe cerrar la sesión
+ * de nadie: se reintenta.
+ */
+function esSesionMuerta(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  return error.code === 'PGRST301' || error.code === '42501'
+}
+
+/**
+ * Deja dicho, para la pantalla de acceso, POR QUÉ se ha cerrado la sesión.
+ *
+ * En `sessionStorage` y no en `localStorage` a propósito: es un recado de un
+ * paso a otro dentro de la misma pestaña, no un dato que deba sobrevivir a
+ * cerrar el navegador y aparecer una semana después sin venir a cuento.
+ */
+const SESION_CADUCADA_KEY = 'af.sesion-caducada'
+
+function marcarSesionCaducada() {
+  try { window.sessionStorage.setItem(SESION_CADUCADA_KEY, '1') } catch { /* almacenamiento no disponible */ }
+}
+
+/** Lee el recado y lo BORRA: se enseña una vez, no en cada visita al login. */
+export function consumirSesionCaducada(): boolean {
+  try {
+    const hay = window.sessionStorage.getItem(SESION_CADUCADA_KEY) === '1'
+    if (hay) window.sessionStorage.removeItem(SESION_CADUCADA_KEY)
+    return hay
+  } catch {
+    return false
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
@@ -94,6 +145,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [companies, setCompanies] = useState<CompanyWithRole[]>([])
   const [companyLoading, setCompanyLoading] = useState(false)
   const [role, setRole] = useState<string | null>(null)
+  /**
+   * NO SE PUDO SABER si tienes empresa, que es distinto de NO TENERLA.
+   *
+   * Sin esta distinción, cualquier fallo al cargar (una caída de red, un 500, un
+   * token que ya no vale) se leía como "usuario nuevo" y mandaba al onboarding a
+   * alguien con su empresa, su equipo y sus puestos montados. Que es exactamente
+   * lo que pasó en producción el 26-ago-2026.
+   */
+  const [companyError, setCompanyError] = useState<string | null>(null)
 
   // Carga TODAS las empresas del usuario (con su rol) y fija la ACTIVA: la guardada en
   // localStorage si sigue siendo válida (o preferId, p. ej. tras aceptar una invitación);
@@ -103,10 +163,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCompanies([])
       setCompany(null)
       setRole(null)
+      setCompanyError(null)
       return null
     }
     setCompanyLoading(true)
-    const { data } = await supabase.rpc('my_companies')
+    // EL ERROR NO SE TIRA. Estaba escrito `const { data } = await ...`, o sea que
+    // un fallo de la llamada acababa en `data === null` y de ahí en una lista
+    // vacía, indistinguible de "no tienes ninguna empresa".
+    const { data, error } = await supabase.rpc('my_companies')
+    if (error) {
+      setCompanyLoading(false)
+      if (esSesionMuerta(error)) {
+        // ANTES DE ECHAR A NADIE, PREGUNTAR. `getUser()` valida el token contra
+        // el servidor de auth, que es la única autoridad sobre si sigue vivo; el
+        // error de la base solo dice que ESA llamada no iba autenticada, y eso
+        // también lo produciría una carrera nuestra. Cerrar la sesión de un
+        // usuario legítimo por un fallo pasajero es peor que el fallo.
+        const { data: quien, error: errUsuario } = await supabase.auth.getUser()
+        if (!quien?.user || errUsuario) {
+          // Muerta de verdad. Cerrarla es lo único que rompe el bucle: con la
+          // sesión rota guardada, el usuario iba a /login, el login lo daba por
+          // dentro y lo devolvía al panel, y el panel lo mandaba al onboarding.
+          marcarSesionCaducada()
+          await supabase.auth.signOut()
+          setCompanies([])
+          setCompany(null)
+          setRole(null)
+          setCompanyError(null)
+          return null
+        }
+        // Token vivo y aun así sin permiso: no es cosa del usuario, así que se
+        // dice y se deja reintentar. Lo que NO se hace es mandarlo al onboarding.
+        setCompanyError('No hemos podido leer tu empresa. Vuelve a intentarlo en un momento.')
+        return null
+      }
+      setCompanyError('No hemos podido cargar tu empresa. Puede ser un problema de conexión.')
+      return null
+    }
+    setCompanyError(null)
     const list = (data as CompanyWithRole[] | null) ?? []
     setCompanies(list)
     const stored = preferId ?? (typeof localStorage !== 'undefined' ? localStorage.getItem(ACTIVE_COMPANY_KEY) : null)
@@ -138,6 +232,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     company,
     companies,
     companyLoading,
+    companyError,
+    retryCompanies: async () => { await loadCompanies(session?.user?.id) },
     role,
     setActiveCompany: (id: string) => {
       const c = companies.find((x) => x.id === id)
@@ -199,7 +295,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         p_name: name,
         p_accent: accent ?? ACENTO_MARCA,
       })
-      if (error) return { error: error.message }
+      if (error) {
+        // Aquí es donde el usuario veía "No pudimos crear la empresa. Inténtalo
+        // de nuevo", que era un consejo imposible: reintentar con la misma sesión
+        // muerta falla siempre. Lo que hay que hacer es volver a entrar.
+        if (esSesionMuerta(error)) {
+          marcarSesionCaducada()
+          await supabase.auth.signOut()
+          return { error: 'Tu sesión ha caducado. Vuelve a entrar.' }
+        }
+        return { error: error.message }
+      }
       await loadCompanies(session?.user?.id)
       return {}
     },
@@ -269,6 +375,8 @@ export function DemoAuthProvider({ children }: { children: ReactNode }) {
     company: demoCompany,
     companies: [demoCompany],
     companyLoading: false,
+    companyError: null,
+    retryCompanies: async () => {},
     role: 'owner',
     setActiveCompany: () => {},
     signInWithGoogle: async () => {},
