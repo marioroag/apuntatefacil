@@ -124,35 +124,39 @@ function detalle(error: { code?: string; message?: string } | null, cabecera?: s
 }
 
 /**
- * PGRST303, "JWT issued at future": UN DESFASE DE RELOJES, NO UN FALLO TUYO.
+ * PGRST301 / PGRST303: LA BASE RECHAZA EL TOKEN, Y PUEDE NO SER CULPA DE NADIE.
  *
- * Le pasó a Mario el 26-ago-2026 y dejó la cuenta inutilizable: el token está
- * bien firmado y bien vivo, pero llega al servicio que lo valida con una marca de
- * emisión (`iat`) por delante de SU reloj, así que lo rechaza por venir del
- * futuro. Medido ese día: el reloj de la máquina y los de Supabase coincidían al
- * segundo, o sea que el desfase estaba entre los dos servicios de Supabase, el
- * que emite el token y el que lo comprueba.
+ * Lo que le pasó a Mario el 26-ago-2026 ("JWT issued at future", con la cuenta
+ * inutilizable) resultó ser un INCIDENTE ABIERTO DE SUPABASE, publicado en
+ * status.supabase.com desde el 14-ago: "401 errors due to JWT rejections", con
+ * causa raíz reconocida por ellos, "newly refreshed JWTs being rejected by the
+ * API". O sea: el proveedor emite un token y su propia API lo rechaza. Se
+ * diagnosticó primero como desfase de relojes del proyecto, y la lección se
+ * queda escrita: **ante un error de autenticación absurdo, mirar el status del
+ * proveedor ANTES de teorizar**. Costó dos rondas no hacerlo.
  *
- * Lo importante para el código: **se cura con el tiempo, solo**. Un token
- * "emitido en el futuro" deja de estarlo en cuanto el reloj del validador
- * alcanza esa marca, así que lo correcto es ESPERAR Y REINTENTAR, no cerrar la
- * sesión (el token es bueno) ni rendirse con una pantalla de error. Sacar al
- * usuario sería además inútil: al volver a entrar se emite otro token con el
- * mismo desfase.
+ * La mitigación que publica el propio incidente es "waiting and refreshing is
+ * successful": esperar y REFRESCAR. Refrescar es la parte importante, y es lo
+ * que el primer intento de arreglo no hacía: reintentar con el MISMO token no
+ * sirve, porque ese token concreto puede seguir siendo rechazado; hay que pedir
+ * OTRO (`refreshSession`) y reintentar con el nuevo. El rechazo es
+ * intermitente, así que a la segunda o a la tercera entra.
  */
-function esDesfaseDeReloj(error: { code?: string } | null): boolean {
-  return error?.code === 'PGRST303'
+const CODIGOS_JWT_RECHAZADO = new Set(['PGRST301', 'PGRST303'])
+
+function esJwtRechazado(error: { code?: string } | null): boolean {
+  return !!error?.code && CODIGOS_JWT_RECHAZADO.has(error.code)
 }
 
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /**
- * Cuánto se espera entre reintentos, en ms. Suman ~7s, que cubre de sobra un
- * desfase de unos segundos sin dejar la pantalla colgada: si el desfase fuera de
- * minutos, ninguna espera razonable ayudaría y hay que decirlo, no seguir dando
- * vueltas con el usuario mirando.
+ * Esperas entre reintentos, en ms (~9s en total). Cubren un rechazo
+ * intermitente sin dejar la pantalla colgada: si tras tres tokens nuevos la API
+ * sigue rechazando, seguir insistiendo con el usuario mirando una ruleta no es
+ * un arreglo, y lo honesto es decir lo que pasa y dejar el botón de reintentar.
  */
-const ESPERAS_RELOJ = [700, 1500, 4500]
+const ESPERAS_JWT = [800, 2500, 6000]
 
 function esSesionMuerta(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false
@@ -216,11 +220,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // un fallo de la llamada acababa en `data === null` y de ahí en una lista
     // vacía, indistinguible de "no tienes ninguna empresa".
     let { data, error } = await supabase.rpc('my_companies')
-    // Un desfase de relojes se pasa solo: se espera y se vuelve a preguntar con
-    // el MISMO token, que es bueno. Sin esto, el usuario se comía una pantalla de
-    // error por unos segundos de diferencia entre dos servidores.
-    for (const ms of ESPERAS_RELOJ) {
-      if (!esDesfaseDeReloj(error)) break
+    // Rechazo de JWT (el incidente de Supabase, ver arriba): se pide un token
+    // NUEVO y se reintenta con él. El refresh puede fallar también (es el mismo
+    // incidente): se ignora su error y se reintenta igual, porque el RPC es
+    // quien dice la verdad sobre si ya entra.
+    for (const ms of ESPERAS_JWT) {
+      if (!esJwtRechazado(error)) break
+      await supabase.auth.refreshSession().catch(() => {})
       await espera(ms)
       ;({ data, error } = await supabase.rpc('my_companies'))
     }
@@ -259,8 +265,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setCompanyError(
         detalle(
           error,
-          esDesfaseDeReloj(error)
-            ? 'El servidor está recibiendo tu sesión con una marca de tiempo por delante de su reloj. No es cosa tuya y suele arreglarse solo en unos minutos.'
+          esJwtRechazado(error)
+            ? 'Nuestro proveedor de datos está rechazando sesiones por un problema en su lado (incidencia abierta en Supabase). No es cosa tuya: reintenta en un momento, suele entrar a la segunda.'
             : undefined,
         ),
       )
