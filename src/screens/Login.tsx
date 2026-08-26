@@ -1,12 +1,15 @@
-import { useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Check, Eye, EyeOff, Loader2, Mail } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Mail } from 'lucide-react'
 import { consumirSesionCaducada, useAuth } from '../lib/auth'
 import { setRememberMe } from '../lib/supabase'
-import { Logo } from '../components/Logo'
+import { AccesoLayout, AccesoTitulo, ETIQUETA_ACCESO, campoAcceso } from '../components/AccesoLayout'
 import { Checkbox } from '../components/ui/Checkbox'
-import { PWD_RULES, passwordValid } from '../lib/password'
-import { BTN_PRIMARY_BLOCK, BTN_SECONDARY_BLOCK } from '../lib/buttons'
+import { InfoTooltip } from '../components/ui/Tooltip'
+import { MedidorContrasena } from '../components/MedidorContrasena'
+import { PWD_AYUDA, passwordValid } from '../lib/password'
+import { BTN_ACCESO, BTN_ACCESO_SOCIAL } from '../lib/buttons'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -36,14 +39,20 @@ function GoogleIcon() {
 type Mode = 'signin' | 'signup'
 type View = 'form' | 'confirm-sent' | 'reset-request' | 'reset-sent'
 
-/** Las dos mitades del conmutador, en el orden en que se leen y se recorren. */
-const MODOS: readonly { value: Mode; label: string }[] = [
-  { value: 'signin', label: 'Entrar' },
-  { value: 'signup', label: 'Crear cuenta' },
-]
-
-const inputClass = (invalid: boolean) =>
-  `h-11 w-full rounded-xl border bg-white px-3.5 text-base outline-none placeholder:text-slate-500 focus:ring-4 focus:ring-indigo-500/15 ${invalid ? 'border-red-400' : 'border-slate-300 focus:border-indigo-500'}`
+/** Las vistas que solo dan un recado (email enviado): mismo titular, con su glifo. */
+function Recado({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <div className="text-center">
+      <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-500">
+        <Mail className="size-6" aria-hidden />
+      </div>
+      <h1 className="mt-5 text-balance text-[26px] font-bold leading-[1.15] tracking-[-0.012em] text-slate-900">
+        {titulo}
+      </h1>
+      {children}
+    </div>
+  )
+}
 
 export function Login() {
   const { signInWithGoogle, signUpWithPassword, signInWithPassword, sendPasswordReset, resendConfirmation, session, loading } = useAuth()
@@ -57,6 +66,14 @@ export function Login() {
   const dest = safeNext(params.get('next'))
 
   const [mode, setMode] = useState<Mode>('signin')
+  // EL ALTA VA EN DOS PASOS (Mario, ago 2026): email primero, contraseña después.
+  // No es solo estética: el alta pide estrictamente más que la entrada (la ayuda de
+  // la contraseña, el medidor y la casilla de términos), y todo junto no cabía en la
+  // ventana, así que la columna izquierda se desplazaba justo en la pantalla por la
+  // que se entra al producto. Partido en dos, cada paso pide UNA cosa y ninguno se
+  // sale. La ENTRADA sigue en un paso: ahí no sobra nada que partir.
+  const [paso, setPaso] = useState<1 | 2>(1)
+  const refPassword = useRef<HTMLInputElement>(null)
   const [view, setView] = useState<View>('form')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -70,23 +87,13 @@ export function Login() {
 
   const switchMode = (m: Mode) => {
     setMode(m)
+    setPaso(1)
     setError(null)
     setUnconfirmed(false)
   }
-  // Flechas del `radiogroup`: llevan a la otra mitad dando la vuelta. Sin esto
-  // serían dos botones sueltos, que es lo que eran.
-  // El foco SIGUE a lo marcado: ver el mismo mecanismo (y el mismo porque) en
-  // `SwitchVista`, en Dashboard.tsx. Sin esto, la flecha mueve el tinte y deja el
-  // anillo de foco sobre la mitad que acaba de quedarse fuera del tabulador.
-  const refsModo = useRef<(HTMLButtonElement | null)[]>([])
-  const moverModo = (dir: 1 | -1) => {
-    const i = MODOS.findIndex((m) => m.value === mode)
-    const j = (i + dir + MODOS.length) % MODOS.length
-    switchMode(MODOS[j].value)
-    requestAnimationFrame(() => refsModo.current[j]?.focus())
-  }
   const backToForm = () => {
     setView('form')
+    setPaso(1)
     setError(null)
     setNote(null)
     setUnconfirmed(false)
@@ -96,6 +103,14 @@ export function Login() {
     e.preventDefault()
     if (!EMAIL_RE.test(email)) {
       setError('Escribe un email válido, por ejemplo nombre@dominio.com')
+      return
+    }
+    // Primer paso del alta: solo se comprueba el email y se pasa al siguiente. No
+    // toca la red a propósito: preguntarle al servidor si ese email ya existe
+    // convertiría esta pantalla en un comprobador de cuentas ajenas.
+    if (altaPaso1) {
+      setError(null)
+      setPaso(2)
       return
     }
     if (mode === 'signup' && !passwordValid(password)) {
@@ -153,6 +168,30 @@ export function Login() {
     else setView('reset-sent')
   }
 
+  // Los tres momentos del formulario. Se derivan de `mode` + `paso` y no son un
+  // estado aparte: dos listas para la misma verdad se desincronizan siempre.
+  const altaPaso1 = mode === 'signup' && paso === 1
+  const altaPaso2 = mode === 'signup' && paso === 2
+  // El email se pide en la entrada y en el primer paso del alta; la contraseña, en la
+  // entrada y en el segundo. Google y su divisor solo donde se está ELIGIENDO cómo
+  // entrar, que es la primera pantalla de cada camino.
+  const pideEmail = mode === 'signin' || altaPaso1
+  const pidePassword = mode === 'signin' || altaPaso2
+
+  // AL LLEGAR AL PASO 2, EL FOCO VA A LA CONTRASEÑA. En un asistente, el paso
+  // siguiente es la continuación del gesto anterior: si vienes de pulsar Intro en el
+  // email, tener que ir a buscar el campo con el ratón parte en dos una acción que
+  // era una sola. Y de paso es lo correcto para quien navega con teclado o lector: el
+  // foco no puede quedarse en un botón que ya no está en pantalla.
+  //
+  // VA EN UN EFECTO Y NO EN EL MANEJADOR, que es un tropiezo ya conocido de este
+  // proyecto (el buscador del panel): un `focus()` programado dentro del click puede
+  // ejecutarse antes de que React comite, y entonces el `ref` todavía es null y el
+  // campo se abre apagado. Después del commit, el input ya está montado.
+  useEffect(() => {
+    if (altaPaso2) refPassword.current?.focus()
+  }, [altaPaso2])
+
   // Si ya hay sesión, no enseñamos el login: directo al panel (o al ?next= seguro).
   //
   // Ojo con esta línea, porque fue la mitad de un bucle (26-ago-2026): con una
@@ -164,166 +203,123 @@ export function Login() {
   if (!loading && session) return <Navigate to={dest} replace />
 
   return (
-    <div className="grid min-h-svh place-items-center bg-slate-50 px-4">
-      <div className="w-full max-w-[400px]">
-        <Link to="/" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
-          <ArrowLeft className="size-4" aria-hidden /> Volver
-        </Link>
+    <AccesoLayout>
+      {/* Por qué estás aquí otra vez. Sin esta línea, cerrar la sesión por un token
+          muerto se vive como "me ha echado sin motivo", que es de las cosas que más
+          desconfianza generan en una app con tus datos dentro. Se lee UNA vez: el
+          recado se consume al leerlo. */}
+      {sesionCaducada && (
+        <p role="status" className="mb-7 rounded-xl bg-slate-100 px-4 py-3 text-[13px] leading-relaxed text-slate-700">
+          Tu sesión había caducado, así que la hemos cerrado. Vuelve a entrar y sigues donde lo dejaste: no se ha perdido nada.
+        </p>
+      )}
 
-        <div className="rounded-2xl filo bg-white p-7 shadow-card">
-          <div className="flex items-center gap-2.5">
-            <Logo className="size-9" />
-            <span className="text-xl brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
+      {view === 'confirm-sent' ? (
+        <Recado titulo="Te hemos enviado un email para confirmar tu cuenta">
+          <p className="mt-3 text-pretty text-sm leading-relaxed text-slate-500">
+            Lo enviamos a <strong className="font-semibold text-slate-800">{email}</strong>. Ábrelo y pulsa el enlace para activar tu cuenta y entrar.
+          </p>
+          {note && <p className="mt-3 text-[13px] font-medium text-slate-600">{note}</p>}
+          <div className="mt-6 flex flex-col items-center gap-2.5">
+            <button onClick={onResend} disabled={busy} className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-60">
+              Reenviar email
+            </button>
+            <button onClick={backToForm} className="text-sm font-medium text-slate-500 hover:text-slate-800">
+              Usar otro email
+            </button>
           </div>
+        </Recado>
+      ) : view === 'reset-sent' ? (
+        <Recado titulo="Revisa tu email">
+          <p className="mt-3 text-pretty text-sm leading-relaxed text-slate-500">
+            Si existe una cuenta con <strong className="font-semibold text-slate-800">{email}</strong>, te hemos enviado un enlace para crear una contraseña nueva.
+          </p>
+          <button onClick={backToForm} className="mt-6 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+            Volver a entrar
+          </button>
+        </Recado>
+      ) : view === 'reset-request' ? (
+        <>
+          <AccesoTitulo titulo="Restablecer contraseña" sub="Te enviamos un enlace para crear una contraseña nueva." />
+          <form onSubmit={onReset} className="mt-10">
+            <label htmlFor="reset-email" className={ETIQUETA_ACCESO}>Email</label>
+            <input
+              id="reset-email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setError(null) }}
+              placeholder="nombre@tuempresa.com"
+              aria-invalid={!!error}
+              className={campoAcceso(!!error)}
+            />
+            {error && <p className="mt-2 text-[13px] font-medium text-red-600">{error}</p>}
+            <button type="submit" disabled={busy} className={`mt-4 ${BTN_ACCESO}`}>
+              {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Enviando...</> : 'Enviar enlace'}
+            </button>
+          </form>
+          <p className="mt-8 text-center text-sm font-medium text-slate-500">
+            <button type="button" onClick={backToForm} className="font-semibold text-slate-900 underline-offset-2 hover:underline">
+              Volver a entrar
+            </button>
+          </p>
+        </>
+      ) : (
+        <>
+          <AccesoTitulo
+            titulo={mode === 'signin' ? '¡Bienvenido de nuevo!' : altaPaso1 ? 'Crea tu cuenta' : 'Elige una contraseña'}
+            sub={
+              mode === 'signin' ? (
+                'Tus puestos y tus candidatos, donde los dejaste.'
+              ) : altaPaso1 ? (
+                'Prueba gratis, sin compromiso.'
+              ) : (
+                // En el segundo paso, el subtítulo deja de vender y pasa a decir para
+                // QUIÉN es esta contraseña. El email escrito es lo que evita crear la
+                // cuenta con una errata que ya no se ve en pantalla, y "Cambiar" es la
+                // vuelta atrás: sin ella, el paso dos sería una puerta de una sola
+                // dirección.
+                <>
+                  Para <strong className="font-semibold text-slate-800">{email}</strong>.{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setPaso(1); setError(null) }}
+                    className="font-medium text-indigo-600 underline-offset-2 hover:underline"
+                  >
+                    Cambiar
+                  </button>
+                </>
+              )
+            }
+          />
 
-          {/* Por qué estás aquí otra vez. Sin esta línea, cerrar la sesión por un
-              token muerto se vive como "me ha echado sin motivo", que es de las
-              cosas que más desconfianza generan en una app con tus datos dentro.
-              Se lee UNA vez: el recado se consume al leerlo. */}
-          {sesionCaducada && (
-            <p role="status" className="mt-5 rounded-xl bg-slate-100 px-3.5 py-2.5 text-[13px] leading-relaxed text-slate-700">
-              Tu sesión había caducado, así que la hemos cerrado. Vuelve a entrar y sigues donde lo dejaste: no se ha perdido nada.
-            </p>
-          )}
-
-          {view === 'confirm-sent' ? (
-            <div className="mt-6 rounded-xl filo bg-slate-50 p-4 text-center">
-              <Mail className="mx-auto size-6 text-slate-500" aria-hidden />
-              <p className="mt-2 text-sm font-semibold text-slate-900">Te hemos enviado un email para confirmar tu cuenta</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-                Lo enviamos a <strong>{email}</strong>. Ábrelo y pulsa el enlace para activar tu cuenta y entrar.
-              </p>
-              {note && <p className="mt-2 text-[12px] font-medium text-slate-600">{note}</p>}
-              <div className="mt-3 flex flex-col gap-1.5">
-                <button onClick={onResend} disabled={busy} className="text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-60">
-                  Reenviar email
-                </button>
-                <button onClick={backToForm} className="text-[13px] font-medium text-slate-500 hover:text-slate-800">
-                  Usar otro email
-                </button>
-              </div>
-            </div>
-          ) : view === 'reset-sent' ? (
-            <div className="mt-6 rounded-xl filo bg-slate-50 p-4 text-center">
-              <Mail className="mx-auto size-6 text-slate-500" aria-hidden />
-              <p className="mt-2 text-sm font-semibold text-slate-900">Revisa tu email</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-                Si existe una cuenta con <strong>{email}</strong>, te hemos enviado un enlace para crear una contraseña nueva.
-              </p>
-              <button onClick={backToForm} className="mt-3 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700">
-                Volver a entrar
-              </button>
-            </div>
-          ) : view === 'reset-request' ? (
+          {/* El Figma pone dos identidades aquí, Google y Apple, y Apple NO EXISTE en
+              este producto (el acceso es Google + email con contraseña). Un botón que
+              no puede hacer nada es peor que ningún botón, así que queda uno y ocupa
+              la fila entera. Si algún día se da de alta Apple, vuelven los dos y esto
+              es una rejilla de dos columnas. */}
+          {!altaPaso2 && (
             <>
-              <h1 className="mt-5 text-xl font-semibold text-slate-900">Restablecer contraseña</h1>
-              <p className="mt-1 text-sm text-slate-500">Te enviamos un enlace para crear una contraseña nueva.</p>
-              <form onSubmit={onReset} className="mt-5">
-                <label htmlFor="reset-email" className="mb-1.5 block text-sm font-semibold text-slate-800">Email</label>
-                <input
-                  id="reset-email"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); setError(null) }}
-                  placeholder="nombre@tuempresa.com"
-                  aria-invalid={!!error}
-                  className={inputClass(!!error)}
-                />
-                {error && <p className="mt-1.5 text-[13px] font-medium text-red-600">{error}</p>}
-                <button type="submit" disabled={busy} className={`mt-3 ${BTN_PRIMARY_BLOCK}`}>
-                  {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Enviando...</> : 'Enviar enlace'}
-                </button>
-              </form>
-              <button onClick={backToForm} className="mt-4 block w-full text-center text-[13px] font-medium text-slate-500 hover:text-slate-800">
-                Volver
-              </button>
-            </>
-          ) : (
-            <>
-              <h1 className="mt-5 text-xl font-semibold text-slate-900">
-                {mode === 'signin' ? 'Entra en tu cuenta' : 'Crea tu cuenta'}
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">Gestiona tus puestos y candidatos.</p>
-
-              {/* La anatomía de `SwitchVista` (Dashboard.tsx): caja rectangular con
-                  filo y divisoria interior, no un carril gris con una pastilla blanca
-                  deslizándose dentro, que es justo el patrón que se retiró en agosto.
-                  Y es un `radiogroup` de verdad con flechas: son dos estados
-                  excluyentes de una misma cosa, no dos botones sueltos con
-                  `aria-pressed`. Es además el primer control que toca cualquiera que
-                  abre el producto.
-                  Dos medidas que aquí NO son las de `SwitchVista`: el radio es de
-                  CAMPO (10px) y el alto es 44px, porque este conmutador ocupa todo el
-                  ancho dentro de una pila de inputs de 44 y radio 10, y es el mismo
-                  argumento por el que `botonBloque` sube a `rounded-xl` en vez de
-                  quedarse en el radio de control.
-                  Y una tercera, que también se declara: se cae el `shadow-control`
-                  de la caja. Allí se apoya sobre la página gris; aquí vive DENTRO de
-                  una tarjeta blanca y su vecino inmediato es el botón de Google, que
-                  es blanco con anillo y sin sombra. Con sombra, era la única pieza
-                  elevada de una pila plana.
-                  `overflow-clip` porque las dos mitades son cajas cuadradas que llegan
-                  al filo: en la curva de la esquina se comerían el borde. */}
-              <div
-                role="radiogroup"
-                aria-label="Entrar o crear cuenta"
-                className="mt-5 grid h-11 grid-cols-2 overflow-clip rounded-xl filo bg-white"
-              >
-                {MODOS.map((m, i) => {
-                  const activa = mode === m.value
-                  return (
-                    <button
-                      key={m.value}
-                      ref={(el) => { refsModo.current[i] = el }}
-                      type="button"
-                      role="radio"
-                      aria-checked={activa}
-                      tabIndex={activa ? 0 : -1}
-                      onClick={() => switchMode(m.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); moverModo(1) }
-                        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); moverModo(-1) }
-                      }}
-                      className={`flex h-full items-center justify-center text-sm font-medium outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
-                        // La divisoria la pinta la mitad de la DERECHA: un `divide-x`
-                        // en el padre lo taparía el fondo de la mitad activa.
-                        i > 0 ? 'border-l border-slate-200' : ''
-                      } ${
-                        // El relleno del activo va al paso 100 y NO al 50/60 de
-                        // `SwitchVista`, y está medido: sobre la tarjeta blanca, el
-                        // 50 al 60% da #f5f7fe, o sea 1,07:1, por debajo del 1,16 que
-                        // esta doctrina ya fijó una vez como el suelo para que una
-                        // cápsula teñida se lea como FORMA (fue lo que subió las
-                        // pastillas de estado del 50 al 100). El 100 da 1,23:1.
-                        // Allí el 50 basta porque la mitad activa lleva ADEMÁS su
-                        // cifra rellena en `indigo-600`, que es la mitad del
-                        // contraste; aquí no hay cifra y el relleno va solo.
-                        activa ? 'bg-indigo-100 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  )
-                })}
-              </div>
-
               <button
                 onClick={() => { setRememberMe(remember); signInWithGoogle() }}
-                className={`mt-5 ${BTN_SECONDARY_BLOCK}`}
+                className={`mt-10 ${BTN_ACCESO_SOCIAL}`}
               >
                 <GoogleIcon /> Continuar con Google
               </button>
 
-              <div className="my-5 flex items-center gap-3">
-                <span className="h-px flex-1 bg-slate-200" />
-                <span className="text-[12px] font-medium text-slate-500">o con tu email</span>
-                <span className="h-px flex-1 bg-slate-200" />
+              <div className="my-8 flex items-center gap-4">
+                <span className="h-px flex-1 bg-slate-200" aria-hidden />
+                <span className="text-[13px] font-semibold text-slate-500">O</span>
+                <span className="h-px flex-1 bg-slate-200" aria-hidden />
               </div>
+            </>
+          )}
 
-              <form onSubmit={onSubmit}>
-                <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-slate-800">Email</label>
+          <form onSubmit={onSubmit} className={altaPaso2 ? 'mt-10' : undefined}>
+            {pideEmail && (
+              <>
+                <label htmlFor="email" className={ETIQUETA_ACCESO}>Email</label>
                 <input
                   id="email"
                   type="email"
@@ -333,51 +329,47 @@ export function Login() {
                   onChange={(e) => { setEmail(e.target.value); setError(null) }}
                   placeholder="nombre@tuempresa.com"
                   aria-invalid={!!error}
-                  className={inputClass(!!error)}
+                  className={campoAcceso(!!error)}
                 />
+              </>
+            )}
 
-                <label htmlFor="password" className="mb-1.5 mt-4 block text-sm font-semibold text-slate-800">Contraseña</label>
+            {pidePassword && (
+              <>
+                {/* En el alta, el rótulo lleva su ayuda: la frase del medidor pasa a
+                    hablar de lo que FALTA en cuanto escribes una letra, así que el
+                    listado entero deja de estar a la vista y tiene que poder pedirse.
+                    Es la primitiva del sistema (`InfoTooltip`), no un globo a mano. */}
+                <div className={`${ETIQUETA_ACCESO} flex items-center gap-1.5 ${mode === 'signin' ? 'mt-5' : ''}`}>
+                  <label htmlFor="password">Contraseña</label>
+                  {altaPaso2 && <InfoTooltip text={PWD_AYUDA} />}
+                </div>
                 <div className="relative">
                   <input
                     id="password"
+                    ref={refPassword}
                     type={showPassword ? 'text' : 'password'}
                     autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError(null) }}
                     placeholder={mode === 'signup' ? 'Crea una contraseña' : 'Tu contraseña'}
                     aria-invalid={!!error}
-                    className={`${inputClass(!!error)} pr-11`}
+                    aria-describedby={altaPaso2 ? 'password-medidor' : undefined}
+                    className={`${campoAcceso(!!error)} pr-12`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
                     aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                    className="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:text-slate-700"
+                    className="absolute right-1.5 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:text-slate-700"
                   >
                     {showPassword ? <EyeOff className="size-[18px]" aria-hidden /> : <Eye className="size-[18px]" aria-hidden />}
                   </button>
                 </div>
 
-                {mode === 'signup' && (
-                  <ul className="mt-2.5 space-y-1">
-                    {PWD_RULES.map((r) => {
-                      const ok = r.test(password)
-                      return (
-                        <li key={r.label} className={`flex items-center gap-2 text-[12px] ${ok ? 'font-medium text-slate-800' : 'text-slate-500'}`}>
-                          {ok ? (
-                            <Check className="size-3.5 shrink-0" aria-hidden />
-                          ) : (
-                            <span className="size-3.5 shrink-0 rounded-full border border-slate-300" aria-hidden />
-                          )}
-                          {r.label}
-                          <span className="sr-only">, {ok ? 'cumplido' : 'pendiente'}</span>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
+                {altaPaso2 && <MedidorContrasena valor={password} id="password-medidor" />}
 
-                <div className="mt-3 flex items-center justify-between gap-3">
+                <div className="mt-4 flex items-center justify-between gap-3">
                   <label className="flex cursor-pointer select-none items-center gap-2 text-[13px] text-slate-600">
                     <Checkbox
                       checked={remember}
@@ -395,47 +387,66 @@ export function Login() {
                     </button>
                   )}
                 </div>
+              </>
+            )}
 
-                {mode === 'signup' && (
-                  <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-[13px] leading-relaxed text-slate-600">
-                    <Checkbox checked={accepted} onChange={(e) => { setAccepted(e.target.checked); setError(null) }} className="mt-px" />
-                    <span>
-                      Acepto los{' '}
-                      <Link to="/terminos" target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 hover:text-indigo-700">términos</Link>
-                      {' '}y la{' '}
-                      <Link to="/privacidad" target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 hover:text-indigo-700">política de privacidad</Link>.
-                    </span>
-                  </label>
-                )}
+            {altaPaso2 && (
+              <label className="mt-3 flex cursor-pointer items-start gap-2.5 text-[13px] leading-relaxed text-slate-600">
+                <Checkbox checked={accepted} onChange={(e) => { setAccepted(e.target.checked); setError(null) }} className="mt-px" />
+                <span>
+                  Acepto los{' '}
+                  <Link to="/terminos" target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 hover:text-indigo-700">términos</Link>
+                  {' '}y la{' '}
+                  <Link to="/privacidad" target="_blank" rel="noopener noreferrer" className="font-medium text-indigo-600 hover:text-indigo-700">política de privacidad</Link>.
+                </span>
+              </label>
+            )}
 
-                {error && <p className="mt-3 text-[13px] font-medium text-red-600">{error}</p>}
-                {unconfirmed && (
-                  <button type="button" onClick={onResend} disabled={busy} className="mt-1.5 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-60">
-                    Reenviar email de confirmación
-                  </button>
-                )}
-                {/* El acuse ("te lo hemos reenviado") es un estado, no algo que se
-                    pulse: el ultramarine es solo para acción, foco y selección. El
-                    MISMO `note` ya va en `slate-600` en la vista de confirmación de
-                    arriba, así que además eran dos tintas para el mismo texto. */}
-                {note && <p className="mt-1.5 text-[12px] font-medium text-slate-600">{note}</p>}
+            {error && <p className="mt-4 text-[13px] font-medium text-red-600">{error}</p>}
+            {unconfirmed && (
+              <button type="button" onClick={onResend} disabled={busy} className="mt-2 text-[13px] font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-60">
+                Reenviar email de confirmación
+              </button>
+            )}
+            {/* El acuse ("te lo hemos reenviado") es un estado, no algo que se pulse:
+                el ultramarine es solo para acción, foco y selección. */}
+            {note && <p className="mt-2 text-[12px] font-medium text-slate-600">{note}</p>}
 
-                <button
-                  type="submit"
-                  disabled={busy || (mode === 'signup' && !passwordValid(password))}
-                  className={`mt-4 ${BTN_PRIMARY_BLOCK}`}
-                >
-                  {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> {mode === 'signin' ? 'Entrando...' : 'Creando cuenta...'}</> : mode === 'signin' ? 'Entrar' : 'Crear cuenta'}
-                </button>
-              </form>
+            <button
+              type="submit"
+              disabled={busy || (altaPaso2 && !passwordValid(password))}
+              className={`mt-5 ${BTN_ACCESO}`}
+            >
+              {busy ? (
+                <><Loader2 className="size-4 animate-spin" aria-hidden /> {mode === 'signin' ? 'Entrando...' : 'Creando cuenta...'}</>
+              ) : mode === 'signin' ? (
+                'Iniciar sesión con correo'
+              ) : altaPaso1 ? (
+                'Continuar'
+              ) : (
+                'Crear cuenta'
+              )}
+            </button>
 
-              <p className="mt-4 text-center text-[12px] leading-relaxed text-slate-500">
-                Tu contraseña se guarda cifrada, nunca la vemos en claro.
-              </p>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+          </form>
+
+          {/* El conmutador del diseño: una línea, no un `radiogroup`. Sustituye a las
+              dos mitades que había arriba, y con ellas se va la duda de qué mitad está
+              puesta: aquí lo que hay es una pantalla con su título y una salida a la
+              otra. El verbo va en tinta porque es lo que se pulsa; la pregunta, en
+              gris de apoyo. */}
+          <p className="mt-8 text-center text-sm font-medium text-slate-500">
+            {mode === 'signin' ? '¿No tienes una cuenta? ' : '¿Ya tienes una cuenta? '}
+            <button
+              type="button"
+              onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
+              className="font-semibold text-slate-900 underline-offset-2 hover:underline"
+            >
+              {mode === 'signin' ? 'Regístrate' : 'Inicia sesión'}
+            </button>
+          </p>
+        </>
+      )}
+    </AccesoLayout>
   )
 }

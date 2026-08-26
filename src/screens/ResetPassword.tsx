@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Check, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
-import { Logo } from '../components/Logo'
-import { PWD_RULES, passwordValid } from '../lib/password'
-import { BTN_PRIMARY_BLOCK } from '../lib/buttons'
+import { AccesoLayout, AccesoTitulo, ETIQUETA_ACCESO, campoAcceso } from '../components/AccesoLayout'
+import { InfoTooltip } from '../components/ui/Tooltip'
+import { MedidorContrasena } from '../components/MedidorContrasena'
+import { PWD_AYUDA, passwordValid } from '../lib/password'
+import { BTN_ACCESO } from '../lib/buttons'
 
 type Status = 'checking' | 'ready' | 'invalid'
 
@@ -60,111 +62,74 @@ export function ResetPassword() {
     else navigate('/app')
   }
 
-  const inputClass = (invalid: boolean) =>
-    `h-11 w-full rounded-xl border bg-white px-3.5 text-base outline-none placeholder:text-slate-500 focus:ring-4 focus:ring-indigo-500/15 ${invalid ? 'border-red-400' : 'border-slate-300 focus:border-indigo-500'}`
-
   return (
-    <div className="grid min-h-svh place-items-center bg-slate-50 px-4">
-      <div className="w-full max-w-[400px]">
-        <Link to="/" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
-          <ArrowLeft className="size-4" aria-hidden /> Volver
-        </Link>
-
-        <div className="rounded-2xl filo bg-white p-7 shadow-card">
-          <div className="flex items-center gap-2.5">
-            <Logo className="size-9" />
-            <span className="text-xl brand-wordmark text-slate-900" aria-hidden>apuntatefacil</span>
-          </div>
-
-          {status === 'checking' ? (
-            <div className="mt-8 flex items-center justify-center gap-2 text-sm text-slate-500">
-              <Loader2 className="size-4 animate-spin" aria-hidden /> Comprobando el enlace...
-            </div>
-          ) : status === 'invalid' ? (
-            <div className="mt-6 rounded-xl filo bg-slate-50 p-4 text-center">
-              <p className="text-sm font-semibold text-slate-900">Este enlace no es válido o ha caducado</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-                Pide uno nuevo desde la pantalla de acceso.
-              </p>
-              <Link to="/login" className="mt-3 inline-block text-[13px] font-semibold text-indigo-600 hover:text-indigo-700">
-                Volver a entrar
-              </Link>
-            </div>
-          ) : (
-            <>
-              <h1 className="mt-5 text-xl font-semibold text-slate-900">Crea una contraseña nueva</h1>
-              <p className="mt-1 text-sm text-slate-500">Elige una contraseña y entra a tu cuenta.</p>
-
-              <form onSubmit={onSubmit} className="mt-5">
-                <label htmlFor="new-password" className="mb-1.5 block text-sm font-semibold text-slate-800">Contraseña nueva</label>
-                <div className="relative">
-                  <input
-                    id="new-password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={(e) => { setPassword(e.target.value); setError(null) }}
-                    placeholder="Crea una contraseña"
-                    aria-invalid={!!error}
-                    className={`${inputClass(!!error)} pr-11`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                    className="absolute right-1 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:text-slate-700"
-                  >
-                    {showPassword ? <EyeOff className="size-[18px]" aria-hidden /> : <Eye className="size-[18px]" aria-hidden />}
-                  </button>
-                </div>
-
-                <ul className="mt-2.5 space-y-1">
-                  {PWD_RULES.map((r) => {
-                    const ok = r.test(password)
-                    return (
-                      // Una regla cumplida es un ESTADO, no una acción: se dice con
-                      // peso y tinta, igual que el mismo listado de `Login.tsx`, que ya
-                      // se neutralizó. El color no era el portador (lo es el glifo:
-                      // check contra círculo vacío), así que no se pierde nada.
-                      <li key={r.label} className={`flex items-center gap-2 text-[12px] ${ok ? 'font-medium text-slate-800' : 'text-slate-500'}`}>
-                        {ok ? (
-                          <Check className="size-3.5 shrink-0" aria-hidden />
-                        ) : (
-                          <span className="size-3.5 shrink-0 rounded-full border border-slate-300" aria-hidden />
-                        )}
-                        {r.label}
-                        <span className="sr-only">, {ok ? 'cumplido' : 'pendiente'}</span>
-                      </li>
-                    )
-                  })}
-                </ul>
-
-                <label htmlFor="confirm-password" className="mb-1.5 mt-4 block text-sm font-semibold text-slate-800">Repite la contraseña</label>
-                <input
-                  id="confirm-password"
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  value={confirm}
-                  onChange={(e) => { setConfirm(e.target.value); setError(null) }}
-                  placeholder="Repite la contraseña"
-                  aria-invalid={!!error}
-                  className={inputClass(!!error)}
-                />
-
-                {error && <p className="mt-3 text-[13px] font-medium text-red-600">{error}</p>}
-
-                <button
-                  type="submit"
-                  disabled={busy || !passwordValid(password)}
-                  className={`mt-4 ${BTN_PRIMARY_BLOCK}`}
-                >
-                  {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Guardando...</> : 'Guardar y entrar'}
-                </button>
-              </form>
-            </>
-          )}
+    <AccesoLayout>
+      {status === 'checking' ? (
+        <div className="flex items-center justify-center gap-2 text-sm text-slate-500" role="status">
+          <Loader2 className="size-4 animate-spin" aria-hidden /> Comprobando el enlace...
         </div>
-      </div>
-    </div>
+      ) : status === 'invalid' ? (
+        <>
+          <AccesoTitulo titulo="Este enlace ya no vale" sub="Ha caducado o ya se ha usado. Pide uno nuevo desde la pantalla de acceso." />
+          <p className="mt-8 text-center text-sm font-medium text-slate-500">
+            <Link to="/login" className="font-semibold text-slate-900 underline-offset-2 hover:underline">
+              Volver a entrar
+            </Link>
+          </p>
+        </>
+      ) : (
+        <>
+          <AccesoTitulo titulo="Crea una contraseña nueva" sub="Elige una contraseña y entra a tu cuenta." />
+
+          <form onSubmit={onSubmit} className="mt-10">
+            <div className={`${ETIQUETA_ACCESO} flex items-center gap-1.5`}>
+              <label htmlFor="new-password">Contraseña nueva</label>
+              <InfoTooltip text={PWD_AYUDA} />
+            </div>
+            <div className="relative">
+              <input
+                id="new-password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(null) }}
+                placeholder="Crea una contraseña"
+                aria-invalid={!!error}
+                aria-describedby="new-password-medidor"
+                className={`${campoAcceso(!!error)} pr-12`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                className="absolute right-1.5 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:text-slate-700"
+              >
+                {showPassword ? <EyeOff className="size-[18px]" aria-hidden /> : <Eye className="size-[18px]" aria-hidden />}
+              </button>
+            </div>
+
+            <MedidorContrasena valor={password} id="new-password-medidor" />
+
+            <label htmlFor="confirm-password" className={`${ETIQUETA_ACCESO} mt-5`}>Repite la contraseña</label>
+            <input
+              id="confirm-password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => { setConfirm(e.target.value); setError(null) }}
+              placeholder="Repite la contraseña"
+              aria-invalid={!!error}
+              className={campoAcceso(!!error)}
+            />
+
+            {error && <p className="mt-4 text-[13px] font-medium text-red-600">{error}</p>}
+
+            <button type="submit" disabled={busy || !passwordValid(password)} className={`mt-5 ${BTN_ACCESO}`}>
+              {busy ? <><Loader2 className="size-4 animate-spin" aria-hidden /> Guardando...</> : 'Guardar y entrar'}
+            </button>
+          </form>
+        </>
+      )}
+    </AccesoLayout>
   )
 }

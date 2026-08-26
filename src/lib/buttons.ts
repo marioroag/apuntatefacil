@@ -205,3 +205,52 @@ export const BTN_SECONDARY_BLOCK = botonBloque('secondary')
  * tener nueve clones.
  */
 export const BTN_PRIMARY_LATERAL = botonBloque('primary', 'lg:h-9')
+
+// -----------------------------------------------------------------------------
+// LOS DOS BOTONES DE LA PANTALLA DE ACCESO (diseño de Mario en Figma, ago 2026).
+//
+// Rompen tres reglas del sistema a propósito, así que se declaran AQUÍ con el
+// motivo escrito en vez de aparecer sueltos en el `className` de `Login.tsx`. Esa
+// es la regla que engloba a las demás: lo que se decide, se NOMBRA. El pecado no
+// es tener una excepción, es tenerla anónima, porque la anónima es la que nadie
+// vuelve a tocar cuando el sistema cambia.
+//
+// Qué rompen y por qué se acepta:
+//
+//   · RADIO DE PÍLDORA en vez de los 8px de control. En el sistema la píldora es
+//     de chips y avatares, pero esta pantalla no es producto: es la portada por la
+//     que se entra, la única superficie donde hay UN botón por decisión y no una
+//     fila de controles que tengan que alinearse entre sí. La doctrina ya admite
+//     que las superficies externas (landing, formulario público) usen su propia
+//     escala de radios; esto es lo mismo un peldaño más allá.
+//   · NEGRO en vez de ultramarine. Y el acento no se pierde: sigue siendo lo que
+//     pinta el foco y los enlaces de esta misma pantalla. Lo que dice el negro
+//     aquí es "esto cierra el formulario", en una pantalla donde no compite con
+//     ninguna otra acción.
+//   · 56px de alto, por encima de los 44 del bloque. Es el único botón de su
+//     pantalla y el último paso de la entrada.
+//
+// Lo que NO se copia del Figma es la sombra bajo el CTA (`0 6px 8px` al 8%): el
+// botón de esta app es PLANO desde ago 2026 y esa decisión se tomó con las
+// medidas delante. A esa opacidad la sombra es casi invisible, así que devolverla
+// no cambia lo que se ve y sí reabre el "objeto elevado" que se acababa de cerrar.
+// Si Mario la quiere, es un token con nombre y una línea aquí.
+// -----------------------------------------------------------------------------
+
+/** El CTA que cierra el formulario de acceso: negro, píldora, ancho completo. */
+export const BTN_ACCESO = [
+  'flex h-14 w-full items-center justify-center gap-2 rounded-full whitespace-nowrap select-none',
+  'text-base font-bold text-white',
+  'bg-[var(--color-acceso-cta)] hover:bg-slate-900 active:bg-slate-800',
+  BTN_MOTION,
+  'disabled:pointer-events-none disabled:opacity-60',
+].join(' ')
+
+/** El de identidad externa (hoy solo Google): blanco de línea, píldora, 48px. */
+export const BTN_ACCESO_SOCIAL = [
+  'flex h-12 w-full items-center justify-center gap-2.5 rounded-full whitespace-nowrap select-none',
+  'text-sm font-semibold text-slate-900',
+  'bg-white filo shadow-control hover:bg-slate-50 hover:filo-slate-300 active:bg-slate-100',
+  BTN_MOTION,
+  'disabled:pointer-events-none disabled:opacity-60',
+].join(' ')

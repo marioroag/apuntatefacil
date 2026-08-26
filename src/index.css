@@ -127,6 +127,28 @@
      tiene que ser una línea. Ya lo ha sido dos veces. */
   --color-novedad: #131822;
 
+  /* --- LA SUPERFICIE DE ACCESO (login / alta, diseño de Mario, ago 2026) -------
+     Cuatro tokens con nombre, igual que los del lateral y por el mismo motivo: son
+     los colores de UNA superficie concreta, y escritos a mano en el `className` de
+     la pantalla serían cuatro hexes anónimos que nadie vuelve a tocar.
+
+     Y son CÁLIDOS a propósito, que es lo que los saca de la rampa grafito: el
+     panel de la derecha es la única pieza de la app que no es producto sino
+     portada, y su marfil (#fafaf8) contra el blanco puro de la columna del
+     formulario es lo que hace que se lea como una lámina apoyada y no como otra
+     mitad de la misma página. Fuera de esta pantalla no se usan.
+
+     El apoyo NO es el #8a8880 del diseño: sobre el marfil da 3,5:1 y ahí hay texto
+     con significado. Sube al gris del propio diseño para los glifos (#5c5a54,
+     7,1:1). Es la regla que esta doctrina ya fijó una vez: cuando la referencia y
+     el suelo de contraste chocan, gana el suelo y se anota por qué. */
+  --color-acceso-panel: #fafaf8;
+  --color-acceso-tinta: #1a1916;
+  --color-acceso-apoyo: #5c5a54;
+  /* El negro del CTA. No es tinta grafito: es el #0f1115 del diseño, un negro casi
+     puro que solo vive en esta pantalla (ver `BTN_ACCESO` en lib/buttons.ts). */
+  --color-acceso-cta: #0f1115;
+
   /* Radios: tarjeta/panel/input a 10px (más ajustado = más "instrumento").
      Los botones fijan 8px en su propia clase; las pills siguen en 9999px. */
   --radius-xl: 0.625rem; /* 10px (era 12) */
@@ -157,6 +179,13 @@
      contenido. Por eso el spread negativo grande, que la deja en una banda fina y
      dirigida en vez de una penumbra. Solo aparece cuando de verdad hay algo debajo. */
   --shadow-sticky: 0 6px 8px -7px rgba(18, 22, 34, 0.24);
+  /* La lámina de la pantalla de acceso: una tarjeta de 836px de alto apoyada sobre
+     la página, que es un objeto MUCHO mayor que un desplegable. Se añade al
+     vocabulario en vez de reusar `shadow-pop` porque la penumbra de un overlay de
+     300px debajo de una lámina de 836 se ve corta: la sombra tiene que crecer con
+     el objeto que la produce, y esta es la única pieza de la app de ese tamaño.
+     Sigue siendo de dos capas y teñida con la tinta, como todas. */
+  --shadow-acceso: 0 24px 64px -8px rgba(18, 22, 34, 0.16), 0 8px 20px -12px rgba(18, 22, 34, 0.10);
 
   /* Curvas. ease-out exponencial (sin rebote) para el tacto preciso.
      `standard` es la de los overlays de Framer Motion; `in` es para lo que SALE. */
@@ -249,12 +278,21 @@
    SOLO en el momento de analizar, nunca al abrir una ficha ya analizada: el
    producto carga en la tarea, sin coreografía de carga. Con reduced-motion la
    clase no hace nada y el informe aparece entero. */
-@keyframes meridian-in {
+/* ENTRADA SUAVE: algo aparece en su sitio. Un fundido con 5px de subida, en la
+   duración declarada para "algo aparece" y con la curva del tacto.
+
+   El keyframe se llama por lo que HACE y no por quien lo usa: lo comparten las
+   filas del informe de Meridian (`.meridian-in`, escalonadas al analizar) y el
+   testimonio de la pantalla de acceso (`.testimonio-in`, al pasar de uno a otro).
+   Dos clases con nombre propio y UN solo movimiento detrás, en vez de dos
+   keyframes idénticos, que es como se acaba con cinco versiones de lo mismo. */
+@keyframes entrada-suave {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .meridian-in { animation: meridian-in var(--duration-enter) var(--ease-out) both; }
+  .meridian-in { animation: entrada-suave var(--duration-enter) var(--ease-out) both; }
+  .testimonio-in { animation: entrada-suave var(--duration-enter) var(--ease-out) both; }
 }
 
 /* El informe de Meridian se PLIEGA deslizándose. La altura se anima con
@@ -686,6 +724,35 @@
       outline-offset: -1px;
     }
   }
+}
+
+/* ---------------------------------------------------------------------------
+   `acceso-fundido` · la imagen de la lámina de acceso muere en el marfil.
+
+   Es la ÚNICA excepción viva a "sin gradientes" junto al barrido del skeleton, y
+   se gana el sitio porque no decora: es lo que hace que la foto y el texto sean
+   la misma pieza en vez de una foto con un pie pegado debajo. Un corte recto
+   dejaría un filo horizontal a media tarjeta, que es lo que se ve en los mockups
+   baratos.
+
+   La curva no es lineal a propósito: los cuatro tramos concentran la subida en el
+   último tercio (0 -> 0,15 -> 0,5 -> 0,85 -> 1), así la foto se conserva casi
+   entera y solo se apaga donde de verdad va a haber letras encima.
+
+   Está aquí y no en un `style` en línea porque el color de llegada tiene que ser
+   EXACTAMENTE el del panel: escrito en la pantalla, cambiar `--color-acceso-panel`
+   dejaría el degradado muriendo en un marfil que ya no existe, y eso se ve como
+   una banda. Con `color-mix` sobre el token, no puede desincronizarse.
+--------------------------------------------------------------------------- */
+@utility acceso-fundido {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-acceso-panel) 0%, transparent) 0%,
+    color-mix(in srgb, var(--color-acceso-panel) 15%, transparent) 30%,
+    color-mix(in srgb, var(--color-acceso-panel) 50%, transparent) 55%,
+    color-mix(in srgb, var(--color-acceso-panel) 85%, transparent) 75%,
+    var(--color-acceso-panel) 100%
+  );
 }
 
 /* Respetar reduced-motion globalmente. */
