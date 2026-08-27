@@ -85,9 +85,7 @@ export function Onboarding() {
     return (
       <Shell>
         <div className="mt-5 flex items-center gap-2.5">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
-            <Users className="size-5" aria-hidden />
-          </span>
+          <Users className="size-5 shrink-0 text-slate-700" aria-hidden />
           <div>
             <h1 className="text-xl font-semibold text-slate-900">Te han invitado a un equipo</h1>
             <p className="text-sm text-slate-500">Únete y empieza a gestionar candidatos.</p>

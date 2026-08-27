@@ -23,6 +23,7 @@ import { BTN_SECONDARY } from '../lib/buttons'
 import { ChipDimension, MenuAnadirFiltro, type DimensionFiltro } from '../components/FiltroChip'
 import { useColumnasAjustables } from '../lib/columnas'
 import { traeNuevos, vistaPor, type VistaCandidatos } from '../lib/candidatos'
+import { IconoVacio } from '../components/ui/IconoVacio'
 
 /** Las columnas de la cola. El ORDEN se declara aparte: cambia con el ancho. */
 type ColKeyCandidatos = 'candidato' | 'puesto' | 'telefono' | 'estado' | 'recibida'
@@ -599,9 +600,7 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
 function EmptySinResultado({ titulo, onLimpiar }: { titulo: string; onLimpiar: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl filo bg-white px-6 py-16 text-center shadow-card">
-      <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
-        <SearchX className="size-6" aria-hidden />
-      </div>
+      <IconoVacio Icon={SearchX} />
       <h3 className="mt-4 text-lg font-semibold text-slate-900">{titulo}</h3>
       <p className="mt-1 max-w-sm text-sm text-slate-500">Sigue habiendo gente en los demás.</p>
       <button type="button" onClick={onLimpiar} className={`${BTN_SECONDARY} mt-4`}>
@@ -623,9 +622,7 @@ function EmptySinResultado({ titulo, onLimpiar }: { titulo: string; onLimpiar: (
 function Vacio({ titulo, texto }: { titulo: string; texto: string }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-xl filo bg-white px-6 py-16 text-center shadow-card">
-      <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
-        <ContactRound className="size-6" aria-hidden />
-      </div>
+      <IconoVacio Icon={ContactRound} />
       <h3 className="mt-4 text-lg font-semibold text-slate-900">{titulo}</h3>
       <p className="mt-1 max-w-sm text-sm text-slate-500">{texto}</p>
     </div>

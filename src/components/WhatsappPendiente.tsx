@@ -1,5 +1,6 @@
 import { MessageCircleDashed } from 'lucide-react'
 import { WHATSAPP_WIP } from '../lib/whatsapp'
+import { IconoVacio } from './ui/IconoVacio'
 
 /**
  * Lo que se ve donde había una función que manda un WhatsApp, mientras el canal
@@ -20,9 +21,7 @@ export function PanelWhatsappPendiente() {
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
       <div className="mx-auto max-w-[36ch]">
-        <div className="grid size-10 place-items-center rounded-xl bg-slate-100">
-          <MessageCircleDashed className="size-5 text-slate-500" aria-hidden />
-        </div>
+        <IconoVacio Icon={MessageCircleDashed} alineado="izquierda" />
         <h3 className="mt-3 text-[15px] font-semibold text-slate-900">{WHATSAPP_WIP.titulo}</h3>
         <p className="mt-1 text-[13px] leading-relaxed text-slate-600">{WHATSAPP_WIP.cuerpo}</p>
         {/* Nunca un callejón sin salida: cuadrar la entrevista se puede hacer

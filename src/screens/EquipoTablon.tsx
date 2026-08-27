@@ -11,6 +11,7 @@ import { BTN_PRIMARY } from '../lib/buttons'
 import { Avatar } from '../components/ui/Avatar'
 import { useToast } from '../components/ui/Toast'
 import { TeamRequestPanel } from './TeamRequestPanel'
+import { IconoVacio } from '../components/ui/IconoVacio'
 
 type Filter = 'abiertas' | 'completadas' | 'todas'
 
@@ -196,9 +197,7 @@ export function EquipoTablon() {
 
       {teamRequests.length === 0 ? (
         <div className="mt-10 grid place-items-center text-center">
-          <span className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
-            <ClipboardList className="size-6" aria-hidden />
-          </span>
+          <IconoVacio Icon={ClipboardList} />
           <h2 className="mt-3 text-[15px] font-semibold text-slate-900">Pide ayuda a tu equipo</h2>
           <p className="mt-1 max-w-[420px] text-sm text-slate-500">
             Publica lo que necesitas cubrir y tus compañeros responden y proponen candidatos de vuestra base.

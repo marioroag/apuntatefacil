@@ -54,6 +54,7 @@ import { AssetBox } from '../components/BrandAssets'
 import { useBrandAssetUpload, type BrandAssetPatch } from '../lib/brandUpload'
 import { PLAN_BRAND_LIMIT } from '../lib/pricing'
 import { ACENTO_MARCA } from '../lib/colors'
+import { IconoVacio } from '../components/ui/IconoVacio'
 
 const TYPE_ORDER: FieldType[] = ['text', 'textarea', 'phone', 'email', 'select', 'multiselect', 'boolean', 'number', 'date', 'file']
 
@@ -127,9 +128,7 @@ export function Builder() {
     return (
       <div className="grid h-full place-items-center px-6 py-16">
         <div className="w-full max-w-md text-center">
-          <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
-            <Briefcase className="size-6" aria-hidden />
-          </div>
+          <IconoVacio Icon={Briefcase} />
           <h1 className="mt-4 text-xl font-semibold text-slate-900">Puesto no encontrado</h1>
           <p className="mt-1.5 text-sm text-slate-500">Puede que se haya cerrado o que el enlace ya no sea válido.</p>
           <Link to={base} className={`${BTN_PRIMARY} mt-6`}>

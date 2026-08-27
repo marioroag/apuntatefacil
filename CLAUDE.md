@@ -515,6 +515,41 @@ sobre el DOM propio contesta en un minuto lo que una tarde de retoques no.
 - **Una raya solo vale si separa algo que el hueco no separa.** Se quitó el
   `border-t` de encima del pie: con la raya, el lateral se leía partido en dos
   cajas; sin ella, el pie se ve apoyado. Si ya hay hueco, la raya sobra.
+- **Y su hermana: UNA CAJA SOLO VALE SI CONTIENE ALGO QUE EL AIRE NO CONTIENE**
+  (Mario, ago 2026: "no me gusta el fondo gris que les damos, y la manera tan
+  blanda de presentar los iconos"). La baldosa `bg-slate-100` detrás de un icono
+  estaba en TREINTA sitios (vacíos, pies de tarjeta, filas del wizard, features
+  de la landing) y no hacía ningún trabajo: sobre blanco da **1,09:1**, que es
+  exactamente el umbral que esta doctrina ya declaró insuficiente dos veces (fue
+  lo que subió la cápsula de estado del puesto del 50 al 200 y la pastilla de
+  estado del 50 al 100). O sea que no era una caja, era una MANCHA.
+  - **Y encima trabajaba EN CONTRA de lo que envolvía.** En un vacío, el icono
+    dentro del relleno se quedaba en **2,42:1**, por debajo del 3:1 que pide un
+    gráfico con significado, cuando suelto sobre el blanco ya daba 2,64. La caja
+    le quitaba contraste al único objeto de la pantalla. Eso es lo que se lee
+    como "blando": una forma que no se ve, atenuando algo que sí debería verse.
+  - **Dos salidas, y cuál toca depende de si la caja hace un trabajo aparte.**
+    En el VACÍO se queda la caja pero en CONTORNO (`filo`, sin relleno): medido
+    después, el filo sube a 1,24:1 y el icono a **4,80:1**, casi el doble. En una
+    FILA la caja se va entera y el icono sube a 20px y a `slate-700`, porque allí
+    el icono ya se leía (6,95:1) y el gris solo era ruido detrás.
+  - **La excepción declarada: el buscador global.** Ahí la baldosa SÍ hace algo
+    que el aire no hace, y es igualar la métrica con las filas de persona, que
+    llevan círculo de iniciales. Se le quita el relleno y **se le conserva la
+    caja de 28px**, así iconos y avatares siguen cayendo en la misma vertical
+    (medido: left 128, ancho 28 en las dos). Quitarla del todo habría descolgado
+    los iconos media columna. La pregunta antes de borrar una caja es siempre
+    esa: **¿qué se rompe si no está?**
+  - **Lo que NO se toca**: los círculos con INICIALES (son caras, no baldosas) y
+    el disco del acordeón de la landing, que no presenta un icono sino que es el
+    afford de un control.
+  - La baldosa del vacío es ahora **una pieza** (`ui/IconoVacio.tsx`) y no una
+    clase copiada: estaba escrita a mano en diecisiete pantallas y ya había
+    derivado sola en dos ejes (`text-slate-400` en unas y `slate-500` en otras,
+    `rounded-xl` en dieciséis y `rounded-2xl` en Login). Mismo camino que
+    `PageHeader` y `botonIcono()`. Lo que **no** se unifica es el bloque entero:
+    alrededor de esa baldosa hay `h1`, `h2` y `h3` según la pantalla, con y sin
+    tarjeta, y homogeneizar eso es una decisión semántica distinta.
 - **Las filas hijas ocupan el ancho ENTERO: la sangría va en la FILA, no en la
   lista.** Con la lista sangrada, el fondo del hijo mide menos que el de la madre
   y sus chapas caen unos píxeles a la izquierda de las demás (6px medidos). Nadie

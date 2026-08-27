@@ -9,6 +9,7 @@ import { miles, relativeDate } from '../lib/format'
 import { PLAN_LABEL, PRECIO_PROCESO } from '../lib/pricing'
 import { STATUS_META, STATUS_ORDER } from '../lib/types'
 import type { CandidateStatus } from '../lib/types'
+import { IconoVacio } from '../components/ui/IconoVacio'
 
 // Forma del RPC admin_overview (ver migración 20260624140000_admin_overview.sql).
 interface Overview {
@@ -136,9 +137,7 @@ export function AdminOverview() {
     return (
       <div className="grid h-full place-items-center px-6 text-center">
         <div className="max-w-sm">
-          <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
-            <Gauge className="size-6" aria-hidden />
-          </div>
+          <IconoVacio Icon={Gauge} />
           <h1 className="mt-4 text-xl font-semibold text-slate-900">Sin acceso</h1>
           <p className="mt-1.5 text-sm text-slate-500">El panel es solo para el equipo de Apúntate Fácil.</p>
         </div>
@@ -315,8 +314,8 @@ export function AdminOverview() {
                     onClick={() => openDetail(a)}
                     className="flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left transition-colors hover:bg-slate-50"
                   >
-                    <span className="grid size-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500 ring-1 ring-inset ring-slate-200">
-                      <Building2 className="size-4" aria-hidden />
+                    <span className="grid size-9 shrink-0 place-items-center rounded-full text-slate-700 ring-1 ring-inset ring-slate-200">
+                      <Building2 className="size-[18px]" aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">

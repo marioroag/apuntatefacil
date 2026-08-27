@@ -456,9 +456,7 @@ function FeaturesHeroCard({
 }) {
   return (
     <div className="flex h-full flex-col rounded-2xl filo bg-white card-pad shadow-card lg:card-pad-loose">
-      <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
-        <Icon className="size-5" aria-hidden />
-      </span>
+      <Icon className="size-5 shrink-0 text-slate-700" aria-hidden />
       <h3 className="mt-4 text-xl font-semibold text-slate-900">{title}</h3>
       <p className="mt-1.5 max-w-md text-copy-md text-slate-600">{body}</p>
       {compactMock ? (
@@ -475,9 +473,7 @@ function FeaturesHeroCard({
 function FeatureSecondaryRow({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
   return (
     <div className="flex gap-3.5 px-6 py-4">
-      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700">
-        <Icon className="size-[18px]" aria-hidden />
-      </span>
+      <Icon className="mt-0.5 size-5 shrink-0 text-slate-700" aria-hidden />
       <div className="min-w-0">
         <h3 className="text-copy-md font-semibold text-slate-900">{title}</h3>
         <p className="mt-1 text-copy leading-relaxed text-slate-600">{body}</p>
@@ -489,9 +485,7 @@ function FeatureSecondaryRow({ icon: Icon, title, body }: { icon: LucideIcon; ti
 function FeatureSecondaryCard({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
   return (
     <div className="flex h-full flex-col rounded-2xl filo bg-white p-6 shadow-card">
-      <span className="grid size-10 place-items-center rounded-xl bg-slate-100 text-slate-700">
-        <Icon className="size-5" aria-hidden />
-      </span>
+      <Icon className="size-5 shrink-0 text-slate-700" aria-hidden />
       <h3 className="mt-4 text-title font-semibold text-slate-900">{title}</h3>
       <p className="mt-1.5 text-copy-md text-slate-600">{body}</p>
     </div>
@@ -736,9 +730,7 @@ function Team() {
           <ul className="mt-7 space-y-4">
             {points.map((p) => (
               <li key={p.title} className="flex gap-3.5">
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700">
-                  <p.icon className="size-[18px]" aria-hidden />
-                </span>
+                <p.icon className="mt-0.5 size-5 shrink-0 text-slate-700" aria-hidden />
                 <div className="min-w-0">
                   <h3 className="text-copy-md font-semibold text-slate-900">{p.title}</h3>
                   <p className="mt-1 max-w-md text-copy leading-relaxed text-slate-600">{p.body}</p>

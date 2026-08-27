@@ -10,6 +10,7 @@ import { InfoTooltip } from '../components/ui/Tooltip'
 import { MedidorContrasena } from '../components/MedidorContrasena'
 import { PWD_AYUDA, passwordValid } from '../lib/password'
 import { BTN_ACCESO, BTN_ACCESO_SOCIAL } from '../lib/buttons'
+import { IconoVacio } from '../components/ui/IconoVacio'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -43,9 +44,7 @@ type View = 'form' | 'confirm-sent' | 'reset-request' | 'reset-sent'
 function Recado({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
     <div className="text-center">
-      <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-slate-100 text-slate-500">
-        <Mail className="size-6" aria-hidden />
-      </div>
+      <IconoVacio Icon={Mail} />
       <h1 className="mt-5 text-balance text-[26px] font-bold leading-[1.15] tracking-[-0.012em] text-slate-900">
         {titulo}
       </h1>

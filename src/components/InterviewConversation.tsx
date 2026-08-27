@@ -14,6 +14,7 @@ import { useAnfitrion } from '../lib/anfitrion'
 import { WHATSAPP_LISTO, WHATSAPP_WIP } from '../lib/whatsapp'
 import { PanelWhatsappPendiente } from './WhatsappPendiente'
 import { ModoEntrevista } from './ModoEntrevista'
+import { IconoVacio } from './ui/IconoVacio'
 import {
   CONVERSATION_STATE_META, INTERVIEW_MODE_META,
   type Campaign, type Candidate, type ConversationMessage, type Interview, type InterviewMode,
@@ -99,9 +100,7 @@ function CitaAMano({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
       <div className="mx-auto max-w-[36ch]">
-        <div className="grid size-10 place-items-center rounded-xl bg-slate-100">
-          <CalendarDays className="size-5 text-slate-500" aria-hidden />
-        </div>
+        <IconoVacio Icon={CalendarDays} alineado="izquierda" />
         <h3 className="mt-3 text-[15px] font-semibold text-slate-900">La cita la pusiste tú</h3>
         <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
           No se le ha escrito nada por WhatsApp: al agendar a mano, avisar al candidato es cosa
@@ -255,9 +254,7 @@ function Inicio({
   return (
     <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
       <div className="mx-auto max-w-[36ch]">
-        <div className="grid size-10 place-items-center rounded-xl bg-slate-100">
-          <MessageCircle className="size-5 text-slate-500" aria-hidden />
-        </div>
+        <IconoVacio Icon={MessageCircle} alineado="izquierda" />
         <h3 className="mt-3 text-[15px] font-semibold text-slate-900">
           Invita a este candidato a una entrevista
         </h3>

@@ -20,6 +20,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
 import { AccionesProvider, RegistrarAccion } from '../lib/acciones'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
+import { IconoVacio } from '../components/ui/IconoVacio'
 
 // El menú lateral entero (marca, destinos, puestos, acción y cuenta) vive ahora
 // en `components/Sidebar.tsx`. Aquí solo queda el SHELL: qué superficies hay y
@@ -71,9 +72,7 @@ function EmptyCompany() {
   return (
     <div className="grid h-full place-items-center px-6">
       <div className="w-full max-w-md text-center">
-        <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
-          <Inbox className="size-6" aria-hidden />
-        </div>
+        <IconoVacio Icon={Inbox} />
         <h1 className="mt-4 text-xl font-semibold text-slate-900">Empieza tu primer puesto</h1>
         <p className="mt-1.5 text-sm text-slate-500">
           Crea un puesto, comparte su enlace con quien responda a tu anuncio y las candidaturas entran aquí solas.

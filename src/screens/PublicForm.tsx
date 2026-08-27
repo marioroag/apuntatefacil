@@ -12,6 +12,7 @@ import { FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { CONSENT_VERSION } from '../lib/consent'
 import { brandAssetUrl } from '../lib/brandAsset'
 import type { Campaign } from '../lib/types'
+import { IconoVacio } from '../components/ui/IconoVacio'
 
 interface PublicCampaign extends Campaign {
   companyName: string
@@ -92,9 +93,7 @@ export function PublicForm() {
     const paused = campaign?.status === 'pausada'
     return (
       <CenteredCard>
-        <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
-          <Link2Off className="size-6" aria-hidden />
-        </div>
+        <IconoVacio Icon={Link2Off} />
         <h1 className="mt-4 text-xl font-semibold text-slate-900">
           {paused ? 'Esta oferta no admite candidaturas ahora mismo' : 'Este enlace ya no está activo'}
         </h1>

@@ -4,6 +4,7 @@ import { Loader2, WifiOff } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { Onboarding } from '../screens/Onboarding'
 import { BTN_PRIMARY } from '../lib/buttons'
+import { IconoVacio } from './ui/IconoVacio'
 
 function FullSpinner() {
   return (
@@ -35,9 +36,7 @@ function ErrorDeCarga({
   return (
     <div className="grid min-h-svh place-items-center bg-slate-50 px-4">
       <div className="w-full max-w-sm rounded-xl filo bg-white p-6 text-center shadow-card">
-        <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
-          <WifiOff className="size-6" aria-hidden />
-        </div>
+        <IconoVacio Icon={WifiOff} />
         <h1 className="mt-4 text-lg font-semibold text-slate-900">No hemos podido cargar tu empresa</h1>
         <p className="mt-1 text-sm text-slate-500">{texto}</p>
         <button type="button" onClick={onReintentar} className={`${BTN_PRIMARY} mt-5 w-full`}>

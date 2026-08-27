@@ -9,6 +9,7 @@ import { candidateName, clockTimeInZone, dayLabelInZone, miles, plural } from '.
 import { PageHeader } from '../components/ui/PageHeader'
 import { SOURCE_META } from '../lib/types'
 import type { Campaign, Candidate, CandidateSource } from '../lib/types'
+import { IconoVacio } from '../components/ui/IconoVacio'
 
 const STALE_DAYS = 7
 
@@ -216,9 +217,7 @@ function AccionRapida({
         <p className="mt-2 text-[13px] leading-relaxed text-slate-500">{texto}</p>
       </div>
       <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-5 [@media(max-height:820px)]:mt-4 [@media(max-height:820px)]:pt-4">
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600">
-          <Icono className="size-4" aria-hidden />
-        </span>
+        <Icono className="size-5 shrink-0 text-slate-700" aria-hidden />
         {enlace && (
           <span className="flex min-w-0 items-center gap-1 text-[12px] font-semibold text-slate-500">
             <span className="truncate">{enlace}</span>
@@ -654,9 +653,7 @@ function construir(candidates: Candidate[], rango: Rango): Datos {
 function Empty({ text }: { text: string }) {
   return (
     <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-      <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
-        <Building2 className="size-6" aria-hidden />
-      </div>
+      <IconoVacio Icon={Building2} />
       <p className="mt-3 text-sm text-slate-500">{text}</p>
     </div>
   )

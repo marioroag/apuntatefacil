@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Check, CircleAlert, Loader2 } from 'lucide-react'
 import { useParams, useSearchParams } from 'react-router-dom'
+import { IconoVacio } from '../components/ui/IconoVacio'
 import { Logo } from '../components/Logo'
 import { BTN_PRIMARY } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
@@ -158,11 +159,7 @@ export function InterestResponse() {
 }
 
 function StatusIcon({ success = false }: { success?: boolean }) {
-  return (
-    <div className={`mx-auto grid size-12 place-items-center rounded-xl ${success ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-      {success ? <Check className="size-6" aria-hidden /> : <CircleAlert className="size-6" aria-hidden />}
-    </div>
-  )
+  return <IconoVacio Icon={success ? Check : CircleAlert} tono={success ? 'exito' : 'neutro'} />
 }
 
 function PageCard({ children }: { children: React.ReactNode }) {

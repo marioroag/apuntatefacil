@@ -14,6 +14,7 @@ import { blankCampaignInput } from '../lib/defaults'
 import { useAppBase } from '../lib/useAppBase'
 import { PLAN_LABEL, PLAN_PROCESS_LIMIT, PRECIO_PROCESO } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
+import { IconoVacio } from './ui/IconoVacio'
 
 const ICONS: Record<string, LucideIcon> = {
   UtensilsCrossed, HardHat, Truck, Sparkles, ShoppingBag, HeartHandshake,
@@ -60,8 +61,8 @@ export function TemplateGrid({ busyKey, onPick }: {
             disabled={!!busyKey}
             className="group flex flex-col items-start gap-2 rounded-xl filo bg-white p-3.5 text-left transition-colors hover:filo-indigo-300 hover:bg-indigo-50/40 disabled:opacity-60"
           >
-            <span className="grid size-9 place-items-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600">
-              {loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Icon className="size-5" aria-hidden />}
+            <span className="text-slate-700 group-hover:text-indigo-600">
+              {loading ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <Icon className="size-5" aria-hidden />}
             </span>
             <span className="text-sm font-semibold text-slate-900">{t.label}</span>
             <span className="text-[12px] text-slate-500">{t.title}, {t.fields.length} preguntas</span>
@@ -74,8 +75,8 @@ export function TemplateGrid({ busyKey, onPick }: {
         disabled={!!busyKey}
         className="group flex flex-col items-start gap-2 rounded-xl border border-dashed border-slate-300 bg-white p-3.5 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 disabled:opacity-60"
       >
-        <span className="grid size-9 place-items-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-indigo-100 group-hover:text-indigo-600">
-          {busyKey === 'blank' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <PenLine className="size-5" aria-hidden />}
+        <span className="text-slate-700 group-hover:text-indigo-600">
+          {busyKey === 'blank' ? <Loader2 className="size-5 animate-spin" aria-hidden /> : <PenLine className="size-5" aria-hidden />}
         </span>
         <span className="text-sm font-semibold text-slate-900">Desde cero</span>
         <span className="text-[12px] text-slate-500">Solo nombre y teléfono</span>
@@ -197,9 +198,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                 <button onClick={onClose} aria-label="Cerrar" className={botonIcono('ghost', 'md', 'absolute right-3 top-3')}>
                   <X className="size-5" aria-hidden />
                 </button>
-                <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
-                  <Lock className="size-6" aria-hidden />
-                </div>
+                <IconoVacio Icon={Lock} />
                 <h2 id="wizard-title" className="mt-4 text-lg font-semibold text-slate-900">
                   Has llegado al límite de tu plan
                 </h2>

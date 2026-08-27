@@ -377,8 +377,8 @@ function FilaResultado({
           {fila.iniciales}
         </span>
       ) : (
-        <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
-          {Icon && <Icon className="size-4" aria-hidden />}
+        <span className="grid size-7 shrink-0 place-items-center text-slate-700">
+          {Icon && <Icon className="size-5" aria-hidden />}
         </span>
       )}
       <span className="min-w-0 flex-1">

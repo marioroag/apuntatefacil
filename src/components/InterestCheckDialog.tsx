@@ -237,7 +237,7 @@ export function InterestCheckDialog({
               <X className="size-5" aria-hidden />
             </button>
             <div className="flex items-start gap-3 pr-11">
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600"><Icono className="size-5" aria-hidden /></span>
+              <Icono className="size-5 shrink-0 text-slate-700" aria-hidden />
               <div>
                 <h2 id="interest-dialog-title" className="text-lg font-semibold text-slate-950">Comprobar interés</h2>
                 <p className="mt-0.5 text-sm text-slate-500">Pregunta si siguen interesados/as antes de contactar personalmente.</p>

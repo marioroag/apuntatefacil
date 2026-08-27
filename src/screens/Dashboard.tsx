@@ -100,6 +100,7 @@ import { searchScore } from '../lib/search'
 import { InterestCheckDialog } from '../components/InterestCheckDialog'
 import { InterestOutcomeIcon } from '../components/InterestSignal'
 import { candidateInterestState, INTEREST_STATE_LABEL } from '../lib/interest'
+import { IconoVacio } from '../components/ui/IconoVacio'
 
 function answerStr(c: Candidate, fieldId: string): string {
   const v = c.answers[fieldId]
@@ -881,9 +882,7 @@ export function Dashboard() {
     return (
       <div className="grid h-full place-items-center px-6 py-16">
         <div className="w-full max-w-md text-center">
-          <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
-            <Briefcase className="size-6" aria-hidden />
-          </div>
+          <IconoVacio Icon={Briefcase} />
           <h1 className="mt-4 text-xl font-semibold text-slate-900">Puesto no encontrado</h1>
           <p className="mt-1.5 text-sm text-slate-500">
             Puede que se haya cerrado o que el enlace ya no sea válido.
@@ -1293,9 +1292,7 @@ export function Dashboard() {
             el método de pago, sin urgencia falsa. */}
         {lockedCount > 0 && !loading && (
           <div className="mt-3 flex flex-col gap-3 rounded-xl filo bg-white px-4 py-3.5 shadow-card sm:flex-row sm:items-center">
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-500">
-              <Lock className="size-[18px]" aria-hidden />
-            </span>
+            <Lock className="size-5 shrink-0 text-slate-700" aria-hidden />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-slate-900">
                 {lockedCount === 1 ? 'Tienes 1 candidatura esperando' : `Tienes ${lockedCount} candidaturas esperando`}
@@ -3996,9 +3993,7 @@ function ShareMenu({
 function EmptyFirstUse({ publicUrl, onCopy }: { publicUrl: string; onCopy: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-      <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
-        <Inbox className="size-6" aria-hidden />
-      </div>
+      <IconoVacio Icon={Inbox} />
       <h3 className="mt-4 text-lg font-semibold text-slate-900">Aún no hay candidatos</h3>
       <p className="mt-1 max-w-sm text-sm text-slate-500">
         Comparte el enlace del formulario para empezar a recibir respuestas. Cada respuesta entra aquí automáticamente.
@@ -4020,9 +4015,7 @@ function EmptyNoResults({ search, hasFilters, onClear }: { search: string; hasFi
   const onlySearch = !!search && !hasFilters
   return (
     <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-      <div className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
-        <SearchX className="size-6" aria-hidden />
-      </div>
+      <IconoVacio Icon={SearchX} />
       <h3 className="mt-4 text-lg font-semibold text-slate-900">Ningún candidato coincide</h3>
       <p className="mt-1 text-sm text-slate-500">
         {onlySearch

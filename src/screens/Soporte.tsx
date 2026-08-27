@@ -7,6 +7,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { CHAT_ALTO_MAX, CHAT_ROW, CHAT_SURFACE, CHAT_TEXTAREA, ChatSend } from '../components/ui/Chat'
 import { relativeDate, fullDateTime } from '../lib/format'
 import { copyText } from '../lib/clipboard'
+import { IconoVacio } from '../components/ui/IconoVacio'
 
 // Datos que devuelven los RPC de operador (support_list_tickets / support_get_thread).
 interface TicketRow {
@@ -174,9 +175,7 @@ export function Soporte() {
     return (
       <div className="grid h-full place-items-center px-6 text-center">
         <div className="max-w-sm">
-          <div className="mx-auto grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-500">
-            <LifeBuoy className="size-6" aria-hidden />
-          </div>
+          <IconoVacio Icon={LifeBuoy} />
           <h1 className="mt-4 text-xl font-semibold text-slate-900">Sin acceso</h1>
           <p className="mt-1.5 text-sm text-slate-500">Esta bandeja es solo para el equipo de soporte de Apúntate Fácil.</p>
         </div>
