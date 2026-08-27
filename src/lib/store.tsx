@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Brand, Branding, Campaign, Candidate, CandidateAI, CandidateComment, CandidateConversation, CandidateEvent, CandidateInterestSummary, CandidateStatus, CompanyMember, ConversationMessage, FormField, InterestChannel, Interview, InterviewMode, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
+import { leerAnuncio } from './anuncio'
+import type { Anuncio } from './anuncio'
 import { supabase, supabaseConfigured } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
@@ -32,6 +34,7 @@ type CampaignRow = {
   notify_new: boolean
   share_reply: string | null
   paid_until: string | null
+  anuncio: unknown
   created_at: string
 }
 type CandidateRow = {
@@ -64,6 +67,7 @@ const toCampaign = (r: CampaignRow): Campaign => ({
   notifyNew: r.notify_new ?? true,
   shareReply: r.share_reply ?? undefined,
   paidUntil: r.paid_until ?? undefined,
+  anuncio: r.anuncio == null ? undefined : leerAnuncio(r.anuncio),
 })
 
 type SiteRow = { id: string; name: string; city: string }
@@ -370,6 +374,9 @@ export interface NewCampaignInput {
   location: string
   fields: FormField[]
   branding: Branding
+  /** El anuncio que se acaba de rellenar en el asistente. Sin él, el puesto se
+   *  crea sin anuncio y se completa desde el constructor. */
+  anuncio?: Anuncio
   milanunciosUrl?: string
   /** 'cerrada' = creado A LA ESPERA DE PAGO (el asistente lo crea así cuando
    *  falta el método de pago; el webhook de Stripe lo abre al completarse). */
@@ -569,7 +576,9 @@ const Ctx = createContext<Store | null>(null)
 // equipo entró en la demo. Un estado v6 guardado traería candidatos sin favorito.
 // v10: la triada de Meridian (ago 2026): los análisis traen criterios con nombre,
 // nivel y evidencia. Un estado v9 guardado los traería sin desglose en la ficha.
-const DEMO_KEY = 'apuntatefacil.demo.v10'
+// v11: el anuncio del puesto (ago 2026). Un estado v10 guardado traería los seis
+// puestos sin anuncio, o sea con la pantalla nueva vacía en toda la demo.
+const DEMO_KEY = 'apuntatefacil.demo.v11'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
@@ -1419,6 +1428,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (patch.brandId !== undefined) dbPatch.brand_id = patch.brandId
       if (patch.notifyNew !== undefined) dbPatch.notify_new = patch.notifyNew
       if (patch.shareReply !== undefined) dbPatch.share_reply = patch.shareReply
+      if (patch.anuncio !== undefined) dbPatch.anuncio = patch.anuncio
       if (Object.keys(dbPatch).length) {
         const { error } = await supabase.from('campaigns').update(dbPatch).eq('id', campaignId)
         if (error) {
@@ -1452,6 +1462,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // nombre, logo y banner ya son los de la casa, sin un paso extra.
           brandId: brands.length === 1 ? brands[0].id : null,
           notifyNew: true,
+          anuncio: input.anuncio,
         }
         setCampaigns((cs) => [...cs, campaign])
         return campaign
@@ -1473,6 +1484,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             milanuncios_url: input.milanunciosUrl ?? null,
             fields: input.fields,
             branding: input.branding,
+            anuncio: input.anuncio ?? null,
             // Con una sola marca, el puesto nuevo la hereda: nombre, logo y banner
             // de la casa desde el primer momento.
             brand_id: brands.length === 1 ? brands[0].id : null,
@@ -1519,6 +1531,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           brandId: src.brandId,
           notifyNew: src.notifyNew ?? true,
           shareReply: src.shareReply,
+          anuncio: src.anuncio,
         }
         setCampaigns((cs) => [...cs, campaign])
         return campaign
@@ -1539,6 +1552,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           brand_id: src.brandId,
           notify_new: src.notifyNew ?? true,
           share_reply: src.shareReply ?? null,
+          anuncio: src.anuncio ?? null,
         })
         .select('*')
         .single()

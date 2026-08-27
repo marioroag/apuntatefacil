@@ -1,3 +1,5 @@
+import { anuncioVacio } from './anuncio'
+import type { Anuncio } from './anuncio'
 import type {
   Brand,
   Campaign,
@@ -128,6 +130,13 @@ export const SEED_BRANDS: Brand[] = [
 // Puestos (campañas)
 // ---------------------------------------------------------------------------
 
+// El anuncio de un puesto de la demo: lo que se lee ANTES del formulario. Lo
+// que no se diga cae en vacío, igual que en un puesto real anterior a agosto de
+// 2026, así que aquí solo se escribe lo que se quiere enseñar. Los salarios son
+// de convenio y las descripciones hablan como habla una ETT: la demo tiene que
+// poder enseñarse a un cliente sin que suene a relleno.
+const anunciar = (a: Partial<Anuncio>): Anuncio => ({ ...anuncioVacio(), ...a })
+
 const campaigns: Campaign[] = [
   // --- Construcción · Valencia ---------------------------------------------
   {
@@ -147,6 +156,15 @@ const campaigns: Campaign[] = [
       accent: '#2f6db5',
       showLogo: true,
     },
+    anuncio: anunciar({
+      descripcion: 'Obra nueva y reforma en Valencia y alrededores, con cuadrillas de tres o cuatro personas.\nEntras ayudando a oficial: encofrado, limpieza de tajo, mezcla y acopio de material.\nJornada completa de lunes a viernes, de 7 a 15, con la tarde libre.',
+      modalidad: 'presencial',
+      salarioMin: 18000, salarioMax: 21000, salarioPeriodo: 'año',
+      contrato: 'Indefinido', jornada: 'Completa',
+      experiencia: 'Menos de 1 año',
+      estudios: 'Sin estudios',
+      conocimientos: ['Encofrado', 'Ayuda a oficial', 'Radial y martillo'],
+    }),
     fields: [
       SYS_NOMBRE,
       SYS_TEL,
@@ -176,6 +194,15 @@ const campaigns: Campaign[] = [
       accent: '#2f6db5',
       showLogo: true,
     },
+    anuncio: anunciar({
+      descripcion: 'Buscamos oficial de 1ª para llevar tajo propio en obras de Valencia ciudad y área metropolitana.\nTrabajo de fábrica, enfoscado y remates, con peón de apoyo.\nHay continuidad: llevamos tres promociones seguidas con el mismo cliente.',
+      modalidad: 'presencial',
+      salarioMin: 24000, salarioMax: 28000, salarioPeriodo: 'año',
+      contrato: 'Indefinido', jornada: 'Completa',
+      experiencia: 'Más de 5 años',
+      estudios: 'Educación Secundaria Obligatoria',
+      conocimientos: ['Ladrillo cara vista', 'Enfoscado', 'Replanteo', 'Lectura de planos'],
+    }),
     fields: [
       SYS_NOMBRE,
       SYS_TEL,
@@ -204,6 +231,15 @@ const campaigns: Campaign[] = [
       accent: '#2f6db5',
       showLogo: true,
     },
+    anuncio: anunciar({
+      descripcion: 'Instalación eléctrica en obra nueva residencial: tubo, cableado, mecanismos y cuadros.\nTrabajarás con un oficial de referencia y con el jefe de obra del cliente.\nHerramienta y EPIs a nuestro cargo.',
+      modalidad: 'presencial',
+      salarioMin: 25000, salarioMax: 30000, salarioPeriodo: 'año',
+      contrato: 'Indefinido', jornada: 'Completa',
+      experiencia: 'De 2 a 5 años',
+      estudios: 'Ciclo Formativo de Grado Medio',
+      conocimientos: ['Obra nueva residencial', 'Cuadros eléctricos', 'REBT'],
+    }),
     fields: [
       SYS_NOMBRE,
       SYS_TEL,
@@ -233,6 +269,15 @@ const campaigns: Campaign[] = [
       accent: '#0f766e',
       showLogo: true,
     },
+    anuncio: anunciar({
+      descripcion: 'Almacén de distribución en Getafe, con turnos de mañana y de tarde.\nRecepción de camión, ubicación de mercancía y preparación con terminal de radiofrecuencia.\nSe empieza con contrato temporal y se pasa a indefinido según el volumen de la campaña.',
+      modalidad: 'presencial',
+      salarioMin: 18500, salarioMax: 20000, salarioPeriodo: 'año',
+      contrato: 'Temporal', jornada: 'Completa',
+      experiencia: 'Menos de 1 año',
+      estudios: 'Educación Secundaria Obligatoria',
+      conocimientos: ['Picking', 'Radiofrecuencia', 'Paletizado'],
+    }),
     fields: [
       SYS_NOMBRE,
       SYS_TEL,
@@ -261,6 +306,16 @@ const campaigns: Campaign[] = [
       accent: '#0f766e',
       showLogo: true,
     },
+    anuncio: anunciar({
+      descripcion: 'Manejo de carretilla frontal y retráctil en almacén de 12.000 m² en Getafe.\nTurno de noche, de 22 a 6, con plus de nocturnidad aparte del salario.\nImprescindible el carnet en vigor: lo comprobamos el primer día.',
+      modalidad: 'presencial',
+      salarioMin: 21000, salarioMax: 24000, salarioPeriodo: 'año',
+      contrato: 'Indefinido', jornada: 'Completa',
+      experiencia: 'De 1 a 2 años',
+      estudios: 'Educación Secundaria Obligatoria',
+      idiomas: [{ idioma: 'Español', nivel: 'Intermedio' }],
+      conocimientos: ['Carretilla frontal', 'Retráctil', 'Carnet en vigor'],
+    }),
     fields: [
       SYS_NOMBRE,
       SYS_TEL,
@@ -288,6 +343,15 @@ const campaigns: Campaign[] = [
       accent: '#0f766e',
       showLogo: true,
     },
+    anuncio: anunciar({
+      descripcion: 'Preparación de pedidos por voz para una cadena de alimentación.\nPicos de trabajo los jueves y viernes, con jornada de 30 horas repartidas en cinco días.\nBuen sitio para compaginar con estudios.',
+      modalidad: 'presencial',
+      salarioMin: 19000, salarioMax: 21500, salarioPeriodo: 'año',
+      contrato: 'Fijo discontinuo', jornada: 'Parcial',
+      experiencia: 'Menos de 1 año',
+      estudios: 'Educación Secundaria Obligatoria',
+      conocimientos: ['Preparación por voz', 'Control de calidad', 'Etiquetado'],
+    }),
     fields: [
       SYS_NOMBRE,
       SYS_TEL,

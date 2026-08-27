@@ -15,6 +15,7 @@ import { useAppBase } from '../lib/useAppBase'
 import { PLAN_LABEL, PLAN_PROCESS_LIMIT, PRECIO_PROCESO } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 import { IconoVacio } from './ui/IconoVacio'
+import { AnuncioEditor, usePasoAnuncio, type ValorAnuncio } from './AnuncioEditor'
 
 const ICONS: Record<string, LucideIcon> = {
   UtensilsCrossed, HardHat, Truck, Sparkles, ShoppingBag, HeartHandshake,
@@ -30,11 +31,22 @@ export function useCreateFromTemplate() {
   const toast = useToast()
   const [busy, setBusy] = useState<string | null>(null)
 
-  const create = async (key: string, t?: SectorTemplate, opts?: { status?: 'activa' | 'cerrada' }) => {
+  const create = async (
+    key: string,
+    t?: SectorTemplate,
+    opts?: { status?: 'activa' | 'cerrada'; anuncio?: ValorAnuncio },
+  ) => {
     if (!company || busy) return null
     setBusy(key)
     const input = t ? templateCampaignInput(t, company.accent) : blankCampaignInput(company.accent)
-    const c = await createCampaign({ ...input, status: opts?.status })
+    const c = await createCampaign({
+      ...input,
+      status: opts?.status,
+      // El anuncio nace con el puesto cuando viene del asistente. La ubicación
+      // es columna propia (la lee la cabecera del puesto y el baremo), así que
+      // viaja al lado y no dentro del jsonb.
+      ...(opts?.anuncio ? { anuncio: opts.anuncio.anuncio, location: opts.anuncio.location } : {}),
+    })
     setBusy(null)
     if (!c) toast.error('No se pudo crear el puesto.')
     return c
@@ -93,6 +105,13 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
   const { busy, create } = useCreateFromTemplate()
   const [cobro, setCobro] = useState<null | { key: string; t?: SectorTemplate; amountDue: number | null; free: boolean }>(null)
   const [cobrando, setCobrando] = useState(false)
+  // DOS PASOS: primero de dónde partes (la plantilla) y después qué cuenta el
+  // puesto (el anuncio). El orden no es cosmético: la plantilla trae el título y
+  // las preguntas, así que hasta elegirla no se sabe de qué puesto es el anuncio
+  // que se está escribiendo.
+  const [paso, setPaso] = useState<'plantilla' | 'anuncio'>('plantilla')
+  const [elegida, setElegida] = useState<{ key: string; t?: SectorTemplate } | null>(null)
+  const { valor, cambiar, faltan, formulario, comprobar, reiniciar } = usePasoAnuncio()
 
   // Qué le espera a este proceso nuevo, espejo en cliente del enforcement de
   // servidor. En el pago por proceso nunca hay muro: o hay hueco pagado libre
@@ -114,16 +133,45 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
   })()
   const atLimit = modo === 'bloqueado'
 
+  // Cerrar es volver a empezar: si no, salir a medias y entrar otra vez dejaría
+  // el anuncio de la plantilla anterior escrito bajo otra plantilla. Se hace al
+  // CERRAR y no en un efecto al abrir: mientras está cerrado no se ve nada, así
+  // que es el mismo resultado sin una cascada de renders.
+  const cerrar = () => {
+    setPaso('plantilla')
+    setElegida(null)
+    setCobro(null)
+    reiniciar()
+    onClose()
+  }
+
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    // Escape sube UN nivel: del anuncio vuelve a las plantillas y solo desde la
+    // raíz cierra, igual que las páginas del menú de un puesto.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (cobro) setCobro(null)
+      else if (paso === 'anuncio') setPaso('plantilla')
+      else cerrar()
+    }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev }
-  }, [open, onClose])
+    // `cerrar` se recrea en cada render y no aporta nada a las dependencias:
+    // lo que decide qué hace el Escape es el paso en el que estás.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, onClose, paso, cobro])
 
-  const pick = async (key: string, t?: SectorTemplate) => {
+  const pick = (key: string, t?: SectorTemplate) => {
+    setElegida({ key, t })
+    setPaso('anuncio')
+  }
+
+  const crear = async () => {
+    if (!elegida || busy || !comprobar()) return
+    const { key, t } = elegida
     if (modo === 'cobrar') {
       // El importe se enseña ANTES de cobrar: prorrata hasta la próxima
       // factura, o gratis si queda un ciclo ya pagado que retomar.
@@ -134,20 +182,20 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
     if (modo === 'checkout') {
       // Sin método de pago: el puesto se crea A LA ESPERA (cerrado) y se pasa
       // al pago seguro; el webhook lo abre al completarse.
-      const c = await create(key, t, { status: 'cerrada' })
+      const c = await create(key, t, { status: 'cerrada', anuncio: valor })
       if (!c) return
       const ok = await reabrirProceso(c.id)
       if (!ok) {
         // El pago no arrancó: el puesto queda guardado a la espera. Se puede
         // seguir editando y activarlo después desde sus ajustes.
-        onClose()
+        cerrar()
         navigate(`${base}/puestos/${c.id}/formulario`)
       }
       return
     }
-    const c = await create(key, t)
+    const c = await create(key, t, { anuncio: valor })
     if (c) {
-      onClose()
+      cerrar()
       navigate(`${base}/puestos/${c.id}/formulario`)
     }
   }
@@ -160,11 +208,11 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
       setCobrando(false)
       return
     }
-    const c = await create(cobro.key, cobro.t)
+    const c = await create(cobro.key, cobro.t, { anuncio: valor })
     setCobrando(false)
     setCobro(null)
     if (c) {
-      onClose()
+      cerrar()
       navigate(`${base}/puestos/${c.id}/formulario`)
     }
   }
@@ -176,14 +224,14 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
           <motion.div
             className="absolute inset-0 bg-slate-900/40"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }} onClick={onClose}
+            transition={{ duration: 0.18 }} onClick={cerrar}
           />
           {/* `overflow-clip` y no `hidden`: quien llega a las dos esquinas de abajo
               es el bloque con scroll (`max-h-[60vh] overflow-y-auto`), y `clip` lo
               recorta con el radio SIN convertir el panel en contenedor de scroll,
               que es lo que rompería cualquier `sticky` de dentro. */}
           <motion.div
-            className="relative w-full max-w-lg overflow-clip rounded-xl bg-white shadow-pop"
+            className="relative w-full max-w-xl overflow-clip rounded-xl bg-white shadow-pop"
             initial={{ opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
@@ -195,7 +243,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                     `p-1.5` a mano: así se quedaban en 32px y sin crecer en táctil
                     (`md` da 36 y 44 con puntero grueso), y sin el press de la
                     rampa, que es por donde derivan siempre los clones. */}
-                <button onClick={onClose} aria-label="Cerrar" className={botonIcono('ghost', 'md', 'absolute right-3 top-3')}>
+                <button onClick={cerrar} aria-label="Cerrar" className={botonIcono('ghost', 'md', 'absolute right-3 top-3')}>
                   <X className="size-5" aria-hidden />
                 </button>
                 <IconoVacio Icon={Lock} />
@@ -208,11 +256,11 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                   Pausa o cierra uno para abrir otro.
                 </p>
                 <div className="mt-6 flex justify-center gap-2">
-                  <button onClick={onClose} className={BTN_SECONDARY}>
+                  <button onClick={cerrar} className={BTN_SECONDARY}>
                     Entendido
                   </button>
                   <button
-                    onClick={() => { onClose(); navigate(`${base}/plan`) }}
+                    onClick={() => { cerrar(); navigate(`${base}/plan`) }}
                     className={BTN_PRIMARY}
                   >
                     Ver facturación
@@ -250,10 +298,16 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
               <>
                 <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
                   <div>
-                    <h2 id="wizard-title" className="text-lg font-semibold text-slate-900">Crear puesto</h2>
-                    <p className="mt-0.5 text-[13px] text-slate-500">Elige un punto de partida. Podrás cambiarlo todo después.</p>
+                    <h2 id="wizard-title" className="text-lg font-semibold text-slate-900">
+                      {paso === 'plantilla' ? 'Crear puesto' : 'Tu anuncio'}
+                    </h2>
+                    <p className="mt-0.5 text-[13px] text-slate-500">
+                      {paso === 'plantilla'
+                        ? 'Elige un punto de partida. Podrás cambiarlo todo después.'
+                        : 'Lo que se lee antes del formulario. Podrás cambiarlo todo después, el título incluido.'}
+                    </p>
                   </div>
-                  <button onClick={onClose} aria-label="Cerrar" className={botonIcono('ghost', 'md', '-mr-1')}>
+                  <button onClick={cerrar} aria-label="Cerrar" className={botonIcono('ghost', 'md', '-mr-1')}>
                     <X className="size-5" aria-hidden />
                   </button>
                 </div>
@@ -273,9 +327,30 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                   </p>
                 )}
 
-                <div className="max-h-[60vh] overflow-y-auto p-4">
-                  <TemplateGrid busyKey={busy} onPick={pick} />
-                </div>
+                {paso === 'plantilla' ? (
+                  <div className="max-h-[60vh] overflow-y-auto p-4">
+                    <TemplateGrid busyKey={busy} onPick={pick} />
+                  </div>
+                ) : (
+                  <>
+                    <div ref={formulario} className="max-h-[60vh] overflow-y-auto px-5 py-4">
+                      <AnuncioEditor valor={valor} onChange={cambiar} faltan={faltan} />
+                    </div>
+                    {/* El pie es donde vive el flujo: volver a las plantillas o
+                        crear. Sin flecha de vuelta arriba, que sería la misma
+                        puerta dos veces; la equis de la cabecera sigue siendo
+                        cerrar, que es otra cosa. */}
+                    <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
+                      <button onClick={() => setPaso('plantilla')} className={BTN_SECONDARY} disabled={!!busy}>
+                        Volver
+                      </button>
+                      <button onClick={() => void crear()} className={`${BTN_PRIMARY} disabled:opacity-60`} disabled={!!busy}>
+                        {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+                        Crear puesto
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             )}
           </motion.div>

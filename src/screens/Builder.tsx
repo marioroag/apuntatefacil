@@ -49,6 +49,8 @@ import { FORM_WELCOME_DEFAULT, FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
 import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
+import { AnuncioEditor, type ValorAnuncio } from '../components/AnuncioEditor'
+import { anuncioSinEmpezar, anuncioVacio, resumenAnuncio } from '../lib/anuncio'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { AssetBox } from '../components/BrandAssets'
 import { useBrandAssetUpload, type BrandAssetPatch } from '../lib/brandUpload'
@@ -280,6 +282,9 @@ export function Builder() {
 
             {/* Identidad (de la marca: se comparte entre sus puestos) */}
             <Identidad key={`marca-${campaign.id}`} campaign={campaign} />
+
+            {/* El anuncio: lo que se lee ANTES de este formulario */}
+            <AnuncioPuesto key={`anuncio-${campaign.id}`} campaign={campaign} />
 
             {/* Apariencia (datos del puesto: título, mensajes y aspecto) */}
             <Branding key={campaign.id} campaign={campaign} />
@@ -857,6 +862,87 @@ function Identidad({ campaign }: { campaign: Campaign }) {
 // La cara de la marca en miniatura, con el mismo repuesto que el formulario
 // público: si no hay foto, la inicial sobre el color de acento. Así la fila
 // cerrada enseña exactamente lo que va a ver el candidato.
+// --- El anuncio del puesto --------------------------------------------------
+/**
+ * EL MISMO EDITOR QUE EL ASISTENTE, MONTADO AQUÍ PARA CORREGIRLO DESPUÉS.
+ *
+ * El anuncio se escribe al crear el puesto, pero un anuncio que solo se puede
+ * escribir una vez es una trampa: se sube el salario, se cambia la ciudad, y
+ * sobre todo existen todos los puestos ANTERIORES a esta pantalla, que se
+ * quedarían sin forma de tener anuncio nunca. Es un solo montaje de
+ * `AnuncioEditor`, no una segunda versión: si se toca uno, se tocan los dos.
+ *
+ * VA PLEGADO, con la misma forma que Identidad y por el mismo motivo: se pone
+ * una vez y el trabajo diario de esta pantalla son los campos, así que en reposo
+ * ocupa una fila y no media pantalla. La fila enseña el resumen REAL (dónde,
+ * cómo y desde cuánto), así que se comprueba sin abrirla, y se abre sola cuando
+ * el anuncio está sin empezar, que es cuando sí hay algo que hacer.
+ *
+ * SE GUARDA CON RETARDO, no en cada tecla. El resto de esta pantalla escribe en
+ * cada pulsación porque sus campos son de una línea; aquí hay una descripción de
+ * hasta 4.000 caracteres, y una petición por letra no solo es ruido: dos
+ * escrituras en vuelo pueden llegar en otro orden y devolverte una versión
+ * anterior de lo que acabas de escribir. Lo pendiente se escribe también al
+ * salir de la pantalla, o el último párrafo se perdería al pulsar "Volver".
+ */
+function AnuncioPuesto({ campaign }: { campaign: Campaign }) {
+  const { updateCampaign } = useStore()
+  const [valor, setValor] = useState<ValorAnuncio>(() => ({
+    location: campaign.location,
+    anuncio: campaign.anuncio ?? anuncioVacio(),
+  }))
+  const [open, setOpen] = useState<boolean | null>(null)
+  const pendiente = useRef<ValorAnuncio | null>(null)
+  const timer = useRef<number | null>(null)
+
+  const guardar = () => {
+    if (timer.current) { clearTimeout(timer.current); timer.current = null }
+    const v = pendiente.current
+    pendiente.current = null
+    if (v) void updateCampaign(campaign.id, { location: v.location, anuncio: v.anuncio })
+  }
+  // Lo que quede en el aire se escribe al desmontar. El componente va con `key`
+  // por puesto, así que aquí `campaign.id` es siempre el de este.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => guardar, [])
+
+  const cambiar = (patch: Partial<ValorAnuncio>) => {
+    const next = { ...valor, ...patch }
+    setValor(next)
+    pendiente.current = next
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = window.setTimeout(guardar, 500)
+  }
+
+  const resumen = resumenAnuncio(valor.anuncio, valor.location)
+  const abierta = open ?? anuncioSinEmpezar(valor.anuncio, valor.location)
+
+  return (
+    <section>
+      <SectionTitle>Anuncio</SectionTitle>
+      <div className="overflow-clip rounded-xl filo bg-white">
+        <button
+          type="button"
+          onClick={() => setOpen(!abierta)}
+          aria-expanded={abierta}
+          className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] hover:bg-slate-50"
+        >
+          <span className={`min-w-0 flex-1 truncate text-sm ${resumen ? 'font-medium text-slate-800' : 'text-slate-500'}`}>
+            {resumen || 'Sin rellenar'}
+          </span>
+          <ChevronDown className={`size-4 shrink-0 text-slate-500 transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] ${abierta ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+
+        {abierta && (
+          <div className="border-t border-slate-100 bg-slate-50/50 px-3 py-3">
+            <AnuncioEditor valor={valor} onChange={cambiar} />
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 function MarcaTile({ logoUrl, name, accent }: { logoUrl: string | null; name: string; accent: string }) {
   if (logoUrl) return <img src={logoUrl} alt="" className="size-7 shrink-0 rounded-lg object-cover ring-1 ring-inset ring-slate-200" />
   return (

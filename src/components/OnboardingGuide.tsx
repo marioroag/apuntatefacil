@@ -7,6 +7,7 @@ import { useOnboarding } from '../lib/onboarding'
 import { useAppBase } from '../lib/useAppBase'
 import { useToast } from './ui/Toast'
 import { TemplateGrid, useCreateFromTemplate } from './NewCampaignWizard'
+import { AnuncioEditor, usePasoAnuncio } from './AnuncioEditor'
 import type { SectorTemplate } from '../lib/templates'
 import { PRUEBA_CANDIDATOS } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
@@ -329,34 +330,76 @@ export function OnboardingTestCard({ campaign, shareUrl, onCopy }: {
 }
 
 // Paso 2 a pantalla completa: sustituye al empty state de /app mientras la guía
-// está activa y aún no hay puestos. Misma rejilla de plantillas que el modal.
+// está activa y aún no hay puestos.
+//
+// PASA POR EL MISMO PROCESO QUE "CREAR PUESTO" (Mario, ago 2026): elegir
+// plantilla y escribir el anuncio. Se hizo primero con la creación de un clic,
+// con el argumento de no cargar el primer minuto de alguien que aún no sabe qué
+// es esto; el argumento se cae solo porque el anuncio ES el puesto, y estrenar
+// la app con un puesto que no cuenta nada enseña un producto a medias justo en
+// el momento en que se está aprendiendo cómo funciona. Aquí no se duplica nada:
+// la rejilla es `TemplateGrid`, el formulario es `AnuncioEditor` y el estado del
+// paso es `usePasoAnuncio`, los tres compartidos con el asistente.
+//
+// SIGUE SIENDO EL PASO 2 DE LA GUÍA, con sus dos pantallas dentro. El indicador
+// cuenta hitos del producto (crear, montar el formulario, probarlo), no pantallas.
 export function OnboardingCreatePuesto() {
   const { busy, create } = useCreateFromTemplate()
   const { setOnboardingDone } = useAuth()
   const navigate = useNavigate()
   const base = useAppBase()
+  const [elegida, setElegida] = useState<{ key: string; t?: SectorTemplate } | null>(null)
+  const { valor, cambiar, faltan, formulario, comprobar, reiniciar } = usePasoAnuncio()
 
-  const pick = async (key: string, t?: SectorTemplate) => {
-    const c = await create(key, t)
+  const crear = async () => {
+    if (!elegida || busy || !comprobar()) return
+    const c = await create(elegida.key, elegida.t, { anuncio: valor })
     if (c) navigate(`${base}/puestos/${c.id}/formulario`)
   }
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-14">
       <StepProgress current={2} />
-      <h1 className="mt-2 text-xl font-semibold text-slate-900">Crea tu primer puesto</h1>
-      <p className="mt-1.5 text-sm text-slate-500">
-        Elige un punto de partida según tu sector. Podrás cambiarlo todo después.
-      </p>
-      <div className="mt-6">
-        <TemplateGrid busyKey={busy} onPick={pick} />
-      </div>
-      <button
-        onClick={() => void setOnboardingDone(true)}
-        className="mt-6 text-[13px] font-medium text-slate-500 underline hover:text-slate-700"
-      >
-        Ahora no, quiero ver el panel
-      </button>
+      {elegida ? (
+        <>
+          <h1 className="mt-2 text-xl font-semibold text-slate-900">Tu anuncio</h1>
+          <p className="mt-1.5 text-sm text-slate-500">
+            Lo que se lee antes del formulario. Podrás cambiarlo todo después, el título incluido.
+          </p>
+          <div ref={formulario} className="mt-6">
+            <AnuncioEditor valor={valor} onChange={cambiar} faltan={faltan} />
+          </div>
+          {/* Aquí no se pinta "Ahora no, quiero ver el panel": la salida de la
+              guía vive en la pantalla donde todavía estás DECIDIENDO si entras,
+              y desde esta se llega con "Volver". Tres controles en un pie que ya
+              tiene el que crea el puesto es un cruce de caminos. */}
+          <div className="mt-6 flex items-center justify-end gap-2">
+            <button onClick={() => { setElegida(null); reiniciar() }} className={BTN_SECONDARY} disabled={!!busy}>
+              Volver
+            </button>
+            <button onClick={() => void crear()} className={`${BTN_PRIMARY} disabled:opacity-60`} disabled={!!busy}>
+              {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+              Crear puesto
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <h1 className="mt-2 text-xl font-semibold text-slate-900">Crea tu primer puesto</h1>
+          <p className="mt-1.5 text-sm text-slate-500">
+            Elige un punto de partida según tu sector. Podrás cambiarlo todo después.
+          </p>
+          <div className="mt-6">
+            <TemplateGrid busyKey={busy} onPick={(key, t) => setElegida({ key, t })} />
+          </div>
+          <button
+            onClick={() => void setOnboardingDone(true)}
+            className="mt-6 text-[13px] font-medium text-slate-500 underline hover:text-slate-700"
+          >
+            Ahora no, quiero ver el panel
+          </button>
+        </>
+      )}
     </div>
   )
 }
