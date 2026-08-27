@@ -34,6 +34,16 @@ export function useMediaQuery(query: string) {
 export const useEsMovil = () => useMediaQuery('(max-width: 639px)')
 
 /**
+ * ¿CABEN DOS COLUMNAS? A partir de `lg` (1024px). Lo usa el anuncio público para
+ * MONTAR su raíl o repartir sus piezas en la columna, en vez de pintar las dos
+ * cosas y esconder una con `hidden lg:block`: eso deja los mismos enlaces dos
+ * veces en el DOM, y quien navega con el tabulador o con lector recorre las
+ * ofertas por duplicado. Es la misma regla que obliga a montar el raíl de la
+ * ficha del candidato y la hoja del menú de puesto solo donde se usan.
+ */
+export const useHayDosColumnas = () => useMediaQuery('(min-width: 1024px)')
+
+/**
  * ¿HAY TECLADO EN PANTALLA? Se pregunta por el PUNTERO, no por el ancho.
  *
  * Lo usa lo único que de verdad depende de esto: **el foco automático**. Enfocar

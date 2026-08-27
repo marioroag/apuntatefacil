@@ -11,6 +11,8 @@ import { BRAND, publicFormPathPretty } from '../lib/brand'
 import { FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { CONSENT_VERSION } from '../lib/consent'
 import { brandAssetUrl } from '../lib/brandAsset'
+import { AnuncioPublico } from '../components/AnuncioPublico'
+import { hayAnuncio, leerAnuncio } from '../lib/anuncio'
 import type { Campaign } from '../lib/types'
 import { IconoVacio } from '../components/ui/IconoVacio'
 
@@ -18,6 +20,7 @@ interface PublicCampaign extends Campaign {
   companyName: string
   logoUrl: string | null
   bannerUrl: string | null
+  otros: { slug: string; title: string; location: string; brandLabel: string }[]
 }
 
 export function PublicForm() {
@@ -31,6 +34,27 @@ export function PublicForm() {
   const [isTest] = useState(() =>
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('prueba'),
   )
+
+  // EL ANUNCIO VA DELANTE Y EL FORMULARIO SE ABRE AL PULSAR "Aplicar" (ago 2026).
+  //
+  // Vive en la MISMA URL con un `?apuntarse`, no en una ruta nueva: el enlace
+  // que la empresa comparte está ya impreso en anuncios de portales y pegado en
+  // conversaciones de WhatsApp, así que no puede cambiar de forma. Como
+  // parámetro, la vuelta atrás del navegador devuelve al anuncio sin recargar y
+  // se puede enlazar directo al formulario a quien ya ha decidido. Es el mismo
+  // patrón que `?candidato=<id>` en el panel: un query abre una capa.
+  const [apuntarse, setApuntarse] = useState(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('apuntarse'),
+  )
+  const abrirFormulario = () => {
+    setApuntarse(true)
+    if (typeof window !== 'undefined' && window.history?.pushState) {
+      const u = new URL(window.location.href)
+      u.searchParams.set('apuntarse', '')
+      window.history.pushState(null, '', u.pathname + '?apuntarse' + u.hash)
+    }
+    window.scrollTo(0, 0)
+  }
 
   const [values, setValues] = useState<Record<string, FieldValue>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -60,14 +84,22 @@ export function PublicForm() {
         id: string; slug: string; title: string; status: Campaign['status']
         fields: Campaign['fields']; branding: Campaign['branding']; company_name: string
         logo_path: string | null; banner_path: string | null
+        anuncio: unknown; location: string | null
+        others: { slug: string; title: string; location: string | null; brand_label: string }[] | null
       }
       setCampaign({
         id: d.id, slug: d.slug, title: d.title, status: d.status,
-        sector: '', location: '', createdAt: '', fields: d.fields ?? [], branding: d.branding,
+        sector: '', location: d.location ?? '', createdAt: '', fields: d.fields ?? [], branding: d.branding,
         siteId: null, brandId: null,
+        // La aduana del jsonb es la misma que usa el panel: un anuncio guardado
+        // por una versión anterior no puede dejar esta página en blanco.
+        anuncio: leerAnuncio(d.anuncio),
         companyName: d.company_name,
         logoUrl: brandAssetUrl(d.logo_path),
         bannerUrl: brandAssetUrl(d.banner_path),
+        otros: (d.others ?? []).map((o) => ({
+          slug: o.slug, title: o.title, location: o.location ?? '', brandLabel: o.brand_label,
+        })),
       })
       setState('ok')
       // Embellece la barra con el título ACTUAL sin cambiar el enlace compartido
@@ -75,11 +107,22 @@ export function PublicForm() {
       // navegación de React Router, solo cambia la URL visible. El enlace que se comparte
       // sigue siendo el corto y estable.
       if (typeof window !== 'undefined' && window.history?.replaceState) {
-        window.history.replaceState(null, '', publicFormPathPretty(d.slug, d.company_name, d.title))
+        // El query se conserva: quien llega con `?apuntarse` (un enlace directo
+        // al formulario) no puede perderlo al embellecerse la barra.
+        const query = window.location.search.includes('apuntarse') ? '?apuntarse' : ''
+        window.history.replaceState(null, '', publicFormPathPretty(d.slug, d.company_name, d.title) + query)
       }
     })
     return () => { alive = false }
   }, [slug])
+
+  // Atrás en el navegador vuelve al anuncio. Sin esto, `pushState` deja una
+  // entrada en el historial que al volver cambia la URL pero no la pantalla.
+  useEffect(() => {
+    const onPop = () => setApuntarse(new URLSearchParams(window.location.search).has('apuntarse'))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   if (state === 'loading') {
     return (
@@ -107,6 +150,25 @@ export function PublicForm() {
   }
 
   if (done) return <ThankYou campaign={campaign} isTest={isTest} />
+
+  // SIN ANUNCIO, EL ENLACE SIGUE ABRIENDO EL FORMULARIO, como antes de agosto de
+  // 2026. No es un caso raro: son todos los puestos anteriores a esta pantalla, y
+  // sus enlaces ya están compartidos. Una página de anuncio con el título y
+  // cuatro huecos es peor que el formulario de siempre.
+  if (!apuntarse && hayAnuncio(campaign.anuncio)) {
+    return (
+      <AnuncioPublico
+        campaign={campaign}
+        anuncio={campaign.anuncio!}
+        companyName={campaign.companyName}
+        logoUrl={campaign.logoUrl}
+        bannerUrl={campaign.bannerUrl}
+        location={campaign.location}
+        otros={campaign.otros}
+        onAplicar={abrirFormulario}
+      />
+    )
+  }
 
   const onChange = (id: string, v: FieldValue) => {
     setValues((p) => ({ ...p, [id]: v }))

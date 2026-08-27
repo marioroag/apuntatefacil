@@ -223,6 +223,80 @@ export function resumenAnuncio(a: Anuncio, location: string): string {
   ].filter(Boolean).join(' · ')
 }
 
+// --------------------------------------------------------------------------
+// CÓMO SE ESCRIBE UN ANUNCIO. Estas cuatro funciones son lo que lee el
+// candidato, y viven aquí y no en la pantalla por lo de siempre: el día que
+// haya una segunda superficie que lo pinte (una vista previa en el
+// constructor, un feed, el multiposting) tiene que decirlo con las mismas
+// palabras. Devuelven cadena VACÍA cuando no hay dato, nunca "No disponible":
+// quien las llama decide si esa fila se pinta o desaparece.
+// --------------------------------------------------------------------------
+
+const miles = (n: number) => n.toLocaleString('es-ES')
+
+/** "22.000 - 26.000 € bruto/año" · "Desde 22.000 € bruto/año" */
+export function salarioTexto(a: Anuncio): string {
+  if (a.salarioMin == null && a.salarioMax == null) return ''
+  const periodo = PERIODOS.find((p) => p.value === a.salarioPeriodo)?.label.toLowerCase() ?? ''
+  // El símbolo va UNA vez, al final de la cifra: "45.000 € - 60.000 €" repite un
+  // euro que ya se sabe, y en español el espacio antes del símbolo no es opcional.
+  const cifra =
+    a.salarioMin != null && a.salarioMax != null
+      ? `${miles(a.salarioMin)} - ${miles(a.salarioMax)} €`
+      : a.salarioMin != null
+        ? `Desde ${miles(a.salarioMin)} €`
+        : `Hasta ${miles(a.salarioMax as number)} €`
+  return `${cifra} ${periodo}`.trim()
+}
+
+/** "Experiencia mínima: más de 5 años" */
+export function experienciaTexto(a: Anuncio): string {
+  if (!a.experiencia) return ''
+  // El tramo se escribe en minúscula dentro de la frase: "Experiencia mínima:
+  // Más de 5 años" mete una mayúscula en mitad de una oración.
+  return `Experiencia mínima: ${a.experiencia.charAt(0).toLowerCase()}${a.experiencia.slice(1)}`
+}
+
+/** "Contrato indefinido, jornada completa". A medias dice solo la mitad que hay. */
+export function contratoTexto(a: Anuncio): string {
+  const partes = [
+    a.contrato ? `Contrato ${a.contrato.toLowerCase()}` : '',
+    a.jornada ? `jornada ${a.jornada.toLowerCase()}` : '',
+  ].filter(Boolean)
+  if (!partes.length) return ''
+  // Con las dos, la frase empieza en mayúscula por "Contrato"; con solo la
+  // jornada, hay que levantarla.
+  const t = partes.join(', ')
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+export const modalidadLabel = (a: Anuncio) =>
+  MODALIDADES.find((m) => m.value === a.modalidad)?.label ?? ''
+
+/**
+ * ¿HAY ANUNCIO QUE ENSEÑAR? Es la pregunta que decide si el enlace público abre
+ * la página del anuncio o va derecho al formulario, como hasta ago 2026.
+ *
+ * Se mira lo que el candidato viene a LEER: un puesto creado antes de que esto
+ * existiera no tiene nada que contar, y una página con el título y cuatro
+ * huecos es peor que el formulario de siempre.
+ *
+ * LA UBICACIÓN NO CUENTA, y eso se aprendió en pantalla. Es una columna que
+ * existe desde el primer día, así que hay puestos con ciudad y sin una sola
+ * línea de anuncio; contándola, esos abrían una página con el título, una
+ * ciudad y nada más, que es exactamente lo que esta función viene a impedir.
+ * Sí se PINTA en cuanto hay página, porque entonces es un hecho más del
+ * lateral; lo que no puede es decidir que haya página.
+ */
+export function hayAnuncio(a: Anuncio | undefined): boolean {
+  if (!a) return false
+  return !!(
+    a.descripcion.trim() || a.modalidad || a.salarioMin != null || a.salarioMax != null ||
+    a.contrato || a.jornada || a.experiencia || a.estudios ||
+    a.conocimientos.length || a.idiomas.length
+  )
+}
+
 /** Los campos del anuncio que se piden para poder crear el puesto. */
 export type CampoAnuncio =
   | 'location' | 'modalidad' | 'salario' | 'contrato' | 'jornada'

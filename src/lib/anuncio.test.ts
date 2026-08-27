@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   CONTRATOS, ESTUDIOS, EXPERIENCIAS, JORNADAS, MODALIDADES, NIVELES_IDIOMA, PERIODOS,
-  anuncioSinEmpezar, anuncioVacio, faltaEnAnuncio, leerAnuncio, resumenAnuncio,
+  anuncioSinEmpezar, anuncioVacio, contratoTexto, experienciaTexto, faltaEnAnuncio,
+  hayAnuncio, leerAnuncio, resumenAnuncio, salarioTexto,
   type Anuncio,
 } from './anuncio'
 
@@ -123,6 +124,34 @@ describe('anuncioSinEmpezar: abrir el bloque solo si hay algo que hacer', () => 
   })
 })
 
+describe('hayAnuncio: si el enlace abre la página o el formulario', () => {
+  it('sin anuncio, no hay página', () => {
+    expect(hayAnuncio(undefined)).toBe(false)
+    expect(hayAnuncio(anuncioVacio())).toBe(false)
+  })
+
+  it('con cualquier cosa del anuncio, hay página', () => {
+    expect(hayAnuncio({ ...anuncioVacio(), descripcion: 'Obra nueva' })).toBe(true)
+    expect(hayAnuncio({ ...anuncioVacio(), contrato: 'Indefinido' })).toBe(true)
+    expect(hayAnuncio({ ...anuncioVacio(), conocimientos: ['Carretilla'] })).toBe(true)
+    expect(hayAnuncio({ ...anuncioVacio(), salarioMax: 26000 })).toBe(true)
+  })
+
+  it('LA UBICACIÓN NO DECIDE, se le pase o no', () => {
+    // Se vio en pantalla: `location` es columna desde el primer día, así que hay
+    // puestos con ciudad y sin una línea de anuncio. Contándola, esos abrían una
+    // página con el título, una ciudad y nada más, en vez del formulario de
+    // siempre.
+    //
+    // Se le PASA una ubicación a la fuerza, y por eso el cast: comprobar la
+    // firma no vale (`Function.length` no cuenta los parámetros con valor por
+    // defecto, así que un `location = ''` colado de vuelta pasaría en verde;
+    // probado rompiéndolo). Lo que se vigila es la respuesta, no la forma.
+    const conUbicacion = hayAnuncio as unknown as (a: Anuncio, l?: string) => boolean
+    expect(conUbicacion(anuncioVacio(), 'Valencia')).toBe(false)
+  })
+})
+
 describe('resumenAnuncio: la línea de la fila plegada', () => {
   it('dice dónde, cómo y desde cuánto, con los miles a la española', () => {
     expect(resumenAnuncio(lleno(), 'Valencia')).toBe('Valencia · Presencial · Desde 22.000 €')
@@ -131,6 +160,34 @@ describe('resumenAnuncio: la línea de la fila plegada', () => {
   it('vacío no inventa separadores', () => {
     expect(resumenAnuncio(anuncioVacio(), '')).toBe('')
     expect(resumenAnuncio(anuncioVacio(), 'Valencia')).toBe('Valencia')
+  })
+})
+
+describe('cómo se escribe un anuncio', () => {
+  it('el salario dice la horquilla, o de dónde parte, con UN símbolo', () => {
+    expect(salarioTexto(lleno())).toBe('22.000 - 26.000 € bruto/año')
+    expect(salarioTexto({ ...lleno(), salarioMax: null })).toBe('Desde 22.000 € bruto/año')
+    expect(salarioTexto({ ...lleno(), salarioMin: null })).toBe('Hasta 26.000 € bruto/año')
+    expect(salarioTexto(anuncioVacio())).toBe('')
+  })
+
+  it('el tramo de experiencia va en minúscula dentro de la frase', () => {
+    expect(experienciaTexto(lleno())).toBe('Experiencia mínima: de 1 a 2 años')
+    expect(experienciaTexto(anuncioVacio())).toBe('')
+  })
+
+  it('contrato y jornada componen una frase, y a medias dicen solo su mitad', () => {
+    expect(contratoTexto(lleno())).toBe('Contrato indefinido, jornada completa')
+    expect(contratoTexto({ ...lleno(), jornada: '' })).toBe('Contrato indefinido')
+    // Con solo la jornada hay que levantar la mayúscula: la frase ya no empieza
+    // por "Contrato".
+    expect(contratoTexto({ ...lleno(), contrato: '' })).toBe('Jornada completa')
+    expect(contratoTexto(anuncioVacio())).toBe('')
+  })
+
+  it('lo que no hay se dice con nada, nunca con "No disponible"', () => {
+    const v = anuncioVacio()
+    expect([salarioTexto(v), experienciaTexto(v), contratoTexto(v)]).toEqual(['', '', ''])
   })
 })
 
