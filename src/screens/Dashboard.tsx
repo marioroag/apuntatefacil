@@ -19,6 +19,9 @@ import {
   Copy,
   Download,
   Eye,
+  FileArchive,
+  FileSpreadsheet,
+  FileText,
   Hash,
   Inbox,
   List,
@@ -48,9 +51,10 @@ import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
 import type { LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, HEAD_CELL_FLUSH_FIJA, FIJA, TRANSICION_FILA } from '../components/ui/DataTable'
 import { createPortal } from 'react-dom'
-import { colocarFlotante } from '../lib/flotante'
+import { colocarFlotante, colocarLateral } from '../lib/flotante'
 import { useColumnasAjustables } from '../lib/columnas'
 import { useVistaTabla, type ColumnaVista } from '../lib/vistaTabla'
 import { AjustesVista, type OpcionOrden } from '../components/AjustesVista'
@@ -62,7 +66,10 @@ import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { SedesDialog } from '../components/SedesDialog'
 import { CandidateModal } from './CandidateModal'
-import { exportCandidatesToExcel } from '../lib/export'
+import { exportCandidatesToExcel, exportCandidatesToCsv, exportCandidateDocs } from '../lib/export'
+
+/** Los tres formatos de exportación (ver la página Exportar del `···`). */
+type FormatoExport = 'xlsx' | 'csv' | 'zip'
 import { RegistrarAccion } from '../lib/acciones'
 import { relativeDate, fechaCorta, fullDateTime, miles, formatPhone, candidateName } from '../lib/format'
 import { clickDeFila } from '../lib/fila'
@@ -948,7 +955,28 @@ export function Dashboard() {
     setSearch('')
   }
 
-  const doExport = async () => {
+  /**
+   * Exporta lo que hay filtrado, en el formato que se elija.
+   *
+   * Los tres salen del MISMO sitio y comparten las guardas: la de las bloqueadas
+   * y la de los comentarios. Con una función por formato, la próxima regla que se
+   * añada aquí se olvidaría en dos de las tres.
+   */
+  const doExport = async (formato: FormatoExport = 'xlsx') => {
+    if (formato === 'zip') {
+      try {
+        const r = await exportCandidateDocs(campaign, filtered)
+        if (!r.incluidos) return toast.show('Ninguna de estas candidaturas trae documentos.')
+        // Lo que no se pudo bajar SE DICE. Un zip con 138 de 140 es útil; uno que
+        // finge estar completo, no.
+        toast.success(r.fallidos
+          ? `${miles(r.incluidos)} documentos en ${r.filename}. ${miles(r.fallidos)} no se pudieron descargar.`
+          : `${miles(r.incluidos)} documentos listos, ${r.filename}`)
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'No se pudieron exportar los documentos.')
+      }
+      return
+    }
     // Las candidaturas bloqueadas (plan gratuito, sobre el tope) también salen en
     // el Excel, como filas señuelo sin datos personales: exportar no puede ser un
     // atajo para leer lo bloqueado. Solo en la vista completa (sin filtro): con un
@@ -958,8 +986,11 @@ export function Dashboard() {
       const { data } = await supabase.rpc('locked_candidates_export', { p_campaign: campaign.id })
       if (Array.isArray(data)) lockedDates = data as string[]
     }
-    const name = await exportCandidatesToExcel(campaign, filtered, tags, lockedDates, await loadCommentsForMany(filtered.map((c) => c.id)))
-    toast.success(`Excel listo, ${name}`)
+    const comentarios = await loadCommentsForMany(filtered.map((c) => c.id))
+    const name = formato === 'csv'
+      ? exportCandidatesToCsv(campaign, filtered, tags, lockedDates, comentarios)
+      : await exportCandidatesToExcel(campaign, filtered, tags, lockedDates, comentarios)
+    toast.success(`Listo, ${name}`)
   }
 
   // Deshacer la selección. Ya no hay un "modo" del que salir: con la casilla en su
@@ -1120,6 +1151,7 @@ export function Dashboard() {
               exportCount={filtered.length}
               exportTotal={all.length}
               onExport={doExport}
+              conDocumentos={filtered.filter((c) => c.cvPath).length}
               onSetSite={(siteId) => updateCampaign(campaign.id, { siteId })}
               onToggleNotify={() => updateCampaign(campaign.id, { notifyNew: campaign.notifyNew === false })}
               onDuplicate={handleDuplicate}
@@ -2628,7 +2660,181 @@ function RespuestaCelda({ candidate, field }: { candidate: Candidate; field: For
   return <span className={`block truncate ${cifra ? 'num' : ''}`} title={texto}>{texto}</span>
 }
 
+/* --- Vocabulario del menú del puesto -------------------------------------
+   Vive en el módulo y no dentro de `PuestoMenu` porque lo comparten sus filas y
+   los paneles laterales que cuelgan de ellas, que son componentes aparte. En
+   móvil la fila crece (14px y más alto) porque es un objetivo de toque. */
+const FILA = 'flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[14px] outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 sm:py-1.5 sm:text-[13px]'
+const QUIETA = 'text-slate-800 hover:bg-slate-50'
+const GLIFO = 'size-4 shrink-0 text-slate-400'
+
 /**
+ * UNA FILA DE MENÚ QUE ABRE SU PANEL AL LADO, AL PASAR POR ENCIMA.
+ *
+ * Sustituye a la navegación por páginas dentro de la misma caja (Mario, ago 2026,
+ * con la referencia delante: "que salieran hacia el lado al hacer hover, en vez
+ * de obligar a hacer click"). El argumento de las páginas era bueno y sigue
+ * siéndolo EN MÓVIL, donde un panel lateral no tiene dónde ponerse: allí se
+ * queda. En escritorio, un submenú de tres filas no merece dos clicks (entrar y
+ * volver) y encima te tapa el resto del menú mientras estás dentro.
+ *
+ * TRES COSAS QUE NO SON OPCIONALES:
+ *
+ * 1. **Va hacia la IZQUIERDA** (`colocarLateral`), porque este menú vive pegado
+ *    al filo derecho de la pantalla: hacia la derecha no cabe casi nunca. Es lo
+ *    que hace la referencia, y por lo mismo.
+ * 2. **Al salir no se cierra en el acto.** Entre la fila y el panel hay un hueco,
+ *    y el ratón lo cruza en diagonal: cerrando al primer `mouseleave` el submenú
+ *    es literalmente inalcanzable. Se espera un pelo, y el propio panel cancela
+ *    la espera al recibir el ratón.
+ * 3. **Con teclado se abre y el foco ENTRA.** El panel va en un portal (el menú
+ *    lleva `overflow-clip` y lo recortaría), así que en el DOM está al final del
+ *    `body` y el tabulador no llegaría solo. Al abrir con teclado se mueve el
+ *    foco a su primera fila y Escape lo devuelve. Abriendo con el ratón NO se
+ *    toca el foco, o se lo robaría a lo que estuvieras escribiendo.
+ */
+function FilaSubmenu({
+  id,
+  icon: Icon,
+  label,
+  valor,
+  abierto,
+  onAbrir,
+  onCerrarTarde,
+  onCerrarYa,
+  children,
+}: {
+  id: string
+  icon: LucideIcon
+  label: string
+  /** Lo que vale ahora, si la fila informa además de llevar (la sede). */
+  valor?: ReactNode
+  abierto: boolean
+  onAbrir: (id: string, conFoco?: boolean) => void
+  onCerrarTarde: () => void
+  onCerrarYa: () => void
+  children: ReactNode
+}) {
+  const filaRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  // Al cerrarse hay que olvidar dónde estaba: si no, al reabrir se pinta un
+  // fotograma en la posición del anterior antes de recolocarse.
+  useEffect(() => { if (!abierto) setPos(null) }, [abierto])
+
+  useLayoutEffect(() => {
+    if (!abierto) return
+    const colocar = () => {
+      const a = filaRef.current?.getBoundingClientRect()
+      const p = panelRef.current?.getBoundingClientRect()
+      if (!a || !p) return
+      // EL ANCLA HORIZONTAL ES EL MENÚ, NO LA FILA. La fila empieza DENTRO del
+      // relleno del menú (6px), así que colgando de ella el panel se metía dos
+      // píxeles por debajo del menú y se veía pisándolo. Lo que la fila decide es
+      // la ALTURA; de dónde sale el panel lo decide la caja que lo contiene.
+      const menu = filaRef.current?.closest('[role="menu"]')?.getBoundingClientRect() ?? a
+      const caja = { top: a.top, bottom: a.bottom, left: menu.left, right: menu.right }
+      setPos(colocarLateral(caja, { width: p.width, height: p.height }, { width: window.innerWidth, height: window.innerHeight }))
+    }
+    colocar()
+    window.addEventListener('resize', colocar)
+    return () => window.removeEventListener('resize', colocar)
+  }, [abierto])
+
+  const alTeclado = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onAbrir(id, true)
+    } else if (e.key === 'ArrowLeft' || e.key === 'Escape') {
+      if (!abierto) return
+      e.stopPropagation()
+      onCerrarYa()
+      filaRef.current?.focus()
+    }
+  }
+
+  return (
+    <div onMouseEnter={() => onAbrir(id)} onMouseLeave={onCerrarTarde}>
+      <button
+        ref={filaRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={abierto}
+        onClick={() => (abierto ? onCerrarYa() : onAbrir(id, true))}
+        onKeyDown={alTeclado}
+        onFocus={() => onAbrir(id)}
+        className={`${FILA} ${abierto ? 'bg-slate-50' : QUIETA}`}
+      >
+        <Icon className={GLIFO} aria-hidden />
+        <span className="flex-1">{label}</span>
+        {valor}
+        <ChevronRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+      </button>
+      {abierto && createPortal(
+        <div
+          ref={panelRef}
+          role="menu"
+          aria-label={label}
+          onMouseEnter={() => onAbrir(id)}
+          onMouseLeave={onCerrarTarde}
+          onKeyDown={(e) => {
+            if (e.key !== 'Escape') return
+            e.stopPropagation()
+            onCerrarYa()
+            filaRef.current?.focus()
+          }}
+          style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? 'visible' : 'hidden' }}
+          className="fixed z-[60] w-64 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop"
+        >
+          {children}
+        </div>,
+        document.body,
+      )}
+    </div>
+  )
+}
+
+/**
+ * QUIÉN TIENE EL SUBMENÚ ABIERTO LO DECIDE EL MENÚ, NO CADA FILA.
+ *
+ * Con un `useState` por fila no hay forma de que una sepa de la otra, y con la
+ * espera de cierre puesta eso deja **dos submenús pintados a la vez** al pasar de
+ * una fila a la siguiente. Es la misma lección que los plegables del lateral: lo
+ * que tiene que ser excluyente vive en el padre.
+ *
+ * La espera solo cubre el caso para el que se puso: **salir hacia FUERA**, que es
+ * cruzar en diagonal el hueco entre la fila y su panel. Al entrar en otra fila se
+ * cierra en el acto, porque abrir la nueva es cerrar la vieja.
+ */
+function useSubmenu() {
+  const [abierto, setAbierto] = useState<string | null>(null)
+  const espera = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(espera.current), [])
+
+  const onAbrir = useCallback((id: string, conFoco = false) => {
+    window.clearTimeout(espera.current)
+    setAbierto(id)
+    if (!conFoco) return
+    // Tras el commit: el panel todavía no existe cuando esto se llama.
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[role="menu"][aria-label="${id}"] button`)?.focus()
+    })
+  }, [])
+  const onCerrarYa = useCallback(() => {
+    window.clearTimeout(espera.current)
+    setAbierto(null)
+  }, [])
+  const onCerrarTarde = useCallback(() => {
+    window.clearTimeout(espera.current)
+    espera.current = window.setTimeout(() => setAbierto(null), 140)
+  }, [])
+
+  return { abierto, onAbrir, onCerrarYa, onCerrarTarde }
+}
+
+/**
+ * EL `···` DE LA BARRA DE SELECCIÓN/**
  * EL `···` DE LA BARRA DE SELECCIÓN: lo que no se hace a diario.
  *
  * Su panel va en un PORTAL por lo mismo que el de etiquetas: la barra recorta lo
@@ -3224,6 +3430,7 @@ function PuestoMenu({
   exportCount,
   exportTotal,
   onExport,
+  conDocumentos,
   onSetSite,
   onToggleNotify,
   onDuplicate,
@@ -3237,7 +3444,9 @@ function PuestoMenu({
   publicUrl: string
   exportCount: number
   exportTotal: number
-  onExport: () => void | Promise<void>
+  onExport: (formato: FormatoExport) => void | Promise<void>
+  /** Cuántos de los exportables traen CV. Si es 0, el zip no se ofrece. */
+  conDocumentos: number
   onSetSite: (siteId: string | null) => void
   onToggleNotify: () => void
   onDuplicate: () => void
@@ -3252,7 +3461,10 @@ function PuestoMenu({
   // página, con su fila de volver. Una segunda capa colgando de la primera se sale
   // de la pantalla en cuanto el menú está pegado al filo derecho, y en móvil (donde
   // esto es una hoja) no tendría dónde ponerse.
-  const [pagina, setPagina] = useState<'raiz' | 'sede'>('raiz')
+  const [pagina, setPagina] = useState<'raiz' | 'sede' | 'exportar'>('raiz')
+  // Cuál de los submenús laterales está abierto. Vive AQUÍ y no en cada fila: es
+  // lo que los hace excluyentes (ver `useSubmenu`).
+  const submenu = useSubmenu()
   const [sedesOpen, setSedesOpen] = useState(false)
   const [sedesKey, setSedesKey] = useState(0)
   const ref = useRef<HTMLDivElement>(null)
@@ -3279,7 +3491,7 @@ function PuestoMenu({
       if (e.key !== 'Escape') return
       // Escape dentro del submenú vuelve a la raíz; en la raíz, cierra. Así no se
       // sale de todo por querer deshacer un paso.
-      if (pagina === 'sede') {
+      if (pagina !== 'raiz') {
         e.stopPropagation()
         setPagina('raiz')
         return
@@ -3313,11 +3525,8 @@ function PuestoMenu({
   const avisos = campaign.notifyNew !== false
   const sede = sites.find((x) => x.id === campaign.siteId) ?? null
 
-  const FILA = 'flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[14px] outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 sm:py-1.5 sm:text-[13px]'
-  const QUIETA = 'text-slate-800 hover:bg-slate-50'
-  const GLIFO = 'size-4 shrink-0 text-slate-400'
 
-  const raiz = (
+  const raiz = (flotante: boolean) => (
     <>
       {/* EL FORMULARIO: EDITARLO Y VERLO, JUNTOS Y EN ESE ORDEN (Mario, ago 2026).
           Son las dos caras de la misma cosa, y con una raya y "Duplicar" en medio
@@ -3344,7 +3553,7 @@ function PuestoMenu({
           className={`${FILA} ${QUIETA}`}
         >
           <Eye className={GLIFO} aria-hidden />
-          <span className="flex-1">Ver el formulario</span>
+          <span className="flex-1">Ver formulario</span>
           <ArrowUpRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
           <span className="sr-only">(se abre en otra pestaña)</span>
         </a>
@@ -3361,35 +3570,72 @@ function PuestoMenu({
       </div>
 
       <div className="space-y-0.5 border-t border-slate-100 py-1.5">
-        <button
-          type="button"
-          onClick={() => { void onExport(); cerrar() }}
-          className={`${FILA} ${QUIETA}`}
-        >
-          <Download className={GLIFO} aria-hidden />
-          <span className="flex-1">
-            {exportCount === exportTotal
-              ? 'Exportar a Excel'
-              : `Exportar a Excel (${miles(exportCount)} filtrados)`}
-          </span>
-        </button>
+        {/* EXPORTAR ES UNA PUERTA, NO UN VERBO (Mario, ago 2026). Era "Exportar a
+            Excel" y ejecutaba; ahora abre su submenú, porque hay TRES formatos y
+            cuál quieres depende de a dónde va: XLSX para abrirlo, CSV para meterlo
+            en otro programa, ZIP para los documentos.
+
+            SIN RECUENTO EN LA FILA (Mario, ago 2026). Lo llevó, y era la misma
+            cifra dos veces: dentro ya está, en el rótulo que dice qué te llevas
+            ("La lista filtrada (127)"). Se puso aquí cuando entrar costaba un
+            click y volver otro; abriéndose al pasar por encima, el dentro está a
+            un gesto que ya estabas haciendo. */}
+        {flotante ? (
+          <FilaSubmenu
+            id="Exportar"
+            abierto={submenu.abierto === 'Exportar'}
+            onAbrir={submenu.onAbrir}
+            onCerrarTarde={submenu.onCerrarTarde}
+            onCerrarYa={submenu.onCerrarYa}
+            icon={Download}
+            label="Exportar"
+          >
+            {contenidoExportar}
+          </FilaSubmenu>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPagina('exportar')}
+            aria-haspopup="menu"
+            className={`${FILA} ${QUIETA}`}
+          >
+            <Download className={GLIFO} aria-hidden />
+            <span className="flex-1">Exportar</span>
+            <ChevronRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+          </button>
+        )}
       </div>
 
       {canManage && (
         <div className="space-y-0.5 border-t border-slate-100 py-1.5">
           {/* "Elige uno de varios" = `›`. El valor actual se lee EN la fila, sin
               tener que entrar: la fila informa además de llevar. */}
-          <button
-            type="button"
-            onClick={() => setPagina('sede')}
-            aria-haspopup="menu"
-            className={`${FILA} ${QUIETA}`}
-          >
-            <Building2 className={GLIFO} aria-hidden />
-            <span className="flex-1">Sede</span>
-            <span className="max-w-[9rem] truncate text-[12px] text-slate-500">{sede?.name ?? 'Sin sede'}</span>
-            <ChevronRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
-          </button>
+          {flotante ? (
+            <FilaSubmenu
+              id="Sede"
+              abierto={submenu.abierto === 'Sede'}
+              onAbrir={submenu.onAbrir}
+              onCerrarTarde={submenu.onCerrarTarde}
+              onCerrarYa={submenu.onCerrarYa}
+              icon={Building2}
+              label="Sede"
+              valor={<span className="max-w-[9rem] truncate text-[12px] text-slate-500">{sede?.name ?? 'Sin sede'}</span>}
+            >
+              {contenidoSede}
+            </FilaSubmenu>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPagina('sede')}
+              aria-haspopup="menu"
+              className={`${FILA} ${QUIETA}`}
+            >
+              <Building2 className={GLIFO} aria-hidden />
+              <span className="flex-1">Sede</span>
+              <span className="max-w-[9rem] truncate text-[12px] text-slate-500">{sede?.name ?? 'Sin sede'}</span>
+              <ChevronRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
+            </button>
+          )}
           {/* Nombrado por su EFECTO, no por su asunto: en un menú se ejecuta. */}
           <button
             type="button"
@@ -3417,16 +3663,47 @@ function PuestoMenu({
     </>
   )
 
-  const paginaSede = (
+  /**
+   * LA PÁGINA DE EXPORTAR. Dos grupos, y el rótulo dice QUÉ te llevas, no en qué
+   * formato: "la lista" y "los documentos" son dos cosas distintas, y el formato
+   * es un detalle de cada una.
+   *
+   * El ZIP **solo aparece si hay algún CV**. Sin documentos, una fila que no
+   * puede hacer nada es una puerta pintada en la pared; con ella fuera, quien no
+   * pide CV en su formulario no ve nunca el concepto.
+   */
+  const contenidoExportar = (
     <>
-      <button
-        type="button"
-        onClick={() => setPagina('raiz')}
-        className={`${FILA} ${QUIETA} font-medium`}
-      >
-        <ChevronLeft className={GLIFO} aria-hidden /> Sede
-      </button>
-      <div className="mt-1 space-y-0.5 border-t border-slate-100 pt-1.5">
+      <div className="space-y-0.5">
+        <p className="px-2.5 pb-1 pt-1 text-[12px] text-slate-500">
+          La lista {exportCount === exportTotal ? 'completa' : `filtrada (${miles(exportCount)})`}
+        </p>
+        <button type="button" onClick={() => { void onExport('xlsx'); cerrar() }} className={`${FILA} ${QUIETA}`}>
+          <FileSpreadsheet className={GLIFO} aria-hidden />
+          <span className="flex-1">Excel (.xlsx)</span>
+        </button>
+        <button type="button" onClick={() => { void onExport('csv'); cerrar() }} className={`${FILA} ${QUIETA}`}>
+          <FileText className={GLIFO} aria-hidden />
+          <span className="flex-1">CSV</span>
+        </button>
+      </div>
+      {conDocumentos > 0 && (
+        <div className="mt-1 space-y-0.5 border-t border-slate-100 pt-1.5">
+          <p className="px-2.5 pb-1 pt-1 text-[12px] text-slate-500">
+            Los documentos ({miles(conDocumentos)})
+          </p>
+          <button type="button" onClick={() => { void onExport('zip'); cerrar() }} className={`${FILA} ${QUIETA}`}>
+            <FileArchive className={GLIFO} aria-hidden />
+            <span className="flex-1">CV y adjuntos (.zip)</span>
+          </button>
+        </div>
+      )}
+    </>
+  )
+
+  const contenidoSede = (
+    <>
+      <div className="space-y-0.5">
         {[null, ...sites.map((x) => x.id)].map((id) => {
           const s = id ? sites.find((x) => x.id === id) : null
           const elegida = (campaign.siteId ?? null) === id
@@ -3469,7 +3746,24 @@ function PuestoMenu({
     </>
   )
 
-  const cuerpo = pagina === 'sede' ? paginaSede : raiz
+  /**
+   * En MÓVIL el submenú sigue siendo otra página de la misma hoja, con su fila de
+   * volver: un panel lateral no tiene dónde ponerse en 375px. El CONTENIDO es el
+   * mismo que el del flyout de escritorio, así que no puede separarse.
+   */
+  const pagina2 = (titulo: string, contenido: ReactNode) => (
+    <>
+      <button type="button" onClick={() => setPagina('raiz')} className={`${FILA} ${QUIETA} font-medium`}>
+        <ChevronLeft className={GLIFO} aria-hidden /> {titulo}
+      </button>
+      <div className="mt-1 border-t border-slate-100 pt-1.5">{contenido}</div>
+    </>
+  )
+  const cuerpoMovil = pagina === 'sede'
+    ? pagina2('Sede', contenidoSede)
+    : pagina === 'exportar'
+      ? pagina2('Exportar', contenidoExportar)
+      : raiz(false)
 
   return (
     <div className="relative" ref={ref}>
@@ -3507,14 +3801,14 @@ function PuestoMenu({
           aria-label="Acciones del puesto"
           className="absolute right-0 z-50 mt-1.5 hidden w-72 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop sm:block"
         >
-          {cuerpo}
+          {raiz(true)}
         </div>
       )}
 
       {/* Móvil: hoja inferior, la misma lista. */}
       {isMobile && (
-        <BottomSheet open={open} onClose={cerrar} title={pagina === 'sede' ? 'Sede' : 'Acciones del puesto'} inert={sedesOpen}>
-          <div className="px-2 pb-3 pt-1">{cuerpo}</div>
+        <BottomSheet open={open} onClose={cerrar} title={pagina === 'sede' ? 'Sede' : pagina === 'exportar' ? 'Exportar' : 'Acciones del puesto'} inert={sedesOpen}>
+          <div className="px-2 pb-3 pt-1">{cuerpoMovil}</div>
         </BottomSheet>
       )}
 

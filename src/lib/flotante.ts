@@ -89,3 +89,33 @@ export function limitesVisibles(el: HTMLElement): [number, number] {
   }
   return [0, window.innerHeight]
 }
+
+/**
+ * COLOCA UN PANEL AL LADO DE SU FILA (el flyout de un submenú), no debajo.
+ *
+ * Prefiere la IZQUIERDA, y no es una manía: el menú del que cuelga vive pegado al
+ * filo derecho de la pantalla, así que hacia la derecha casi nunca cabe. Si a la
+ * izquierda tampoco cabe pero a la derecha sí, se va a la derecha; y en cualquier
+ * caso se aprieta contra el filo antes que salirse.
+ *
+ * En vertical arranca un pelo por encima de la fila (el relleno del panel hace
+ * que su primer ítem quede a la altura de la fila que lo abrió) y se sube si por
+ * abajo no cabe.
+ */
+export function colocarLateral(
+  ancla: Caja,
+  tam: { width: number; height: number },
+  vista: { width: number; height: number },
+  opts: { margen?: number; hueco?: number } = {},
+): Colocacion {
+  // El hueco es de VERDAD (8px, el mismo que separa cualquier flotante de su
+  // ancla): pegado, el panel se lee como una prolongación del menú en vez de como
+  // una capa encima, y basta un pixel de más para que parezca que lo pisa.
+  const { margen = MARGEN, hueco = HUECO } = opts
+  const cabeIzquierda = ancla.left - hueco - tam.width - margen >= 0
+  const cabeDerecha = ancla.right + hueco + tam.width + margen <= vista.width
+  const crudo = cabeIzquierda || !cabeDerecha ? ancla.left - hueco - tam.width : ancla.right + hueco
+  const left = Math.max(margen, Math.min(crudo, vista.width - tam.width - margen))
+  const top = Math.max(margen, Math.min(ancla.top - 6, vista.height - tam.height - margen))
+  return { top, left, lado: 'abajo' }
+}

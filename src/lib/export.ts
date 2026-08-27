@@ -1,6 +1,8 @@
 import type { Campaign, Candidate, CandidateComment, Tag } from './types'
 import { STATUS_META, SOURCE_META } from './types'
-import { fullDateTime, personLabel } from './format'
+import { fullDateTime, personLabel, candidateName } from './format'
+import { supabase } from './supabase'
+import { crearZip, nombreSeguro, nombreUnico } from './zip'
 
 // xlsx es pesado (~400 KB) y solo hace falta al exportar. Se carga bajo demanda
 // con import() dinámico para que no entre en el bundle inicial del panel.
@@ -97,6 +99,129 @@ export function buildSheet(
   return { header, rows: [...lockedRows(campaign, lockedDates, header), ...realRows] }
 }
 
+/* ---------------------------------------------------------------------------
+   TRES FORMAS DE SACAR LO MISMO, Y LAS TRES DE LA MISMA FUENTE.
+   ---------------------------------------------------------------------------
+   XLSX, CSV y el zip de documentos salen de `buildSheet`, que es quien decide QUÉ
+   columnas hay y en qué orden. Escribir las columnas otra vez para el CSV era la
+   forma segura de que dentro de tres meses el Excel y el CSV tuvieran datos
+   distintos, que es justo el fallo que nadie mira hasta que un cliente lo dice.
+--------------------------------------------------------------------------- */
+
+/** `candidatos-<puesto>-<fecha>.<ext>`, igual para los tres formatos. */
+function nombreFichero(campaign: Campaign, ext: string): string {
+  const hoy = new Date()
+  const stamp = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+  return `candidatos-${campaign.slug}-${stamp}.${ext}`
+}
+
+/** Baja un blob con el nombre dado. Lo comparten el CSV y el zip. */
+function descargar(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  // Sin revocar, cada exportación deja el fichero entero retenido en memoria.
+  setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+/**
+ * Una celda de CSV: se entrecomilla solo si hace falta y las comillas de dentro
+ * se duplican, que es lo que dice el RFC 4180. Los saltos de línea NO se quitan
+ * (el hilo del equipo tiene varios): entre comillas son válidos y cualquier
+ * lector serio los entiende.
+ */
+function celdaCsv(v: string): string {
+  return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
+}
+
+/**
+ * CSV, PARA LLEVARSE LOS DATOS A OTRO SITIO.
+ *
+ * SEPARADO POR COMAS, que es el estándar de intercambio, y **eso tiene una
+ * consecuencia que hay que saber**: el Excel en español espera punto y coma, así
+ * que abriendo este fichero de dos clics lo mete todo en una columna. No se
+ * arregla cambiando el separador, se arregla eligiendo bien el formato: para
+ * Excel está el XLSX, que es la fila de encima del menú y sale ya con anchos y
+ * filtros. El CSV es para meter la lista en OTRO programa (un ATS, un CRM, una
+ * hoja de Google), y ahí la coma es lo que se espera.
+ *
+ * Con BOM de UTF-8: sin él, cualquier "ñ" o "í" llega rota a media Europa.
+ */
+export function exportCandidatesToCsv(
+  campaign: Campaign,
+  candidates: Candidate[],
+  tags: Tag[] = [],
+  lockedDates: string[] = [],
+  comments: Record<string, CandidateComment[]> = {},
+): string {
+  const { header, rows } = buildSheet(campaign, candidates, tags, lockedDates, comments)
+  const texto = [header, ...rows].map((fila) => fila.map((c) => celdaCsv(String(c ?? ''))).join(',')).join('\r\n')
+  const filename = nombreFichero(campaign, 'csv')
+  descargar(new Blob([`\uFEFF${texto}`], { type: 'text/csv;charset=utf-8' }), filename)
+  return filename
+}
+
+/** Lo que devuelve el zip de documentos, para que quien llama pueda contarlo. */
+export type ResultadoDocs = { filename: string; incluidos: number; fallidos: number }
+
+/**
+ * LOS CV DE UNA SELECCIÓN, EN UN ZIP.
+ *
+ * Los ficheros viven en un bucket PRIVADO, así que hay que firmar cada uno. Se
+ * firman TODOS DE UNA VEZ (`createSignedUrls`) y no de uno en uno: con ciento
+ * cuarenta candidatos eso es una petición en vez de ciento cuarenta.
+ *
+ * **Lo que falla no rompe la exportación, se cuenta.** Un CV borrado del bucket o
+ * una descarga cortada no puede dejarte sin el zip entero: se salta y quien llama
+ * dice cuántos entraron y cuántos no. Un zip con 138 de 140 es útil; un error
+ * seco después de esperar, no.
+ *
+ * El nombre de cada fichero es el de la PERSONA, no el uuid del bucket: un zip de
+ * "8f3a-91bc.pdf" no sirve para nada. Los repetidos se numeran.
+ */
+export async function exportCandidateDocs(
+  campaign: Campaign,
+  candidates: Candidate[],
+): Promise<ResultadoDocs> {
+  const conCv = candidates.filter((c) => c.cvPath)
+  if (!conCv.length) return { filename: '', incluidos: 0, fallidos: 0 }
+
+  const { data, error } = await supabase.storage
+    .from('cvs')
+    .createSignedUrls(conCv.map((c) => c.cvPath!), 300)
+  if (error || !data) throw new Error('No se pudieron pedir los documentos.')
+
+  const firmadas = new Map(data.map((d) => [d.path ?? '', d.signedUrl]))
+  const usados = new Set<string>()
+  const entradas: { nombre: string; datos: Uint8Array<ArrayBuffer> }[] = []
+  let fallidos = 0
+
+  for (const c of conCv) {
+    const url = firmadas.get(c.cvPath!)
+    if (!url) { fallidos++; continue }
+    try {
+      const res = await fetch(url)
+      if (!res.ok) { fallidos++; continue }
+      const datos = new Uint8Array(await res.arrayBuffer()) as Uint8Array<ArrayBuffer>
+      // La extensión sale de la ruta guardada, que es la del fichero que subió el
+      // candidato; sin ella el sistema no sabría con qué abrirlo.
+      const ext = (c.cvPath!.match(/\.[a-z0-9]+$/i)?.[0] ?? '').toLowerCase()
+      entradas.push({ nombre: nombreUnico(nombreSeguro(candidateName(c) || 'Sin nombre'), ext, usados), datos })
+    } catch {
+      fallidos++
+    }
+  }
+
+  if (!entradas.length) throw new Error('No se pudo descargar ningún documento.')
+  const filename = nombreFichero(campaign, 'zip')
+  descargar(crearZip(entradas), filename)
+  return { filename, incluidos: entradas.length, fallidos }
+}
+
 export async function exportCandidatesToExcel(
   campaign: Campaign,
   candidates: Candidate[],
@@ -120,11 +245,7 @@ export async function exportCandidatesToExcel(
   const sheetName = campaign.title.slice(0, 28).replace(/[\\/?*[\]:]/g, '')
   XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Candidatos')
 
-  const today = new Date()
-  const stamp = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
-    today.getDate(),
-  ).padStart(2, '0')}`
-  const filename = `candidatos-${campaign.slug}-${stamp}.xlsx`
+  const filename = nombreFichero(campaign, 'xlsx')
   XLSX.writeFile(wb, filename)
   return filename
 }
