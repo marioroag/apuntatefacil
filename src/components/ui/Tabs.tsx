@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useDesvanecido } from '../../lib/desvanecido'
 
 /**
  * Pestañas del sistema. Una sola gramática en toda la app: subrayado a 2px en el
@@ -48,9 +49,6 @@ const panelId = (prefix: string, value: string) => `${prefix}-panel-${value}`
  */
 const SANGRADO = 6
 
-/** Cuánto se desvanece la tira de pastillas en el lado por el que continúa. */
-const DESVANECIDO = 24
-
 export function Tabs<T extends string>({
   items,
   value,
@@ -90,7 +88,6 @@ export function Tabs<T extends string>({
   const barraRef = useRef<HTMLSpanElement>(null)
   // Si la tira de pastillas puede deslizarse, y hacia qué lado. De aquí cuelga
   // el desvanecido de los filos: ver `mascara`.
-  const [desliza, setDesliza] = useState({ izq: false, der: false })
   // Si la barra ya está puesta, el siguiente movimiento se anima; si no (primer
   // pintado, o el grupo venía de un `display:none`), aparece ya en su sitio.
   const puesta = useRef(false)
@@ -104,6 +101,10 @@ export function Tabs<T extends string>({
   // blame. En este proyecto, donde la doctrina vive en los comentarios, eso es
   // caro. Y de paso no hay separador que se pueda colar dentro de una etiqueta.
   const firma = JSON.stringify(items.map((t) => [t.value, t.label, t.count ?? null]))
+
+  // El desvanecido de los filos: ver `lib/desvanecido.ts`. Es lo que anuncia que
+  // la tira continúa, y solo por el lado que de verdad tiene algo más.
+  const mascara = useDesvanecido(listRef, 'x', { activo: variante === 'pastilla', senal: firma })
 
   useLayoutEffect(() => {
     const lista = listRef.current
@@ -145,26 +146,6 @@ export function Tabs<T extends string>({
     }
   }, [value, firma])
 
-  // ¿SE PUEDE DESLIZAR, Y HACIA DÓNDE? Se mira al scrollear, al cambiar el
-  // contenido y al cambiar el ancho: los tres pueden hacer que un lado deje de
-  // tener nada más que enseñar.
-  useLayoutEffect(() => {
-    const el = listRef.current
-    if (!el || variante !== 'pastilla') return
-    const mirar = () => {
-      const sobra = el.scrollWidth - el.clientWidth
-      setDesliza({ izq: el.scrollLeft > 1, der: sobra - el.scrollLeft > 1 })
-    }
-    mirar()
-    el.addEventListener('scroll', mirar, { passive: true })
-    const ro = new ResizeObserver(mirar)
-    ro.observe(el)
-    return () => {
-      el.removeEventListener('scroll', mirar)
-      ro.disconnect()
-    }
-  }, [variante, firma])
-
   // LA PASTILLA ACTIVA SE TRAE A LA VISTA. Es la mitad del aviso de que la tira
   // se desliza: al elegir la última, la tira se mueve, y ese movimiento enseña
   // que hay más de lo que se ve. `inline: 'nearest'` mueve lo mínimo y no toca
@@ -175,23 +156,6 @@ export function Tabs<T extends string>({
       ?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
       ?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
   }, [variante, value])
-
-  /**
-   * EL DESVANECIDO DE LOS FILOS, y por qué se salta la regla de "sin gradientes".
-   *
-   * Esa regla es contra el gradiente DECORATIVO, el que pinta una superficie
-   * para que parezca otra cosa. Esto no pinta nada: recorta con una máscara para
-   * decir que la tira SIGUE, que es la única forma de que un teléfono anuncie un
-   * desplazamiento horizontal sin pintar una barra ni meter dos flechas más en
-   * una fila que ya va justa. Es información, no adorno, y por eso solo aparece
-   * en el lado que de verdad tiene algo más que enseñar.
-   */
-  const mascara =
-    variante !== 'pastilla' || (!desliza.izq && !desliza.der)
-      ? undefined
-      : `linear-gradient(to right, transparent 0, black ${desliza.izq ? DESVANECIDO : 0}px, black calc(100% - ${
-          desliza.der ? DESVANECIDO : 0
-        }px), transparent 100%)`
 
   const move = (dir: -1 | 1 | 'first' | 'last') => {
     const i = items.findIndex((t) => t.value === value)

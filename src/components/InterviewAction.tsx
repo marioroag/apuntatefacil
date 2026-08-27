@@ -3,6 +3,7 @@ import { CalendarDays, CalendarPlus, Loader2, MessageCircle, X } from 'lucide-re
 import { Modal } from './ui/Modal'
 import { useStore } from '../lib/store'
 import { useToast } from './ui/Toast'
+import { SelectorFechaHora } from './ui/DateTimePicker'
 import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import { currentInterview } from '../lib/interviews'
 import { useAnfitrion } from '../lib/anfitrion'
@@ -232,13 +233,7 @@ export function AgendarManualDialog({
           <label htmlFor="ent-cuando" className="mb-1 block text-[13px] font-semibold text-slate-700">
             Día y hora
           </label>
-          <input
-            id="ent-cuando"
-            type="datetime-local"
-            value={cuando}
-            onChange={(e) => setCuando(e.target.value)}
-            className="num h-11 w-full rounded-xl border border-slate-300 px-3 text-[15px] text-slate-900 focus-visible:border-indigo-500"
-          />
+          <SelectorFechaHora id="ent-cuando" value={cuando} onChange={setCuando} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">

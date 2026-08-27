@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Pencil, Plus, Settings2, Tag as TagIcon, Trash2, X } from 'lucide-react'
 import type { Tag } from '../lib/types'
@@ -9,7 +9,6 @@ import { useEsTactil } from '../lib/media'
 import { useToast } from './ui/Toast'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 import { Checkbox } from './ui/Checkbox'
-import { limitesVisibles } from '../lib/flotante'
 import { BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 
 // ---------------------------------------------------------------------------
@@ -32,7 +31,6 @@ export const TAG_LIMIT_PER_CANDIDATE = 25 // límite blando por candidato
 
 // Alto que reserva el desplegable para decidir si abre hacia arriba: su tope
 // (max-h-60 = 240px) más el hueco de 4px. Si cambia la clase, cambia esto.
-const ALTO_LISTA = 244
 
 // Microcopy (es-ES), en un solo sitio.
 const COPY = {
@@ -162,227 +160,23 @@ export function TagCell({ tagIds, tags }: { tagIds: string[]; tags: Tag[] }) {
 // etiquetar. Hubo una variante `inline` para la cabecera del detalle (chips
 // primero y un "+ Etiqueta" discreto) y se retiró en ago 2026 al bajar las
 // etiquetas al Resumen a todos los anchos.
-export function TagPicker({
-  candidateId,
-  tagIds,
-  canManage,
-  onOpenManage,
-}: {
-  candidateId: string
-  tagIds: string[]
-  canManage: boolean
-  onOpenManage: () => void
-}) {
-  const { tags, applyTag, removeTag, createTag } = useStore()
-  const toast = useToast()
-  const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
-  const [arriba, setArriba] = useState(false)
-  const [active, setActive] = useState(0)
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const listId = useId()
-
-  const applied = useMemo(
-    () => tagIds.map((id) => tags.find((t) => t.id === id)).filter((t): t is Tag => !!t),
-    [tagIds, tags],
-  )
-
-  const q = normalizeTagName(query).toLowerCase()
-  const appliedIds = new Set(tagIds)
-  const matches = useMemo(
-    () => tags.filter((t) => !appliedIds.has(t.id) && (!q || t.name.toLowerCase().includes(q))),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tags, tagIds, q],
-  )
-  // ¿Existe ya una etiqueta exactamente igual (ignorando mayúsculas)?
-  const exactExists = q.length > 0 && tags.some((t) => t.name.toLowerCase() === q)
-  const showCreate = canManage && q.length > 0 && q.length <= 40 && !exactExists
-
-  type Opt = { kind: 'tag'; tag: Tag } | { kind: 'create' }
-  const options: Opt[] = useMemo(
-    () => [...matches.map((t) => ({ kind: 'tag' as const, tag: t })), ...(showCreate ? [{ kind: 'create' as const }] : [])],
-    [matches, showCreate],
-  )
-
-  useEffect(() => setActive(0), [query, open])
-
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => wrapRef.current && !wrapRef.current.contains(e.target as Node) && setOpen(false)
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [open])
-
-  /**
-   * Abre la lista decidiendo antes hacia dónde. El bloque de etiquetas vive
-   * abajo del Resumen, dentro de un panel con scroll propio: abriendo siempre
-   * hacia abajo, la lista se quedaba cortada por el borde del panel y no se
-   * leía. Si no cabe debajo y sí encima, sube.
-   */
-  const abrir = () => {
-    const caja = wrapRef.current?.getBoundingClientRect()
-    if (caja) {
-      const [techo, suelo] = limitesVisibles(wrapRef.current!)
-      const debajo = suelo - caja.bottom
-      setArriba(debajo < ALTO_LISTA && caja.top - techo > debajo)
-    }
-    setOpen(true)
-  }
-
-  const atLimit = applied.length >= TAG_LIMIT_PER_CANDIDATE
-
-  const choose = async (opt: Opt) => {
-    if (atLimit) {
-      toast.show(`Una candidatura admite hasta ${TAG_LIMIT_PER_CANDIDATE} etiquetas.`)
-      return
-    }
-    if (opt.kind === 'tag') {
-      applyTag(candidateId, opt.tag.id)
-    } else {
-      const tag = await createTag(query)
-      if (tag) applyTag(candidateId, tag.id)
-    }
-    setQuery('')
-    setActive(0)
-    inputRef.current?.focus()
-  }
-
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      abrir()
-      setActive((a) => Math.min(a + 1, options.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActive((a) => Math.max(a - 1, 0))
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (options[active]) choose(options[active])
-    } else if (e.key === 'Escape') {
-      if (open) {
-        e.preventDefault()
-        // Cierra la lista, no la ficha de detrás: el modal escucha en document
-        // y sin esto un Escape para descartar el desplegable cerraría al
-        // candidato entero.
-        e.stopPropagation()
-        setOpen(false)
-      }
-    } else if (e.key === 'Backspace' && query === '' && applied.length > 0) {
-      // Borrar con la tecla la última etiqueta aplicada (patrón de combobox de chips).
-      removeTag(candidateId, applied[applied.length - 1].id)
-    }
-  }
-
-  const showDropdown = open && (options.length > 0 || canManage)
-
-  const opciones = (
-      <ul
-        id={listId}
-        role="listbox"
-        className={`absolute inset-x-0 z-50 max-h-60 overflow-y-auto rounded-xl filo bg-white p-1 shadow-pop ${
-          arriba ? 'bottom-full mb-1' : 'top-full mt-1'
-        }`}
-      >
-        {options.length === 0 && !showCreate && (
-          <li className="px-2.5 py-2 text-[13px] text-slate-500">
-            {tags.length === 0
-              ? canManage
-                ? 'Escribe para crear tu primera etiqueta.'
-                : 'Tu empresa aún no tiene etiquetas.'
-              : 'Ninguna etiqueta coincide.'}
-          </li>
-        )}
-        {options.map((opt, i) => {
-          const isActive = i === active
-          if (opt.kind === 'create') {
-            return (
-              <li key="__create" role="option" aria-selected={isActive}>
-                <button
-                  type="button"
-                  onMouseEnter={() => setActive(i)}
-                  onClick={() => choose(opt)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-indigo-700 ${
-                    isActive ? 'bg-indigo-50' : 'hover:bg-indigo-50'
-                  }`}
-                >
-                  <Plus className="size-4 shrink-0" aria-hidden />
-                  <span className="truncate">{COPY.create(normalizeTagName(query))}</span>
-                </button>
-              </li>
-            )
-          }
-          return (
-            <li key={opt.tag.id} role="option" aria-selected={isActive}>
-              <button
-                type="button"
-                onMouseEnter={() => setActive(i)}
-                onClick={() => choose(opt)}
-                className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 ${
-                  isActive ? 'bg-slate-100' : 'hover:bg-slate-100'
-                }`}
-              >
-                <TagIcon className="size-3.5 shrink-0 text-slate-500" aria-hidden />
-                <span className="truncate">{opt.tag.name}</span>
-              </button>
-            </li>
-          )
-        })}
-        {canManage && (
-          <li className="mt-1 border-t border-slate-100 pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false)
-                onOpenManage()
-              }}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-            >
-              <Settings2 className="size-3.5 shrink-0" aria-hidden />
-              {COPY.manage}
-            </button>
-          </li>
-        )}
-      </ul>
-  )
-
-  return (
-    <div ref={wrapRef} className="relative">
-      <div className="relative">
-        <input
-          ref={inputRef}
-          type="text"
-          role="combobox"
-          aria-expanded={showDropdown}
-          aria-controls={listId}
-          aria-autocomplete="list"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value)
-            abrir()
-          }}
-          onFocus={abrir}
-          onKeyDown={onKeyDown}
-          placeholder={COPY.add}
-          maxLength={40}
-          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-[13px] pointer-coarse:text-base outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
-        />
-      </div>
-
-      {showDropdown && opciones}
-
-      {applied.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {applied.map((t) => (
-            <TagChip key={t.id} id={t.id} name={t.name} vocabulario={tags} onRemove={() => removeTag(candidateId, t.id)} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Bloque "Etiquetas" de la ficha: título + info + combobox. canManage = owner/member.
+/**
+ * EL BLOQUE DE ETIQUETAS DE LA FICHA: LA MISMA LISTA QUE LA BARRA DE SELECCIÓN
+ * (Mario, ago 2026: "este selector es mucho mejor que el viejo, vamos a
+ * reemplazar al viejo con este en el resto de sitios").
+ *
+ * Había DOS editores de etiquetas en la app y no eran equivalentes: el de la
+ * ficha era un combobox que solo sabía AÑADIR (para quitar había que salir a los
+ * chips y buscar su equis) y solo enseñaba lo que aún no tenías, así que el
+ * vocabulario completo no se veía nunca desde ahí. La lista con casillas hace
+ * las dos cosas en el mismo sitio, enseña todo lo que hay y busca y crea con el
+ * mismo campo. Con un solo candidato es la "selección de uno" que ya usaba la
+ * celda de una fila: la casilla se marca o se desmarca, sin estados a medias.
+ *
+ * Lo que se conserva del viejo y no se puede perder: el tope blando por
+ * candidato (ahora vive en `BulkTagMenu`) y la puerta a administrar el
+ * vocabulario, que desde la ficha era la única que había.
+ */
 export function TagSection({
   candidateId,
   tagIds,
@@ -394,6 +188,15 @@ export function TagSection({
   canManage: boolean
   onOpenManage: () => void
 }) {
+  const { tags, removeTag } = useStore()
+  const aplicadas = useMemo(
+    () => tagIds.map((id) => tags.find((t) => t.id === id)).filter((t): t is Tag => !!t),
+    [tagIds, tags],
+  )
+  // Estable entre renders: es la prop de un menú que se remonta con cada cambio
+  // de candidato, y un array nuevo por render lo recolocaría sin motivo.
+  const seleccion = useMemo(() => [candidateId], [candidateId])
+
   return (
     <div>
       {/* La misma versalita que los demás apartados del raíl, y SIN el icono de
@@ -405,7 +208,42 @@ export function TagSection({
           tuviera una advertencia. Si algún día hay que decirlo, su sitio es
           donde se ADMINISTRA el vocabulario, no en cada ficha. */}
       <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{COPY.title}</h3>
-      <TagPicker candidateId={candidateId} tagIds={tagIds} canManage={canManage} onOpenManage={onOpenManage} />
+      {/* El disparador se sigue viendo como el CAMPO que había: en esta columna
+          es hermano del de añadir una nota, y un botón con caja de botón entre
+          dos campos rompería la fila. Lo que cambia es lo que abre. */}
+      {/* FLOTANTE, obligatorio: este bloque vive en una columna con scroll (el
+          raíl de la ficha, o la de Información en móvil), y un panel `absolute`
+          ahí dentro lo recorta el propio scroll. Colocado contra la ventana se
+          ve entero, y `colocarFlotante` decide solo si tiene que abrirse hacia
+          arriba, que es lo que el selector viejo resolvía a mano con
+          `limitesVisibles` porque este bloque cae de los últimos de la columna. */}
+      <BulkTagMenu
+        selectedIds={seleccion}
+        canManage={canManage}
+        onOpenManage={onOpenManage}
+        flotante
+        triggerClass="flex h-9 w-full items-center gap-2 rounded-lg border border-slate-300 bg-white px-2.5 text-left text-[13px] text-slate-500 transition-colors hover:border-slate-400 focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/15"
+      >
+        {COPY.add}
+      </BulkTagMenu>
+      {/* LOS CHIPS CONSERVAN SU EQUIS, y no es la segunda puerta que la doctrina
+          prohíbe: la lista es para BUSCAR y para ver el vocabulario entero, y la
+          equis es tocar directamente lo que tienes delante. Quitarla obligaría a
+          abrir una lista para desmarcar algo que ya estás mirando. En la barra de
+          selección no existe porque allí no hay un chip por persona. */}
+      {aplicadas.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {aplicadas.map((t) => (
+            <TagChip
+              key={t.id}
+              id={t.id}
+              name={t.name}
+              vocabulario={tags}
+              onRemove={() => removeTag(candidateId, t.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -596,6 +434,7 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
 export function BulkTagMenu({
   selectedIds,
   canManage,
+  onOpenManage,
   triggerClass,
   placement = 'down',
   flotante = false,
@@ -604,6 +443,10 @@ export function BulkTagMenu({
 }: {
   selectedIds: string[]
   canManage: boolean
+  /** Abre el modal de administrar el vocabulario. Sin él, la fila no se pinta:
+   *  en la barra de selección no hay dónde volver, y una puerta que no lleva a
+   *  ningún sitio es peor que ninguna. */
+  onOpenManage?: () => void
   triggerClass?: string
   placement?: 'up' | 'down'
   /**
@@ -618,6 +461,7 @@ export function BulkTagMenu({
   onDone?: () => void
 }) {
   const { tags, candidates, applyTagToMany, removeTagFromMany, createTag } = useStore()
+  const toast = useToast()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const esTactil = useEsTactil()
@@ -707,8 +551,24 @@ export function BulkTagMenu({
   // ponemos a todos: desde "algunos", lo que se espera de una casilla a medias es
   // que al pulsarla se llene, no que se vacíe.
   const alternar = (tagId: string) => {
-    if ((cuantos.get(tagId) ?? 0) === selectedIds.length) removeTagFromMany(selectedIds, tagId)
-    else applyTagToMany(selectedIds, tagId)
+    if ((cuantos.get(tagId) ?? 0) === selectedIds.length) {
+      removeTagFromMany(selectedIds, tagId)
+      onDone?.()
+      return
+    }
+    // El tope es BLANDO y se avisa solo cuando no se puede hacer nada: si de diez
+    // marcados hay uno lleno, a los otros nueve se les pone igual, porque frenar
+    // a los diez por culpa de uno sería castigar a la selección entera. El aviso
+    // sale cuando NINGUNO puede recibirla, que es el único caso en el que pulsar
+    // no hace nada y sin explicación parecería roto.
+    const puede = candidates.some(
+      (c) => selectedIds.includes(c.id) && !c.tagIds.includes(tagId) && c.tagIds.length < TAG_LIMIT_PER_CANDIDATE,
+    )
+    if (!puede) {
+      toast.show(`Una candidatura admite hasta ${TAG_LIMIT_PER_CANDIDATE} etiquetas.`)
+      return
+    }
+    applyTagToMany(selectedIds, tagId)
     onDone?.()
   }
 
@@ -775,6 +635,21 @@ export function BulkTagMenu({
               </li>
             )}
           </ul>
+          {canManage && onOpenManage && (
+            <div className="mt-1 border-t border-slate-100 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  onOpenManage()
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+              >
+                <Settings2 className="size-3.5 shrink-0" aria-hidden />
+                {COPY.manage}
+              </button>
+            </div>
+          )}
     </>
   )
 

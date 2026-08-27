@@ -305,14 +305,25 @@ export function CandidateModal({
         {/* En escritorio la cabecera respira más que en móvil: la identidad es lo
             primero que se lee de una persona y pegada al filo se leía como una
             barra de herramientas. */}
-        {/* En móvil la cabecera NO cierra con filo: la identidad y lo que puedes
+        {/* EN ESCRITORIO EL AIRE ES SIMÉTRICO (20 y 20). Estaba en 20 arriba y 14
+            abajo, que venía de cuando debajo había una segunda fila con el estado
+            y las acciones: entonces el relleno de abajo separaba de OTRA fila y
+            tenía que ser menor. Retirada esa fila, lo que queda debajo es el filo
+            que cierra la cabecera, y ahí el bloque de identidad se veía pegado al
+            suelo (medido: 20 por arriba del avatar contra 15 por abajo).
+
+            Aquí no hay que compensar nada a ojo, al revés que en la banda de
+            acciones: arriba y abajo del avatar hay cantos duros, no texto, así
+            que las cajas y lo que se ve miden lo mismo.
+
+            En móvil la cabecera NO cierra con filo: la identidad y lo que puedes
             hacer con esa persona son un solo bloque, y la raya los partía por la
             mitad. La frontera se baja al pie de la banda de acciones, que es
             donde de verdad acaba "quién es y qué haces con él" y empieza el
             contenido; sin ella, los botones y DATOS corrían juntos (medido: la
             primera franja lleva `first:border-0`). En escritorio no hay banda,
             así que el filo se queda donde estaba. */}
-        <header className="border-b border-slate-200 px-4 pb-2.5 pt-3.5 max-sm:border-b-0 sm:px-5 sm:pb-3.5 sm:pt-5">
+        <header className="border-b border-slate-200 px-4 pb-2.5 pt-3.5 max-sm:border-b-0 sm:px-5 sm:py-5">
           {/* Los dos lados de la fila se centran ENTRE SÍ: con `items-start` las
               flechas y la equis se pegaban al techo y quedaban 4px por encima del
               centro del nombre, que es contra lo que las mira el ojo. */}
@@ -404,9 +415,17 @@ export function CandidateModal({
             trabajo que el raíl en escritorio: están siempre, y la columna de
             debajo se queda entera para leer. Van en la banda de chrome, entre el
             filo de la cabecera y el de las pestañas, así que no necesitan raya
-            propia. */}
+            propia.
+
+            EL AIRE DE ABAJO ES MAYOR QUE EL DE ARRIBA A PROPÓSITO (16 contra 14),
+            y es lo que hace que se vea igual: arriba lo que hay es TEXTO, cuya
+            caja se estira por debajo de la línea de base, así que del último
+            trazo del subtítulo al botón hay ~20px reales; abajo hay un filo, que
+            es un canto duro y sin holgura. Midiendo cajas salían iguales y el ojo
+            los veía descompensados, que es la diferencia entre alinear números y
+            alinear lo que se ve. */}
         {!dosColumnas && (
-          <div className="shrink-0 px-4 pb-3 pt-1 max-sm:border-b max-sm:border-slate-200 sm:px-5">{acciones}</div>
+          <div className="shrink-0 px-4 pb-4 pt-1 max-sm:border-b max-sm:border-slate-200 sm:px-5">{acciones}</div>
         )}
 
         <div className="flex min-h-0 flex-1">
