@@ -40,7 +40,7 @@ export function PublicForm() {
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('prueba'),
   )
 
-  // EL ANUNCIO VA DELANTE Y EL FORMULARIO SE ABRE AL PULSAR "Aplicar" (ago 2026).
+  // EL ANUNCIO VA DELANTE Y EL FORMULARIO SE ABRE AL PULSAR "Apúntate ahora".
   //
   // Vive en la MISMA URL con un `?apuntarse`, no en una ruta nueva: el enlace
   // que la empresa comparte está ya impreso en anuncios de portales y pegado en
@@ -207,7 +207,7 @@ export function PublicForm() {
         bannerUrl={campaign.bannerUrl}
         location={campaign.location}
         otros={campaign.otros}
-        onAplicar={abrirFormulario}
+        onApuntarse={abrirFormulario}
       />
     )
   }

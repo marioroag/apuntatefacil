@@ -4,7 +4,7 @@
  * Hasta hoy el enlace de un puesto abría directamente el FORMULARIO: quien
  * llegaba tenía que decidir si se apuntaba sin saber dónde es, cuánto paga ni
  * qué se pide. Esto es lo que se lee ANTES, y el formulario pasa a abrirse al
- * pulsar "Aplicar".
+ * pulsar "Apúntate ahora".
  *
  * POR QUÉ SE LLAMA `anuncio` Y NO `oferta`. El glosario está congelado y
  * "oferta" está ahí como PROHIBIDA, junto a "vacante" y "campaña", porque las

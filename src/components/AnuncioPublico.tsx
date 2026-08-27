@@ -16,7 +16,7 @@ import type { Campaign } from '../lib/types'
  *
  * Hasta hoy el enlace abría el formulario a secas: se le pedían sus datos a
  * alguien que todavía no sabía dónde es, cuánto paga ni qué se pide. Esto es lo
- * que se lee ANTES, y el formulario se abre al pulsar "Aplicar".
+ * que se lee ANTES, y el formulario se abre al pulsar "Apúntate ahora".
  *
  * DOS COLUMNAS, Y EL REPARTO ES EL DEL DISEÑO: a la izquierda lo que hay que
  * LEER (requisitos y descripción), a la derecha lo que se MIRA de un vistazo
@@ -35,7 +35,7 @@ import type { Campaign } from '../lib/types'
  *    tenemos ese concepto, y lo que sí tenemos (contrato y jornada) ya vive en
  *    la columna de la derecha.
  *  · La UBICACIÓN como enlace a un mapa. Es un enlace que saca de la página
- *    justo antes de aplicar, y no lleva a nada nuestro.
+ *    justo antes de apuntarse, y no lleva a nada nuestro.
  *
  * Y una que sí se copia con matiz: las pastillas de conocimientos van en GRIS y
  * no en azul con lupa. En el ejemplo son enlaces de búsqueda de un portal;
@@ -43,7 +43,7 @@ import type { Campaign } from '../lib/types'
  * clic que no existe. Es el mismo gris con el que se escriben en el editor.
  */
 export function AnuncioPublico({
-  campaign, anuncio, companyName, companyDescription, logoUrl, bannerUrl, location, otros, onAplicar,
+  campaign, anuncio, companyName, companyDescription, logoUrl, bannerUrl, location, otros, onApuntarse,
 }: {
   campaign: Campaign
   anuncio: Anuncio
@@ -54,7 +54,7 @@ export function AnuncioPublico({
   bannerUrl: string | null
   location: string
   otros: OtroPuesto[]
-  onAplicar: () => void
+  onApuntarse: () => void
 }) {
   const accent = campaign.branding.accent
   // Tres variables y no una: el acento tal cual (fondos), el texto que se lee
@@ -104,57 +104,122 @@ export function AnuncioPublico({
           filo del navegador; una franja del acento la abre igual y de paso dice de
           quién es esto antes de leer una palabra. Es el mismo recurso que el
           cuadro con la inicial cuando no hay logo. */}
+      {/* MÁS ALTO EN ESCRITORIO (Mario, ago 2026). En un móvil, 136px ya son una
+          cabecera; en una ventana de 1400 la misma medida es una franja fina, y
+          con la hoja comiéndole 28 quedaba en poco más de cien. A 152 la foto
+          tiene sitio para leerse como el sitio donde se trabaja sin pasarse: se
+          probó a 200 (demasiado) y a 168 (aún de más), y la cabecera empezaba a
+          disputarle la primera pantalla al puesto, que es lo que se ha venido a
+          leer. El techo de una foto de cabecera es el punto donde deja de
+          presentar la página y pasa a ser la página.
+          
+          Sin foto, la franja de color se queda MÁS BAJA (120): es un relleno que
+          da identidad y cierra el arranque de la página, no una imagen que haya
+          que mirar, y a 200 sería un bloque de color ocupando media pantalla. */}
       {bannerUrl ? (
-        <img src={bannerUrl} alt="" className="h-28 w-full object-cover sm:h-[132px]" />
+        <img src={bannerUrl} alt="" className="h-[136px] w-full object-cover lg:h-[152px]" />
       ) : (
-        <div className="h-20 w-full bg-accent sm:h-24" aria-hidden />
+        <div className="h-24 w-full bg-accent lg:h-28" aria-hidden />
       )}
 
-      <div className="mx-auto grid w-full max-w-trabajo gap-8 px-5 pb-16 pt-8 sm:px-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14 lg:px-12 lg:py-12">
+      {/* SIN RAÍL, EL CONTENIDO ES UNA HOJA QUE SUBE SOBRE LA FOTO (diseño de
+          Mario en Figma, ago 2026). El solape y el radio de arriba son lo que
+          convierte la foto en la cabecera de ESTA hoja en vez de en una imagen
+          pegada encima; es el gesto que hace que un móvil se lea como una ficha
+          y no como una página web recortada.
+          
+          RADIO GRANDE (32) Y SOLAPE DE 28 (Mario, ago 2026: "más redondeado para
+          que haga mejor blend con la foto"). Los dos van juntos y por eso se
+          tocan a la vez: con poco solape, un radio grande deja las esquinas de la
+          foto asomando por los lados como dos cuernos; con solape de sobra, la
+          curva entra en la foto y la transición se lee como una sola pieza. Es el
+          único sitio de la app con este radio, y se justifica en que aquí no
+          separa dos superficies del producto, funde una foto con una hoja.
+          
+          VA EN LOS DOS ANCHOS ("también quiero dar ese efecto en desktop", Mario).
+          
+          LA HOJA LLEGA A LOS BORDES Y LO QUE SE ACOTA ES EL CONTENIDO, en dos
+          elementos. Se hizo primero con uno solo, reutilizando el contenedor de
+          la rejilla (que ya iba centrado a `max-w-trabajo`), y en una ventana
+          ancha eso dejaba **dos colas de foto de 28px a los lados de la hoja que
+          acababan en seco**: el banner va a sangre y la hoja no, así que por
+          debajo de la foto y fuera de la hoja no había nada. Con la hoja a
+          sangre no hay lados que rematar. */}
+      <div className="relative -mt-7 rounded-t-[32px] bg-white">
+        <div className="mx-auto grid w-full max-w-trabajo gap-8 px-6 pb-36 pt-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14 lg:px-12 lg:pb-12 lg:pt-12">
         {/* ---------------- Lo que hay que leer ---------------- */}
         <main className="min-w-0">
-          {/* La marca va ARRIBA y en pequeño, y el título manda. Quien abre un
-              anuncio viene a por el puesto; de quién es lo confirma después. */}
-          <div className="flex items-center gap-2.5">
-            {logoUrl ? (
-              <img src={logoUrl} alt="" className="size-7 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />
-            ) : (
-              <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-accent text-[13px] font-bold text-on-accent">
-                {companyName.slice(0, 1)}
-              </span>
-            )}
-            <span className="min-w-0 truncate text-[15px] font-medium text-slate-700">{companyName}</span>
-          </div>
+          {hayRail ? (
+            <>
+              {/* Con raíl, la marca va ARRIBA y en pequeño: el título manda, y
+                  quien abre un anuncio viene a por el puesto. */}
+              <div className="flex items-center gap-2.5">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="" className="size-7 shrink-0 rounded-lg object-cover ring-1 ring-slate-200" />
+                ) : (
+                  <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-accent text-[13px] font-bold text-on-accent">
+                    {companyName.slice(0, 1)}
+                  </span>
+                )}
+                <span className="min-w-0 truncate text-[15px] font-medium text-slate-900">{companyName}</span>
+              </div>
+              <h1 className="mt-3 break-words text-[34px] font-bold leading-tight tracking-tight text-slate-900">
+                {campaign.title}
+              </h1>
+              {/* El resumen que decide, en una línea y sin bajar la vista. */}
+              {resumen.length > 0 && (
+                <ul className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+                  {resumen.map(({ Icon, texto }) => (
+                    <li key={texto} className="flex items-center gap-2 text-[15px] text-slate-800">
+                      <Icon className="size-4 shrink-0 text-slate-500" aria-hidden />
+                      {texto}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <>
+              {/* SIN RAÍL EL TÍTULO VA PRIMERO Y LA MARCA DEBAJO, con su logo en
+                  una caja y su nombre en el color de la empresa (diseño de Mario).
+                  En una pantalla estrecha el nombre del puesto es lo único que no
+                  puede esperar: con la marca delante, el titular arranca una línea
+                  más abajo y en un móvil eso es la mitad de lo que se ve. */}
+              <h1 className="break-words text-[26px] font-bold leading-tight tracking-tight text-slate-900">
+                {campaign.title}
+              </h1>
+              <div className="mt-5 flex items-center gap-3.5">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="" className="size-12 shrink-0 rounded-xl bg-white object-contain p-1.5 filo" />
+                ) : (
+                  <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-accent text-lg font-bold text-on-accent">
+                    {companyName.slice(0, 1)}
+                  </span>
+                )}
+                <span className="min-w-0 break-words text-base font-bold text-[var(--accent-ink)]">{companyName}</span>
+              </div>
 
-          <h1 className="mt-3 break-words text-[28px] font-bold leading-tight tracking-tight text-slate-900 sm:text-[34px]">
-            {campaign.title}
-          </h1>
-
-          {/* El resumen que decide, en una línea y sin tener que bajar la vista. */}
-          {resumen.length > 0 && (
-            <ul className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
-              {resumen.map(({ Icon, texto }) => (
-                <li key={texto} className="flex items-center gap-2 text-[15px] text-slate-600">
-                  <Icon className="size-4 shrink-0 text-slate-500" aria-hidden />
-                  {texto}
-                </li>
-              ))}
-            </ul>
+              {/* Los hechos van SUELTOS entre dos filos, sin caja y con los
+                  iconos en gris: en una columna estrecha una tarjeta dentro de la
+                  hoja es una caja dentro de otra, y el color ya lo pone el nombre
+                  de la empresa justo encima. */}
+              <hr className="mt-6 border-slate-200" />
+              <div className="py-6">
+                <Hechos hechos={[...donde, ...condiciones]} />
+                {/* Lo que cuesta apuntarse cierra los hechos: es un dato más de
+                    los que se miran antes de decidir, y aquí abajo el botón
+                    flota sin barra donde ponerlo. */}
+                <p className="mt-5 text-[13px] text-slate-700">{senalesApuntarse(apuntarse).join(' · ')}</p>
+              </div>
+            </>
           )}
 
-          {/* Sin raíl, la acción y la ficha completa viven aquí. */}
-          {!hayRail && (
-            <div className="mt-6">
-              <FichaPuesto donde={donde} condiciones={condiciones} apuntarse={apuntarse} onAplicar={onAplicar} />
-            </div>
-          )}
-
-          <hr className="mt-8 border-slate-200" />
+          <hr className={hayRail ? 'mt-8 border-slate-200' : 'border-slate-200'} />
 
           {(anuncio.idiomas.length > 0 || anuncio.conocimientos.length > 0) && (
-            <section className="mt-9">
+            <section className="mt-8 lg:mt-12">
               <h2 className={H2}>Requisitos</h2>
-              <div className="mt-3 space-y-5">
+              <div className="mt-5 space-y-6">
                 {anuncio.idiomas.length > 0 && (
                   <Requisito titulo={anuncio.idiomas.length === 1 ? 'Idioma requerido' : 'Idiomas requeridos'}>
                     {anuncio.idiomas.map((i) => `${i.idioma} - ${i.nivel}`).join(' · ')}
@@ -162,10 +227,10 @@ export function AnuncioPublico({
                 )}
                 {anuncio.conocimientos.length > 0 && (
                   <div>
-                    <h3 className="text-[15px] font-bold text-slate-900">Conocimientos necesarios</h3>
+                    <h3 className="text-base font-bold text-slate-900">Conocimientos necesarios</h3>
                     <ul className="mt-2.5 flex flex-wrap gap-2">
                       {anuncio.conocimientos.map((c) => (
-                        <li key={c} className="rounded-md bg-slate-100 px-2.5 py-1 text-sm text-slate-700">
+                        <li key={c} className="rounded-md bg-slate-100 px-2.5 py-1 text-sm text-slate-900">
                           {c}
                         </li>
                       ))}
@@ -177,7 +242,7 @@ export function AnuncioPublico({
           )}
 
           {anuncio.descripcion.trim() && (
-            <section className="mt-9">
+            <section className="mt-8 lg:mt-12">
               <h2 className={H2}>Descripción</h2>
               <Descripcion texto={anuncio.descripcion} />
             </section>
@@ -187,7 +252,7 @@ export function AnuncioPublico({
               raíl (Mario, ago 2026): se lee cuando el puesto ya te interesa, que
               es cuando empieza a importar con quién trabajarías. */}
           {companyDescription.trim() && (
-            <section className="mt-10 rounded-2xl bg-slate-50 p-6 sm:p-7">
+            <section className={`mt-8 p-6 sm:p-7 lg:mt-10 ${BLOQUE}`}>
               <div className="flex items-center gap-3.5">
                 {logoUrl ? (
                   <img src={logoUrl} alt="" className="size-12 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" />
@@ -196,9 +261,9 @@ export function AnuncioPublico({
                     {companyName.slice(0, 1)}
                   </span>
                 )}
-                <h2 className="min-w-0 break-words text-lg font-bold text-slate-900">{companyName}</h2>
+                <h2 className={`min-w-0 break-words ${H2}`}>{companyName}</h2>
               </div>
-              <p className="mt-4 whitespace-pre-line break-words text-base leading-relaxed text-slate-600">
+              <p className="mt-4 whitespace-pre-line break-words text-base leading-relaxed text-slate-900">
                 {companyDescription}
               </p>
             </section>
@@ -206,9 +271,9 @@ export function AnuncioPublico({
 
           {/* Y las otras vacantes cierran: se miran cuando ESTA no encaja. */}
           {otros.length > 0 && (
-            <section className="mt-4 rounded-2xl bg-slate-50 p-6 sm:p-7">
-              <h2 className="text-lg font-bold text-slate-900">Otros puestos abiertos</h2>
-              <ul className="mt-4 space-y-2.5">
+            <section className={`mt-4 p-6 sm:p-7 ${BLOQUE}`}>
+              <h2 className={H2}>Otros puestos abiertos</h2>
+              <ul className="mt-5 space-y-3">
                 {otros.map((o) => (
                   <li key={o.slug}>
                     <OtroPuestoCard otro={o} />
@@ -225,11 +290,36 @@ export function AnuncioPublico({
             {/* Pegajosa: la página es larga y el botón no puede quedarse arriba
                 mientras se lee. El desfase deja aire sobre ella al fijarse. */}
             <div className="sticky top-8">
-              <FichaPuesto donde={donde} condiciones={condiciones} apuntarse={apuntarse} onAplicar={onAplicar} />
+              <FichaPuesto donde={donde} condiciones={condiciones} apuntarse={apuntarse} onApuntarse={onApuntarse} />
             </div>
           </aside>
         )}
+        </div>
       </div>
+
+      {/* LA ACCIÓN VA PEGADA AL PULGAR donde no hay raíl (diseño de Mario), y por
+          eso NO se pinta también en el flujo: la página es larga y hay UNA sola
+          cosa que hacer, así que el botón tiene que estar SIEMPRE y no en un
+          punto concreto del scroll. Dos "Apúntate ahora" serían dos puertas.
+          
+          FLOTA SOLO EL BOTÓN, SIN BARRA (Mario, ago 2026): nada de fondo blanco
+          ni filo, así que el contenido pasa por debajo y se ve. Eso obliga a dos
+          cosas. La primera, que la caja que lo posiciona sea `pointer-events-none`
+          y solo el botón recupere el puntero, o una franja invisible de 70px se
+          tragaría los clics de todo lo que pase por detrás. La segunda, que la
+          señal de "9 preguntas · Sin CV" se vaya de aquí al flujo: sin barra
+          caería sobre el texto que se desliza por debajo y sería ilegible.
+          
+          Lleva `shadow-pop` porque es lo que de verdad es: una capa flotando
+          sobre contenido, no una caja apoyada. La columna reserva su alto abajo
+          (`pb-36`) para que el final no quede debajo. */}
+      {!hayRail && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-10 px-6 pb-5">
+          <button type="button" onClick={onApuntarse} className={`${BOTON_APUNTARSE} pointer-events-auto shadow-pop`}>
+            Apúntate ahora
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -251,17 +341,17 @@ export function AnuncioPublico({
  * delante, se sabe qué se está mirando antes de leerlo.
  */
 function FichaPuesto({
-  donde, condiciones, apuntarse, onAplicar,
+  donde, condiciones, apuntarse, onApuntarse,
 }: {
   donde: Hecho[]
   condiciones: Hecho[]
   apuntarse: ResumenApuntarse
-  onAplicar: () => void
+  onApuntarse: () => void
 }) {
   return (
-    <div className="rounded-xl border border-[color-mix(in_srgb,var(--accent-ink)_22%,var(--color-slate-200))] px-4 py-5">
-      <button type="button" onClick={onAplicar} className={BOTON_APLICAR}>
-        Aplicar
+    <div className={FICHA}>
+      <button type="button" onClick={onApuntarse} className={BOTON_APUNTARSE}>
+        Apúntate ahora
       </button>
       {/* LO QUE CUESTA APUNTARSE, y es UNA LÍNEA.
           
@@ -281,19 +371,19 @@ function FichaPuesto({
           renglones numerados la desmiente con su propia forma. El recuento la
           cumple; la lista la contradice. Corolario: **cuando algo afirma que es
           corto, la prueba también tiene que serlo.** */}
-      <p className="mt-2.5 text-center text-[13px] text-slate-500">
+      <p className="mt-2.5 text-center text-[13px] text-slate-700">
         {senalesApuntarse(apuntarse).join(' · ')}
       </p>
       {donde.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-7">
           <h2 className={ROTULO_FICHA}>Dónde se trabaja</h2>
-          <Hechos hechos={donde} color />
+          <Hechos hechos={donde} />
         </div>
       )}
       {condiciones.length > 0 && (
-        <div className={donde.length > 0 ? 'mt-5 border-t border-slate-200 pt-5' : 'mt-6'}>
+        <div className={donde.length > 0 ? 'mt-6 border-t border-slate-200 pt-6' : 'mt-7'}>
           <h2 className={ROTULO_FICHA}>Condiciones</h2>
-          <Hechos hechos={condiciones} color />
+          <Hechos hechos={condiciones} />
         </div>
       )}
     </div>
@@ -367,7 +457,7 @@ function OtroPuestoCard({ otro }: { otro: OtroPuesto }) {
           {otro.title}
         </span>
         {otro.location.trim() && (
-          <span className={`mt-0.5 block break-words text-sm ${conFoto ? 'text-white' : 'text-slate-500'}`}>
+          <span className={`mt-0.5 block break-words text-sm ${conFoto ? 'text-white' : 'text-slate-700'}`}>
             {otro.location}
           </span>
         )}
@@ -395,21 +485,73 @@ const SOMBRA_SOBRE_FOTO = {
   textShadow: '0 1px 2px rgb(19 24 34 / 0.75), 0 0 16px rgb(19 24 34 / 0.55)',
 }
 
-const H2 = 'text-lg font-bold text-slate-900'
-const ROTULO_FICHA = 'mb-3 text-base font-semibold text-slate-900'
+/**
+ * LA SUPERFICIE DE LOS BLOQUES DE LA COLUMNA.
+ *
+ * POR QUÉ SON CAJAS Y NO SECCIONES PLANAS (Mario, ago 2026): están en la columna
+ * izquierda para que la página tenga CUERPO aunque el anuncio venga corto. Una
+ * empresa que escriba tres líneas de descripción deja media columna vacía al lado
+ * de una ficha que sí está llena; con estos dos bloques, lo que hay abajo se lee
+ * como contenido y no como el final prematuro de la página.
+ *
+ * NO SE TIÑEN DEL COLOR DE LA EMPRESA. Se probó (fondo al 5% del acento, filo al
+ * 22%) para separarlas del gris de JOIN, y Mario lo retiró: el color de la
+ * empresa ya está donde tiene que estar, en la cabecera, el botón y la ficha, y
+ * repetido en cada caja de la columna deja de ser un acento para ser el fondo de
+ * la página.
+ *
+ * LO QUE LAS SEPARA DE JOIN ES EL FILO, no el color: su caja es gris a secas
+ * (`#f3f4f6`, sin borde) y aquí el hairline es quien hace la profundidad, que es
+ * la regla de la casa desde el principio. Con el radio de 16, que es el de una
+ * tarjeta grande de superficie externa.
+ */
+const BLOQUE = 'rounded-2xl filo bg-slate-50'
 
+/**
+ * LA FICHA SÍ SE TIÑE DEL COLOR DE LA EMPRESA (Mario, ago 2026), y las cajas de
+ * la columna no. La diferencia no es de sitio, es de PAPEL: aquí es donde está
+ * la acción y donde se decide, y el tinte dice de quién es este puesto sin
+ * gritarlo; los bloques de la izquierda son relleno de contenido y teñirlos
+ * también convertía el acento en el fondo de la página.
+ *
+ * Sobre `--accent-ink` (el acento ya legible sobre blanco) y no sobre el crudo:
+ * con un amarillo, un 6% del color puro es un beige sucio y el del oscurecido
+ * sigue siendo cálido y limpio. Al 6% es un tinte, no un color: con un acento
+ * oscuro se nota apenas y con uno vivo tampoco grita.
+ */
+const FICHA =
+  'rounded-xl border border-[color-mix(in_srgb,var(--accent-ink)_22%,var(--color-slate-200))] bg-[color-mix(in_srgb,var(--accent-ink)_6%,white)] px-5 py-6'
+
+// Los rótulos de sección van a 22 y no a 18 (Mario, ago 2026: "más grandes y
+// más espacio"). Aquí no se ojea una lista de mil ofertas como en un portal: se
+// lee UNA, así que sus secciones pueden anunciarse. Entre el h1 de 34 y el
+// cuerpo de 16 hay sitio de sobra, y el tracking apretado es el de un titular.
+const H2 = 'text-[22px] font-bold tracking-tight text-slate-900'
+// Los rótulos de la ficha suben con los de la página (Mario, ago 2026), pero a
+// 18 y no a los 22 de una sección: aquí son SUBRÓTULOS dentro de una caja de
+// 360px, y al cuerpo de un h2 de página se comerían la tarjeta.
+const ROTULO_FICHA = 'mb-4 text-lg font-bold tracking-tight text-slate-900'
+
+// SE LLAMA "APÚNTATE AHORA", NO "Aplicar" (Mario, ago 2026).
+//
+// "Aplicar" es un calco de *to apply*: la palabra de una oficina, y de un portal
+// traducido del inglés. Un peón no dice que aplica a un puesto, dice que se
+// APUNTA, y el producto se llama Apúntate Fácil: el verbo de la marca estaba en
+// el nombre y no estaba en el único botón que la marca le enseña al candidato.
+// Es una palabra, y cambia el idioma de la página entera.
+//
 // El CTA habla el mismo idioma que el botón de enviar del formulario que abre:
 // ancho completo, el acento del puesto con su guarda de contraste y el radio de
 // un campo, porque debajo de una columna a ancho completo un radio de botón se
 // ve descosido. Es la misma decisión que ya tomó `BTN_*_BLOCK`.
-const BOTON_APLICAR =
+const BOTON_APUNTARSE =
   'flex h-[52px] w-full items-center justify-center rounded-xl bg-accent text-base font-semibold text-on-accent transition-[filter] duration-[var(--duration-control)] ease-[var(--ease-out)] hover:brightness-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--accent)_22%,transparent)] active:translate-y-px motion-reduce:transition-none'
 
 function Requisito({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="text-[15px] font-bold text-slate-900">{titulo}</h3>
-      <p className="mt-1 break-words text-[15px] text-slate-600">{children}</p>
+      <h3 className="text-base font-bold text-slate-900">{titulo}</h3>
+      <p className="mt-1 break-words text-base text-slate-900">{children}</p>
     </div>
   )
 }
@@ -417,30 +559,30 @@ function Requisito({ titulo, children }: { titulo: string; children: React.React
 type Hecho = { Icon: typeof MapPin; texto: string }
 
 /**
- * LOS ICONOS DE LA FICHA VAN DEL COLOR DE LA EMPRESA, y los del resumen de
- * arriba no.
+ * LOS ICONOS VAN EN GRIS, TAMBIÉN EN LA FICHA (Mario, ago 2026).
  *
- * En la app interna el acento es NUESTRO y solo dice "esto se pulsa". Aquí el
- * acento es la marca DEL CLIENTE y esta es su página: JOIN pinta sus mil
- * anuncios en el mismo negro porque es un marketplace con una marca, la suya;
- * nosotros le prestamos la cara a cada empresa, así que el anuncio de una
- * constructora azul y el de una ETT verde no pueden verse iguales. La ficha es
- * donde eso se nota sin gritar: cinco glifos pequeños, no cinco manchas.
+ * Estuvieron teñidos del acento del cliente, con el argumento de que esta es su
+ * página y de que es la carta que un marketplace no puede jugar. Mario lo
+ * retiró, y tiene razón: un icono aquí **identifica el tipo de dato** (dónde,
+ * cuánto, qué contrato), no señala nada que se pueda pulsar ni de quién es la
+ * página. Pintado del color de la marca, seis glifos seguidos dejan de ser
+ * señales de campo y pasan a ser decoración, y encima repiten una identidad que
+ * el nombre, el botón, el filo y el fondo de la ficha ya dicen cuatro veces.
  *
- * Arriba NO, porque el resumen vive pegado al titular y unos iconos de color
- * ahí le disputan la primera mirada al nombre del puesto.
+ * El color de la empresa sigue donde de verdad hace falta: la cabecera, el
+ * botón, el nombre y el tinte de la ficha.
  */
-function Hechos({ hechos, color = false }: { hechos: Hecho[]; color?: boolean }) {
+function Hechos({ hechos }: { hechos: Hecho[] }) {
   if (!hechos.length) return null
   return (
-    <ul className="space-y-4">
+    <ul className="space-y-4.5">
       {hechos.map(({ Icon, texto }) => (
         <li key={texto} className="flex items-start gap-2.5">
           {/* El icono se centra con la primera LÍNEA del texto, no con el bloque
               entero: una ubicación de dos renglones dejaría el glifo flotando a
               media altura, lejos de la palabra que acompaña. */}
-          <Icon className={`mt-px size-[18px] shrink-0 ${color ? 'text-[var(--accent-ink)]' : 'text-slate-500'}`} aria-hidden />
-          <span className="min-w-0 break-words text-[15px] text-slate-700">{texto}</span>
+          <Icon className="mt-px size-[18px] shrink-0 text-slate-500" aria-hidden />
+          <span className="min-w-0 break-words text-base text-slate-900">{texto}</span>
         </li>
       ))}
     </ul>
@@ -456,13 +598,13 @@ function Hechos({ hechos, color = false }: { hechos: Hecho[]; color?: boolean })
 function Descripcion({ texto }: { texto: string }) {
   const lineas = texto.split('\n').map((l) => l.trim()).filter(Boolean)
   if (lineas.length <= 1)
-    return <p className="mt-3 break-words text-base leading-relaxed text-slate-600">{texto.trim()}</p>
+    return <p className="mt-5 break-words text-base leading-relaxed text-slate-900">{texto.trim()}</p>
   return (
-    <ul className="mt-4 space-y-2.5">
+    <ul className="mt-5 space-y-3">
       {lineas.map((l, i) => (
         <li key={i} className="flex gap-3">
           <span className="text-xl font-bold leading-[1.3] text-slate-400" aria-hidden>&bull;</span>
-          <span className="min-w-0 break-words text-base leading-relaxed text-slate-600">{l}</span>
+          <span className="min-w-0 break-words text-base leading-relaxed text-slate-900">{l}</span>
         </li>
       ))}
     </ul>
