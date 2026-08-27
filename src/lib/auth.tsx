@@ -21,6 +21,8 @@ export interface Company {
   meridian_auto: boolean // analizar cada candidatura nueva al entrar (ajustes)
   trial_ends_at: string | null // fin de la prueba; null = el reloj aún no arrancó (arranca al abrir el primer proceso)
   paid_processes: number // procesos abiertos pagados en Stripe (el tope real del plan 'proceso')
+  /** Lo que la empresa cuenta de sí misma en sus anuncios. Se escribe en Ajustes. */
+  descripcion: string
 }
 
 /**
@@ -30,7 +32,7 @@ export interface Company {
  * su `grant update (columna)` en una migración. Si no, el guardado fallaría en
  * silencio.
  */
-export type CompanySettings = Pick<Company, 'meridian_auto'>
+export type CompanySettings = Pick<Company, 'meridian_auto' | 'descripcion'>
 
 // Empresa + el rol del usuario en ella (lo devuelve el RPC my_companies).
 type CompanyWithRole = Company & { role: string }
@@ -438,6 +440,10 @@ export const DEMO_COMPANY: Company = {
   id: 'demo',
   name: 'Tu empresa',
   accent: ACENTO_MARCA,
+  // Lo que sale en "Sobre la empresa" de sus anuncios. Habla como habla una ETT
+  // de verdad: qué hace, desde cuándo y con quién, sin adjetivos de folleto.
+  descripcion:
+    'Somos una empresa de trabajo temporal con base en Valencia y Madrid. Llevamos doce años cubriendo puestos de construcción y logística, y trabajamos con constructoras y operadores logísticos de toda España.\nSi encajas en un puesto te llamamos en 24 o 48 horas, y si no, te lo decimos.',
   plan: 'proceso',
   subscription_status: 'active',
   billing_interval: 'month',

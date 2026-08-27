@@ -41,6 +41,43 @@ export function readableOn(accent: string): string {
   return contrastRatio(white, accent) >= 4.5 ? white : ink
 }
 
+/**
+ * EL ACENTO, SOBRE BLANCO. Es la pregunta CONTRARIA a `readableOn`: aquella da
+ * el texto que se lee ENCIMA del acento; esta da un acento que se lee sobre el
+ * papel.
+ *
+ * Hace falta desde que la página pública del anuncio tiñe con la marca del
+ * cliente cosas que van sobre blanco (los iconos de la ficha, su filo). El
+ * acento lo elige la empresa y puede ser cualquier cosa: medido, un amarillo
+ * (#fbbf24) se queda en **1,67:1** sobre blanco, o sea invisible, y una ficha
+ * con cinco glifos que no se ven parece rota.
+ *
+ * Se OSCURECE con la tinta de la casa en vez de sustituirse por gris: así el
+ * amarillo sigue siendo cálido y el azul sigue siendo azul, que es de lo que va
+ * prestarle la cara a cada empresa.
+ *
+ * OSCURECE LO JUSTO, no un porcentaje fijo. Empezó con un 70% para todos, que
+ * salía de medir un amarillo concreto (#fbbf24); su propio guardián encontró en
+ * el acto uno más claro (#facc15) que con ese 70% se quedaba en 2,86. Ese es el
+ * fallo de fondo de una constante calculada a mano: cubre los casos que a uno
+ * se le ocurrieron. Buscando el mínimo, un acento ya oscuro sale INTACTO (no se
+ * desvirtúa nada) y cualquiera que llegue mañana pasa por construcción.
+ */
+export function accentOnWhite(accent: string): string {
+  const hex = normalizeHex(accent)
+  const n = parseInt(hex.slice(1), 16)
+  const rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+  const tinta = [0x13, 0x18, 0x22]
+  const aHex = (c: number[]) => `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`
+  // De más claro a más oscuro, en pasos del 5%. El primero que llega al suelo de
+  // 3:1 (el de un gráfico con significado) es el que menos toca el color.
+  for (let p = 100; p > 0; p -= 5) {
+    const c = rgb.map((v, i) => Math.round((v * p + tinta[i] * (100 - p)) / 100))
+    if (contrastRatio('#ffffff', aHex(c)) >= 3) return aHex(c)
+  }
+  return aHex(tinta)
+}
+
 /** ¿El blanco rinde AA sobre el acento? (para avisar al merchant) */
 export function accentPassesWhite(accent: string): boolean {
   return contrastRatio('#ffffff', accent) >= 4.5

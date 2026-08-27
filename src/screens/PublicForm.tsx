@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Check, Link2Off, Loader2 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, supabaseConfigured } from '../lib/supabase'
 import { ApplicationForm } from '../components/ApplicationForm'
 import { validateField } from '../components/FieldRenderer'
 import type { FieldValue } from '../components/FieldRenderer'
@@ -13,6 +13,7 @@ import { CONSENT_VERSION } from '../lib/consent'
 import { brandAssetUrl } from '../lib/brandAsset'
 import { AnuncioPublico } from '../components/AnuncioPublico'
 import { hayAnuncio, leerAnuncio } from '../lib/anuncio'
+import type { OtroPuesto } from '../lib/demoPublico'
 import type { Campaign } from '../lib/types'
 import { IconoVacio } from '../components/ui/IconoVacio'
 
@@ -20,7 +21,11 @@ interface PublicCampaign extends Campaign {
   companyName: string
   logoUrl: string | null
   bannerUrl: string | null
-  otros: { slug: string; title: string; location: string; brandLabel: string }[]
+  otros: OtroPuesto[]
+  /** Lo que la empresa cuenta de sí misma (Ajustes). Vacío = el bloque no se pinta. */
+  companyDescription: string
+  /** Sale del seed, no de la base: el envío no puede tocar la red. */
+  esDemo: boolean
 }
 
 export function PublicForm() {
@@ -74,18 +79,51 @@ export function PublicForm() {
   useEffect(() => {
     let alive = true
     setState('loading')
+
+    // Los puestos de la DEMO viven en el navegador, no en la base, así que el
+    // RPC no los conoce y su enlace daba "este enlace ya no está activo": la
+    // demo enseñaba una puerta que no abre. Se resuelven desde el seed, pero
+    // solo cuando hace falta y con `import()` DINÁMICO: el seed es grande y un
+    // candidato de verdad no puede pagar su descarga por abrir un formulario.
+    const caerAlSeed = async () => {
+      const { puestoPublicoDemo } = await import('../lib/demoPublico')
+      const d = puestoPublicoDemo(slug)
+      if (!alive) return
+      if (!d) {
+        setState('notfound')
+        return
+      }
+      setCampaign({
+        ...d.campaign,
+        anuncio: d.anuncio,
+        companyName: d.companyName,
+        companyDescription: d.companyDescription,
+        logoUrl: d.logoUrl,
+        bannerUrl: d.bannerUrl,
+        otros: d.otros,
+        esDemo: true,
+      })
+      setState('ok')
+    }
+
+    // Sin Supabase configurado no hay a quién preguntar: al seed directo.
+    if (!supabaseConfigured) {
+      void caerAlSeed()
+      return () => { alive = false }
+    }
+
     supabase.rpc('get_public_campaign', { p_slug: slug }).then(({ data, error }) => {
       if (!alive) return
       if (error || !data) {
-        setState('notfound')
+        void caerAlSeed()
         return
       }
       const d = data as {
         id: string; slug: string; title: string; status: Campaign['status']
         fields: Campaign['fields']; branding: Campaign['branding']; company_name: string
         logo_path: string | null; banner_path: string | null
-        anuncio: unknown; location: string | null
-        others: { slug: string; title: string; location: string | null; brand_label: string }[] | null
+        anuncio: unknown; location: string | null; company_description: string | null
+        others: { slug: string; title: string; location: string | null; brand_label: string; banner_path: string | null }[] | null
       }
       setCampaign({
         id: d.id, slug: d.slug, title: d.title, status: d.status,
@@ -95,11 +133,14 @@ export function PublicForm() {
         // por una versión anterior no puede dejar esta página en blanco.
         anuncio: leerAnuncio(d.anuncio),
         companyName: d.company_name,
+        companyDescription: d.company_description ?? '',
         logoUrl: brandAssetUrl(d.logo_path),
         bannerUrl: brandAssetUrl(d.banner_path),
         otros: (d.others ?? []).map((o) => ({
           slug: o.slug, title: o.title, location: o.location ?? '', brandLabel: o.brand_label,
+          bannerUrl: brandAssetUrl(o.banner_path),
         })),
+        esDemo: false,
       })
       setState('ok')
       // Embellece la barra con el título ACTUAL sin cambiar el enlace compartido
@@ -161,6 +202,7 @@ export function PublicForm() {
         campaign={campaign}
         anuncio={campaign.anuncio!}
         companyName={campaign.companyName}
+        companyDescription={campaign.companyDescription}
         logoUrl={campaign.logoUrl}
         bannerUrl={campaign.bannerUrl}
         location={campaign.location}
@@ -212,6 +254,21 @@ export function PublicForm() {
       return
     }
     setSubmitError(null)
+
+    // EN LA DEMO EL ENVÍO NO SALE DEL NAVEGADOR. Este puesto no existe en la
+    // base, así que ni el CV se sube ni la candidatura se inserta: se enseña la
+    // pantalla de gracias, que es lo que se ha venido a ver. La alternativa
+    // sería un error al final de un formulario relleno, que es la peor forma de
+    // descubrir que estabas en una demostración.
+    if (campaign.esDemo) {
+      setSubmitPhase('submitting')
+      // Una espera corta, como el resto de la demo: resolver en 0 ms no es
+      // rápido, es irreal, y se salta el estado de "enviando".
+      await new Promise((r) => setTimeout(r, 600))
+      setSubmitPhase('idle')
+      setDone(true)
+      return
+    }
 
     // Sube el primer CV adjunto (si hay) al bucket cvs.
     let cvPath: string | null = null
@@ -314,6 +371,15 @@ export function PublicForm() {
   )
 }
 
+/**
+ * EN LA DEMO, ESTA PANTALLA NO PUEDE DECIR "hemos recibido tu candidatura".
+ *
+ * El enlace de un puesto de demostración no lleva `/demo` en la URL, así que
+ * quien lo abre no tiene por qué saber dónde está: dejarle creer que se ha
+ * apuntado sería afirmar algo falso en la única pantalla que existe para
+ * confirmar. Es el test de la doctrina de copy: ¿funcionaría igual si supiera
+ * cómo está hecho? Aquí no, así que se dice.
+ */
 function ThankYou({ campaign, isTest = false }: { campaign: PublicCampaign; isTest?: boolean }) {
   const h1 = useRef<HTMLHeadingElement>(null)
   useEffect(() => { h1.current?.focus() }, [])
@@ -334,10 +400,12 @@ function ThankYou({ campaign, isTest = false }: { campaign: PublicCampaign; isTe
             <Check className="size-7" aria-hidden />
           </motion.div>
           <h1 ref={h1} tabIndex={-1} className="mt-4 text-[22px] font-bold tracking-tight text-slate-900 outline-none">
-            Gracias, hemos recibido tu candidatura
+            {campaign.esDemo ? 'Así queda al enviarlo' : 'Gracias, hemos recibido tu candidatura'}
           </h1>
           <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed text-slate-600">
-            {campaign.branding.thanks || FORM_THANKS_DEFAULT}
+            {campaign.esDemo
+              ? 'Este es un puesto de la demostración: no se ha guardado nada ni se ha avisado a nadie. En un puesto de verdad, aquí sale el mensaje que la empresa haya escrito.'
+              : campaign.branding.thanks || FORM_THANKS_DEFAULT}
           </p>
           {/* Solo en la candidatura de prueba del dueño (onboarding): el camino de
               vuelta a su lista. Un candidato real nunca ve este botón. */}

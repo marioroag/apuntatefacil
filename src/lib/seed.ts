@@ -103,6 +103,20 @@ const sites: Site[] = [
 ]
 
 // Marcas de la demo, con logo y banner propios (assets en public/brand-demo).
+/**
+ * LAS DOS MARCAS DE LA DEMO. Sus fotos viven en `public/brand-demo` y son de
+ * Pexels (licencia gratuita, uso comercial, sin atribución obligatoria):
+ * la obra es la foto 15458299 y el almacén la 1797428, las dos recortadas a
+ * 1600x420, que es la proporción a la que el anuncio pinta su cabecera.
+ *
+ * SE ELIGIERON MIRÁNDOLAS, y el criterio que descartó a la mayoría fue el
+ * mismo: **nada de marcas de terceros a la vista**. Las candidatas buenas de
+ * almacén salían llenas de logotipos (una cervecera, Pepsi), y la foto que
+ * había antes en construcción era una lona con el nombre de otra empresa. En
+ * una demo que se le enseña a un cliente, la marca de un tercero se lee como si
+ * fuera suya o como un descuido; y en el almacén, además, la elegida no enseña
+ * caras, que para una foto de archivo es una cosa menos de la que responder.
+ */
 export const SEED_BRANDS: Brand[] = [
   {
     id: 'brand_construccion',

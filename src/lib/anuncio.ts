@@ -270,6 +270,16 @@ export function contratoTexto(a: Anuncio): string {
   return t.charAt(0).toUpperCase() + t.slice(1)
 }
 
+/**
+ * Los estudios, dichos como una CONDICIÓN y no como una etiqueta. Un birrete
+ * seguido de "Ciclo Formativo de Grado Medio" se entiende solo; seguido de "Sin
+ * estudios" parece que le falta algo, porque el dato es que NO se piden.
+ */
+export function estudiosTexto(a: Anuncio): string {
+  if (!a.estudios) return ''
+  return a.estudios === 'Sin estudios' ? 'Sin estudios mínimos' : a.estudios
+}
+
 export const modalidadLabel = (a: Anuncio) =>
   MODALIDADES.find((m) => m.value === a.modalidad)?.label ?? ''
 

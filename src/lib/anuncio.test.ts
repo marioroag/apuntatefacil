@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CONTRATOS, ESTUDIOS, EXPERIENCIAS, JORNADAS, MODALIDADES, NIVELES_IDIOMA, PERIODOS,
   anuncioSinEmpezar, anuncioVacio, contratoTexto, experienciaTexto, faltaEnAnuncio,
-  hayAnuncio, leerAnuncio, resumenAnuncio, salarioTexto,
+  estudiosTexto, hayAnuncio, leerAnuncio, resumenAnuncio, salarioTexto,
   type Anuncio,
 } from './anuncio'
 
@@ -183,6 +183,12 @@ describe('cómo se escribe un anuncio', () => {
     // por "Contrato".
     expect(contratoTexto({ ...lleno(), contrato: '' })).toBe('Jornada completa')
     expect(contratoTexto(anuncioVacio())).toBe('')
+  })
+
+  it('los estudios se dicen como condición, y "sin estudios" dice que no se piden', () => {
+    expect(estudiosTexto({ ...lleno(), estudios: 'Ciclo Formativo de Grado Medio' })).toBe('Ciclo Formativo de Grado Medio')
+    expect(estudiosTexto({ ...lleno(), estudios: 'Sin estudios' })).toBe('Sin estudios mínimos')
+    expect(estudiosTexto(anuncioVacio())).toBe('')
   })
 
   it('lo que no hay se dice con nada, nunca con "No disponible"', () => {

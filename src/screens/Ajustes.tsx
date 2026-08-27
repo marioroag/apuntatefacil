@@ -10,6 +10,8 @@ import {
   useAjustesCtx,
   type AjustesCtx,
   type Ajuste,
+  type AjusteInterruptor,
+  type AjusteTexto,
   type GrupoAjustes,
   type SeccionAjustes,
 } from '../lib/settings'
@@ -169,6 +171,100 @@ function Grupo({ grupo, ctx, salto }: { grupo: GrupoAjustes; ctx: AjustesCtx; sa
  * como descripción, no como parte del nombre.
  */
 function Fila({ ajuste, ctx, salto }: { ajuste: Ajuste; ctx: AjustesCtx; salto: string | null }) {
+  if (ajuste.tipo === 'texto') return <FilaTexto ajuste={ajuste} ctx={ctx} salto={salto} />
+  return <FilaInterruptor ajuste={ajuste} ctx={ctx} salto={salto} />
+}
+
+/**
+ * UN AJUSTE QUE SE ESCRIBE. Aquí la fila entera NO puede ser el control (lo es
+ * el `textarea`), así que el rótulo va encima como en cualquier campo del
+ * producto y la explicación debajo de él, antes de la caja: se lee lo que hay
+ * que escribir ANTES de tener el cursor dentro.
+ *
+ * Se guarda AL SALIR DEL CAMPO y solo si ha cambiado: un párrafo son cientos de
+ * pulsaciones y no puede haber una escritura por letra. Mismo trato que el
+ * nombre de la marca en el constructor.
+ */
+function FilaTexto({ ajuste, ctx, salto }: { ajuste: AjusteTexto; ctx: AjustesCtx; salto: string | null }) {
+  const toast = useToast()
+  const id = useId()
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const guardado = ajuste.get(ctx)
+  const [borrador, setBorrador] = useState(guardado)
+  const motivo = ajuste.bloqueado?.(ctx) ?? null
+  const bloqueado = motivo !== null
+  const hint = motivo ?? ajuste.hint
+  // Si el valor llega de fuera (acaban de cargar los datos, o se cambia de
+  // equipo), manda el guardado: el borrador no puede sobrevivir a su empresa.
+  //
+  // Con `useState` y no con un `useRef`: leer un ref DURANTE el render es lo que
+  // React desaconseja (y el linter caza), porque en un render descartado deja el
+  // ref ya movido y la resincronización no vuelve a ocurrir. Ajustar estado en el
+  // render sí está soportado: React repite el render antes de pintar.
+  const [ultimoGuardado, setUltimoGuardado] = useState(guardado)
+  if (ultimoGuardado !== guardado) {
+    setUltimoGuardado(guardado)
+    setBorrador(guardado)
+  }
+
+  useSaltoAAjuste(salto, ref)
+
+  return (
+    <div className="-mx-2 px-2 py-3">
+      <label htmlFor={`${id}-c`} className="block text-[13px] font-medium text-slate-800">
+        {ajuste.label}
+      </label>
+      {hint && (
+        <p id={`${id}-h`} className="mt-0.5 max-w-[62ch] text-[12px] leading-5 text-slate-500">
+          {hint}
+        </p>
+      )}
+      <textarea
+        ref={ref}
+        id={`${id}-c`}
+        value={borrador}
+        disabled={bloqueado}
+        rows={ajuste.filas ?? 4}
+        maxLength={ajuste.maxLength}
+        placeholder={ajuste.placeholder}
+        aria-describedby={hint ? `${id}-h` : undefined}
+        onChange={(e) => setBorrador(e.target.value)}
+        onBlur={async () => {
+          if (borrador === guardado) return
+          const res = await ajuste.set(ctx, borrador)
+          if (res.error) toast.error(res.error)
+        }}
+        className="mt-2 w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm leading-relaxed text-slate-800 outline-none transition-colors duration-[var(--duration-control)] focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 disabled:bg-slate-50 disabled:text-slate-500 pointer-coarse:text-base"
+      />
+    </div>
+  )
+}
+
+/**
+ * Llegar por enlace directo: la fila se pone a la vista, coge el foco (así el
+ * lector de pantalla también anuncia dónde has aterrizado) y se marca un
+ * instante. Lo comparten las dos formas de fila, que es de donde salió.
+ */
+function useSaltoAAjuste(salto: string | null, ref: React.RefObject<HTMLElement | null>, alResaltar?: (v: boolean) => void) {
+  useEffect(() => {
+    const el = ref.current
+    if (!salto || !el) return
+    const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollIntoView({ block: 'center', behavior: quieto ? 'auto' : 'smooth' })
+    el.focus({ preventScroll: true })
+    alResaltar?.(true)
+    const t = setTimeout(() => alResaltar?.(false), 1600)
+    return () => {
+      clearTimeout(t)
+      alResaltar?.(false)
+    }
+    // `alResaltar` se recrea en cada render de quien lo monta y no decide nada:
+    // lo que dispara el salto es haber llegado con un ajuste en la URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salto])
+}
+
+function FilaInterruptor({ ajuste, ctx, salto }: { ajuste: AjusteInterruptor; ctx: AjustesCtx; salto: string | null }) {
   const toast = useToast()
   const id = useId()
   const ref = useRef<HTMLButtonElement>(null)
@@ -176,22 +272,8 @@ function Fila({ ajuste, ctx, salto }: { ajuste: Ajuste; ctx: AjustesCtx; salto: 
   const motivo = ajuste.bloqueado?.(ctx) ?? null
   const valor = ajuste.get(ctx)
 
-  // Llegar por enlace directo: la fila se pone a la vista, coge el foco (así el
-  // lector de pantalla también anuncia dónde has aterrizado) y se marca un
-  // instante. El anillo es ultramarine porque esto es selección, no estado.
-  useEffect(() => {
-    const el = ref.current
-    if (!salto || !el) return
-    const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    el.scrollIntoView({ block: 'center', behavior: quieto ? 'auto' : 'smooth' })
-    el.focus({ preventScroll: true })
-    setResaltado(true)
-    const t = setTimeout(() => setResaltado(false), 1600)
-    return () => {
-      clearTimeout(t)
-      setResaltado(false)
-    }
-  }, [salto])
+  // El anillo del salto es ultramarine porque esto es selección, no estado.
+  useSaltoAAjuste(salto, ref, setResaltado)
   // Si está bloqueado, el motivo SUSTITUYE a la explicación: es lo que hace
   // falta saber, y dos textos grises seguidos no los lee nadie.
   const hint = motivo ?? ajuste.hint

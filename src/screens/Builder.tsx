@@ -766,8 +766,17 @@ function Identidad({ campaign }: { campaign: Campaign }) {
           <MarcaTile logoUrl={brandAssetUrl(active?.logoPath)} name={visible} accent={campaign.branding.accent} />
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">{visible || 'Sin nombre'}</span>
           {/* Solo cerrada: abierta lo dice entero el pie de la cabecera, y repetido
-              a dos alturas se lee como dos datos distintos. */}
-          {compartida > 1 && !abierta && (
+              a dos alturas se lee como dos datos distintos.
+
+              FALTA LA FOTO gana a "en N puestos" cuando pasan las dos cosas: una
+              es accionable y la otra es un dato. Es lo único que hace que alguien
+              abra este bloque: la foto de cabecera es lo primero que se ve al
+              abrir un anuncio, y sin ella el bloque está "puesto" (tiene nombre)
+              y no se abre solo, así que nadie descubre que falta. */}
+          {!abierta && !active?.bannerPath && (
+            <span className="hidden shrink-0 text-[12px] text-slate-500 sm:inline">Sin foto de cabecera</span>
+          )}
+          {compartida > 1 && !abierta && active?.bannerPath && (
             <span className="hidden shrink-0 text-[12px] text-slate-500 sm:inline">
               En <span className="num">{compartida}</span> puestos
             </span>
@@ -815,7 +824,7 @@ function Identidad({ campaign }: { campaign: Campaign }) {
                 nota={
                   compartida > 1
                     ? `Esta marca la comparten ${compartida} puestos: al cambiarla, cambian todos sus formularios.`
-                    : 'Es lo primero que ve el candidato al abrir tu enlace.'
+                    : 'Es lo primero que ve el candidato al abrir tu enlace: la foto ocupa el ancho entero de tu anuncio.'
                 }
               />
             )}
@@ -983,11 +992,15 @@ function CabeceraEditor({
   const { upload, uploading } = useBrandAssetUpload(onChange)
   return (
     <div>
-      <span className="mb-1.5 block text-[12px] font-medium text-slate-500">Cabecera del formulario</span>
+      <span className="mb-1.5 block text-[12px] font-medium text-slate-500">Cabecera de tus anuncios</span>
       <div className="space-y-2">
+        {/* El vacío INVITA en vez de nombrarse a sí mismo. "Banner" no dice qué
+            foto va aquí ni por qué importa; decirlo es la diferencia entre que se
+            suba y que no, y sin foto todas las páginas de oferta del mundo se
+            parecen, porque lo único que queda es texto en dos columnas. */}
         <AssetBox
           label="Banner"
-          empty="Banner"
+          empty="Sube una foto de tu obra, tu almacén o tu equipo"
           url={brandAssetUrl(bannerPath)}
           busy={uploading === 'banner'}
           className="h-16 w-full rounded-xl"

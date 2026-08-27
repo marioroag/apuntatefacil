@@ -1,4 +1,4 @@
-import { AtSign, Inbox, Mail, MessageCircle, Sparkles, Users } from 'lucide-react'
+import { AtSign, Building2, Inbox, Mail, MessageCircle, Sparkles, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { AjustesCalendario } from '../screens/AjustesCalendario'
@@ -45,16 +45,47 @@ export interface AjustesCtx {
   updateCompanySettings: (patch: Partial<CompanySettings>) => Promise<{ error?: string }>
 }
 
-export interface Ajuste {
+interface AjusteBase {
   id: string
   label: string
   /** Una línea: qué pasa si lo apagas. Sin esto, un interruptor es un acertijo. */
   hint?: string
-  get: (c: AjustesCtx) => boolean
-  set: (c: AjustesCtx, next: boolean) => Promise<{ error?: string }>
   /** Devuelve el MOTIVO por el que no se puede tocar, o null si sí se puede. */
   bloqueado?: (c: AjustesCtx) => string | null
 }
+
+export interface AjusteInterruptor extends AjusteBase {
+  /** Por defecto. Se deja opcional para no tener que anotar las veinte filas
+   *  que ya existen: aquí lo raro es el texto, no el interruptor. */
+  tipo?: 'interruptor'
+  get: (c: AjustesCtx) => boolean
+  set: (c: AjustesCtx, next: boolean) => Promise<{ error?: string }>
+}
+
+/**
+ * UN AJUSTE QUE SE ESCRIBE, no que se enciende.
+ *
+ * Entró con "Sobre la empresa" (ago 2026), el párrafo que sale en la página del
+ * anuncio. Hasta entonces todo lo de aquí era un `Switch`, y la tentación era
+ * darle su propia pantalla; es la misma regla de siempre: **añadir un ajuste es
+ * una entrada en este registro, nunca UI nueva**, y eso vale también cuando lo
+ * que cambia es la FORMA del control. Así sigue siendo buscable y enlazable
+ * desde el buscador global sin tocar nada más.
+ *
+ * SE GUARDA AL SALIR DEL CAMPO, no en cada tecla: un párrafo son cientos de
+ * pulsaciones y cada una sería una escritura sobre `companies`. Es lo mismo que
+ * hace el nombre de la marca en el constructor.
+ */
+export interface AjusteTexto extends AjusteBase {
+  tipo: 'texto'
+  get: (c: AjustesCtx) => string
+  set: (c: AjustesCtx, next: string) => Promise<{ error?: string }>
+  placeholder?: string
+  maxLength?: number
+  filas?: number
+}
+
+export type Ajuste = AjusteInterruptor | AjusteTexto
 
 export interface GrupoAjustes {
   id: string
@@ -160,6 +191,39 @@ export const SECCIONES: SeccionAjustes[] = [
       },
     ],
     nota: 'Los correos de acceso (confirmar tu cuenta y restablecer la contraseña) no se pueden desactivar: son los que protegen tu cuenta. Los que mandas tú a un candidato tampoco están aquí, porque los envías a mano.',
+  },
+  {
+    // La empresa va PRIMERA: es lo que ve un candidato, y lo demás de aquí son
+    // preferencias de quien trabaja dentro.
+    id: 'empresa',
+    label: 'Tu empresa',
+    icon: Building2,
+    titulo: 'Tu empresa',
+    descripcion: 'Lo que cuentas de ti en tus anuncios, antes de que nadie se apunte.',
+    disponible: () => true,
+    grupos: [
+      {
+        id: 'presentacion',
+        titulo: 'Sobre la empresa',
+        ajustes: [
+          {
+            id: 'descripcion',
+            tipo: 'texto',
+            label: 'Qué contáis de vosotros',
+            hint: 'Sale en todos tus anuncios, debajo de la descripción del puesto, con tu nombre y tu logo. Quien lo lee está decidiendo si quiere trabajar contigo.',
+            placeholder: 'A qué os dedicáis, desde cuándo y cómo se trabaja con vosotros.',
+            maxLength: 1000,
+            filas: 5,
+            get: (c) => c.company?.descripcion ?? '',
+            set: (c, next) => c.updateCompanySettings({ descripcion: next }),
+            bloqueado: soloGestores,
+          },
+        ],
+      },
+    ],
+    // Sin descripción, el anuncio no pinta el bloque: es mejor no decir nada que
+    // decir un hueco. Se dice aquí porque es lo que pasa si lo dejas vacío.
+    nota: 'Si lo dejas en blanco, tus anuncios no enseñan este bloque.',
   },
   {
     id: 'meridian',
