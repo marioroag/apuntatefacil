@@ -197,6 +197,19 @@ export function toTitleCase(s: string): string {
 // cuando el formulario los pide por separado; si no hay 'apellidos', devuelve solo
 // el nombre. Compatible con candidaturas antiguas (sin 'apellidos'). Se capitaliza
 // siempre, aunque el candidato lo haya escrito en minúsculas o en mayúsculas.
+/**
+ * Los campos del formulario cuyo valor el producto YA pinta por su cuenta, así
+ * que repetirlos como una respuesta más es el mismo dato dos veces: el nombre
+ * es el título de la ficha y el encabezado de su fila, y el teléfono tiene
+ * columna propia en la tabla y apartado propio en la ficha.
+ *
+ * Vive aquí, junto a `candidateName`, porque este es el módulo que sabe de qué
+ * campos sale la identidad de una persona. Estaba escrito a mano en la tabla y
+ * lo pide ahora también la ficha: dos listas de la misma verdad se separan al
+ * primer formulario nuevo.
+ */
+export const CAMPOS_YA_PINTADOS = ['nombre', 'apellidos', 'telefono']
+
 export function candidateName(c: Candidate): string {
   const part = (id: string) => {
     const v = c.answers[id]

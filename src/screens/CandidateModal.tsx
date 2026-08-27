@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ArrowLeft,
   ArrowRight,
+  CalendarDays,
   Copy,
   Check,
   Download,
@@ -10,7 +11,6 @@ import {
   FileText,
   Loader2,
   MessageCircle,
-  MessagesSquare,
   MoreHorizontal,
   Phone,
   Star,
@@ -20,26 +20,29 @@ import {
 import { Modal } from '../components/ui/Modal'
 import { Tabs, TabPanel, type TabItem } from '../components/ui/Tabs'
 import {
-  ChatComposer, ChatEmpty, ChatNuevos, ChatSkeleton, ChatThread, useSeguirAlFondo,
+  ChatComposer, ChatEmpty, ChatSkeleton, ChatThread,
   type ChatMessage,
 } from '../components/ui/Chat'
 import { useChatThread } from '../lib/useChatThread'
 import { StatusSelect } from '../components/ui/StatusPill'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import type { Campaign, Candidate, CandidateEvent } from '../lib/types'
+import type { Campaign, Candidate, CandidateEvent, CandidateStatus } from '../lib/types'
 import { FAVORITO_STAR, SOURCE_META, STATUS_META } from '../lib/types'
-import { answerText, candidateName, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate } from '../lib/format'
+import { CAMPOS_YA_PINTADOS, answerText, candidateName, fechaCorta, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate, shortWhenInZone } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM, botonIcono } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_PRIMARY_BLOCK, BTN_SECONDARY, BTN_SECONDARY_BLOCK, BTN_SECONDARY_SM, botonIcono } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { copyText } from '../lib/clipboard'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { TagSection } from '../components/Tags'
+import { InfoTooltip } from '../components/ui/Tooltip'
 import { TAGS_ENABLED } from '../lib/pricing'
-import { InterestSignal } from '../components/InterestSignal'
-import { AgendarManualDialog, InterviewHeaderButton } from '../components/InterviewAction'
+import { AgendarManualDialog } from '../components/InterviewAction'
+import { currentInterview } from '../lib/interviews'
+import { useEsMovil } from '../lib/media'
+import { colocarFlotante } from '../lib/flotante'
 import { InterviewConversation } from '../components/InterviewConversation'
 import { MeridianAvatar, MeridianPanelBlock } from '../components/Meridian'
 import { MERIDIAN_NAME, candidateFit } from '../lib/meridian'
@@ -54,10 +57,31 @@ import { MERIDIAN_NAME, candidateFit } from '../lib/meridian'
  * translúcido), da dos columnas y añade lo que faltaba: pasar de un candidato al
  * siguiente sin cerrar, y un hilo donde el equipo habla del caso.
  *
- * Reparto: a la izquierda lo que dice el candidato (Resumen, Respuestas, CV); a
- * la derecha el seguimiento (Equipo, Conversación, Historial). Por debajo de
- * 1024px no hay sitio para la columna y las tres se agrupan bajo una sola
- * pestaña, Seguimiento, con sus tres dentro.
+ * Reparto: a la izquierda lo que DICE el candidato y se lee de arriba abajo
+ * (el informe de Meridian, sus respuestas y sus documentos); a la derecha, en
+ * un raíl SIN pestañas, lo que necesitas para actuar sobre él (sus datos, sus
+ * etiquetas y el hilo de tu equipo). Las otras dos superficies largas, la
+ * Conversación y el Historial, son pestañas de la izquierda.
+ *
+ * ESTO CAMBIÓ EN AGO 2026, con un diseño de Mario delante, y el motivo se veía
+ * en pantalla: los HECHOS de una persona (su teléfono, su correo, cuándo entró,
+ * cómo está etiquetada) estaban cada uno detrás de una pestaña distinta, y la
+ * columna de la derecha, que mide 368px, se pasaba el día vacía enseñando un
+ * hilo de dos mensajes. Había que ir y volver entre Resumen y Respuestas para
+ * cruzar lo que alguien contestó con cómo llamarle. Ahora los hechos no se
+ * piden: están puestos, y la pestaña se reserva para lo que de verdad es largo.
+ *
+ * Lo que el diseño proponía y NO se ha copiado, con su motivo:
+ *   - Dos botones grandes en el raíl, "Contactar" y "Rechazar". El estado y las
+ *     acciones viven en la cabecera desde ago 2026 y ahí se quedan: un segundo
+ *     juego de acciones es una segunda puerta para lo mismo. Y "Rechazar"
+ *     rompía dos reglas a la vez, porque descartar es un ESTADO (uno de los
+ *     cinco, y reversible) y porque iba pintado de rojo, que en esta app avisa
+ *     de un error o de algo que no se deshace.
+ *   - "Puesto aplicado" como dato del raíl: ya está escrito debajo del nombre,
+ *     en la cabecera, que es donde se lee a quién estás mirando.
+ *   - "Notas" como nombre del hilo: son el chat del equipo desde jul 2026, con
+ *     autor, fecha y menciones. Las notas internas ya no existen.
  *
  * Conversación es la superficie principal de la entrevista: se invita desde
  * ahí, se ve lo hablado y se toma el control. No hay bandeja global de
@@ -65,8 +89,35 @@ import { MERIDIAN_NAME, candidateFit } from '../lib/meridian'
  * una sola persona.
  */
 
-type Izquierda = 'resumen' | 'respuestas' | 'cv' | 'seguimiento'
-type Seguimiento = 'equipo' | 'conversacion' | 'historial'
+/**
+ * LAS CINCO VISTAS DE UN CANDIDATO, Y UNA SOLA PIEZA DE ESTADO PARA LAS DOS
+ * SUPERFICIES.
+ *
+ * En escritorio, las tres primeras se apilan en la columna izquierda y las dos
+ * últimas son pestañas; en móvil, las cinco comparten un grupo de pastillas.
+ * Con dos estados (uno por superficie) la ficha se descuadraba al girar el
+ * teléfono y "ver la entrevista" acertaba en un tamaño y fallaba en el otro, que
+ * es exactamente el fallo que ya tuvo la versión de pestañas anidadas.
+ */
+type Vista = 'respuestas' | 'meridian' | 'documentos' | 'conversacion' | 'historial'
+
+/** Las tres que en escritorio se leen seguidas en la columna. */
+const ES_FICHA = ['respuestas', 'meridian', 'documentos'] as const
+const esFicha = (v: Vista) => (ES_FICHA as readonly string[]).includes(v)
+
+/**
+ * El registro del grupo de pastillas de móvil. Respuestas la primera y por
+ * defecto (es lo que se mira siempre); Documentos detrás de Meridian porque
+ * muchas veces está vacío; y al final las dos superficies largas, que son a
+ * donde se entra a propósito.
+ */
+const VISTAS: TabItem<Vista>[] = [
+  { value: 'respuestas', label: 'Respuestas' },
+  { value: 'meridian', label: MERIDIAN_NAME },
+  { value: 'documentos', label: 'Documentos' },
+  { value: 'conversacion', label: 'Conversación' },
+  { value: 'historial', label: 'Historial' },
+]
 
 // 1024px: por debajo, la columna de conversación de 368px dejaría el contenido
 // principal por debajo de un ancho legible.
@@ -105,50 +156,36 @@ export function CandidateModal({
   siblings?: Candidate[]
   onNavigate?: (id: string) => void
 }) {
-  const { setFavorito, setStatus, deleteCandidate, loadCandidateComments, addCandidateComment, loadCandidateEvents, members, chatVersion, commentCounts } =
+  const { setFavorito, setStatus, deleteCandidate, loadCandidateComments, addCandidateComment, loadCandidateEvents, members, chatVersion } =
     useStore()
   const { role, user } = useAuth()
   const toast = useToast()
-  const [izq, setIzq] = useState<Izquierda>('resumen')
-  // UNA sola pieza de estado para cuál de las tres se ve, la use el panel
-  // derecho (escritorio) o las sub-pestañas de Seguimiento (móvil). Con dos
-  // estados separados, abrir la conversación desde la cabecera acertaba en un
-  // tamaño y fallaba en el otro.
-  const [seg, setSeg] = useState<Seguimiento>('equipo')
+  // Respuestas es la de partida: es lo que se mira siempre, y el veredicto y los
+  // documentos están a un toque.
+  const [vista, setVista] = useState<Vista>('respuestas')
   const [agendarManual, setAgendarManual] = useState(false)
   const [confirmarBorrado, setConfirmarBorrado] = useState(false)
+  const barraRef = useRef<HTMLDivElement>(null)
   const dosColumnas = useDosColumnas()
+  const esMovil = useEsMovil()
 
   const canManageTags = role !== 'encargado'
-  // Con el pago por proceso todo el producto está incluido: el chat de equipo y
-  // las entrevistas ya no se cortan por plan. En demo lo que cambia es que la
-  // invitación no sale (avisa y no escribe a nadie), igual que llamar o
-  // escribir por WhatsApp.
-  const chatEnabled = true
-  const puedeEntrevistar = true
+  // Con el pago por proceso todo el producto está incluido: las notas del equipo
+  // y las entrevistas ya no se cortan por plan. En demo lo que cambia es que
+  // llamar y escribir por WhatsApp avisan en vez de salir.
 
-  // Al cambiar de candidato se vuelve a Resumen: la pestaña de CV puede no
-  // existir en el siguiente. Se ajusta DURANTE el render (patrón de React para
+  // Al cambiar de candidato se vuelve a Información: cada persona se abre por
+  // lo que ha contestado. Se ajusta DURANTE el render (patrón de React para
   // "estado derivado de una prop que cambia"), no en un efecto: un efecto
   // pintaría antes el candidato nuevo con la pestaña del viejo.
   const [visto, setVisto] = useState(candidate?.id ?? null)
   if (candidate && visto !== candidate.id) {
     setVisto(candidate.id)
-    setIzq('resumen')
-    setSeg('equipo')
+    setVista('respuestas')
   }
 
-  // Al ensanchar a dos columnas la conversación se va a la derecha y la pestaña
-  // de Equipo deja de existir: se deriva, no se corrige después (una pestaña
-  // oculta por CSS seguía siendo alcanzable con las flechas del teclado).
-  const izqVisible: Izquierda = dosColumnas && izq === 'seguimiento' ? 'resumen' : izq
-
-  // El botón de la cabecera lleva DIRECTO a la conversación, sin obligar a
-  // navegar los dos niveles a mano en móvil.
-  const abrirConversacion = () => {
-    setSeg('conversacion')
-    if (!dosColumnas) setIzq('seguimiento')
-  }
+  // Lleva DIRECTO a la conversación, a cualquier ancho: una sola pieza de estado.
+  const abrirConversacion = () => setVista('conversacion')
 
   const open = !!candidate
   const name = candidate ? candidateName(candidate) || 'Sin nombre' : ''
@@ -181,30 +218,18 @@ export function CandidateModal({
   const cvField = campaign.fields.find((f) => f.type === 'file')
   const cvName = cvField ? String(candidate.answers[cvField.id] ?? '') : ''
 
-  // El recuento en la pestaña dice si hay algo que leer sin tener que entrar.
-  const nMensajes = chatEnabled ? commentCounts[candidate.id] ?? 0 : 0
 
-  const tabsIzq: TabItem<Izquierda>[] = [
-    { value: 'resumen', label: 'Resumen' },
-    { value: 'respuestas', label: 'Respuestas' },
-    ...(candidate.cvPath ? [{ value: 'cv' as const, label: 'CV' }] : []),
-    // En móvil las tres de la derecha se agrupan bajo una sola pestaña: seis
-    // destinos en una barra que se arrastra es donde la gente deja de
-    // encontrar las cosas.
-    ...(dosColumnas ? [] : [{ value: 'seguimiento' as const, label: 'Seguimiento', count: nMensajes || undefined }]),
+  // EN ESCRITORIO, TRES PESTAÑAS; EN MÓVIL, NINGUNA (Mario, ago 2026: "podemos
+  // quitar los tabs en móvil y añadirlos a ese grupo de pastillas"). Con las dos
+  // barras puestas, un teléfono tenía DOS niveles de navegación para una sola
+  // ficha, que es el fallo que ya se corrigió una vez este mes. Ahora en móvil
+  // manda un único control, el de las pastillas, con las cinco vistas dentro.
+  const tabsIzq: TabItem<'info' | 'conversacion' | 'historial'>[] = [
+    { value: 'info', label: 'Información' },
+    { value: 'conversacion', label: 'Conversación' },
+    { value: 'historial', label: 'Historial' },
   ]
 
-  const panelEquipo = (
-    <Equipo
-      key={candidate.id}
-      candidateId={candidate.id}
-      chatVersion={chatVersion}
-      currentUserId={user?.id ?? null}
-      members={members}
-      load={loadCandidateComments}
-      onSend={addCandidateComment}
-    />
-  )
 
   const panelConversacion = (
     <InterviewConversation
@@ -215,16 +240,64 @@ export function CandidateModal({
     />
   )
 
-  const tabsSeguimiento: TabItem<Seguimiento>[] = [
-    { value: 'equipo', label: 'Equipo', count: nMensajes || undefined },
-    { value: 'conversacion', label: 'Conversación' },
-    { value: 'historial', label: 'Historial' },
-  ]
+  // Los datos y las etiquetas: en el raíl si lo hay, y si no, arriba del todo de
+  // Información. Es el MISMO objeto en las dos superficies, no dos copias: en
+  // cuanto se separan, la primera que se toque deja mintiendo a la otra.
+  // Los datos y las notas son el MISMO objeto en las dos superficies, no dos
+  // copias: lo único que cambia es dónde caen. En el raíl van seguidos, porque
+  // el raíl ES eso. En una sola columna se separan: los datos son cortos y van
+  // arriba, donde se buscan, y las notas crecen sin techo, así que van al final
+  // y no entre tú y lo que el candidato ha contestado.
+  const cambiarEstado = (s: CandidateStatus) => void setStatus(candidate.id, s)
 
-  const panelSeguimiento =
-    seg === 'equipo' ? panelEquipo
-      : seg === 'conversacion' ? panelConversacion
-      : <Historial key={candidate.id} candidateId={candidate.id} load={loadCandidateEvents} yoEmail={user?.email} />
+  // En el selector de móvil entra abierto y sin chevron: has tocado su
+  // pastilla para leerlo (ver `plegable` en `MeridianPanelBlock`).
+  const contenidoMeridian = <MeridianPanelBlock candidate={candidate} plegable={!esMovil} />
+  const contenidoRespuestas = (
+    <Respuestas campaign={campaign} candidate={candidate} maskPhone={maskPhone} conDocumentos={!!candidate.cvPath} />
+  )
+  // Alto declarado: el visor es un `flex-1` y dentro de una columna que scrollea
+  // no tiene contra qué medirse, así que sin esto se quedaría en su `min-h`. El
+  // techo en vh es para que en una pantalla baja no empuje el resto fuera.
+  const contenidoDocumentos = candidate.cvPath ? (
+    <div className="flex h-[520px] max-h-[68vh] flex-col">
+      <Cv key={candidate.id} candidate={candidate} cvName={cvName} />
+    </div>
+  ) : (
+    <p className="pb-3.5 text-[13px] leading-5 text-slate-500 sm:px-3.5">
+      {cvField ? 'No ha subido ningún documento.' : 'Este formulario no pide documentos.'}
+    </p>
+  )
+  const contenidoHistorial = (
+    <Historial key={candidate.id} candidateId={candidate.id} load={loadCandidateEvents} yoEmail={user?.email} />
+  )
+
+  const acciones = (
+    <AccionesCandidato
+      candidate={candidate}
+      onAgendar={() => setAgendarManual(true)}
+      onVerEntrevista={abrirConversacion}
+      onEstado={cambiarEstado}
+    />
+  )
+
+  const datos = (
+    <FichaDatos campaign={campaign} candidate={candidate} maskPhone={maskPhone} onEstado={cambiarEstado} />
+  )
+  const etiquetas = TAGS_ENABLED ? (
+    <TagSection candidateId={candidate.id} tagIds={candidate.tagIds} canManage={canManageTags} onOpenManage={() => onOpenManageTags?.()} />
+  ) : null
+  const notas = (
+    <NotasEquipo
+      key={candidate.id}
+      candidateId={candidate.id}
+      chatVersion={chatVersion}
+      currentUserId={user?.id ?? null}
+      members={members}
+      load={loadCandidateComments}
+      onSend={addCandidateComment}
+    />
+  )
 
   return (
     <>
@@ -232,7 +305,14 @@ export function CandidateModal({
         {/* En escritorio la cabecera respira más que en móvil: la identidad es lo
             primero que se lee de una persona y pegada al filo se leía como una
             barra de herramientas. */}
-        <header className="border-b border-slate-200 px-4 pb-2.5 pt-3.5 sm:px-5 sm:pb-3.5 sm:pt-5">
+        {/* En móvil la cabecera NO cierra con filo: la identidad y lo que puedes
+            hacer con esa persona son un solo bloque, y la raya los partía por la
+            mitad. La frontera se baja al pie de la banda de acciones, que es
+            donde de verdad acaba "quién es y qué haces con él" y empieza el
+            contenido; sin ella, los botones y DATOS corrían juntos (medido: la
+            primera franja lleva `first:border-0`). En escritorio no hay banda,
+            así que el filo se queda donde estaba. */}
+        <header className="border-b border-slate-200 px-4 pb-2.5 pt-3.5 max-sm:border-b-0 sm:px-5 sm:pb-3.5 sm:pt-5">
           {/* Los dos lados de la fila se centran ENTRE SÍ: con `items-start` las
               flechas y la equis se pegaban al techo y quedaban 4px por encima del
               centro del nombre, que es contra lo que las mira el ojo. */}
@@ -267,7 +347,7 @@ export function CandidateModal({
                 quien venga a tocar el cerrar no lo ve. */}
             <div className="flex shrink-0 items-center gap-0.5">
               {puedeNavegar && (
-                <div className="mr-1 hidden items-center gap-0.5 sm:flex">
+                <div className="hidden items-center gap-0.5 sm:flex">
                   <button
                     type="button"
                     aria-label="Candidato anterior"
@@ -291,6 +371,19 @@ export function CandidateModal({
                   </button>
                 </div>
               )}
+              {/* El `···` sube aquí desde la fila de acciones que se retiró: es el
+                  inventario de esta ficha (copiar el contacto, descargar el CV,
+                  eliminar) y eliminar no tiene otra puerta.
+
+                  SOLO DESDE `sm`, y no es una preferencia: en móvil ya vive en la
+                  barra del pulgar, así que aquí sería el mismo menú dos veces, y
+                  su caja le comía al nombre los 44px que necesita (se midió:
+                  "Alberto Herrera" se quedaba en "Alberto Herr..."). En un móvil
+                  el nombre es lo único que no se puede truncar sin perder de
+                  quién es la ficha. */}
+              <span className="hidden sm:inline-flex">
+                <MenuAcciones candidate={candidate} cvName={cvName} onEliminar={() => setConfirmarBorrado(true)} variante="ghost" />
+              </span>
               <button
                 type="button"
                 aria-label="Cerrar"
@@ -302,118 +395,194 @@ export function CandidateModal({
             </div>
           </div>
 
-          {/* Barra de decisión: lo que el empresario cambia sin pensar. */}
-          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 sm:mt-3.5">
-            <StatusSelect status={candidate.status} onChange={(s) => void setStatus(candidate.id, s)} />
-            {/* Las etiquetas NO van aquí a ningún ancho: viven en Resumen, como
-                ya hacían en móvil. En la cabecera crecían sin techo y empujaban
-                las acciones de contacto a una segunda línea, con lo que la
-                identidad de la persona quedaba enterrada bajo su clasificación. */}
-            {/* La fila de acciones SÍ se ve en móvil, pero solo con la entrevista
-                dentro: llamar y escribir ya están en la barra de abajo, al
-                alcance del pulgar, y repetirlos aquí sería ruido. La entrevista
-                no está en ningún otro sitio, así que vive aquí a todos los
-                tamaños. */}
-            <div className="ml-auto flex items-center gap-2">
-              {/* Va antes que llamar o escribir: es LA acción que hace avanzar
-                  el proceso, no un atajo de contacto. */}
-              {puedeEntrevistar && (
-                <InterviewHeaderButton
-                  candidate={candidate}
-                  onOpen={abrirConversacion}
-                  onScheduleManually={() => setAgendarManual(true)}
-                />
-              )}
-              <span className="hidden items-center gap-2 sm:flex">
-              {phone && !maskPhone && (
-                <>
-                  <a href={`tel:${phone.replace(/\s/g, '')}`} className={BTN_PRIMARY_SM}>
-                    <Phone className="size-3.5 text-indigo-200" aria-hidden /> Llamar
-                  </a>
-                  {waPhone && (
-                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className={BTN_SECONDARY_SM}>
-                      <MessageCircle className="size-3.5 text-slate-400" aria-hidden /> WhatsApp
-                    </a>
-                  )}
-                </>
-              )}
-              {phone && maskPhone && (
-                <>
-                  <button type="button" onClick={avisoDemo} className={BTN_PRIMARY_SM}>
-                    <Phone className="size-3.5 text-indigo-200" aria-hidden /> Llamar
-                  </button>
-                  <button type="button" onClick={avisoDemo} className={BTN_SECONDARY_SM}>
-                    <MessageCircle className="size-3.5 text-slate-400" aria-hidden /> WhatsApp
-                  </button>
-                </>
-              )}
-              <MenuAcciones candidate={candidate} cvName={cvName} onEliminar={() => setConfirmarBorrado(true)} size="sm" />
-              </span>
-            </div>
-          </div>
         </header>
+
+        {/* SIN RAÍL, LAS ACCIONES VIVEN ENCIMA DE LAS PESTAÑAS (Mario, ago 2026).
+            Dentro de Información eran un apartado más, así que desaparecían al
+            abrir la Conversación o el Historial, y lo que se puede HACER con una
+            persona no depende de qué estés mirando de ella. Arriba hacen el mismo
+            trabajo que el raíl en escritorio: están siempre, y la columna de
+            debajo se queda entera para leer. Van en la banda de chrome, entre el
+            filo de la cabecera y el de las pestañas, así que no necesitan raya
+            propia. */}
+        {!dosColumnas && (
+          <div className="shrink-0 px-4 pb-3 pt-1 max-sm:border-b max-sm:border-slate-200 sm:px-5">{acciones}</div>
+        )}
 
         <div className="flex min-h-0 flex-1">
           <section className="flex min-w-0 flex-1 flex-col">
-            <Tabs
-              items={tabsIzq}
-              value={izqVisible}
-              onChange={setIzq}
+            {/* La barra de pestañas NO se pinta en móvil: allí la navegación es el
+                grupo de pastillas de dentro de la columna. Se monta o no se monta,
+                no se esconde con CSS: una pestaña en `display:none` sigue siendo
+                alcanzable con las flechas del teclado. */}
+            {!esMovil && (
+              <Tabs
+                items={tabsIzq}
+                value={esFicha(vista) ? 'info' : (vista as 'conversacion' | 'historial')}
+                onChange={(v) => setVista(v === 'info' ? 'respuestas' : v)}
+                idPrefix="cand"
+                label="Secciones del candidato"
+                className="shrink-0 px-4 sm:px-5"
+              />
+            )}
+            {/* En móvil NO es un `tabpanel`: sin barra de pestañas arriba, su
+                `aria-labelledby` apuntaría a una pestaña que no existe, y el
+                lector anunciaría un panel sin dueño. Es la columna y ya está; el
+                panel de verdad es el del grupo de pastillas de dentro. */}
+            <Envoltorio
+              esPanel={!esMovil}
               idPrefix="cand"
-              label="Secciones del candidato"
-              className="shrink-0 overflow-x-auto px-4 sm:px-5"
-            />
-            <TabPanel
-              idPrefix="cand"
-              value={izqVisible}
+              value={esFicha(vista) ? 'info' : vista}
               className={`min-h-0 flex-1 ${
-                izqVisible === 'seguimiento'
-                  ? 'flex flex-col overflow-hidden bg-slate-50/60'
-                  : 'overflow-y-auto overscroll-contain px-4 py-5 sm:px-5'
+                esMovil || esFicha(vista)
+                  ? 'overflow-y-auto overscroll-contain px-4 py-5 sm:px-5'
+                  : 'flex flex-col overflow-hidden bg-slate-50/60'
               }`}
             >
-              {izqVisible === 'resumen' && (
-                <Resumen campaign={campaign} candidate={candidate} maskPhone={maskPhone} canManageTags={canManageTags} onOpenManageTags={onOpenManageTags} />
+              {(esMovil || esFicha(vista)) && (
+                // En móvil no hay `space-y`: separan las franjas y su relleno (ver
+                // `Seccion`). A partir de `sm` vuelve el aire de siempre.
+                <div className="sm:space-y-6">
+                  {/* EL ORDEN DE MÓVIL LO DECIDE LO QUE SE USA, NO EL DE ESCRITORIO
+                      (Mario, ago 2026: "en móvil está hecho un lío... una de las
+                      funciones principales es etiquetar y ver información").
+
+                      Sin raíl, los siete apartados caían en una columna de 1318px,
+                      o sea DOS PANTALLAS Y MEDIA, en el orden del escritorio: las
+                      etiquetas empezaban en el píxel 993 de los 623 que se ven.
+                      Justo lo que más se usa era lo más lejano. Ahora arriba van
+                      los datos y las etiquetas, y todo lo demás cabe detrás de un
+                      solo control.
+
+                      En escritorio esto pinta solo las tres piezas de la columna
+                      izquierda, apiladas y con su tarjeta: allí hay alto de sobra
+                      y esconder dos detrás de un toque sería cobrar un clic por
+                      nada. */}
+                  {!dosColumnas && <Seccion>{datos}</Seccion>}
+
+                  {esMovil ? (
+                    <Seccion>
+                      {/* LAS CINCO VISTAS EN UN GRUPO DE PASTILLAS (referencia de
+                          JOIN, Mario ago 2026). Las tres de la ficha suman 614px de
+                          los 623 que se ven en un teléfono, o sea que empujaban las
+                          notas a la tercera pantalla; y la Conversación y el
+                          Historial vivían en una segunda barra de navegación arriba.
+                          Juntas ocupan lo que ocupe UNA, con un solo control, y el
+                          rótulo de cada apartado deja de hacer falta: lo dice la
+                          pastilla activa.
+
+                          `-mx-1` porque la pastilla activa tiene relleno propio: sin
+                          él, la primera etiqueta se descuelga a la derecha del
+                          rótulo de la franja de arriba. */}
+                      <Tabs
+                        items={VISTAS}
+                        value={vista}
+                        onChange={setVista}
+                        idPrefix="vista"
+                        label="Qué quieres ver de este candidato"
+                        variante="pastilla"
+                        className="-mx-1"
+                      />
+                      <TabPanel idPrefix="vista" value={vista} className="pt-4">
+                        {vista === 'respuestas' ? contenidoRespuestas
+                          : vista === 'meridian' ? contenidoMeridian
+                          : vista === 'documentos' ? contenidoDocumentos
+                          // La conversación y el historial mandan su propio alto
+                          // (son columnas flex con scroll), así que dentro de una
+                          // columna que ya scrollea hay que dárselo declarado o se
+                          // quedan en cero.
+                          : (
+                            <div className="flex h-[420px] max-h-[60vh] flex-col overflow-hidden rounded-xl filo bg-slate-50/60">
+                              {vista === 'conversacion' ? panelConversacion : contenidoHistorial}
+                            </div>
+                          )}
+                      </TabPanel>
+                    </Seccion>
+                  ) : (
+                    <>
+                      <Seccion>{contenidoMeridian}</Seccion>
+                      <Seccion>
+                        <Bloque titulo="Respuestas" tarjeta>{contenidoRespuestas}</Bloque>
+                      </Seccion>
+                      {/* EL APARTADO SE PINTA SIEMPRE, tenga o no documentos: una
+                          ficha que cambia de apartados según lo que traiga cada
+                          persona obliga a releerla entera cada vez. Y el vacío dice
+                          CUÁL de los dos vacíos es, que no significan lo mismo. */}
+                      <Seccion>
+                        <Bloque titulo="Documentos" tarjeta>{contenidoDocumentos}</Bloque>
+                      </Seccion>
+                    </>
+                  )}
+
+                  {/* Etiquetas y notas van JUNTAS y detrás del selector (Mario, ago
+                      2026): así la columna de móvil se lee en los mismos tres
+                      tramos que el raíl, sus datos · lo que trae él · lo que
+                      ponéis vosotros. Se paga que etiquetar vuelva a caer por
+                      debajo del pliegue, y se acepta porque lo que se gana es que
+                      la clasificación esté donde está su hermana, la nota, y no
+                      partida por en medio de lo que dice el candidato. */}
+                  {!dosColumnas && etiquetas && <Seccion>{etiquetas}</Seccion>}
+                  {!dosColumnas && <Seccion>{notas}</Seccion>}
+                </div>
               )}
-              {izqVisible === 'respuestas' && <Respuestas campaign={campaign} candidate={candidate} maskPhone={maskPhone} />}
-              {izqVisible === 'cv' && <Cv key={candidate.id} candidate={candidate} cvName={cvName} />}
-              {izqVisible === 'seguimiento' && (
-                <>
-                  <Tabs
-                    items={tabsSeguimiento}
-                    value={seg}
-                    onChange={setSeg}
-                    idPrefix="seg"
-                    label="Seguimiento del candidato"
-                    className="shrink-0 bg-white px-4"
-                  />
-                  <TabPanel idPrefix="seg" value={seg} className="flex min-h-0 flex-1 flex-col">
-                    {panelSeguimiento}
-                  </TabPanel>
-                </>
-              )}
-            </TabPanel>
+              {!esMovil && vista === 'conversacion' && panelConversacion}
+              {!esMovil && vista === 'historial' && contenidoHistorial}
+            </Envoltorio>
           </section>
 
-          <aside className="hidden w-[368px] shrink-0 flex-col border-l border-slate-200 bg-slate-50/60 lg:flex">
-            <Tabs
-              items={tabsSeguimiento}
-              value={seg}
-              onChange={setSeg}
-              idPrefix="lado"
-              label="Seguimiento del candidato"
-              className="shrink-0 bg-white px-4"
-            />
-            <TabPanel idPrefix="lado" value={seg} className="flex min-h-0 flex-1 flex-col">
-              {panelSeguimiento}
-            </TabPanel>
-          </aside>
+          {/* EL RAÍL NO TIENE PESTAÑAS, Y ES UNA SOLA COLUMNA CON UN SOLO SCROLL.
+              Aquí vive lo que tu equipo necesita de una persona: sus datos, cómo
+              la tenéis clasificada y lo que os habéis dicho sobre ella. Estaba
+              repartido entre cuatro pestañas (dos a la izquierda y dos más
+              dentro del panel de la derecha), así que leer un teléfono o ver si
+              alguien había apuntado algo costaba clics; ahora está puesto, y no
+              se va cuando abres la Conversación o el Historial.
+
+              LAS NOTAS VAN INTEGRADAS EN LA COLUMNA, no en un panel aparte con
+              su barra de scroll y su campo pegado abajo (Mario, ago 2026: "más
+              tipo notas de equipo que un chat"). No es solo aspecto: pinchado
+              abajo, el hilo o metía una SEGUNDA barra de scroll en una columna
+              de 368px, o se quedaba en 40px de alto en un portátil de 720
+              (medido: los datos piden 353 de los 508 que da el raíl, y del resto
+              se comían 81 el campo y 33 el rótulo). Es la misma lección que la
+              lista de puestos del lateral: dos barras pegadas en una columna
+              estrecha son peor problema que el que resuelven.
+
+              El raíl puede quedarse medio vacío en una pantalla alta, y está
+              bien: el vacío no se reparte, se deja donde cae. */}
+          {/* SE MONTA, no se esconde con `hidden lg:block`. Dentro hay campos con
+              id (el de añadir etiqueta y el de escribir una nota) y un hilo que
+              se carga solo: montado y oculto, por debajo de 1024px había dos de
+              cada uno en la página, con los mismos ids y dos peticiones para el
+              mismo hilo. Es la misma regla que ya obliga a montar `BottomSheet`
+              solo en móvil. */}
+          {dosColumnas && (
+            <aside className="w-[368px] shrink-0 space-y-5 overflow-y-auto overscroll-contain border-l border-slate-200 bg-white px-4 py-4">
+              {acciones}
+              {datos}
+              {/* LA RAYA PARTE EL RAÍL EN DOS (Mario, ago 2026): por encima, lo que
+                  dice el CANDIDATO; por debajo, lo que pone TU EQUIPO. Vive AQUÍ y
+                  no dentro de `TagSection` ni del bloque de etiquetas, porque la
+                  frontera es de esta columna: el tablón usa la misma pieza y allí
+                  no separa nada, y en móvil el reparto es otro (ver el orden de
+                  Información) y la raya mentiría. */}
+              {etiquetas && <div className="border-t border-slate-200 pt-5">{etiquetas}</div>}
+              {notas}
+            </aside>
+          )}
         </div>
 
-        {/* Barra de acción de móvil: el pulgar llega y no roba sitio arriba. En
-            Equipo manda el campo de escribir. */}
-        {izqVisible !== 'seguimiento' && (
-          <div className="flex items-center gap-2 border-t border-slate-200 bg-white px-4 py-2.5 sm:hidden">
+        {/* Barra de acción de móvil: el pulgar llega y no roba sitio arriba.
+            Solo en Información: en la Conversación y en el Historial la columna
+            es lo único que hay y ahí manda lo que se lee. */}
+        {/* SE MONTA, no se esconde con `sm:hidden`. Dentro hay un `MenuAcciones`,
+            y su desplegable sale por un PORTAL a `document.body`: el `hidden` de
+            la barra no lo alcanza, así que al abrirlo en un móvil y ensanchar la
+            ventana el menú se quedaba flotando sobre el escritorio, encima de
+            una barra que ya no se veía. Es la misma regla que ya obliga a montar
+            `BottomSheet` solo en móvil y el raíl solo cuando existe. */}
+        {esMovil && esFicha(vista) && (
+          <div ref={barraRef} className="flex items-center gap-2 border-t border-slate-200 bg-white px-4 py-2.5">
             {phone ? (
               <>
                 <a
@@ -437,7 +606,7 @@ export function CandidateModal({
             ) : (
               <span className="flex-1 text-[13px] text-slate-500">Sin teléfono en la candidatura.</span>
             )}
-            <MenuAcciones candidate={candidate} cvName={cvName} onEliminar={() => setConfirmarBorrado(true)} />
+            <MenuAcciones candidate={candidate} cvName={cvName} onEliminar={() => setConfirmarBorrado(true)} banda={barraRef} />
           </div>
         )}
       </Modal>
@@ -563,39 +732,285 @@ function ValorCopiable({ valor, etiqueta, num, truncar = false }: { valor: strin
   )
 }
 
-function Dato({ label, children }: { label: string; children: React.ReactNode }) {
+function Dato({
+  label,
+  children,
+  info,
+  ancho = false,
+}: {
+  label: string
+  children: React.ReactNode
+  /** La aclaración se PIDE, no se imprime debajo. Ver `FichaDatos`. */
+  info?: string
+  /** Ocupa las dos columnas de la rejilla. Lo pide el correo, que es el único
+   *  dato de la ficha que crece sin límite. */
+  ancho?: boolean
+}) {
   return (
-    <div className="min-w-0">
-      <dt className="text-[12px] text-slate-500">{label}</dt>
+    <div className={`min-w-0 ${ancho ? 'col-span-2' : ''}`}>
+      <dt className="flex items-center gap-1 text-[12px] text-slate-500">
+        {label}
+        {info && <InfoTooltip text={info} />}
+      </dt>
       <dd className="text-sm font-medium text-slate-900">{children}</dd>
     </div>
   )
 }
 
-function Resumen({
+/**
+ * UNA FRANJA DE LA COLUMNA DE MÓVIL, separada de la siguiente por un filo de
+ * lado a lado (referencia: JOIN, ago 2026).
+ *
+ * Sin raíl, los siete apartados caen en una sola columna, y estaban separados
+ * solo por 24px de aire mientras cada uno se pintaba de una manera distinta:
+ * tres tarjetas con borde, tres bloques sueltos con su versalita y una fila de
+ * botones. Siete cosas con tres tratamientos y ningún ritmo, que es exactamente
+ * lo que se lee como "un lío": el ojo no puede decir dónde acaba una y empieza
+ * otra sin leerlas.
+ *
+ * La respuesta no es meterlo todo en tarjetas (siete cajas con borde apiladas en
+ * 375px son siete objetos flotando), es lo contrario: **todo plano, y el filo
+ * hace de frontera**. Va de lado a lado (`-mx-4` contra el relleno de la
+ * columna) para que se lea como el corte de una sección y no como el borde de
+ * una caja; los filos de DENTRO de un apartado (las filas de Respuestas) sí van
+ * metidos, y esa diferencia es la que da la jerarquía.
+ *
+ * A partir de `sm` no se pinta nada: ahí el pop-up es una tarjeta ancha, las
+ * tarjetas de dentro caben y el aire basta para separar.
+ */
+/** La columna: `tabpanel` donde hay pestañas encima, y un div cuando no. */
+function Envoltorio({
+  esPanel,
+  idPrefix,
+  value,
+  className,
+  children,
+}: {
+  esPanel: boolean
+  idPrefix: string
+  value: string
+  className: string
+  children: React.ReactNode
+}) {
+  if (!esPanel) return <div className={className}>{children}</div>
+  return (
+    <TabPanel idPrefix={idPrefix} value={value} className={className}>
+      {children}
+    </TabPanel>
+  )
+}
+
+function Seccion({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="max-sm:-mx-4 max-sm:border-t max-sm:border-slate-200 max-sm:px-4 max-sm:py-5 max-sm:first:border-0 max-sm:first:pt-0">
+      {children}
+    </div>
+  )
+}
+
+/** La versalita de un apartado de la ficha. Una sola, para que no acaben
+ *  conviviendo dos tamaños de rótulo en la misma columna. */
+const ROTULO = 'text-[11px] font-semibold uppercase tracking-wider text-slate-500'
+
+/**
+ * El rótulo de un apartado de la ficha, con dos formas y una regla para elegir:
+ * **si el apartado tiene tarjeta, el título va DENTRO** (Mario, ago 2026).
+ *
+ * Flotando encima de una caja con filo, el título se lee como si rotulara la
+ * zona de la pantalla y no lo que hay en la caja, y deja un renglón suelto entre
+ * dos tarjetas que no pertenece a ninguna de las dos. Dentro, es la primera
+ * banda de la propia tarjeta, separada por un filo, igual que la cabecera de la
+ * tabla del puesto. Donde NO hay tarjeta (los apartados del raíl, que son texto
+ * sobre el fondo) no hay dentro al que meterlo, y el rótulo se queda encima.
+ */
+function Bloque({
+  titulo,
+  children,
+  tarjeta = false,
+}: {
+  titulo: string
+  children: React.ReactNode
+  tarjeta?: boolean
+}) {
+  if (!tarjeta) {
+    return (
+      <section>
+        <h3 className={`mb-2 ${ROTULO}`}>{titulo}</h3>
+        {children}
+      </section>
+    )
+  }
+  // `overflow-clip` y no `hidden`: recorta el arco de la esquina con el mismo
+  // radio (el hijo es una caja cuadrada y pintaría su fondo sobre el filo) sin
+  // convertir la tarjeta en contenedor de scroll.
+  //
+  // LA TARJETA EXISTE DESDE `sm`. En un teléfono, la columna se organiza con
+  // franjas planas y filos de lado a lado (ver `Seccion`), así que una caja con
+  // borde dentro de una franja son dos fronteras a 16px una de otra. Lo que
+  // sobrevive en las dos es el rótulo: dentro de la tarjeta arriba, y en móvil
+  // encabezando su franja.
+  return (
+    <section className="sm:overflow-clip sm:rounded-xl sm:filo">
+      {/* SIN FILO DEBAJO (Mario, ago 2026): el rótulo se lee como el título de
+          la tarjeta, igual que el de Meridian, no como la cabecera de una tabla
+          que anuncia columnas. Con la raya puesta, la tarjeta parecía tener dos
+          zonas y la primera fila de datos empezaba con un peldaño de más. El
+          relleno lateral es el MISMO que el de las filas (`px-3.5`), o el título
+          no cae en la vertical de lo que rotula. */}
+      <h3 className={`pb-2 sm:px-3.5 sm:pt-3 ${ROTULO}`}>{titulo}</h3>
+      {children}
+    </section>
+  )
+}
+
+/**
+ * LAS DOS ACCIONES DE UNA PERSONA, arriba del raíl (diseño de Mario, ago 2026).
+ *
+ * Sustituyen a la fila de decisión que vivía bajo el nombre (pastilla de estado,
+ * agendar, llamar, WhatsApp y el `···`), que era una barra de herramientas justo
+ * donde se lee quién es alguien. Ahora la cabecera es identidad y navegación, y
+ * lo que se HACE está donde se decide, encima de sus datos.
+ *
+ * **UNA SOLA ACCIÓN PRINCIPAL POR ESTADO**, que es lo que convierte dos botones
+ * en un proceso: el botón dice cuál es el siguiente paso, no todos los posibles.
+ *   · nuevo / contactado -> agendar la entrevista
+ *   · entrevista         -> confirmar que se contrata
+ *   · contratado         -> ninguna: el proceso acabó
+ *   · descartado         -> ninguna, y la secundaria pasa a devolverlo a la lista
+ *
+ * Tres cosas del diseño que NO se copian, y las tres son doctrina escrita de este
+ * proyecto:
+ *   1. **"Rechazar" en rojo.** Descartar es rutina y es reversible, así que su
+ *      color es slate apagado y nunca rojo; el rojo avisa de un error o de algo
+ *      que no se deshace. Va en secundario.
+ *   2. **"Rechazar" como palabra.** El estado se llama "descartado" y el glosario
+ *      está congelado: dos palabras para lo mismo es como empieza a haber dos
+ *      conceptos. El verbo es "Descartar".
+ *   3. **Iconos dentro de un botón de ancho completo.** Ahí se centra el grupo
+ *      icono+texto, así que el RÓTULO queda descentrado (12px medidos en "Crear
+ *      puesto"). Un botón de bloque va con la etiqueta sola.
+ *
+ * PENDIENTE, y por eso el botón dice hoy "Agendar entrevista" y no "Invitar":
+ * la invitación con la disponibilidad del calendario de quien invita no existe
+ * todavía (hace falta la integración con Google Calendar, una página pública
+ * donde el candidato elija hueco y el correo que la lleva). Mientras tanto, la
+ * acción que se ofrece es la que funciona ENTERA, que es apuntar la cita a mano;
+ * es la misma regla que aplica `WHATSAPP_LISTO` en el resto de la ficha: nunca
+ * se ofrece una acción que acabe en un mensaje que no sale.
+ */
+function AccionesCandidato({
+  candidate,
+  onAgendar,
+  onVerEntrevista,
+  onEstado,
+}: {
+  candidate: Candidate
+  onAgendar: () => void
+  onVerEntrevista: () => void
+  onEstado: (s: CandidateStatus) => void
+}) {
+  const { interviewsFor } = useStore()
+  const entrevista = currentInterview(interviewsFor(candidate.id), candidate.id)
+  const confirmada =
+    (entrevista?.status === 'confirmada' || entrevista?.status === 'reprogramando') && entrevista.startsAt
+      ? entrevista
+      : null
+  const s = candidate.status
+
+  const principal =
+    s === 'entrevista' ? (
+      <button type="button" onClick={() => onEstado('contratado')} className={BTN_PRIMARY_BLOCK}>
+        Confirmar contratado
+      </button>
+    ) : s === 'nuevo' || s === 'contactado' ? (
+      <button type="button" onClick={onAgendar} className={BTN_PRIMARY_BLOCK}>
+        Agendar entrevista
+      </button>
+    ) : null
+
+  return (
+    <div className="space-y-2">
+      {/* EN MÓVIL LOS DOS BOTONES COMPARTEN FILA (44px en vez de 132). Apilados
+          son la mitad de la primera pantalla de un teléfono para dos verbos que
+          caben de sobra en 165px cada uno. Es una REJILLA y no un `flex-row`:
+          `BTN_*_BLOCK` ya trae `w-full`, y `w-full` con `flex-1` son el mismo eje
+          y no se resuelven por el orden en que se escriben; en una celda de grid,
+          el `w-full` hace justo lo que dice. */}
+      <div className="grid gap-2 max-sm:grid-cols-2">
+        {principal}
+        {s === 'descartado' ? (
+          // Descartar es reversible y se dice con un botón, no con una
+          // advertencia: vuelve a "nuevo" porque es el único estado que no
+          // afirma nada sobre el trato que ya ha habido, y el historial conserva
+          // por dónde pasó.
+          <button type="button" onClick={() => onEstado('nuevo')} className={BTN_SECONDARY_BLOCK}>
+            Devolver a la lista
+          </button>
+        ) : (
+          <button type="button" onClick={() => onEstado('descartado')} className={BTN_SECONDARY_BLOCK}>
+            Descartar
+          </button>
+        )}
+      </div>
+
+      {/* CUÁNDO es la cita no se pierde con la fila que se retiró. Es una línea y
+          no un tercer botón: no es una acción sobre la persona, es un dato que
+          además lleva a donde se ve entera. */}
+      {confirmada && (
+        <button
+          type="button"
+          onClick={onVerEntrevista}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg py-1 text-[13px] text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+        >
+          <CalendarDays className="size-3.5 text-amber-500" aria-hidden />
+          <span className="num">Entrevista · {shortWhenInZone(confirmada.startsAt!, confirmada.timezone)}</span>
+        </button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * El campo de correo que la ficha pinta en Contacto: el PRIMERO de tipo email.
+ * Lo usan `FichaDatos` (para pintarlo) y `Respuestas` (para no repetirlo), y por
+ * eso es una función y no la misma línea escrita dos veces: con un formulario
+ * que pida dos correos, quien lo escribiera al revés se dejaría el segundo sin
+ * enseñar en ningún sitio.
+ */
+const campoCorreo = (campaign: Campaign) => campaign.fields.find((f) => f.type === 'email')
+
+/**
+ * LOS HECHOS DE UNA PERSONA, EN UNA COLUMNA. Vive en el raíl de escritorio y,
+ * donde no hay raíl, arriba de Información.
+ *
+ * En UNA columna y no en la rejilla de dos que tenía en el Resumen: el raíl mide
+ * 336px de contenido, así que partirlo en dos dejaba el correo en 156px, o sea
+ * "daniel.moreno1…" con el dominio cortado, que es justo el dato que se copia
+ * para escribirle. Aquí el vacío se deja donde cae.
+ *
+ * Dos apartados y no uno: "Recibida" y "Origen" nunca fueron contacto, y los
+ * arrastraba ahí el título de un bloque que se llamaba así por sus dos primeras
+ * filas.
+ */
+function FichaDatos({
   campaign,
   candidate,
   maskPhone,
-  canManageTags,
-  onOpenManageTags,
+  onEstado,
 }: {
   campaign: Campaign
   candidate: Candidate
   maskPhone: boolean
-  canManageTags: boolean
-  onOpenManageTags?: () => void
+  onEstado: (s: CandidateStatus) => void
 }) {
   const phone = String(candidate.answers['telefono'] ?? '')
-  const emailField = campaign.fields.find((f) => f.type === 'email')
-  const correo = emailField ? String(candidate.answers[emailField.id] ?? '') : ''
+  const campo = campoCorreo(campaign)
+  const correo = campo ? String(candidate.answers[campo.id] ?? '') : ''
 
   return (
-    <div className="space-y-6">
-      <MeridianPanelBlock candidate={candidate} />
-
-      <section>
-        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Contacto</h3>
-        <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+    <div className="space-y-5">
+      <Bloque titulo="Datos">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
           <Dato label="Teléfono">
             {!phone ? (
               <span className="font-normal text-slate-500">No disponible</span>
@@ -605,43 +1020,99 @@ function Resumen({
               <ValorCopiable valor={formatPhone(phone)} etiqueta="Teléfono" num truncar />
             )}
           </Dato>
-          <Dato label="Correo">
-            {correo ? <ValorCopiable valor={correo} etiqueta="Correo" truncar /> : <span className="font-normal text-slate-500">No disponible</span>}
-          </Dato>
+          {/* La fecha SOLA, en su casilla, se dice corta: aquí se compara el día,
+              y la hora exacta cambia de canal (al `title` y al `datetime`), que
+              es lo que ya hace la columna Recibida de la tabla. Escrita entera no
+              cabía en media rejilla de 336px y rompía la fila en dos líneas. */}
           <Dato label="Recibida">
-            <span className="num">{fullDateTime(candidate.submittedAt)}</span>
+            <time dateTime={candidate.submittedAt} title={fullDateTime(candidate.submittedAt)} className="num">
+              {fechaCorta(candidate.submittedAt)}
+            </time>
           </Dato>
           <Dato label="Origen">{SOURCE_META[candidate.source].label}</Dato>
+          {/* EL ESTADO ES UN DATO MÁS, y vive aquí desde que la cabecera se quedó
+              en la identidad (Mario, ago 2026). Estaba en su propia fila debajo
+              del nombre; en el raíl cae al lado del origen, que es su hermano
+              natural (de dónde vino y en qué punto está), y con los dos botones
+              de acción justo encima, que son quienes lo mueven. Ocupa el hueco
+              que tenía "Interés actual", que se retiró de la ficha: esa señal se
+              sigue viendo en la fila de la lista, y con el canal de WhatsApp
+              apagado casi siempre decía "sin comprobar". */}
+          <Dato label="Estado">
+            <StatusSelect status={candidate.status} onChange={onEstado} />
+          </Dato>
+          {/* EL CORREO ES UN ENLACE, no un valor que se copia (Mario, ago 2026):
+              es el único dato de este bloque con el que se puede HACER algo
+              desde aquí, y `mailto:` lo hace en un clic en vez de en tres
+              (copiar, abrir el correo, pegar). Mismo tratamiento que la columna
+              de correo de la tabla. El teléfono se queda copiable: su acción de
+              verdad (llamar, WhatsApp) está en la cabecera, y lo que se hace con
+              el número es pegarlo en otro sitio.
+
+              Y va el ÚLTIMO, debajo de Origen e Interés: es el único que ocupa
+              las dos columnas, así que en medio partía la rejilla en dos mitades
+              de dos casillas y el ojo perdía la vertical. Al final, las cuatro
+              casillas cortas forman un bloque limpio y el ancho cierra. */}
+          <Dato label="Correo" ancho>
+            {correo ? (
+              <a
+                href={`mailto:${correo}`}
+                title={correo}
+                className="block truncate rounded-sm text-indigo-600 hover:text-indigo-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+              >
+                {correo}
+              </a>
+            ) : (
+              <span className="font-normal text-slate-500">No disponible</span>
+            )}
+          </Dato>
         </dl>
-      </section>
+      </Bloque>
 
-      {/* Etiquetas: aquí a todos los anchos. Es lo que tu equipo dice de esta
-          persona, así que va con lo demás que se lee de ella, no en la cabecera
-          entre el estado y las acciones. */}
-      {TAGS_ENABLED && (
-        <section>
-          <TagSection candidateId={candidate.id} tagIds={candidate.tagIds} canManage={canManageTags} onOpenManage={() => onOpenManageTags?.()} />
-        </section>
-      )}
-
-      <section>
-        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Interés actual</h3>
-        <InterestSignal campaign={campaign} candidate={candidate} />
-        <p className="mt-1.5 text-[12px] leading-5 text-slate-500">Esta señal es informativa y no cambia el estado de la candidatura.</p>
-      </section>
     </div>
   )
 }
 
-function Respuestas({ campaign, candidate, maskPhone }: { campaign: Campaign; candidate: Candidate; maskPhone: boolean }) {
+function Respuestas({
+  campaign,
+  candidate,
+  maskPhone,
+  conDocumentos,
+}: {
+  campaign: Campaign
+  candidate: Candidate
+  maskPhone: boolean
+  /**
+   * Hay un bloque de Documentos justo debajo. Entonces la fila del campo de
+   * archivo sobra: sería el nombre del fichero escrito dos veces, una como
+   * respuesta y otra encima del visor. Sin documento SÍ se pinta, porque
+   * "No disponible" es información: esa persona no mandó el CV que se le pidió.
+   */
+  conDocumentos: boolean
+}) {
+  // Fuera lo que la ficha YA pinta por su cuenta: el nombre es el título, y el
+  // teléfono y el correo tienen su apartado en Contacto, a dos dedos de aquí.
+  // Antes vivían en pestañas distintas y la repetición no se veía; con las dos
+  // cosas en pantalla a la vez, la lista de respuestas empezaba contestando
+  // preguntas que ya estaban contestadas arriba.
+  const correo = campoCorreo(campaign)
+  const campos = campaign.fields.filter(
+    (f) =>
+      !CAMPOS_YA_PINTADOS.includes(f.id) &&
+      f.id !== correo?.id &&
+      !(conDocumentos && f.type === 'file'),
+  )
+  // Un formulario que solo pide nombre y teléfono se queda sin nada que enseñar
+  // aquí, y una tarjeta vacía con su rótulo es peor que ninguna.
+  if (!campos.length) return null
   return (
-    <dl className="divide-y divide-slate-100 overflow-hidden rounded-xl filo">
-      {campaign.fields.map((f) => {
+    <dl className="divide-y divide-slate-100">
+      {campos.map((f) => {
         const raw = candidate.answers[f.id]
         const texto = answerText(raw)
         const esNumerico = ['phone', 'number', 'date'].includes(f.type)
         return (
-          <div key={f.id} className="grid grid-cols-[38%_62%] gap-3 px-3.5 py-2.5">
+          <div key={f.id} className="grid grid-cols-[38%_62%] gap-3 py-2.5 sm:px-3.5">
             <dt className="break-words text-[13px] text-slate-500">{f.label}</dt>
             <dd className={`break-words text-sm font-medium text-slate-900 ${esNumerico ? 'num' : ''}`}>
               {texto === 'No disponible' ? (
@@ -724,9 +1195,15 @@ function Cv({ candidate, cvName }: { candidate: Candidate; cvName: string }) {
     window.open(data.signedUrl, '_blank', 'noopener')
   }
 
+  // Dentro de la tarjeta de Documentos, así que aquí NO se pinta ni marco ni
+  // radio: el visor es la banda de abajo y el nombre del fichero la de arriba,
+  // separadas por un filo de interior (`slate-100`, el que guía) igual que las
+  // filas de Respuestas. Con su propio `rounded-xl filo` había un borde dentro
+  // de otro a 12px de distancia.
+  const banda = 'grid flex-1 place-items-center bg-slate-50 px-6 text-center'
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+    <div className="flex h-full flex-col">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-slate-100 py-2.5 sm:px-3.5">
         {/* Decorativo: en móvil no hay sitio y el nombre del archivo manda. */}
         <FileText className="hidden size-4 shrink-0 text-slate-500 sm:block" aria-hidden />
         <span className="min-w-0 max-w-full truncate text-sm font-medium text-slate-900" title={cvName || 'CV'}>
@@ -746,19 +1223,19 @@ function Cv({ candidate, cvName }: { candidate: Candidate; cvName: string }) {
       </div>
 
       {!esPdf ? (
-        <div className="grid min-h-[240px] flex-1 place-items-center rounded-xl filo bg-slate-50 px-6 text-center">
+        <div className={`min-h-[240px] ${banda}`}>
           <p className="max-w-[42ch] text-sm leading-6 text-slate-500">
             Este CV está en Word y no se puede ver aquí dentro. Descárgalo para abrirlo.
           </p>
         </div>
       ) : error ? (
-        <div className="grid min-h-[240px] flex-1 place-items-center rounded-xl filo bg-slate-50 px-6 text-center">
+        <div className={`min-h-[240px] ${banda}`}>
           <p className="max-w-[42ch] text-sm leading-6 text-slate-500">No se pudo abrir el CV. Prueba a descargarlo.</p>
         </div>
       ) : url ? (
-        <iframe src={url} title={`CV de ${candidateName(candidate) || 'el candidato'}`} className="min-h-[360px] flex-1 rounded-xl filo bg-slate-50" />
+        <iframe src={url} title={`CV de ${candidateName(candidate) || 'el candidato'}`} className="min-h-[360px] flex-1 bg-slate-50" />
       ) : (
-        <div className="grid min-h-[360px] flex-1 place-items-center rounded-xl filo bg-slate-50">
+        <div className={`min-h-[360px] ${banda}`}>
           <p className="flex items-center gap-2 text-sm text-slate-500" role="status">
             <Loader2 className="size-4 animate-spin text-slate-400" aria-hidden /> Abriendo el CV…
           </p>
@@ -768,7 +1245,34 @@ function Cv({ candidate, cvName }: { candidate: Candidate; cvName: string }) {
   )
 }
 
-function Equipo({
+/**
+ * NOTAS DEL EQUIPO: integradas en la columna del raíl, no en un panel aparte.
+ *
+ * Es la MISMA tabla y el mismo objeto que el chat de la ficha de siempre (autor,
+ * fecha y menciones `@` que avisan por correo); lo que cambia es cómo se
+ * presenta, y lo pidió Mario con una referencia delante (ago 2026): "más tipo
+ * notas de equipo que un chat".
+ *
+ * Tres diferencias con el hilo que había, y las tres salen de vivir dentro de
+ * una columna que ya scrollea:
+ *
+ * 1. **El campo va ARRIBA, y por eso la nota más reciente va la primera.** Un
+ *    composer pegado al fondo necesita que su bloque tenga alto propio, y aquí
+ *    no lo tiene: el bloque mide lo que midan sus notas. Arriba además es donde
+ *    se busca "añadir". La regla que gobierna las dos cosas es la misma: **lo
+ *    último dicho va pegado al campo de escribir.**
+ * 2. **No hay scroll propio ni salto al fondo.** Scrollea el raíl entero, así
+ *    que no hay dos barras en una columna de 368px, y la nota que acabas de
+ *    escribir sale justo debajo de donde la escribiste.
+ * 3. **Sin botón de enviar** (Mario, ago 2026). Envía Intro. El campo vive entre
+ *    "Añadir etiqueta" y la lista de notas, y con botón se leía como un control
+ *    de otra categoría que el de encima; sin él, las dos cajas son hermanas.
+ * 4. **Vacío no dice nada.** El bloque grande de "Nadie ha comentado todavía"
+ *    era para un panel que hay que llenar; aquí el propio campo, con su
+ *    marcador de posición, ya invita, y una frase debajo sería decir lo mismo
+ *    dos veces.
+ */
+function NotasEquipo({
   candidateId,
   chatVersion,
   currentUserId,
@@ -786,55 +1290,66 @@ function Equipo({
   // chatVersion en las dependencias: cuando un compañero escribe, el ping de
   // realtime lo sube y el hilo abierto se recarga solo, sin sondear.
   const { items, setItems, loading } = useChatThread(() => load(candidateId), [candidateId, chatVersion])
-  const { contenedor, nuevos, irAlFondo } = useSeguirAlFondo(items.length)
 
-  const mensajes: ChatMessage[] = items.map((c) => ({
-    id: c.id,
-    authorUserId: c.authorUserId,
-    authorEmail: c.authorEmail,
-    body: c.body,
-    createdAt: c.createdAt,
-    isNote: c.isNote,
-  }))
+  // LA MÁS RECIENTE, LA PRIMERA. Es al revés que en el tablón y que en la
+  // conversación con el candidato, y no es una excepción caprichosa: la regla es
+  // que **lo último dicho va pegado al campo de escribir**. Donde el campo está
+  // abajo, eso es el orden cronológico; aquí el campo está arriba, así que el
+  // orden cronológico dejaría lo último que se dijo en el punto más lejano de la
+  // columna, y en una ficha con quince notas habría que bajar del todo para
+  // saber cómo va el caso.
+  const mensajes: ChatMessage[] = items
+    .map((c) => ({
+      id: c.id,
+      authorUserId: c.authorUserId,
+      authorEmail: c.authorEmail,
+      body: c.body,
+      createdAt: c.createdAt,
+      isNote: c.isNote,
+    }))
+    .reverse()
 
   return (
-    <>
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <div
-          ref={contenedor}
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 py-4"
-        >
-          {loading ? (
-            <ChatSkeleton />
-          ) : mensajes.length === 0 ? (
-            <ChatEmpty icon={<MessagesSquare className="size-6" />} title="Nadie ha comentado todavía">
-              Apunta aquí lo que hables por teléfono: si le encaja el turno, cuándo puede empezar, lo que sea. Queda con tu nombre y lo ve tu equipo.
-            </ChatEmpty>
-          ) : (
-            <ChatThread messages={mensajes} currentUserId={currentUserId} members={members} />
-          )}
+    <Bloque titulo="Notas">
+      <ChatComposer
+        id={`chat-${candidateId}`}
+        members={members}
+        placeholder="Añade una nota. @ para avisar"
+        label="Añade una nota sobre este candidato"
+        botonEnviar={false}
+        campo
+        onSend={async (body, mentions) => {
+          const nuevo = await onSend(candidateId, body, mentions)
+          if (nuevo) setItems((cs) => (cs.some((c) => c.id === nuevo.id) ? cs : [...cs, nuevo]))
+          // No hace falta perseguir nada: con el campo arriba y la más reciente
+          // la primera, lo que acabas de escribir aparece justo debajo de donde
+          // lo escribiste. Aquí había un centinela y dos `requestAnimationFrame`
+          // para arrastrar el raíl hasta el final, y sobran los tres.
+        }}
+      />
+      {loading ? (
+        <div className="mt-4">
+          <ChatSkeleton />
         </div>
-        <ChatNuevos nuevos={nuevos} onClick={() => irAlFondo(true)} />
-      </div>
-      <div className="border-t border-slate-200 bg-white p-3">
-        <ChatComposer
-          id={`chat-${candidateId}`}
-          members={members}
-          onSend={async (body, mentions) => {
-            const nuevo = await onSend(candidateId, body, mentions)
-            if (nuevo) setItems((cs) => (cs.some((c) => c.id === nuevo.id) ? cs : [...cs, nuevo]))
-            // Lo tuyo se va a ver siempre, estuvieras donde estuvieras leyendo:
-            // acabas de escribirlo, así que quieres verlo salir.
-            irAlFondo(true)
-          }}
-        />
-      </div>
-    </>
+      ) : (
+        mensajes.length > 0 && (
+          // EL HUECO HASTA EL CAMPO ES MAYOR QUE EL HUECO ENTRE NOTAS (20 contra
+          // 14), y ese orden importa: estaba al revés (16 contra 20), o sea que
+          // la primera nota estaba más cerca del campo de escribir que de sus
+          // hermanas, y por eso se leía pegada al campo y la lista no se leía
+          // como una lista. La proximidad es lo que agrupa.
+          <ChatThread
+            className="mt-5"
+            compacto
+            messages={mensajes}
+            currentUserId={currentUserId}
+            members={members}
+          />
+        )
+      )}
+    </Bloque>
   )
 }
-
-/** Chat sin plan: mismo patrón de upsell que el bloque de Meridian. */
-
 
 /** Punto de color del historial. Solo el cambio de estado tiene color propio. */
 function eventoDot(e: CandidateEvent): string {
@@ -959,7 +1474,35 @@ function Historial({ candidateId, load, yoEmail }: { candidateId: string; load: 
  *  `size` tiene que igualar al de los botones de SU fila, que no es la misma en las dos:
  *  la cabecera de escritorio usa las variantes _SM (32px) y la barra inferior, las normales
  *  (36px). Con un tamaño fijo aquí, una de las dos filas queda descuadrada. */
-function MenuAcciones({ candidate, cvName, onEliminar, size = 'md' }: { candidate: Candidate; cvName: string; onEliminar: () => void; size?: 'sm' | 'md' }) {
+function MenuAcciones({
+  candidate,
+  cvName,
+  onEliminar,
+  size = 'md',
+  // En la cabecera va SIN caja, como las flechas y la equis con las que comparte
+  // fila: un botón de línea entre tres fantasmas se lee como si fuera de otro
+  // grupo. En la barra del pulgar sí lleva caja, porque allí sus vecinos son
+  // botones de verdad.
+  variante = 'secondary',
+  banda,
+}: {
+  candidate: Candidate
+  cvName: string
+  onEliminar: () => void
+  size?: 'sm' | 'md'
+  variante?: 'secondary' | 'ghost'
+  /**
+   * La superficie que contiene al botón, si la hay (la barra del pulgar).
+   *
+   * EL HUECO SE MIDE CONTRA LA CAJA QUE PINTA, NO CONTRA EL BOTÓN. El `···` vive
+   * DENTRO del relleno de la barra, así que separándose 6px de él el menú se
+   * metía 5 dentro de la barra y se leía pisándola (medido). Lo que el botón
+   * decide es de dónde sale en horizontal; hasta dónde puede llegar en vertical
+   * lo decide su contenedor. Es la misma lección que el submenú del puesto, que
+   * ancla en el menú y no en la fila, en el otro eje.
+   */
+  banda?: React.RefObject<HTMLDivElement | null>
+}) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -967,10 +1510,53 @@ function MenuAcciones({ candidate, cvName, onEliminar, size = 'md' }: { candidat
   const toast = useToast()
   const W = 232
 
+  /**
+   * SE COLOCA CONTRA LA VENTANA, Y POR ESO SE MIDE ANTES DE VERSE.
+   *
+   * Estaba escrito a mano y SIEMPRE abría hacia abajo (`r.bottom + 6`). En la
+   * cabecera daba igual, pero este mismo menú vive también en la barra del
+   * pulgar, pegada al filo de abajo de un móvil: allí se desplegaba fuera de la
+   * pantalla y no se veía nada (Mario, ago 2026). `colocarFlotante` es quien
+   * sabe esto: prefiere abajo, sube solo si abajo no cabe y arriba sí, y en
+   * horizontal aprieta contra el filo en vez de salirse.
+   *
+   * Para decidir el lado hace falta el ALTO, y el alto no se sabe hasta que el
+   * menú está en el DOM: se monta invisible, se mide en un `useLayoutEffect` y
+   * solo entonces se coloca. Medirlo después de verse sería un salto de un
+   * fotograma. Es el mismo patrón que el globo de `ui/Tooltip`.
+   */
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null)
+      return
+    }
+    const b = btnRef.current?.getBoundingClientRect()
+    const m = menuRef.current?.getBoundingClientRect()
+    if (!b || !m) return
+    // Vertical contra la banda (si la hay), horizontal contra el botón. Se
+    // construye campo a campo y NO con `{ ...b }`: un `DOMRect` tiene sus
+    // propiedades en el PROTOTIPO, así que el spread devuelve un objeto vacío y
+    // el ancla horizontal se quedaba en `undefined` (el menú se iba al filo
+    // izquierdo de la pantalla, medido: derecha 232 contra los 359 del botón).
+    const caja = banda?.current?.getBoundingClientRect()
+    const a = {
+      left: b.left,
+      right: b.right,
+      top: caja?.top ?? b.top,
+      bottom: caja?.bottom ?? b.bottom,
+    }
+    setPos(
+      colocarFlotante(
+        a,
+        { width: W, height: m.height },
+        { width: window.innerWidth, height: window.innerHeight },
+        { alinear: 'derecha' },
+      ),
+    )
+  }, [open, banda])
+
   useEffect(() => {
     if (!open) return
-    const r = btnRef.current?.getBoundingClientRect()
-    if (r) setPos({ top: r.bottom + 6, left: Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8)) })
     const onDoc = (e: MouseEvent) => {
       const t = e.target as Node
       if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return
@@ -1029,19 +1615,26 @@ function MenuAcciones({ candidate, cvName, onEliminar, size = 'md' }: { candidat
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className={botonIcono('secondary', size, size === 'sm' ? 'pointer-coarse:size-11' : '')}
+        className={botonIcono(variante, size, size === 'sm' ? 'pointer-coarse:size-11' : '')}
       >
         {/* El icono también acompaña: los vecinos _SM llevan size-3.5. */}
         <MoreHorizontal className={size === 'sm' ? 'size-3.5' : 'size-4'} aria-hidden />
       </button>
       {open &&
-        pos &&
         createPortal(
           <div
             ref={menuRef}
             role="menu"
             aria-label="Acciones del candidato"
-            style={{ position: 'fixed', top: pos.top, left: pos.left, width: W }}
+            // Invisible mientras no se sabe dónde va: ocupa sitio para poder
+            // medirse, pero sin enseñarse en la esquina antes de saltar a su hueco.
+            style={{
+              position: 'fixed',
+              top: pos?.top ?? 0,
+              left: pos?.left ?? 0,
+              width: W,
+              visibility: pos ? undefined : 'hidden',
+            }}
             className="z-[70] overflow-hidden rounded-xl filo bg-white py-1 shadow-pop"
           >
             {candidate.cvPath && (

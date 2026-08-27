@@ -56,11 +56,26 @@ export type ChatMessage = {
  *    exactamente igual que uno bueno, y quien escribía se quedaba tranquilo
  *    creyendo que había avisado. Lo que no avisa se lee como texto normal.
  */
-function ChatBody({ body, porHandle }: { body: string; porHandle: Map<string, CompanyMember> }) {
+function ChatBody({
+  body,
+  porHandle,
+  compacto = false,
+}: {
+  body: string
+  porHandle: Map<string, CompanyMember>
+  compacto?: boolean
+}) {
   const profiles = useProfiles()
   const partes = useMemo(() => body.split(MENTION_SPLIT_RE), [body])
   return (
-    <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-[22px] text-slate-800">
+    <p
+      // El margen va ENTERO en la rama, no una base más un ajuste: `mt-0.5` y
+      // `mt-1` son la misma utilidad y no se resuelven por el orden en que se
+      // escriben en el `className`, sino por el que salga en el CSS.
+      className={`whitespace-pre-wrap break-words text-sm text-slate-800 ${
+        compacto ? 'mt-0.5 leading-5' : 'mt-1 leading-[22px]'
+      }`}
+    >
       {partes.map((p, i) => {
         const quien = ES_MENCION.test(p) ? porHandle.get(p.slice(1).toLowerCase()) : undefined
         if (!quien) return p
@@ -238,12 +253,27 @@ export function ChatThread({
   currentUserId,
   members = [],
   className = '',
+  compacto = false,
 }: {
   messages: ChatMessage[]
   currentUserId: string | null | undefined
   /** El equipo, para resolver las menciones a la persona a la que avisan. */
   members?: CompanyMember[]
   className?: string
+  /**
+   * RITMO DE LISTA, no de conversación (las Notas de la ficha, ago 2026).
+   *
+   * En un panel de chat el aire entre mensajes es lo que separa dos turnos de
+   * habla y por eso vale 20px. En una columna de datos de 336px, ese mismo aire
+   * hace que tres notas seguidas se lean como tres bloques sueltos en vez de
+   * como una lista, y bajan a empujones el resto del raíl. Compacto: cara de
+   * 28px, hueco de 10 hasta el texto, interlineado de 20 y 14 entre notas.
+   *
+   * Es una TALLA DECLARADA y no clases sueltas en la pantalla, por lo mismo que
+   * `TALLA_SWITCH`: el hilo del tablón y el del candidato usan esta pieza y
+   * tienen que poder seguir cambiando a la vez.
+   */
+  compacto?: boolean
 }) {
   const profiles = useProfiles()
   // El índice se arma una vez por hilo, no una por mensaje.
@@ -255,7 +285,12 @@ export function ChatThread({
   // porque el scrollIntoView que había aquí bajaba siempre, también mientras
   // releías diez mensajes más arriba, y eso es peor que no seguir al mensaje.
   return (
-    <ol className={`mt-auto space-y-5 ${className}`}>
+    // `mt-auto` empuja el hilo al fondo de su columna flex, que es lo que quiere
+    // un panel de chat y no significa nada en una columna de bloque. En compacto
+    // NO se pone: es la misma utilidad que el margen que le pasa quien lo monta,
+    // y las dos no se resuelven por el orden en que se escriben en el
+    // `className` (se midió: el hueco hasta el campo salía 0 en vez de 20).
+    <ol className={`${compacto ? 'space-y-3.5' : 'mt-auto space-y-5'} ${className}`}>
       {messages.map((m) => {
         const yo = !!m.authorUserId && m.authorUserId === currentUserId
         // Cómo se llama quien escribe: su nombre de perfil si lo ha puesto y, si
@@ -264,13 +299,29 @@ export function ChatThread({
         const nombre = m.isNote ? 'Nota anterior' : yo ? 'Tú' : real
         const tone = memberAvatarTone(m.authorEmail)
         return (
-          <li key={m.id} className="flex gap-3">
+          <li key={m.id} className={`flex ${compacto ? 'gap-2.5' : 'gap-3'}`}>
+            {/* LA CARA BAJA 2px, y no es una corrección a ojo: el nombre va en
+                14px dentro de una línea de 20, así que sus letras empiezan 3px
+                por debajo del techo de su caja. Con la cara pegada a ese techo,
+                el círculo asomaba por encima de la primera letra y se leía
+                despegado del nombre al que acompaña. Alineada con el ALTO DE LA
+                MAYÚSCULA, que es donde el ojo pone el principio del texto, el
+                bloque cuadra. */}
             {m.isNote ? (
-              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white ring-1 ring-slate-200" aria-hidden>
-                <FileText className="size-4 text-slate-500" />
+              <span
+                className={`mt-0.5 grid shrink-0 place-items-center rounded-full bg-white ring-1 ring-slate-200 ${compacto ? 'size-7' : 'size-8'}`}
+                aria-hidden
+              >
+                <FileText className={compacto ? 'size-3.5 text-slate-500' : 'size-4 text-slate-500'} />
               </span>
             ) : (
-              <Avatar name={real} seed={m.authorEmail} src={profiles.avatarFor(m.authorUserId)} size={32} />
+              <Avatar
+                className="mt-0.5"
+                name={real}
+                seed={m.authorEmail}
+                src={profiles.avatarFor(m.authorUserId)}
+                size={compacto ? 28 : 32}
+              />
             )}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -279,7 +330,7 @@ export function ChatThread({
                   {relativeDate(m.createdAt)}
                 </time>
               </div>
-              {m.body && <ChatBody body={m.body} porHandle={porHandle} />}
+              {m.body && <ChatBody body={m.body} porHandle={porHandle} compacto={compacto} />}
               {m.slot}
             </div>
           </li>
@@ -315,6 +366,12 @@ export function ChatThread({
 // botones: nueve clones y cinco sombras distintas para lo mismo.
 // -----------------------------------------------------------------------------
 
+/** La caja del composer a la talla de campo: radio de control (8px), no de campo
+ *  (10px), porque a 36px de alto es un control pequeño y así casa con el campo
+ *  de etiqueta que tiene justo encima. */
+export const CHAT_SURFACE_CAMPO =
+  'rounded-lg border border-slate-300 bg-white transition-shadow duration-[var(--duration-control)] ease-[var(--ease-out)] focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/15'
+
 export const CHAT_SURFACE =
   'rounded-xl border border-slate-300 bg-white transition-shadow duration-[var(--duration-control)] ease-[var(--ease-out)] focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/15'
 
@@ -325,11 +382,33 @@ export const CHAT_SURFACE =
 export const CHAT_ROW = 'flex items-end gap-2 p-2'
 
 /**
+ * La misma fila a la TALLA DEL CAMPO DE LA FICHA (36px), para cuando el composer
+ * vive en una columna con otros campos y tiene que ser hermano suyo y no un
+ * panel (las Notas, ago 2026). Sin relleno propio: lo pone el `textarea`, que es
+ * quien crece con el texto.
+ *
+ * `py-[7px]`: 20px de línea + 14 de relleno + 2 de borde = los 36 exactos del
+ * `h-9` del campo de etiqueta. Bajó de 40 a 36 con él (Mario: "tenemos unos
+ * campos de texto demasiado toscos"): al lado de unos chips de 28 y una
+ * versalita de 11, un campo de 40 con radio de 10 se lee como el objeto
+ * principal de la columna en vez de como la forma de añadir una cosa más.
+ * Y sin el `pointer-coarse:py-3` de la fila normal, porque el campo de al lado
+ * tampoco engorda en táctil y la fila quedaría en escalera.
+ */
+export const CHAT_ROW_CAMPO = 'flex items-end gap-2'
+export const CHAT_TEXTAREA_CAMPO_PAD = 'px-2.5 py-[7px]'
+
+/**
  * El texto. 16px en punteros táctiles (`pointer-coarse`) por lo mismo que el
  * formulario público: por debajo de eso iOS hace zoom al enfocar.
  */
-const CHAT_TEXTO =
-  'block min-w-0 resize-none border-0 bg-transparent text-sm pointer-coarse:text-base leading-5 text-slate-900 outline-none placeholder:text-slate-500 focus:ring-0 disabled:opacity-60'
+// La talla va aparte: `text-sm` y `text-[13px]` son la MISMA utilidad y no se
+// resuelven por el orden en que se escriben en el `className`, así que la
+// variante de campo no puede "pisar" la base, tiene que no heredarla.
+const CHAT_TEXTO_BASE =
+  'block min-w-0 resize-none border-0 bg-transparent leading-5 text-slate-900 outline-none placeholder:text-slate-500 focus:ring-0 disabled:opacity-60'
+// 16px en táctil no es estética: por debajo de eso iOS hace zoom al enfocar.
+const CHAT_TEXTO = `${CHAT_TEXTO_BASE} text-sm pointer-coarse:text-base`
 
 /**
  * El texto DENTRO de la fila, compartiéndola con el botón. El relleno vertical
@@ -337,6 +416,7 @@ const CHAT_TEXTO =
  * como una sola línea centrada; en táctil los dos suben a 44px.
  */
 export const CHAT_TEXTAREA = `${CHAT_TEXTO} flex-1 px-1.5 py-1.5 pointer-coarse:py-3`
+export const CHAT_TEXTAREA_CAMPO = `${CHAT_TEXTO_BASE} text-[13px] pointer-coarse:text-base flex-1 ${CHAT_TEXTAREA_CAMPO_PAD}`
 
 /**
  * El texto CON SU PROPIA FILA, cuando debajo hay una barra de controles. Lo usa
@@ -582,6 +662,8 @@ export function ChatComposer({
   label = 'Escribe un mensaje para tu equipo',
   id,
   disabled = false,
+  botonEnviar = true,
+  campo = false,
   children,
 }: {
   /**
@@ -595,6 +677,25 @@ export function ChatComposer({
   label?: string
   id: string
   disabled?: boolean
+  /**
+   * El botón de enviar. Se apaga en las NOTAS de la ficha (Mario, ago 2026):
+   * ahí el campo vive dentro de una columna de datos, entre "Añadir etiqueta" y
+   * la lista de notas, y una caja con botón al lado de otra sin él se lee como
+   * dos controles de distinta categoría. Sin botón, envía Intro (que es lo que
+   * ya hacía) y la caja se parece a la de encima.
+   *
+   * Donde el campo ES la superficie principal (el hilo del tablón, la
+   * conversación con el candidato) el botón se queda: allí no hay nada más con
+   * lo que confundirse y es lo que dice que eso se manda.
+   */
+  botonEnviar?: boolean
+  /**
+   * A la talla de un campo del sistema (40px) en vez de a la de un panel de
+   * conversación. Lo pide el composer de las Notas, que vive en una columna
+   * justo debajo de "Añadir etiqueta": con los 50px de la caja de chat, dos
+   * cajas iguales medían distinto y la columna se leía descuadrada.
+   */
+  campo?: boolean
   /** Controles extra a la izquierda del botón de enviar (adjuntar candidatos). */
   children?: ReactNode
 }) {
@@ -650,11 +751,11 @@ export function ChatComposer({
         onElegir={menciones.elegir}
       />
 
-      <div className={CHAT_SURFACE}>
+      <div className={campo ? CHAT_SURFACE_CAMPO : CHAT_SURFACE}>
         <label htmlFor={id} className="sr-only">
           {label}
         </label>
-        <div className={CHAT_ROW}>
+        <div className={campo ? CHAT_ROW_CAMPO : CHAT_ROW}>
           <textarea
             id={id}
             ref={areaRef}
@@ -682,14 +783,16 @@ export function ChatComposer({
               void enviar()
             }}
             placeholder={placeholder}
-            className={CHAT_TEXTAREA}
+            className={campo ? CHAT_TEXTAREA_CAMPO : CHAT_TEXTAREA}
           />
           {children}
-          <ChatSend
-            onClick={() => void enviar()}
-            disabled={!texto.trim() || disabled}
-            sending={enviando}
-          />
+          {botonEnviar && (
+            <ChatSend
+              onClick={() => void enviar()}
+              disabled={!texto.trim() || disabled}
+              sending={enviando}
+            />
+          )}
         </div>
       </div>
     </div>

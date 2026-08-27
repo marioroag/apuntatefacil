@@ -9,7 +9,6 @@ import { useEsTactil } from '../lib/media'
 import { useToast } from './ui/Toast'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 import { Checkbox } from './ui/Checkbox'
-import { InfoTooltip } from './ui/Tooltip'
 import { limitesVisibles } from '../lib/flotante'
 import { BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
 
@@ -40,7 +39,6 @@ const COPY = {
   title: 'Etiquetas',
   add: 'Añadir etiqueta',
   create: (text: string) => `Crear «${text}»`,
-  info: 'Las etiquetas son internas de tu empresa. Tú decides qué anotar y eres responsable de esa información.',
   manage: 'Gestionar etiquetas',
   rename: 'Renombrar',
   remove: 'Eliminar',
@@ -351,7 +349,6 @@ export function TagPicker({
   return (
     <div ref={wrapRef} className="relative">
       <div className="relative">
-        <TagIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" aria-hidden />
         <input
           ref={inputRef}
           type="text"
@@ -368,7 +365,7 @@ export function TagPicker({
           onKeyDown={onKeyDown}
           placeholder={COPY.add}
           maxLength={40}
-          className="h-10 w-full rounded-xl border border-slate-300 bg-white pl-9 pr-3 text-sm outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+          className="h-9 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-[13px] pointer-coarse:text-base outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
         />
       </div>
 
@@ -399,13 +396,15 @@ export function TagSection({
 }) {
   return (
     <div>
-      {/* Misma versalita que "Contacto" e "Interés actual": son hermanas dentro
-          del Resumen, y un título de 14px entre dos de 11px se lee como si
-          abriera un apartado nuevo. */}
-      <div className="mb-2 flex items-center gap-1.5">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{COPY.title}</h3>
-        <InfoTooltip text={COPY.info} />
-      </div>
+      {/* La misma versalita que los demás apartados del raíl, y SIN el icono de
+          ayuda que llevaba al lado (Mario, ago 2026). Decía que las etiquetas
+          son internas de la empresa y que quien las escribe es responsable de
+          lo que anote, que es verdad y no hace falta contarlo aquí: nadie lo
+          duda al escribir una, y en una columna donde los otros dos rótulos no
+          llevan nada, el único glifo de la columna se lee como si esta caja
+          tuviera una advertencia. Si algún día hay que decirlo, su sitio es
+          donde se ADMINISTRA el vocabulario, no en cada ficha. */}
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{COPY.title}</h3>
       <TagPicker candidateId={candidateId} tagIds={tagIds} canManage={canManage} onOpenManage={onOpenManage} />
     </div>
   )

@@ -9,6 +9,19 @@ import {
 } from '../lib/meridian'
 import { Avatar } from './ui/Avatar'
 
+/**
+ * La caja del informe: TARJETA DESDE `sm`, plana en un teléfono.
+ *
+ * En escritorio es un objeto dentro de una columna con aire y su borde dice
+ * dónde empieza y acaba el juicio de Meridian. En móvil la ficha se organiza en
+ * franjas planas separadas por un filo de lado a lado (ver `Seccion` en
+ * `CandidateModal`), y ahí una caja con borde entre dos franjas es la única de
+ * las siete con contorno: se lee como un aviso, no como un apartado más. El
+ * relleno se va con ella, o el informe quedaría sangrado 14px respecto a los
+ * rótulos de sus vecinas.
+ */
+const TARJETA_INFORME = 'sm:rounded-xl sm:filo sm:p-3.5'
+
 // Cara del candidato, con el ajuste de Meridian pintado como un anillo de progreso
 // alrededor. DOCTRINA del anillo: grafito neutro y valor por LONGITUD DE ARCO, nunca
 // por color (el acento se reserva a acción; un score no lleva paleta de estados).
@@ -270,7 +283,24 @@ export function MeridianCandidateRow({
 }
 
 // Bloque de triaje de Meridian dentro del detalle del candidato (SlideOver).
-export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
+export function MeridianPanelBlock({
+  candidate,
+  plegable = true,
+}: {
+  candidate: Candidate
+  /**
+   * En la ficha de móvil, Meridian es una de las cinco vistas del selector: has
+   * TOCADO su pastilla para leerlo, así que entra abierto y sin control de
+   * plegar (Mario, ago 2026). Plegado ahí pedía dos toques para lo mismo, y el
+   * chevron prometía una segunda cosa que hacer donde ya solo hay una: para
+   * salir se cambia de pastilla.
+   *
+   * Donde el bloque comparte columna con las respuestas y los documentos
+   * (escritorio), sigue plegado: allí el veredicto se lee siempre y la prueba se
+   * pide, que es lo que impide que el informe se coma la columna.
+   */
+  plegable?: boolean
+}) {
   const { analyzeCandidate } = useStore()
   const [busy, setBusy] = useState(false)
   // La ficha del candidato que ACABA de analizarse imprime su informe fila a
@@ -324,7 +354,9 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
     const hayPie = porSaber.length > 0 || ai.cvUsed === false
     const hayListas = !conHechos && (ai.highlights.length > 0 || ai.concerns.length > 0)
     const hayDetalle = criterios.length > 0 || hayListas || hayPie
-    const abierto = abiertoId === candidate.id
+    // Sin plegable, siempre abierto: ver la explicación de arriba.
+    const abierto = !plegable || abiertoId === candidate.id
+    const conControl = plegable && hayDetalle
     const detalleId = `meridian-detalle-${candidate.id}`
     // La frase es el veredicto y se lee siempre; el desglose es la prueba y se
     // pide. Lo que se despliega cuelga del MISMO control (aria-controls), así
@@ -334,7 +366,7 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
       <>
         <div className="flex items-center gap-2">
           <MeridianLabel />
-          {hayDetalle && (
+          {conControl && (
             <ChevronDown
               className={`ml-auto size-4 shrink-0 text-slate-400 transition-transform duration-[var(--duration-control)] group-hover:text-slate-600 ${abierto ? 'rotate-180' : ''}`}
               aria-hidden
@@ -345,8 +377,8 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
       </>
     )
     return (
-      <div className="rounded-xl filo p-3.5">
-        {hayDetalle ? (
+      <div className={TARJETA_INFORME}>
+        {conControl ? (
           <button
             type="button"
             onClick={() => setAbiertoId(abierto ? null : candidate.id)}
@@ -420,7 +452,7 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
   // fabricando y dónde va a aparecer.
   if (busy) {
     return (
-      <div className="rounded-xl filo p-3.5">
+      <div className={TARJETA_INFORME}>
         <MeridianLabel />
         <p className="mt-1.5 text-[13px] leading-5 text-slate-500" role="status">
           Leyendo la candidatura y midiéndola contra lo que pide el puesto…
@@ -447,7 +479,7 @@ export function MeridianPanelBlock({ candidate }: { candidate: Candidate }) {
 
   // Sin analizar o con error: acción para (re)analizar.
   return (
-    <div className="rounded-xl filo p-3.5">
+    <div className={TARJETA_INFORME}>
       <MeridianLabel />
       <p className="mb-2.5 mt-1.5 text-[13px] leading-5 text-slate-500">
         {failed

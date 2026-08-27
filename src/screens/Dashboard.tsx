@@ -71,7 +71,7 @@ import { exportCandidatesToExcel, exportCandidatesToCsv, exportCandidateDocs } f
 /** Los tres formatos de exportación (ver la página Exportar del `···`). */
 type FormatoExport = 'xlsx' | 'csv' | 'zip'
 import { RegistrarAccion } from '../lib/acciones'
-import { relativeDate, fechaCorta, fullDateTime, miles, formatPhone, candidateName } from '../lib/format'
+import { CAMPOS_YA_PINTADOS, relativeDate, fechaCorta, fullDateTime, miles, formatPhone, candidateName } from '../lib/format'
 import { clickDeFila } from '../lib/fila'
 // El anillo de ajuste se queda en el avatar (Mario, jul 2026) y desde ago 2026 lo
 // acompaña la columna "Encaje", que dice en palabras lo que el anillo dice en arco:
@@ -1863,13 +1863,16 @@ const COLUMNAS: ColumnaVista<ColKey>[] = [
  * Fuera las que la fila ya pinta (nombre, apellidos y teléfono): serían la misma
  * columna dos veces. El correo NO estaba y ahora se puede pedir, que era una de
  * las peticiones viejas.
+ *
+ * La lista vive en `format.ts`, junto a `candidateName`, porque la ficha del
+ * candidato tuvo que hacer el mismo descarte en ago 2026: dos copias de la
+ * misma verdad se separan al primer formulario nuevo.
  */
-const YA_EN_LA_FILA = ['nombre', 'apellidos', 'telefono']
 
 function COLUMNAS_DE(campaign: Campaign | undefined): ColumnaVista<ColKey>[] {
   if (!campaign) return []
   return campaign.fields
-    .filter((f) => !YA_EN_LA_FILA.includes(f.id))
+    .filter((f) => !CAMPOS_YA_PINTADOS.includes(f.id))
     .map((f) => ({
       key: `campo:${f.id}` as ColKey,
       // El CV no es una respuesta, es un adjunto, así que se llama por lo que es.
