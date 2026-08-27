@@ -15,14 +15,14 @@ import { MaskedPhone } from '../components/MaskedPhone'
 import { useAppBase } from '../lib/useAppBase'
 import { TAGS_ENABLED } from '../lib/pricing'
 import { ManageTagsModal } from '../components/Tags'
-import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
+import { FAVORITO_STAR, STATUS_META } from '../lib/types'
 import type { Campaign, Candidate, CandidateStatus } from '../lib/types'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useEsMovil } from '../lib/media'
 import { BTN_SECONDARY } from '../lib/buttons'
 import { ChipDimension, MenuAnadirFiltro, type DimensionFiltro } from '../components/FiltroChip'
 import { useColumnasAjustables } from '../lib/columnas'
-import { traeNuevos, vistaPor, type VistaCandidatos } from '../lib/candidatos'
+import { estadosDe, incluye, traeNuevos, vistaPor, type VistaCandidatos } from '../lib/candidatos'
 import { IconoVacio } from '../components/ui/IconoVacio'
 
 /** Las columnas de la cola. El ORDEN se declara aparte: cambia con el ancho. */
@@ -292,7 +292,7 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
   // hay, y es lo que lleva el contador del título. El del panel del puesto se
   // comporta igual y por el mismo motivo: filtrar no cambia cuánta gente tienes.
   const todos = useMemo(
-    () => candidates.filter(vista.incluye).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
+    () => candidates.filter(incluye(vista)).sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
     [candidates, vista],
   )
   const filas = useMemo(
@@ -371,8 +371,10 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
     // resolvió el conmutador Activos/Rechazados del panel: la vista ya es un corte
     // por estado, así que ofrecer uno que ella deja fuera es ofrecer una lista
     // vacía garantizada. En Contratados no se ofrece la dimensión entera: solo hay
-    // un estado posible y filtrar por él es no filtrar.
-    const estadosVista = STATUS_ORDER.filter((v) => vista.incluye({ status: v } as Candidate))
+    // un estado posible y filtrar por él es no filtrar. Los estados los DECLARA la
+    // vista (`lib/candidatos.ts`); antes se adivinaban probando su predicado con un
+    // candidato de mentira, y eso dejó de valer con un corte que no es por estado.
+    const estadosVista = estadosDe(vista)
     if (estadosVista.length > 1) {
       d.push({
         id: 'estado',
@@ -395,22 +397,28 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
       })
     }
 
-    d.push({
-      id: 'favoritos',
-      label: 'Favoritos',
-      icon: Star,
-      n: favoritosOnly ? 1 : 0,
-      limpiar: () => setFavoritosOnly(false),
-      seleccionadas: new Set(favoritosOnly ? ['si'] : []),
-      onToggle: () => setFavoritosOnly((v) => !v),
-      opciones: [
-        {
-          valor: 'si',
-          label: 'Solo favoritos',
-          leading: <Star className={`size-4 shrink-0 ${FAVORITO_STAR}`} aria-hidden />,
-        },
-      ],
-    })
+    // Dentro de Favoritos no se ofrece: ahí solo podría decir que sí, exactamente
+    // igual que Estado dentro de Contratados. Fuera sí, y no es la misma puerta que
+    // la vista: aquí recorta lo que YA estás mirando (tus favoritos dentro de
+    // Activos, por ejemplo), y eso no es lo mismo que la lista de todos ellos.
+    if (!vista.soloFavoritos) {
+      d.push({
+        id: 'favoritos',
+        label: 'Favoritos',
+        icon: Star,
+        n: favoritosOnly ? 1 : 0,
+        limpiar: () => setFavoritosOnly(false),
+        seleccionadas: new Set(favoritosOnly ? ['si'] : []),
+        onToggle: () => setFavoritosOnly((v) => !v),
+        opciones: [
+          {
+            valor: 'si',
+            label: 'Solo favoritos',
+            leading: <Star className={`size-4 shrink-0 ${FAVORITO_STAR}`} aria-hidden />,
+          },
+        ],
+      })
+    }
 
     if (TAGS_ENABLED && tags.length > 0) {
       d.push({

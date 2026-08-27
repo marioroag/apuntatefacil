@@ -1,17 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Settings2 } from 'lucide-react'
-import { SwitchTrack } from './ui/Switch'
+import { Settings2 } from 'lucide-react'
+import { Checkbox } from './ui/Checkbox'
+import { AsaOrdenar, ListaOrdenable, useFilaOrdenable } from './ui/ListaOrdenable'
 import { BTN_ICONO_FRANJA } from '../lib/buttons'
 import type { ColumnaVista, VistaTabla } from '../lib/vistaTabla'
 
@@ -43,9 +33,39 @@ import type { ColumnaVista, VistaTabla } from '../lib/vistaTabla'
    las dos opciones se ve sin leerlas enteras, que es lo mismo que hace el menú de
    estado del puesto.
 
-   El vocabulario es el de siempre: `Switch` porque son ajustes que se aplican al
-   instante (un checkbox diría "he elegido esto"; un interruptor dice "esto está
-   funcionando"), y la fila entera es el control.
+   El arrastre lo pone `ui/ListaOrdenable`, que es el sistema vertical de la
+   app: el eje clavado, los sensores, la alternativa de teclado y el asa. Ahí
+   está escrito por qué la `x` vale 0 (resumen: con `overflow-y-auto`, el
+   navegador hace la caja desplazable también a lo ancho, y el auto-scroll de
+   dnd-kit se realimentaba con el propio arrastre).
+
+   AQUÍ SE MARCA, NO SE ENCIENDE: la lista va con CASILLAS (Mario, ago 2026, con
+   una referencia de la competencia). Estuvo con interruptores, y era el
+   vocabulario equivocado: la doctrina dice `Switch` para un ajuste que está
+   FUNCIONANDO y `Checkbox` para ELEGIR DE UNA LISTA, y esto es literalmente lo
+   segundo, escoger cuáles de las columnas disponibles quieres delante. Una
+   columna apagada no es un servicio parado, es una que no has elegido.
+
+   La prueba de que la pieza no encajaba estaba en su propio historial: hubo que
+   fabricarle una talla `sm` al interruptor ("son demasiado brutos") para que
+   sobreviviera en una lista de textos de 13px. **Cuando una pieza necesita una
+   talla nueva para caber, casi siempre es que es la pieza equivocada**; con la
+   casilla, que mide 16 de fábrica, no hace falta inventar nada (y esa talla se
+   borró de `Switch`, porque un vocabulario sin consumidor invita a que alguien
+   reintroduzca lo que se quitó).
+
+   Y LA CASILLA VA A LA IZQUIERDA, CON EL ASA AL OTRO EXTREMO. Con el interruptor
+   al final, la distancia entre el nombre de una columna y su estado la ponía el
+   LARGO del nombre: "Encaje" tenía su control a un palmo y "¿Vehículo propio para
+   desplazarte?" pegado. Con la casilla delante, los estados caen todos en una
+   vertical, que es la que se barre para ver qué está puesto. El asa se va al filo
+   derecho porque reordenar se hace mucho menos que encender y apagar, y porque
+   tres glifos antes de la palabra (asa, casilla, icono) son un preámbulo.
+
+   El ICONO se queda, aunque la referencia no lo lleve: la mitad de estas filas
+   son preguntas del formulario y el glifo dice de qué TIPO es cada una. Va pegado
+   al texto (10px de la casilla, 8 al nombre) porque pertenece al nombre y no al
+   control: la proximidad es lo que agrupa.
 --------------------------------------------------------------------------- */
 
 /** Una columna por la que se puede ordenar, con sus dos sentidos escritos. */
@@ -63,44 +83,31 @@ const CAMPO =
   'h-9 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-[13px] text-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none'
 
 function FilaColumna<K extends string>({ col, vista }: { col: ColumnaVista<K>; vista: VistaTabla<K> }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: col.key })
+  const { ref, style, arrastrando, asa } = useFilaOrdenable(col.key)
   const seVe = vista.visible(col.key)
 
   return (
     <li
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-1 rounded-lg ${isDragging ? 'relative z-10 bg-white shadow-pop' : ''}`}
+      ref={ref}
+      style={style}
+      className={`flex items-center rounded-lg ${
+        arrastrando ? 'relative z-10 bg-white shadow-pop' : 'hover:bg-slate-50'
+      }`}
     >
-      {/* EL ASA ES LO ÚNICO QUE ARRASTRA: el interruptor de al lado tiene que
-          seguir pulsándose sin que el gesto se lo lleve.
+      {/* La casilla y el nombre son UN control, y por eso van dentro de un
+          <label>: un <input> no puede vivir dentro de un <button>, así que aquí
+          no vale el `role="switch"` de una pantalla de ajustes. El asa se queda
+          FUERA de la etiqueta a propósito: dentro, cogerla para arrastrar
+          marcaría la casilla. */}
+      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-lg py-1.5 pl-1.5 text-[13px] text-slate-700">
+        <Checkbox checked={seVe} onChange={() => vista.alternar(col.key)} />
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          {col.icon && <col.icon className="size-3.5 shrink-0 text-slate-500" aria-hidden />}
+          <span className="truncate">{col.label}</span>
+        </span>
+      </label>
 
-          Y ES TAMBIÉN LA ALTERNATIVA DE TECLADO, que esta doctrina exige siempre
-          que hay arrastre: dnd-kit la trae puesta en `attributes` (rol de botón,
-          tabulable y su descripción), y con el `KeyboardSensor` se coge con Espacio,
-          se mueve con las flechas y se suelta con Espacio. Se probó en el navegador
-          antes de quitar los botones de subir y bajar que había aquí; si algún día
-          se cambia de sensor, vuelven. */}
-      <span
-        {...attributes}
-        {...listeners}
-        className="cursor-grab rounded-lg p-1.5 text-slate-400 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 active:cursor-grabbing"
-        aria-label={`Mover ${col.label}`}
-      >
-        <GripVertical className="size-4" aria-hidden />
-      </span>
-
-      <button
-        type="button"
-        role="switch"
-        aria-checked={seVe}
-        onClick={() => vista.alternar(col.key)}
-        className="group flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pr-1.5 text-left text-[13px] text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40"
-      >
-        {col.icon && <col.icon className="size-3.5 shrink-0 text-slate-500" aria-hidden />}
-        <span className="flex-1 truncate">{col.label}</span>
-        <SwitchTrack checked={seVe} size="sm" />
-      </button>
+      <AsaOrdenar asa={asa} etiqueta={`Mover ${col.label}`} />
     </li>
   )
 }
@@ -143,22 +150,10 @@ export function AjustesVista<K extends string>({
     }
   }, [open])
 
-  // Con distancia: sin ella, un click en el asa empieza un arrastre de 0px y se
-  // come el foco del teclado.
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
-
-  const alSoltar = (e: DragEndEvent) => {
-    const { active, over } = e
-    if (over && active.id !== over.id) vista.reordenar(active.id as K, over.id as K)
-  }
-
   // Las FIJAS no se pintan (Mario, ago 2026). Se probó enseñar la del candidato
-  // con un "Siempre" en vez de interruptor, con el argumento de que lo que no se
-  // puede cambiar se dice; y sobra, porque en una lista de interruptores una fila
-  // que no es un interruptor es la única que hay que pararse a entender. Que la
+  // con un "Siempre" en vez de casilla, con el argumento de que lo que no se
+  // puede cambiar se dice; y sobra, porque en una lista de casillas una fila
+  // que no es una casilla es la única que hay que pararse a entender. Que la
   // columna de quién es la fila no se pueda quitar se descubre no buscándola.
   const movibles = vista.lista.filter((c) => !c.fija)
   const actual = ordenes.find((o) => o.key === sort.key) ?? ordenes[0]
@@ -266,15 +261,14 @@ export function AjustesVista<K extends string>({
               puesto con quince campos haría un panel más alto que la pantalla. El
               bloque de arriba se queda quieto, que es donde están los selectores. */}
           <div className="mt-2.5 max-h-64 overflow-y-auto overscroll-contain">
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={alSoltar}>
-              <SortableContext items={movibles.map((c) => c.key)} strategy={verticalListSortingStrategy}>
-                <ul>
-                  {movibles.map((c) => (
-                    <FilaColumna key={c.key} col={c} vista={vista} />
-                  ))}
-                </ul>
-              </SortableContext>
-            </DndContext>
+            <ListaOrdenable
+              items={movibles.map((c) => c.key)}
+              onReordenar={(id, destino) => vista.reordenar(id as K, destino as K)}
+            >
+              {movibles.map((c) => (
+                <FilaColumna key={c.key} col={c} vista={vista} />
+              ))}
+            </ListaOrdenable>
           </div>
           </section>
         </div>

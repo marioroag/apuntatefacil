@@ -62,11 +62,11 @@ const meridianRoute = <Route path="meridian" element={<Navigate to="../resumen" 
 // Las rutas viejas no se borran, redirigen: quien las tuviera guardadas aterriza en
 // su panel y no en la landing por el comodín del final.
 /**
- * CANDIDATOS Y SUS TRES VISTAS (Mario, ago 2026).
+ * CANDIDATOS Y SUS CUATRO VISTAS (Mario, ago 2026).
  *
- * Tres rutas explícitas y no una con `:vista`: así no existe la ruta inválida
+ * Rutas explícitas y no una con `:vista`: así no existe la ruta inválida
  * (`/candidatos/loquesea`) que habría que interceptar y redirigir, y el guardián
- * del buscador ve tres destinos de verdad a los que exigir su entrada. La lista
+ * del buscador ve destinos de verdad a los que exigir su entrada. La lista
  * de vistas manda (`lib/candidatos.ts`); esto solo las cuelga del router.
  *
  * La principal NO lleva sufijo: "/candidatos" ES Activos.
@@ -81,6 +81,7 @@ const rutasCandidatos = (
         Cada vista es una pantalla distinta, asi que se monta como tal. */}
     <Route path="candidatos" element={<Candidatos key="activos" vista="activos" />} />
     <Route path="candidatos/contratados" element={<Candidatos key="contratados" vista="contratados" />} />
+    <Route path="candidatos/favoritos" element={<Candidatos key="favoritos" vista="favoritos" />} />
     <Route path="candidatos/todos" element={<Candidatos key="todos" vista="todos" />} />
     {/* "Bandeja" era la cola de los `nuevo` y ahora es la vista Activos. La ruta
         vieja no se borra, redirige: quien la tuviera guardada aterriza donde

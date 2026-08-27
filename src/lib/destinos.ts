@@ -8,6 +8,7 @@ import {
   MessagesSquare,
   Palette,
   SlidersHorizontal,
+  Star,
   Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -102,7 +103,7 @@ export const DESTINOS: Destino[] = [
     claves: ['inicio', 'resumen', 'panel', 'cifras', 'estadisticas'],
     to: (c) => `${c.base}/resumen`,
   },
-  // Las tres vistas de Candidatos son tres destinos, no uno con opciones: a
+  // Las cuatro vistas de Candidatos son cuatro destinos, no uno con opciones: a
   // "contratados" se va escribiendo esa palabra, que es de lo que va el buscador.
   // Sus rutas y sus nombres salen del mismo sitio que el menú (`lib/candidatos.ts`),
   // así que no pueden decir cosas distintas.
@@ -121,6 +122,14 @@ export const DESTINOS: Destino[] = [
     icon: ContactRound,
     claves: ['contratado', 'fichados', 'altas'],
     to: (c) => `${c.base}${vistaPor('contratados').to}`,
+  },
+  {
+    id: 'candidatos-favoritos',
+    label: 'Favoritos',
+    hint: 'A quien has marcado con la estrella, de todos tus procesos.',
+    icon: Star,
+    claves: ['favorito', 'estrella', 'marcados', 'guardados', 'destacados'],
+    to: (c) => `${c.base}${vistaPor('favoritos').to}`,
   },
   {
     id: 'candidatos-todos',

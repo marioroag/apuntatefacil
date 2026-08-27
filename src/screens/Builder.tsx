@@ -27,7 +27,6 @@ import {
   Briefcase,
   Check,
   ChevronDown,
-  ChevronUp,
   CloudOff,
   GripVertical,
   Monitor,
@@ -38,6 +37,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { brandAssetUrl } from '../lib/brandAsset'
+import { SOLO_VERTICAL, TINTA_ASA } from '../components/ui/ListaOrdenable'
 import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
 import { ApplicationForm } from '../components/ApplicationForm'
@@ -157,13 +157,6 @@ export function Builder() {
       const newI = fields.findIndex((f) => f.id === over.id)
       setFields(arrayMove(fields, oldI, newI))
     }
-  }
-
-  const move = (id: string, dir: -1 | 1) => {
-    const i = fields.findIndex((f) => f.id === id)
-    const j = i + dir
-    if (j < 0 || j >= fields.length) return
-    setFields(arrayMove(fields, i, j))
   }
 
   // Campo que se arrastra ahora mismo, para pintarlo en el DragOverlay idéntico a su fila.
@@ -310,6 +303,15 @@ export function Builder() {
                 // mientras autoscrollea, y esa compensación acumula un desfase en Safari (en Chrome
                 // no se nota): la fila arrastrada se separa del cursor y el soltado cae descuadrado.
                 autoScroll={{ layoutShiftCompensation: false }}
+                // El eje clavado del sistema vertical (`ui/ListaOrdenable`): una lista que
+                // solo ordena hacia arriba y hacia abajo no se mueve de lado. Aquí no llegó
+                // a ser el bug que fue en el panel de la vista, porque esta lista no vive
+                // dentro de una caja con scroll propio; se pone igual para que el arrastre
+                // se sienta igual en las dos y para no dejar suelto el único cabo que este
+                // DndContext sí comparte con el otro. Lo demás es suyo y por eso no usa la
+                // pieza entera: sensores separados por dispositivo, colisión por cursor,
+                // DragOverlay y la compensación de layout de Safari.
+                modifiers={SOLO_VERTICAL}
               >
                 <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
                   <ul className="space-y-2">
@@ -323,7 +325,6 @@ export function Builder() {
                         onToggle={() => setExpandedId(expandedId === f.id ? null : f.id)}
                         onUpdate={(patch) => requestFieldUpdate(f, patch)}
                         onRemove={() => requestRemoveField(f)}
-                        onMove={(dir) => move(f.id, dir)}
                         nameSplit={hasApellidos}
                         onToggleNameSplit={f.id === 'nombre' ? toggleNameSplit : undefined}
                       />
@@ -443,8 +444,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="mb-2.5 text-[13px] font-semibold uppercase tracking-wider text-slate-500">{children}</h2>
 }
 
-// Cabecera (colapsada) de una fila de campo: asa de arrastre, etiqueta/tipo y botones
-// subir/bajar. La pintan la fila sortable real y el DragOverlay, así lo que arrastras es
+// Cabecera (colapsada) de una fila de campo: asa de arrastre, etiqueta y tipo.
+// La pintan la fila sortable real y el DragOverlay, así lo que arrastras es
 // idéntico a la fila (WYSIWYG, una sola fuente). En el overlay va estático (`overlay`):
 // sin handlers y sin foco, es solo el reflejo visual que sigue al cursor.
 function FieldRowHeader({
@@ -453,7 +454,6 @@ function FieldRowHeader({
   total,
   expanded,
   onToggle,
-  onMove,
   handleProps,
   rowProps,
   overlay = false,
@@ -463,7 +463,6 @@ function FieldRowHeader({
   total: number
   expanded: boolean
   onToggle?: () => void
-  onMove?: (dir: -1 | 1) => void
   handleProps?: Record<string, unknown>
   rowProps?: Record<string, unknown>
   overlay?: boolean
@@ -482,7 +481,7 @@ function FieldRowHeader({
         {...(handleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
         {...noFocus}
         className={`rounded-lg p-1.5 hover:bg-slate-100 ${
-          overlay ? 'cursor-grabbing text-slate-500' : 'cursor-grab text-slate-300 hover:text-slate-500 active:cursor-grabbing'
+          overlay ? 'cursor-grabbing text-slate-500' : `cursor-grab ${TINTA_ASA} active:cursor-grabbing`
         }`}
         aria-label={`Reordenar ${field.label}, posición ${index + 1} de ${total}`}
       >
@@ -497,15 +496,6 @@ function FieldRowHeader({
         {field.required && <span className="hidden shrink-0 rounded bg-slate-100 px-1.5 text-[11px] font-semibold text-slate-500 sm:inline">Obligatorio</span>}
         <ChevronDown className={`size-4 shrink-0 text-slate-500 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
       </button>
-
-      <div className="flex shrink-0 items-center">
-        <button onClick={() => onMove?.(-1)} disabled={index === 0} {...noFocus} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" aria-label="Subir campo">
-          <ChevronUp className="size-4" aria-hidden />
-        </button>
-        <button onClick={() => onMove?.(1)} disabled={index === total - 1} {...noFocus} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30" aria-label="Bajar campo">
-          <ChevronDown className="size-4" aria-hidden />
-        </button>
-      </div>
     </div>
   )
 }
@@ -519,7 +509,6 @@ function SortableFieldRow({
   onToggle,
   onUpdate,
   onRemove,
-  onMove,
   nameSplit,
   onToggleNameSplit,
 }: {
@@ -530,7 +519,6 @@ function SortableFieldRow({
   onToggle: () => void
   onUpdate: (patch: Partial<FormField>) => void
   onRemove: () => void
-  onMove: (dir: -1 | 1) => void
   // Solo para el campo base 'nombre': estado y acción de "separar nombre y apellidos".
   nameSplit?: boolean
   onToggleNameSplit?: (on: boolean) => void
@@ -558,7 +546,6 @@ function SortableFieldRow({
         total={total}
         expanded={expanded}
         onToggle={onToggle}
-        onMove={onMove}
         handleProps={{ ...attributes, ...pointerKeyListeners }}
         rowProps={{ onTouchStart }}
       />
