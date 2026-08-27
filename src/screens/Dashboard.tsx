@@ -1331,7 +1331,7 @@ export function Dashboard() {
             diferencia de `hidden`, NO crea contenedor de scroll, que es lo que le
             robaría el `sticky` a la cabecera de la tabla. Era `hidden` en móvil
             porque allí no había tabla dentro; ahora la hay. */}
-        <div className="mt-3 overflow-clip rounded-xl filo bg-white shadow-card">
+        <div className="mt-3 overflow-clip rounded-xl filo bg-white">
           {loading ? (
             <SkeletonRows showFit={showFit} />
           ) : filtered.length === 0 ? (

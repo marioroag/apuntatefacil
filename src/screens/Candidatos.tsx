@@ -114,7 +114,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
   const anchoMovil = 196 + 144 + 180 + 116
 
   return (
-    <div className="overflow-clip rounded-xl filo bg-white shadow-card">
+    <div className="overflow-clip rounded-xl filo bg-white">
       {/* UNA SOLA VISTA A TODOS LOS ANCHOS: la rejilla, que en movil se desplaza a
           lo ancho. Aqui vivia una lista de fichas de dos lineas, que era la forma
           que tenia la lista del puesto; el panel la retiro en ago 2026 y la

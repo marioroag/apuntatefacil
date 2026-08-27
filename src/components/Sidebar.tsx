@@ -557,7 +557,7 @@ export function Sidebar({
         // que ya lleva la marca. Sin esto salía dos veces, una debajo de la otra.
         // Como el aside solo existe a partir de lg y el cajón solo por debajo, la
         // media query los reparte sin que ninguno tenga que saber del otro.
-        className="hidden shrink-0 items-center gap-1.5 rounded-xl px-6 pb-7 pt-[22px] outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 lg:flex"
+        className="hidden shrink-0 items-center gap-1.5 rounded-xl px-7.5 pb-7 pt-[22px] outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 lg:flex"
       >
         {/* El MISMO lockup que el resto del producto (Mario, ago 2026): monograma
             bicolor a pelo + wordmark "apuntatefacil" en minúscula, como el login,
@@ -585,7 +585,7 @@ export function Sidebar({
       {/* Lo que crece va aquí en medio y se desplaza; la marca y el pie se quedan
           quietos. Sin esto, un cliente con muchos puestos empujaba "Crear puesto"
           fuera de la pantalla, que es justo la acción que nunca puede perderse. */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 pb-4 pt-4 lg:pt-0">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-4 lg:pt-0">
         {grupos.map(pintarGrupo)}
       </div>
 
@@ -593,7 +593,7 @@ export function Sidebar({
           deja la zona elástica, no una línea. Con la raya puesta, el lateral se
           leía partido en dos cajas; JOIN tampoco la tiene y por eso su pie se ve
           apoyado en vez de encerrado. */}
-      <div className="shrink-0 px-2.5 pb-3 pt-2">
+      <div className="shrink-0 px-4 pb-3 pt-2">
         {/* SIN icono, y no es por quitar adornos: con el "+" delante, lo que se
             centra es el grupo icono+texto, así que el RÓTULO queda 12px a la
             derecha del centro del botón (medido). El ojo centra el texto, no el

@@ -114,7 +114,17 @@
      compuesto y declarado, así que lo que se ve hoy no cambia ni un valor. Se pone
      en la fila ENTERA y no solo en las celdas fijas, que es lo que garantiza que
      las dos mitades no puedan separarse nunca. */
-  --color-tabla-banda: #fbfcfd;      /* era slate-50/60 (la banda de la cabecera) */
+  /* LA CABECERA ES BLANCA (Mario, ago 2026). Estuvo teñida (`slate-50/60`, o sea
+     `#fbfcfd` compuesto) y el tinte no llegaba a decir nada: 1,01:1 contra la fila
+     de debajo, o sea por debajo incluso del 1,05 que esta doctrina ya declaró
+     insuficiente para que algo se lea como una forma. Lo que separa la cabecera de
+     los datos es el FILO de abajo, el peso de la letra y su tinta, que es como se
+     distingue el nombre de un campo de su contenido.
+     SIGUE SIENDO UN COLOR OPACO Y NO `transparent`, y eso no es opcional: la
+     cabecera es pegajosa y las dos primeras columnas son fijas, así que por debajo
+     de ella pasan las filas y por debajo de ellas se deslizan las demás celdas. Con
+     alfa se leería el contenido a través. */
+  --color-tabla-banda: #ffffff;
   --color-tabla-selec: #f3f6fe;      /* era indigo-50/70 (fila seleccionada) */
   --color-tabla-bloqueada: #fbfcfc;  /* era slate-50/70 (fila bloqueada) */
 
