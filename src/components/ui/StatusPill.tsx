@@ -161,10 +161,23 @@ export function StatusSelect({
   status,
   onChange,
   align = 'left',
+  celda = false,
 }: {
   status: CandidateStatus
   onChange: (s: CandidateStatus) => void
   align?: 'left' | 'right'
+  /**
+   * Vive dentro de una celda de la rejilla. **En móvil, entonces, el disparador
+   * es la CELDA ENTERA** (Mario, ago 2026): una pastilla de 24px de alto es un
+   * objetivo de toque de la mitad del mínimo, y en una fila de 56px hay sitio de
+   * sobra alrededor que no hace nada. En escritorio se queda como está, porque
+   * ahí apuntar con el ratón a la pastilla no cuesta nada y una zona pulsable
+   * enorme se llevaría por delante el click que abre la ficha.
+   *
+   * Es una prop y no el comportamiento por defecto porque la ficha del candidato
+   * también usa esta pieza, y allí no hay celda que llenar.
+   */
+  celda?: boolean
 }) {
   const m = STATUS_META[status]
 
@@ -183,16 +196,33 @@ export function StatusSelect({
     prevStatus.current = status
   }, [status])
 
+  // La PASTILLA es lo que se ve; el BOTÓN es lo que se pulsa, y en una celda de
+  // móvil el botón crece hasta la fila entera mientras la pastilla se queda igual.
+  // El `-mx-2 px-2` recupera el relleno de la celda, que en móvil es de 8px: sin
+  // él quedaría una banda muerta a cada lado, que es justo donde cae el dedo. Y
+  // hace falta ADEMÁS pedir el ancho (`calc(100% + 1rem)`), porque `w-full` se
+  // mide contra la caja de CONTENIDO: con solo el margen negativo el botón se
+  // desplaza 8px a la izquierda pero sigue midiendo lo mismo, así que tapa el
+  // relleno de un lado y deja el del otro sin cubrir. Medido: 127 de 144.
+  //
+  // TODO lo de crecer va en variantes `max-sm:`, incluido el `flex w-full`. Se
+  // escribió en la base y el botón se quedaba a ancho completo también en
+  // escritorio (143 de 168 medidos): allí eso se come el click que abre la ficha
+  // en media celda, que es justo lo que esta prop NO quiere hacer.
   return (
     <MenuEstado
       valor={status}
       onChange={onChange}
       align={align}
-      triggerClass={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-semibold transition-colors ${m.chip} hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
+      triggerClass={`group inline-flex rounded-full ${celda ? 'max-sm:-mx-2 max-sm:flex max-sm:min-h-14 max-sm:w-[calc(100%+1rem)] max-sm:items-center max-sm:rounded-lg max-sm:px-2' : ''}`}
     >
-      <span className={`size-2 shrink-0 rounded-full ${m.dot}`} aria-hidden />
-      {m.label}
-      <ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-semibold transition-colors ${m.chip} group-hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
+      >
+        <span className={`size-2 shrink-0 rounded-full ${m.dot}`} aria-hidden />
+        {m.label}
+        <ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />
+      </span>
     </MenuEstado>
   )
 }

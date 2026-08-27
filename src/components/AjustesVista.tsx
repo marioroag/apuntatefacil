@@ -99,7 +99,7 @@ function FilaColumna<K extends string>({ col, vista }: { col: ColumnaVista<K>; v
       >
         {col.icon && <col.icon className="size-3.5 shrink-0 text-slate-500" aria-hidden />}
         <span className="flex-1 truncate">{col.label}</span>
-        <SwitchTrack checked={seVe} />
+        <SwitchTrack checked={seVe} size="sm" />
       </button>
     </li>
   )

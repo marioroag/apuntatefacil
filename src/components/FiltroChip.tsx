@@ -4,6 +4,7 @@ import { Bookmark, Briefcase, ChevronDown, ChevronLeft, ChevronRight, Filter, Gl
 import type { LucideIcon } from 'lucide-react'
 import { Checkbox } from './ui/Checkbox'
 import { colocarFlotante } from '../lib/flotante'
+import { useEsTactil } from '../lib/media'
 import { BTN_SUPERFICIE } from '../lib/buttons'
 import type { SavedView } from '../lib/types'
 
@@ -399,9 +400,16 @@ export function MenuAnadirFiltro({
 
   // El foco entra al campo en un efecto y no en el click: al pulsar todavía no
   // existe. Se repite al cambiar de página, que es cuando el campo cambia de papel.
+  //
+  // EN TÁCTIL NO SE ENFOCA NADA (Mario, ago 2026). Con teclado físico enfocar es
+  // un acierto: abres y escribes. En un móvil levanta el teclado del sistema, que
+  // se come media pantalla y tapa la lista que ibas a mirar, y como este menú
+  // tiene páginas lo volvía a levantar EN CADA PASO aunque no pensaras escribir.
+  // Quien quiera buscar toca el campo, que está ahí.
+  const esTactil = useEsTactil()
   useEffect(() => {
-    if (open) campoRef.current?.focus()
-  }, [open, hoja])
+    if (open && !esTactil) campoRef.current?.focus()
+  }, [open, hoja, esTactil])
 
   const busca = q.trim().toLowerCase()
   // Buscando desde la raíz se mira TODO, preguntas incluidas: quien escribe

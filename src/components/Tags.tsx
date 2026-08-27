@@ -5,6 +5,7 @@ import type { Tag } from '../lib/types'
 import { useStore, normalizeTagName } from '../lib/store'
 import { tagTone } from '../lib/format'
 import { colocarFlotante } from '../lib/flotante'
+import { useEsTactil } from '../lib/media'
 import { useToast } from './ui/Toast'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 import { Checkbox } from './ui/Checkbox'
@@ -620,6 +621,7 @@ export function BulkTagMenu({
   const { tags, candidates, applyTagToMany, removeTagFromMany, createTag } = useStore()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const esTactil = useEsTactil()
   const ref = useRef<HTMLDivElement>(null)
   // El ancla es el BOTÓN, no el envoltorio: en modo flotante el envoltorio va en
   // `display: contents` (para que el botón sea el hijo directo de la barra
@@ -718,7 +720,13 @@ export function BulkTagMenu({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={canManage ? 'Buscar o crear...' : 'Buscar etiqueta...'}
-            autoFocus
+            // En táctil NO se enfoca solo: levantaría el teclado del sistema y
+            // taparía la propia lista de etiquetas, que es lo que has venido a
+            // mirar. Aquí importa más que en el menú de filtros, porque esta lista
+            // se abre desde la celda de una fila, con el pulgar. El campo de
+            // RENOMBRAR sí se enfoca, y no es una excepción caprichosa: allí has
+            // pulsado "renombrar", o sea que vas a escribir seguro.
+            autoFocus={!esTactil}
             maxLength={40}
             className="mb-1 h-9 w-full rounded-lg border border-slate-300 px-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
           />

@@ -98,7 +98,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
   // MAYORÍA, no todos a cualquier precio, porque cada píxel de más aquí sale de
   // la columna del candidato.
   const MINIMOS: Record<ColKeyCandidatos, number> = {
-    candidato: 230, puesto: 184, telefono: 111, estado: 152, recibida: 128,
+    candidato: 230, puesto: 184, telefono: 111, estado: 152, recibida: 136,
   }
   // El techo, con la regla del revés: hasta dónde deja de enseñar algo nuevo. Los
   // mismos números que en el panel donde la columna es la misma; Puesto lleva 360
@@ -143,7 +143,9 @@ const ListaCandidatos = memo(function ListaCandidatos({
                   case 'estado':
                     return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[148px]'} {...col(k, 'Estado', MINIMOS.estado, MAXIMOS.estado)}>Estado</ColHead>
                   case 'recibida':
-                    return <ColHead key={k} icon={Clock} align="right" className="w-[116px]" {...col(k, 'Recibida', MINIMOS.recibida, MAXIMOS.recibida)}>Recibida</ColHead>
+                    // `pr-5` aquí y en la celda, como en el panel: la fecha es lo
+                    // último de la fila y se apoyaba en el filo de la tarjeta.
+                    return <ColHead key={k} icon={Clock} align="right" className="w-[136px] pr-5" {...col(k, 'Recibida', MINIMOS.recibida, MAXIMOS.recibida)}>Recibida</ColHead>
                 }
               })}
             </tr>
@@ -217,12 +219,12 @@ const ListaCandidatos = memo(function ListaCandidatos({
                       case 'estado':
                         return (
                           <td key={k} className={`${CELL} whitespace-nowrap`}>
-                            <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
+                            <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} celda />
                           </td>
                         )
                       case 'recibida':
                         return (
-                          <td key={k} className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
+                          <td key={k} className={`${CELL} whitespace-nowrap pr-5 text-right text-[13px] text-slate-500`}>
                             <time dateTime={c.submittedAt} title={fullDateTime(c.submittedAt)} className="num">{fechaCorta(c.submittedAt)}</time>
                           </td>
                         )

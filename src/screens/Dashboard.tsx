@@ -996,10 +996,10 @@ export function Dashboard() {
   // Deshacer la selección. Ya no hay un "modo" del que salir: con la casilla en su
   // columna a todos los anchos, seleccionar es marcar y deseleccionar es vaciar.
   const exitSelect = () => setSelected(new Set())
-  // Selecciona/deselecciona todos los candidatos visibles (filtrados).
-  const allFilteredSelected = filtered.length > 0 && filtered.every((c) => selected.has(c.id))
-  const toggleSelectAll = () =>
-    setSelected(allFilteredSelected ? new Set() : new Set(filtered.map((c) => c.id)))
+  // Aquí vivía `toggleSelectAll`, el "Todos / Ninguno" de la barra de móvil. Se
+  // fue con ella: la casilla de la cabecera hace exactamente eso y está a todos
+  // los anchos desde ago 2026, así que era un segundo control para lo mismo, y de
+  // los que se quedan porque nadie vuelve a mirarlos.
   // Exporta solo la selección. La usan las DOS barras: era la misma función escrita
   // dos veces, y la copia de escritorio ya se había separado (exportaba sin vaciar).
   //
@@ -1625,66 +1625,58 @@ export function Dashboard() {
         )}
       </AnimatePresence>
 
-      {/* Barra de acción de selección (móvil): fija abajo, al alcance del pulgar.
-          La dispara la SELECCIÓN, no un modo: aparece al marcar la primera casilla
-          y se va al desmarcar la última, igual que su gemela de escritorio. */}
+      {/* LA MISMA BARRA, ADAPTADA AL MÓVIL (Mario, ago 2026). Antes era otra
+          cosa: una hoja blanca de lado a lado, pegada al filo, con una rejilla de
+          botones y un "Todos" que ya no hacía falta (la casilla de la cabecera
+          está a todos los anchos desde ago 2026). Ahora es la MISMA pieza que en
+          escritorio (ultramarine, segmentada, flotando con su margen) partida en
+          dos renglones, porque las cinco cosas no caben en 375px.
+
+          Arriba, de quién habla: el recuento y la equis, que es deshacer la
+          SELECCIÓN y por eso va pegada a él. Abajo, qué puedes hacer: los mismos
+          tres tramos que arriba, con el mismo reparto (lo diario a la vista,
+          Comprobar y Exportar dentro del `···`). Repartidos a partes iguales,
+          porque a esta anchura el ancho de cada uno lo decide el dedo, no el
+          largo de su palabra. */}
       {selected.size > 0 && !loading && (
         <div
-          className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white px-4 pt-3 shadow-pop sm:hidden"
+          className="fixed inset-x-3 bottom-0 z-40 sm:hidden"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
-          <div className="mx-auto max-w-trabajo space-y-2">
-            <div className="flex items-center gap-2">
+          <div className="overflow-clip rounded-xl bg-indigo-600 shadow-pop">
+            <div className="flex h-11 items-stretch">
+              <span className="num flex items-center whitespace-nowrap px-3.5 text-[13px] font-medium text-white">
+                {selected.size} {selected.size === 1 ? 'seleccionado' : 'seleccionados'}
+              </span>
               <button
                 type="button"
                 onClick={exitSelect}
-                aria-label="Cancelar selección"
-                className="-ml-1.5 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+                aria-label="Quitar selección"
+                className={`${SEGMENTO} ml-auto border-l border-white/22 px-4`}
               >
-                <X className="size-5" aria-hidden />
-              </button>
-              <span className="num text-sm font-semibold text-slate-900">{selected.size} {selected.size === 1 ? 'seleccionado' : 'seleccionados'}</span>
-              <button
-                type="button"
-                onClick={toggleSelectAll}
-                className="ml-auto text-[13px] font-medium text-indigo-600 hover:text-indigo-700"
-              >
-                {allFilteredSelected ? 'Ninguno' : 'Todos'}
+                <X className="size-4" aria-hidden />
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0 [&>*>button]:w-full">
+            {/* El filo separa los dos renglones igual que separa dos tramos: es la
+                misma pieza, y la línea es lo que dice dónde acaba una idea. */}
+            <div className="flex h-11 items-stretch border-t border-white/22">
               {TAGS_ENABLED && (
                 <BulkTagMenu
                   selectedIds={[...selected]}
                   canManage={canManageTags}
-                  placement="up"
-                  triggerClass={`${BTN_SECONDARY} justify-center disabled:opacity-50`}
+                  flotante
+                  triggerClass={`${SEGMENTO_ANCHO} border-r border-white/22`}
                 />
               )}
-              {/* De línea como sus hermanas, por lo mismo que en escritorio: no
-                  hay una acción principal entre las tres, y la que llevaba el
-                  acento era la única que le escribe a gente. */}
-              <button
-                type="button"
-                onClick={() => setInterestDialogOpen(true)}
-                disabled={selected.size === 0}
-                aria-label="Comprobar interés"
-                className={`${BTN_SECONDARY} justify-center disabled:opacity-50`}
+              <MenuEstado
+                valor={estadoComun}
+                onChange={(st) => setStatusMany([...selected], st)}
+                triggerClass={`${SEGMENTO_ANCHO} border-r border-white/22`}
               >
-                <MailCheck className="size-4 text-slate-400" aria-hidden /> Comprobar
-              </button>
-              {/* A dos columnas: fusionar los dos botones de etiqueta dejó tres
-                  piezas en una rejilla de dos, y la última colgando a media fila.
-                  Es lo único que se toca de esta barra (Mario: en móvil, como
-                  estaba), porque el hueco lo abrió el cambio de al lado. */}
-              <button
-                type="button"
-                onClick={exportSelected}
-                disabled={selected.size === 0}
-                className={`${BTN_SECONDARY} col-span-2 justify-center disabled:opacity-50`}
-              >
-                <Download className="size-4 text-slate-400" aria-hidden /> Exportar
-              </button>
+                <CircleDot className="size-4" aria-hidden />
+                Estado
+              </MenuEstado>
+              <MenuMas onInteres={() => setInterestDialogOpen(true)} onExportar={exportSelected} className={SEGMENTO} />
             </div>
           </div>
         </div>
@@ -1901,7 +1893,7 @@ const ORDEN_MOVIL: ColKey[] = ['candidato', 'estado', 'encaje', 'etiquetas', 'te
  * pinta (`hidden xl:table-cell`).
  */
 const ANCHO_MOVIL: Partial<Record<ColKey, number>> = {
-  candidato: 164, estado: 144, encaje: 136, etiquetas: 0, telefono: 136, recibida: 124,
+  candidato: 164, estado: 144, encaje: 136, etiquetas: 0, telefono: 136, recibida: 136,
 }
 /**
  * El icono de una columna de respuesta lo dice su TIPO, igual que en las de
@@ -1961,7 +1953,7 @@ const medidasDe = (t: FormField['type'] | undefined) => (t && MEDIDAS_CAMPO[t]) 
  * quiere garantizar antes de que la tabla empiece a desplazarse.
  */
 const ANCHO_ESCRITORIO: Partial<Record<ColKey, number>> = {
-  candidato: 230, encaje: 136, etiquetas: 160, telefono: 136, estado: 168, recibida: 124,
+  candidato: 230, encaje: 136, etiquetas: 160, telefono: 136, estado: 168, recibida: 136,
 }
 const anchoEscritorioDe = (k: ColKey, tipo?: FormField['type']) => ANCHO_ESCRITORIO[k] ?? medidasDe(tipo).base
 const anchoMovilDe = (k: ColKey, tipo?: FormField['type']) => ANCHO_MOVIL[k] ?? medidasDe(tipo).base
@@ -2072,7 +2064,7 @@ const CandidateTable = memo(function CandidateTable({
   //     pintar. Los 101 salen de probar los DOCE meses, no el de hoy: "May" es
   //     más ancho que "Ago", y en mayo la columna se habría quedado corta.
   const MINIMOS: Record<ColKey, number> = {
-    candidato: 230, encaje: 113, etiquetas: 140, telefono: 111, estado: 152, recibida: 128,
+    candidato: 230, encaje: 113, etiquetas: 140, telefono: 111, estado: 152, recibida: 136,
   }
   // Y SU TECHO, con la misma regla del revés: **hasta dónde la columna deja de
   // enseñar algo nuevo**. Tres de las seis tienen contenido de tamaño fijo, así
@@ -2320,7 +2312,11 @@ const CandidateTable = memo(function CandidateTable({
                 case 'estado':
                   return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[168px]'} toneClass={headTone} sort={sortFor('estado')} {...col(k, 'Estado', MINIMOS.estado, MAXIMOS.estado)}>Estado</ColHead>
                 case 'recibida':
-                  return <ColHead key={k} icon={Clock} className="w-[124px]" align="right" toneClass={headTone} sort={sortFor('fecha')} {...col(k, 'Recibida', MINIMOS.recibida, MAXIMOS.recibida)}>Recibida</ColHead>
+                  // `pr-5` en la cabecera Y en la celda: la fecha va pegada al
+                  // filo de la tarjeta, que es el borde de la pantalla de trabajo,
+                  // y con los 12px de siempre se leía apretada contra él. Los dos
+                  // a la vez o el título y su columna dejan de estar alineados.
+                  return <ColHead key={k} icon={Clock} className="w-[136px] pr-5" align="right" toneClass={headTone} sort={sortFor('fecha')} {...col(k, 'Recibida', MINIMOS.recibida, MAXIMOS.recibida)}>Recibida</ColHead>
                 default: {
                   // Una respuesta del formulario. Ordena si se puede comparar, o
                   // sea Sí/No y número (ver `TIPOS_ORDENABLES`): un texto libre o
@@ -2400,7 +2396,7 @@ const CandidateTable = memo(function CandidateTable({
                       )
                     case 'recibida':
                       return (
-                        <td key={k} className={`${CELL} whitespace-nowrap text-right`}>
+                        <td key={k} className={`${CELL} whitespace-nowrap pr-5 text-right`}>
                           <time dateTime={date} aria-hidden className="num text-[13px] text-slate-500 blur-[4px] select-none">{fechaCorta(date)}</time>
                         </td>
                       )
@@ -2508,7 +2504,7 @@ const CandidateTable = memo(function CandidateTable({
                             selectedIds={[c.id]}
                             canManage={canManageTags}
                             flotante
-                            triggerClass="flex w-full min-w-0 items-center rounded-md px-1 py-0.5 -mx-1 text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40"
+                            triggerClass="flex w-full min-w-0 items-center rounded-md -mx-1 px-1 py-0.5 text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 max-sm:-mx-2 max-sm:min-h-14 max-sm:w-[calc(100%+1rem)] max-sm:rounded-lg max-sm:px-2"
                           >
                             {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} /> : <span className="text-[13px] text-slate-600">–</span>}
                           </BulkTagMenu>
@@ -2527,12 +2523,12 @@ const CandidateTable = memo(function CandidateTable({
                     case 'estado':
                       return (
                         <td key={k} className={`${CELL} whitespace-nowrap`}>
-                          <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} />
+                          <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} celda />
                         </td>
                       )
                     case 'recibida':
                       return (
-                        <td key={k} className={`${CELL} whitespace-nowrap text-right text-[13px] text-slate-500`}>
+                        <td key={k} className={`${CELL} whitespace-nowrap pr-5 text-right text-[13px] text-slate-500`}>
                           <time dateTime={c.submittedAt} title={fullDateTime(c.submittedAt)} className="num">{fechaCorta(c.submittedAt)}</time>
                         </td>
                       )
@@ -2841,7 +2837,11 @@ function useSubmenu() {
  * que cuelgue de dentro (`overflow-clip`), y aquí encima tiene que abrirse hacia
  * arriba, que es lo único que cabe pegado al filo de abajo.
  */
-function MenuMas({ onInteres, onExportar }: { onInteres: () => void; onExportar: () => void }) {
+function MenuMas({ onInteres, onExportar, className = SEGMENTO }: {
+  onInteres: () => void
+  onExportar: () => void
+  className?: string
+}) {
   const [open, setOpen] = useState(false)
   // El ancla es el BOTÓN: el envoltorio va en `display: contents` para que el
   // botón sea el tramo de verdad de la barra, y un elemento sin caja devuelve un
@@ -2897,7 +2897,7 @@ function MenuMas({ onInteres, onExportar }: { onInteres: () => void; onExportar:
         aria-expanded={open}
         aria-label="Más acciones"
         title="Más acciones"
-        className={`${SEGMENTO} px-3`}
+        className={`${className} px-3`}
       >
         <MoreHorizontal className="size-4" aria-hidden />
       </button>
@@ -2927,14 +2927,29 @@ function MenuMas({ onInteres, onExportar }: { onInteres: () => void; onExportar:
  * Activos/Rechazados. Lo que sí comparte con `sobreOscuro` es la pintura, que son
  * tres peldaños de opacidad sobre la tinta.
  */
-const SEGMENTO = [
-  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3.5 text-[13px] font-medium outline-none',
+const SEGMENTO_BASE = [
+  'inline-flex items-center gap-1.5 whitespace-nowrap px-3.5 text-[13px] font-medium outline-none',
   'transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none',
   'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40',
   // La PINTURA sale del sistema y no se escribe otra vez aquí: es la misma
-  // variante `sobreOscuro` que se declaró para esta barra cuando se puso negra.
+  // variante `sobreOscuro` que se declaró para esta barra.
   BTN_SUPERFICIE.sobreOscuro,
 ].join(' ')
+
+/** En escritorio cada tramo mide lo que dice: la barra crece con ellos. */
+const SEGMENTO = `${SEGMENTO_BASE} shrink-0`
+
+/**
+ * En MÓVIL se reparten el ancho a partes iguales, porque la barra ya no puede
+ * crecer: a 375px el ancho de cada tramo lo decide el dedo, no el largo de su
+ * palabra.
+ *
+ * Es una constante y no un `flex-1` añadido desde fuera porque `shrink-0` y el
+ * reparto son el MISMO eje: se vio en pantalla, con los tres tramos pidiendo el
+ * ancho entero (351px cada uno de una barra de 351) y saliéndose de la caja. La
+ * salida es la variante que no pone lo que sobra.
+ */
+const SEGMENTO_ANCHO = `${SEGMENTO_BASE} flex-1 justify-center`
 
 /**
  * El filo que separa dos tramos. De alto completo: es lo que los hace tramos.

@@ -32,3 +32,19 @@ export function useMediaQuery(query: string) {
 
 /** Por debajo de `sm` (639px), que es donde el panel deja de tener dos columnas. */
 export const useEsMovil = () => useMediaQuery('(max-width: 639px)')
+
+/**
+ * ¿HAY TECLADO EN PANTALLA? Se pregunta por el PUNTERO, no por el ancho.
+ *
+ * Lo usa lo único que de verdad depende de esto: **el foco automático**. Enfocar
+ * un campo al abrir un menú es un acierto con teclado físico (escribes y filtras
+ * sin tocar el ratón) y una molestia en táctil, porque levanta el teclado del
+ * sistema, se come media pantalla y tapa justo la lista que ibas a mirar. Y peor
+ * si el menú tiene páginas: se vuelve a levantar en cada paso.
+ *
+ * Por el puntero y no por el ancho porque la causa es el teclado del sistema, no
+ * el tamaño: una tablet de 1024px en horizontal tiene el mismo problema y un
+ * portátil estrecho no lo tiene. Es la misma distinción que ya hace la doctrina
+ * en CSS con `pointer-coarse` para los objetivos de toque.
+ */
+export const useEsTactil = () => useMediaQuery('(pointer: coarse)')

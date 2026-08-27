@@ -16,18 +16,41 @@
  *     etiqueta no activa un <button>.
  */
 
+/**
+ * DOS TALLAS, Y SE DECLARAN (Mario, ago 2026: "son demasiado brutos").
+ *
+ * `md` (20x36) es la de una pantalla de AJUSTES, donde el interruptor está solo
+ * en su renglón y la fila entera es el control: ahí tiene que pesar.
+ * `sm` (16x28) es la de una lista densa dentro de un desplegable, como la de
+ * columnas del panel de la vista: al lado de un texto de 13px, la grande se lee
+ * como el objeto principal de la fila en vez de como su estado.
+ *
+ * Se declara en vez de pegarle un `h-4 w-7` desde fuera, que es lo que abrió el
+ * mismo agujero con los botones: dos utilidades del mismo eje no se resuelven por
+ * el orden en que se escriben.
+ */
+const TALLA_SWITCH = {
+  md: { caja: 'h-5 w-9', pomo: 'size-4', viaje: 'translate-x-4' },
+  sm: { caja: 'h-4 w-7', pomo: 'size-3', viaje: 'translate-x-3' },
+} as const
+
 /** Solo la pastilla. No es interactiva: quien la use ya es el control. */
-export function SwitchTrack({ checked, disabled = false }: { checked: boolean; disabled?: boolean }) {
+export function SwitchTrack({ checked, disabled = false, size = 'md' }: {
+  checked: boolean
+  disabled?: boolean
+  size?: keyof typeof TALLA_SWITCH
+}) {
+  const t = TALLA_SWITCH[size]
   return (
     <span
       aria-hidden
-      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none ${
+      className={`relative inline-flex ${t.caja} shrink-0 items-center rounded-full transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none ${
         disabled ? 'opacity-40' : ''
       } ${checked ? 'bg-indigo-600' : 'bg-slate-300 group-hover:bg-slate-400'}`}
     >
       <span
-        className={`pointer-events-none absolute left-0.5 size-4 rounded-full bg-white shadow-raised transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none ${
-          checked ? 'translate-x-4' : 'translate-x-0'
+        className={`pointer-events-none absolute left-0.5 ${t.pomo} rounded-full bg-white shadow-raised transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none ${
+          checked ? t.viaje : 'translate-x-0'
         }`}
       />
     </span>
