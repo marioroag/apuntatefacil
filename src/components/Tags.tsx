@@ -208,9 +208,12 @@ export function TagSection({
           tuviera una advertencia. Si algún día hay que decirlo, su sitio es
           donde se ADMINISTRA el vocabulario, no en cada ficha. */}
       <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{COPY.title}</h3>
-      {/* El disparador se sigue viendo como el CAMPO que había: en esta columna
-          es hermano del de añadir una nota, y un botón con caja de botón entre
-          dos campos rompería la fila. Lo que cambia es lo que abre. */}
+      {/* EL DISPARADOR ES EL CAMPO, y no solo lo parece (Mario, ago 2026). En
+          esta columna tiene que verse como hermano del de añadir una nota, así
+          que siempre se pintó como un campo; pero era un `<button>`, y al
+          pulsarlo salía el panel con SU propio buscador encima: dos cajas de
+          texto, y la que acababas de tocar no escribía. Con `campo` hay una
+          sola, la que pulsas, y el panel se cuelga de ella con su mismo ancho. */}
       {/* FLOTANTE, obligatorio: este bloque vive en una columna con scroll (el
           raíl de la ficha, o la de Información en móvil), y un panel `absolute`
           ahí dentro lo recorta el propio scroll. Colocado contra la ventana se
@@ -222,7 +225,13 @@ export function TagSection({
         canManage={canManage}
         onOpenManage={onOpenManage}
         flotante
-        triggerClass="flex h-9 w-full items-center gap-2 rounded-lg border border-slate-300 bg-white px-2.5 text-left text-[13px] text-slate-500 transition-colors hover:border-slate-400 focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/15"
+        campo
+        // Las mismas medidas de siempre (36 de alto, radio 8, texto de 13: en la
+        // ficha los campos son controles pequeños). Lo que cambia respecto al
+        // disparador-botón es la TINTA: lo que escribes va en tinta y el gris se
+        // queda para el marcador de posición, que antes teñía la etiqueta entera
+        // porque nunca llegaba a escribirse nada dentro.
+        triggerClass="h-9 w-full rounded-lg border border-slate-300 bg-white px-2.5 text-[13px] text-slate-900 outline-none transition-colors placeholder:text-slate-500 hover:border-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 pointer-coarse:text-base"
       >
         {COPY.add}
       </BulkTagMenu>
@@ -438,6 +447,7 @@ export function BulkTagMenu({
   triggerClass,
   placement = 'down',
   flotante = false,
+  campo = false,
   children,
   onDone,
 }: {
@@ -456,6 +466,26 @@ export function BulkTagMenu({
    * la tarjeta. En la barra flotante no hace falta, porque esa barra ya es fija.
    */
   flotante?: boolean
+  /**
+   * EL DISPARADOR ES EL CAMPO DE BUSCAR, no un botón que abre otro campo
+   * (Mario, ago 2026: "debería usar el campo de texto que el usuario acaba de
+   * clickear, no hacer aparecer otro").
+   *
+   * En la ficha, el disparador ya se PINTABA como un campo (para ser hermano del
+   * de añadir una nota), pero era un `<button>`: al pulsarlo salía el panel con
+   * SU propio buscador encima, así que había dos cajas de texto, una tapando a
+   * la otra, y la que acababas de tocar no servía para escribir. Con esta
+   * variante hay una sola: la que pulsas es la que filtra.
+   *
+   * Se lleva por delante el problema del teclado en táctil sin necesidad de
+   * `useEsTactil`: el campo se enfoca porque el dedo lo ha tocado, no porque un
+   * `autoFocus` se lo robe al abrirse un panel.
+   *
+   * Y el panel toma el ANCHO del campo en vez de su `w-60` fijo, porque aquí el
+   * campo mide lo que mida la columna y un panel más estrecho se lee como una
+   * pieza que no es de él.
+   */
+  campo?: boolean
   /** Contenido del disparador. Sin él, el icono y la palabra "Etiquetas". */
   children?: ReactNode
   onDone?: () => void
@@ -466,25 +496,36 @@ export function BulkTagMenu({
   const [query, setQuery] = useState('')
   const esTactil = useEsTactil()
   const ref = useRef<HTMLDivElement>(null)
-  // El ancla es el BOTÓN, no el envoltorio: en modo flotante el envoltorio va en
-  // `display: contents` (para que el botón sea el hijo directo de la barra
-  // segmentada y estire a lo alto), y un elemento sin caja devuelve un rect a
-  // cero, o sea que el panel se colocaría en la esquina de la pantalla.
+  // El ancla es el DISPARADOR (el botón, o el campo en la variante `campo`), no
+  // el envoltorio: en modo flotante el envoltorio va en `display: contents` (para
+  // que el botón sea el hijo directo de la barra segmentada y estire a lo alto),
+  // y un elemento sin caja devuelve un rect a cero, o sea que el panel se
+  // colocaría en la esquina de la pantalla.
   const botonRef = useRef<HTMLButtonElement>(null)
+  const campoRef = useRef<HTMLInputElement>(null)
+  const anclaRef = campo ? campoRef : botonRef
   const panelRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  // Ancho del campo, para que el panel mida lo mismo. Se mide en vez de heredarse
+  // por CSS porque el panel vive en un PORTAL colgado del `body`: allí no hay
+  // ningún antepasado del que sacar el ancho de la columna.
+  const [anchoCampo, setAnchoCampo] = useState<number>()
 
   // Se coloca contra la ventana y se recoloca con los dos desplazamientos que lo
   // pueden dejar huérfano: el de la página y el de la propia tabla.
   useLayoutEffect(() => {
     if (!open || !flotante) return
     const colocar = () => {
-      const ancla = botonRef.current?.getBoundingClientRect()
+      const ancla = anclaRef.current?.getBoundingClientRect()
       const panel = panelRef.current?.getBoundingClientRect()
       if (!ancla || !panel) return
+      // El ancho se fija ANTES de decidir la posición: `colocarFlotante` aprieta
+      // contra el filo usando el ancho del panel, así que midiéndolo después el
+      // panel se colocaría con una medida que ya no es la suya.
+      if (campo) setAnchoCampo(ancla.width)
       const { top, left } = colocarFlotante(
         ancla,
-        { width: panel.width, height: panel.height },
+        { width: campo ? ancla.width : panel.width, height: panel.height },
         { width: window.innerWidth, height: window.innerHeight },
         { alinear: 'izquierda' },
       )
@@ -494,14 +535,22 @@ export function BulkTagMenu({
     window.addEventListener('resize', colocar)
     const main = document.getElementById('contenido')
     main?.addEventListener('scroll', colocar, { passive: true })
-    const tabla = botonRef.current?.closest('.overflow-x-auto')
+    const tabla = anclaRef.current?.closest('.overflow-x-auto')
     tabla?.addEventListener('scroll', colocar, { passive: true })
     return () => {
       window.removeEventListener('resize', colocar)
       main?.removeEventListener('scroll', colocar)
       tabla?.removeEventListener('scroll', colocar)
     }
-  }, [open, flotante])
+  }, [open, flotante, campo, anclaRef])
+
+  // Al cerrar se olvida lo buscado. Con el disparador hecho campo no es opcional:
+  // el texto se quedaría escrito a la vista, donde debería poner "Añadir
+  // etiqueta". Y de paso arregla que al reabrir el panel de un botón la lista
+  // saliera ya filtrada por lo que escribiste la vez anterior.
+  useEffect(() => {
+    if (!open) setQuery('')
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -516,10 +565,21 @@ export function BulkTagMenu({
       setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey)
+    // EN CAPTURA, y no es un detalle: el `stopPropagation` de arriba llevaba
+    // tiempo sin cumplir lo que promete su comentario. `ui/Modal` (la ficha)
+    // escucha el mismo evento en el MISMO nodo (`document`) y en la misma fase,
+    // y se registra ANTES, al montarse, mientras este se registra al abrirse la
+    // lista. Dos listeners en el mismo nodo y la misma fase corren en ORDEN DE
+    // REGISTRO, así que la ficha se cerraba entera antes de que esto pudiera
+    // cortar nada: abrías la lista de etiquetas, pulsabas Escape y perdías el
+    // candidato. En fase de captura, `document` es el primer nodo del recorrido,
+    // así que esto corre antes que cualquier listener de burbuja y el corte llega
+    // a tiempo. Es lo que ya hacían `ManageTagsModal` y el menú `···` de la ficha,
+    // que son justamente los dos que sí funcionaban.
+    document.addEventListener('keydown', onKey, true)
     return () => {
       document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('keydown', onKey, true)
     }
   }, [open])
 
@@ -574,7 +634,11 @@ export function BulkTagMenu({
 
   const lista = (
     <>
-
+          {/* El buscador SOLO cuando el disparador es un botón. En la variante
+              `campo` el disparador YA es este mismo campo, así que pintarlo aquí
+              serían dos cajas de texto, una encima de la otra, y la que acabas de
+              tocar no filtraría nada. */}
+          {!campo && (
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -589,6 +653,7 @@ export function BulkTagMenu({
             maxLength={40}
             className="mb-1 h-9 w-full rounded-lg border border-slate-300 px-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
           />
+          )}
           <ul className="max-h-52 overflow-y-auto">
             {list.length === 0 && !showCreate && (
               <li className="px-2.5 py-2 text-[13px] text-slate-500">
@@ -654,7 +719,24 @@ export function BulkTagMenu({
   )
 
   return (
-    <div className={flotante ? 'contents' : 'relative'} ref={ref}>
+    <div className={flotante && !campo ? 'contents' : 'relative'} ref={ref}>
+      {campo ? (
+        // El MISMO campo que pulsas es el que filtra. Se abre al enfocarlo (con
+        // el dedo, con el ratón o con el tabulador) y también al escribir, que es
+        // lo que hace falta cuando vuelves a él con el panel ya cerrado.
+        <input
+          ref={campoRef}
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          onClick={() => setOpen(true)}
+          placeholder={typeof children === 'string' ? children : COPY.add}
+          maxLength={40}
+          aria-expanded={open}
+          aria-label={COPY.add}
+          className={triggerClass}
+        />
+      ) : (
       <button
         ref={botonRef}
         type="button"
@@ -669,12 +751,21 @@ export function BulkTagMenu({
           </>
         )}
       </button>
+      )}
       {open && (flotante
         ? createPortal(
           <div
             ref={panelRef}
-            style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, visibility: pos ? 'visible' : 'hidden' }}
-            className="fixed z-50 w-60 overflow-hidden rounded-xl filo bg-white p-1.5 shadow-pop"
+            style={{
+              top: pos?.top ?? 0,
+              left: pos?.left ?? 0,
+              visibility: pos ? 'visible' : 'hidden',
+              // En la variante `campo`, el panel mide lo que mida el campo. Va en
+              // `style` y no en una clase porque el ancho es un DATO medido del
+              // ancla, no una talla del sistema.
+              ...(campo && anchoCampo ? { width: anchoCampo } : null),
+            }}
+            className={`fixed z-50 overflow-hidden rounded-xl filo bg-white p-1.5 shadow-pop ${campo ? '' : 'w-60'}`}
           >
             {lista}
           </div>,
