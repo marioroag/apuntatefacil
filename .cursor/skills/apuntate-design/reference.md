@@ -5,26 +5,26 @@
 | Qué | Dónde |
 | --- | --- |
 | Tokens Tailwind v4 (`@theme`) | `src/index.css` |
-| Botones instrumento | `src/lib/buttons.ts` |
+| Botones (planos, ago 2026) | `src/lib/buttons.ts` |
 | Estados candidato | `src/lib/types.ts` → `STATUS_META` |
 | Acento cliente + contraste AA | `src/lib/colors.ts` |
 | Marca (nombre, dominio) | `src/lib/brand.ts` |
-| Pricing (Esencial/Pro/Multi) | `src/lib/pricing.ts` |
+| Pricing (pago por proceso) | `src/lib/pricing.ts` |
 | Formulario WYSIWYG | `src/components/FieldRenderer.tsx` |
 | Formulario público | `src/screens/PublicForm.tsx`, `src/components/ApplicationForm.tsx` |
 | Constructor | `src/screens/Builder.tsx` |
-| Detalle candidato | `screens/CandidateModal.tsx` (pop-up con pestañas) |
+| Detalle candidato | `screens/CandidateModal.tsx` (tres pestañas + raíl) |
 | Checkbox app | `src/components/ui/Checkbox.tsx` |
 | Logo | `src/components/Logo.tsx` |
 | Estrategia producto | `PRODUCT.md` |
 | Sistema visual documentado | `DESIGN.md` |
 
-## Tokens clave (jun 2026)
+## Tokens clave (ago 2026)
 
 ```
-Acento:     #374cce (indigo-600 en Tailwind reasignado)
-Hover:      #2d3fb0 (indigo-700)
-Wash nav:   #eef2fe (indigo-50)
+Acento:     #3b4fe4 (indigo-600 en Tailwind reasignado; gemelo ACENTO_MARCA en lib/colors.ts)
+Hover:      #2d3fb0 (indigo-700)   Press: #263690 (indigo-800)
+Lavado:     #eef2fe (indigo-50; el nav activo YA NO usa acento)
 Tinta:      #131822 (slate-900)
 Secundario: #50545e (slate-600)
 Terciario:  #6f727c (slate-500)
@@ -34,7 +34,7 @@ Borde:      #e5e7eb (slate-200)
 Peligro:    #DC2626
 ```
 
-Sombras: `--shadow-card`, `--shadow-pop` en `@theme`.
+Sombras (`@theme`): `control / raised (solo el pomo del Switch) / card / pop / sticky / acceso`. Marco de superficie: `filo` + `overflow-clip`.
 
 ## Formulario público (checklist)
 
@@ -68,13 +68,12 @@ Sombras: `--shadow-card`, `--shadow-pop` en `@theme`.
 
 Estados: nuevo, contactado, entrevista, descartado, contratado.
 
-Plan Pro: chapa **"Recomendado"**, nunca "el más elegido".
-
 ## Pricing (referencia copy)
 
-- Esencial 150 €/mes, Pro 250 €/mes, Multi 450 €/mes
-- Anual = ×10 (2 meses gratis)
-- Diferenciar por procesos activos, no por nº candidatos ni usuarios
+- Pago por proceso abierto: 49 €/mes **+ IVA** por proceso (el IVA se dice siempre junto al precio)
+- Todo el producto incluido; nunca cobrar por candidatos ni por usuario
+- Prueba: primer proceso gratis 15 días o 25 candidaturas, sin tarjeta
+- Pausar sigue cobrando y la UI lo dice; cerrar es un clic y deja de cobrarse
 - Números redondos, sin `.99`
 
 ## Verificación ampliada

@@ -58,7 +58,7 @@ or verification gaps.
 
 ### UI and Design
 
-- Ultramarine `#374cce` only for action, active nav, focus, and selection. Never decorative or status.
+- Ultramarine `#3b4fe4` only for action, focus, and selection (NOT active nav since ago 2026). Never decorative or status.
 - Candidate status colors come from `STATUS_META`; `descartado` is never red.
 - Use `BTN_*`, `Checkbox`, `CandidateModal`, `FieldRenderer`, tokens in `src/index.css`.
 - Text with meaning must pass AA contrast. `slate-400` is only for icons.
@@ -90,8 +90,8 @@ or verification gaps.
 
 ### Pricing and Billing
 
-- Plans: Esencial 150 €/mes, Pro 250 €/mes, Multi 450 €/mes; annual = x10.
-- Differentiate by active processes, never candidates or users.
+- Pricing is pay-per-open-process (49 €/mes + IVA per process, `PRECIO_PROCESO`); legacy tiers only keep old subscriptions.
+- Billing gates live in the store (`cerrarProceso`/`reabrirProceso`/...), never `updateCampaign` closing/reopening. Never charge by candidates or users.
 - Stripe/webhook code must be idempotent and safe against missing secrets in local/dev.
 
 ## 4. Verification Expectations

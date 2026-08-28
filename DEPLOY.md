@@ -1,12 +1,15 @@
 # Despliegue de Apúntate Fácil
 
-Guía para pasar de local a producción. Lo más importante (qué claves y de dónde) está en la sección **Claves**.
+> **Ya está desplegado y en producción** (apuntatefacil.com, con clientes y cobro reales).
+> Esta guía queda como referencia de la arquitectura y, sobre todo, del mapa de **Claves**.
+> El flujo del día a día: gates verdes -> `supabase db push --linked` (con `--dry-run`
+> primero) -> `vercel --prod`, siempre desde `/Users/mario/criba` y con permiso de Mario.
 
 ## Arquitectura
 
 - **Frontend**: SPA (Vite + React). Se despliega como sitio estático (Vercel, Netlify o Cloudflare Pages). La config de hosting ya está en el repo (`vercel.json` y `public/_redirects`) para que las rutas profundas (`/login`, `/app`, `/restablecer`, `/privacidad`...) carguen sin 404.
 - **Backend**: Supabase (Postgres + Auth + Storage + Edge Functions). Necesitas un proyecto Supabase de producción.
-- **Pagos**: Stripe (suscripciones, 3 planes).
+- **Pagos**: Stripe (una suscripción por empresa; cantidad = procesos abiertos, pago por proceso).
 - **Emails**: Resend, para los avisos de nueva candidatura, las comprobaciones manuales de interés y los emails de acceso (confirmación y reset) vía el SMTP de Supabase Auth.
 - **Login**: email + contraseña y Google.
 

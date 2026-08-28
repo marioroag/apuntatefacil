@@ -16,11 +16,11 @@ El trabajo que quieren resolver: **recibir todas las respuestas ordenadas en un 
 
 ## Product Purpose
 
-Apúntate Fácil ordena la contratación que hoy se hace por chat. La empresa sigue poniendo su anuncio como siempre, pero a quien responde le manda **un enlace** en vez de chatear: el enlace abre un **formulario corto** (las preguntas las elige el cliente), y cada envío entra como **candidato ordenado** en una base que se filtra, se valora, se anota y se exporta a Excel.
+Apúntate Fácil ordena la contratación que hoy se hace por chat. La empresa sigue poniendo su anuncio como siempre, pero a quien responde le manda **un enlace** en vez de chatear: el enlace abre la **página del puesto** (dónde es, cuánto paga, qué contrato: lo que se mira antes de decidir) y, al pulsar "Apúntate ahora", un **formulario corto** (las preguntas las elige el cliente). Cada envío entra como **candidato ordenado** en una base que se filtra, se etiqueta, se marca favorito, se anota en equipo y se exporta a Excel; Meridian (IA) lo trilla contra un baremo del puesto.
 
 Decisión de posicionamiento central: el producto **no capta candidatos** (eso lo sigue haciendo el anuncio del cliente); **ordena los que ya llegan**. La promesa es honesta incluso cuando resta: "no te traemos gente nueva".
 
-El éxito se ve cuando el cliente llega al buen candidato antes de que lo pillen, no pierde ni una respuesta, monta su puesto en minutos y confía en el precio (redondo, sin permanencia, "lo que ves es lo que pagas"). Modelo: suscripción premium good-better-best (Esencial 150 / Pro 250 / Multi 450 €/mes), con un plan de Prueba gratuito (1 puesto, 15 candidatos) como puerta de entrada.
+El éxito se ve cuando el cliente llega al buen candidato antes de que lo pillen, no pierde ni una respuesta, monta su puesto en minutos y confía en el precio (redondo, sin permanencia, "lo que ves es lo que pagas"). Modelo (ago 2026, sustituye a los tiers): **pago por proceso abierto, 49 €/mes + IVA por proceso, todo el producto incluido**; se cobra por escala real, nunca por candidatos ni por usuario. Puerta de entrada: el primer proceso gratis 15 días o 25 candidaturas, sin tarjeta. Cerrar un proceso es un clic y deja de cobrarse; los candidatos siguen siendo del cliente.
 
 ## Brand Personality
 
@@ -48,6 +48,6 @@ Emoción objetivo: **control y calma sobre el caos**. El usuario llega agobiado 
 
 - **Objetivo WCAG AA.** Texto con significado siempre ≥ 4.5:1 (grande ≥ 3:1), incluido el placeholder; nada de gris claro "por elegancia". El acento configurable del cliente lleva guarda de contraste automática: si el blanco no llega a AA sobre su color, el texto pasa a tinta oscura.
 - **Foco y semántica.** `:focus-visible` siempre visible (nunca quitar el outline), `<button>`/`<a>` reales, `<table>` semántica con `aria-sort`. El drag-to-reorder del constructor lleva siempre alternativa de teclado (subir/bajar).
-- **Movimiento.** `prefers-reduced-motion` respetado; animación corta y sobria (120/180/240 ms), solo transform/opacity, sin springs ni rebotes.
+- **Movimiento.** `prefers-reduced-motion` respetado; animación corta y sobria (150/180/240 ms), solo transform/opacity, sin springs ni rebotes.
 - **Formulario público mobile-first.** Una columna, inputs de 48px y fuente 16px (evita el zoom de iOS), targets ≥ 44px, teclados correctos (`type=tel/email/number`, `inputmode`), validación al blur y al enviar (nunca al teclear) y nunca borrar lo que el candidato escribió, ni su CV, en un envío fallido.
 - **Español primero.** Idioma, €, tuteo consistente. El glosario de producto está congelado (puesto, candidato, candidatura, enlace, estado, exportar) para no confundir.

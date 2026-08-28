@@ -5,7 +5,7 @@ This repository is optimized for Cursor agents.
 ## Source of Truth
 
 - `CLAUDE.md` is the full project doctrine and wins if anything conflicts.
-- `.cursor/rules/*.mdc` contains Cursor-scoped rules for project, design, copy, backend, public form, and pricing.
+- `.cursor/rules/*.mdc` contains Cursor-scoped rules for project, design, and pricing (copy/backend/public-form live in `CLAUDE.md` and the skills).
 - `.cursor/skills/*/SKILL.md` contains task workflows for design, Supabase, verification, and PR review.
 
 ## Product Scope
@@ -15,7 +15,7 @@ Apuntate Facil automates hiring flows from Milanuncios-style ads:
 - `/`: marketing landing.
 - `/app/puestos/:id`: candidate database panel.
 - `/app/puestos/:id/formulario`: form builder and live preview.
-- `/a/:slug` and `/:marca/:slug`: public candidate form.
+- `/a/:slug` and `/:marca/:slug`: the public job page (the ad, plus the candidate form via `?apuntarse`).
 
 Do not add features outside these surfaces without asking Mario first.
 
@@ -30,7 +30,7 @@ Do not add features outside these surfaces without asking Mario first.
 
 - Brand name is defined in `src/lib/brand.ts`.
 - Design follows the "Instrumento de precision" doctrine: premium, sober, neutral SaaS.
-- Ultramarine `#374cce` is only for action, active nav, focus, and selection.
+- Ultramarine `#3b4fe4` is only for action, focus, and selection (not active nav since ago 2026).
 - Candidate statuses use `STATUS_META` in `src/lib/types.ts`; `descartado` is never red.
 - Public form is mobile-first, validates on blur/submit, and never clears candidate input on failed submit.
 - Public anonymous Supabase access goes through RPCs, not direct table access.

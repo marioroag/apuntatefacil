@@ -7,7 +7,7 @@ description: Writes Spanish product copy in a Linear/Asana professional B2B regi
 
 Registro de **software profesional B2B**: sobrio, preciso, de vendedor de producto serio. No eres amigo del lector ni un chatbot amable. Hablas como Linear o Asana: confianza por claridad operativa.
 
-Para glosario, dark patterns y posicionamiento del producto, respeta `.cursor/rules/copy.mdc` y `PRODUCT.md`. Esta skill manda en **voz, titulares y selling points**.
+Para glosario, dark patterns y posicionamiento del producto, respeta la sección **Reglas de copy** de `CLAUDE.md` y `PRODUCT.md`. Esta skill manda en **voz, titulares y selling points**.
 
 ## Referentes (qué copiar del tono)
 
@@ -87,5 +87,5 @@ Patrón que funciona (aprobado en Equipo):
 ## Recursos
 
 - Ejemplos buenos/malos: [examples.md](examples.md)
-- Glosario y ética: `.cursor/rules/copy.mdc`
+- Glosario y ética: `CLAUDE.md` (sección Reglas de copy)
 - Workflow de ejes/FAQ/CTAs del producto: skill `apuntate-copy`

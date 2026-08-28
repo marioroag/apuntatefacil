@@ -74,5 +74,5 @@ Webhook local: `stripe listen --forward-to localhost:54321/functions/v1/stripe-w
 
 ## Referencias
 
-- Regla: `.cursor/rules/backend.mdc`
-- Deploy: `DEPLOY.md`, `EMPIEZA-AQUI.md`
+- Doctrina backend completa: `CLAUDE.md` (secciones Backend y Pagos y emails; Stripe está en LIVE y hay clientes reales en prod)
+- Deploy: `DEPLOY.md` (ya desplegado; el fichero es el mapa de claves)

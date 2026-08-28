@@ -16,23 +16,23 @@ npm install
 npm run dev      # http://localhost:5173
 ```
 
-## Las 4 superficies (rutas)
+## Las 5 superficies (rutas)
 
 | Ruta | Qué es |
 | --- | --- |
 | `/` | Landing de marketing |
-| `/app` | Panel del cliente (redirige al primer puesto) |
+| `/app` | Panel del cliente (Vista general, puestos, Candidatos, Entrevistas, Equipo, Ajustes, Facturación) |
 | `/app/puestos/:id` | Base de datos de candidatos: filtros, estados, export a Excel, detalle |
 | `/app/puestos/:id/formulario` | Constructor del formulario (drag & drop) + preview en vivo |
-| `/a/:slug` | Formulario público que rellena el candidato (mobile-first) |
+| `/a/:slug` | Anuncio público del puesto y, con `?apuntarse`, el formulario del candidato (mobile-first) |
 
-Datos de ejemplo: una ETT Multi (sedes, marcas, ~680 candidatos y Equipo). Todo vive en
-`localStorage` (clave `apuntatefacil.demo.v5`); las fechas se anclan a cada visita para que
-no envejezcan. Tus cambios **persisten**. Para reiniciar: borra esa clave o llama a `resetDemo()`.
+Datos de ejemplo: una ETT con 6 puestos y ~680 candidatos. Todo vive en `localStorage`
+(clave `apuntatefacil.demo.v13`); las fechas se anclan a cada visita para que no
+envejezcan. Tus cambios **persisten**. Para reiniciar: borra esa clave o llama a `resetDemo()`.
 
-## Decisiones de diseño (doctrina "SaaS confiable")
+## Decisiones de diseño (doctrina "Instrumento de precisión"; la fuente de verdad es `CLAUDE.md`)
 
-- Acento **índigo `#4F46E5`** solo para acción/nav/foco/selección. Nunca para estado.
+- Acento **ultramarine `#3b4fe4`** solo para acción, foco y selección. Nunca para estado ni para el nav.
 - 5 estados de candidato con paleta propia: nuevo (slate), contactado (azul), entrevista (ámbar),
   contratado (verde), descartado (slate apagado, **nunca rojo**).
 - Un único `FieldRenderer` pinta **a la vez** la preview del builder y el formulario público (WYSIWYG real).

@@ -1,9 +1,10 @@
 ---
 name: Apúntate Fácil
-description: SaaS de contratación nítido y premium ("Instrumento de precisión"): Geist, ultramarine sobre grafito, una sola sombra por elevación
+description: SaaS de contratación nítido y premium ("Instrumento de precisión"): Geist, ultramarine sobre grafito, botón plano, una sola sombra por elevación
 colors:
-  accent: "#374CCE"
+  accent: "#3B4FE4"
   accent-hover: "#2D3FB0"
+  accent-active: "#263690"
   accent-bright: "#4761F0"
   accent-wash: "#EEF2FE"
   ink: "#131822"
@@ -15,22 +16,26 @@ colors:
   fill-muted: "#F4F5F7"
   border: "#E5E7EB"
   border-strong: "#D1D4DB"
+  novedad: "#131822"
   status-new: "#6F727C"
   status-contacted: "#3B82F6"
   status-interview: "#F59E0B"
   status-hired: "#22C55E"
   status-discarded: "#D1D4DB"
+  favorito-fill: "amber-400"
+  favorito-stroke: "amber-500"
   danger: "#DC2626"
 typography:
   display:
     fontFamily: "Geist Variable, system-ui, sans-serif"
-    note: "Marca (landing y app): wordmark 'apuntatefacil' (.brand-wordmark, extrabold, tinta) y TODOS los titulares (h1/h2/h3). El cuerpo, las tablas y los datos densos siguen en Inter."
+    note: "UNA sola familia para todo el producto: wordmark (.brand-wordmark), titulares, cuerpo, etiquetas y datos. Sin mono para datos (se probó Geist Mono y se descartó); las cifras van tabulares (.num)."
   headline:
     fontFamily: "Geist Variable, system-ui, sans-serif"
-    fontSize: "1.25rem"
-    fontWeight: 600
-    lineHeight: 1.35
-    letterSpacing: "-0.01em"
+    fontSize: "1.5rem"
+    fontWeight: 700
+    lineHeight: 1.3
+    letterSpacing: "-0.012em"
+    note: "Título de pantalla (PageHeader): 24px/700. No puede perder contra un número de dentro."
   title:
     fontFamily: "Geist Variable, system-ui, sans-serif"
     fontSize: "1rem"
@@ -52,207 +57,172 @@ typography:
     fontSize: "0.6875rem"
     fontWeight: 600
     letterSpacing: "0.05em"
+    note: "Mayúsculas SIEMPRE con tracking positivo, y solo para rótulos de categoría. Un nombre propio (empresa, persona, puesto) va en caja normal: en versalita grita y le cambia el nombre al cliente."
 rounded:
-  sm: "8px"
-  md: "10px"
-  lg: "12px"
-  pill: "9999px"
-spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "12px"
-  lg: "16px"
-  xl: "24px"
-  "2xl": "32px"
-  "3xl": "40px"
-  "4xl": "64px"
-  section: "80px"
-  section-lg: "96px"
-  roles:
-    stack-tight: "8px dentro de un grupo"
-    stack: "16px entre grupos relacionados"
-    stack-loose: "24px padding de tarjeta"
-    block: "40px entre bloques"
-    section: "80px / 96px entre secciones (`.section-y`)"
-marketing-type:
-  micro: "11px"
-  caption: "12px"
-  label: "13px"
-  copy: "14px"
-  copy-md: "15px"
-  title: "17px"
-  lockup: "20px"
-  hero: "34px"
-  hero-lg: "52px"
-  heading-xl: "40px"
+  control: "8px (rounded-lg): botones y controles pequeños"
+  campo: "10px (rounded-xl): inputs, tarjetas, paneles, modales (radius-xl está reasignado a 10px en @theme)"
+  externa: "16px (rounded-2xl): tarjetas grandes de landing y formulario público"
+  pill: "9999px: pills de estado, chips de filtro, avatares"
+  etiqueta: "4px (rounded-sm): las etiquetas de candidato, que así no se confunden con un estado"
+motion:
+  control: "150ms (--duration-control) + --ease-out: lo que responde al dedo (hover, press, color)"
+  enter: "180ms (--duration-enter): algo aparece o desaparece"
+  max: "240ms (--duration-max) + --ease-standard: el techo; overlays grandes y barras que recorren distancia"
+  rule: "Solo transform/opacity. Sin springs ni rebotes. prefers-reduced-motion respetado. Un reset no se anima."
+shadows:
+  control: "0 1px 2px rgba(18,22,34,0.06)"
+  raised: "inset 0 1px 0 rgba(255,255,255,0.16), 0 1px 2px rgba(18,22,34,0.24) (solo el pomo del Switch)"
+  card: "0 1px 2px rgba(18,22,34,0.05), 0 2px 6px -2px rgba(18,22,34,0.08)"
+  pop: "0 16px 40px -12px rgba(18,22,34,0.20), 0 6px 16px -8px rgba(18,22,34,0.12)"
+  sticky: "0 6px 8px -7px rgba(18,22,34,0.24)"
+  acceso: "0 24px 64px -8px rgba(18,22,34,0.16), 0 8px 20px -12px rgba(18,22,34,0.10)"
 components:
   button-primary:
     backgroundColor: "{colors.accent}"
     textColor: "#FFFFFF"
-    rounded: "{rounded.md}"
+    rounded: "8px"
     height: "36px"
-    padding: "0 16px"
-  button-primary-hover:
-    backgroundColor: "{colors.accent-hover}"
+    padding: "0 14px"
+    note: "PLANO: sin filo de luz, sin anillo interior, sin sombra de contacto. Hover indigo-700, active indigo-800: tres peldaños de la misma rampa. Press = translate-y-px, nunca scale."
   button-secondary:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink-strong}"
-    rounded: "{rounded.md}"
+    ring: "1px slate-300, SIEMPRE ring-inset"
+    rounded: "8px"
     height: "36px"
-    padding: "0 12px"
   card:
     backgroundColor: "{colors.surface}"
-    rounded: "{rounded.lg}"
-    padding: "20px"
+    rounded: "10px"
+    border: "filo (dos manos: border + outline a -1px, ver Acabado) y overflow-clip"
   input:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.lg}"
-    height: "40px"
-    padding: "0 12px"
-  nav-item-active:
-    backgroundColor: "{colors.accent-wash}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.lg}"
-  chip-status:
-    backgroundColor: "{colors.fill-muted}"
-    textColor: "{colors.ink-strong}"
-    rounded: "{rounded.pill}"
-    padding: "2px 10px"
+    rounded: "10px"
+    height: "40px (48px y fuente 16px en el formulario público)"
+    focus: "borde indigo-500 + ring-4 indigo-500/15"
+  sidebar:
+    width: "256px (contraíble a 64, preferencia en localStorage)"
+    backgroundColor: "var(--color-lateral) (BLANCO; el trabajo va un paso por debajo, slate-50)"
+    row: "34px escritorio / 44px táctil, icono 18, hueco 16, texto 15px slate-900"
+    active: "var(--color-lateral-activo) + tinta, SIN acento y SIN cambiar el peso"
+  status-pill:
+    style: "punto de color + texto, rounded-full, relleno tono-100 + texto tono-800, SIN anillo"
+  tag-chip:
+    style: "rectángulo rounded-sm, relleno tono-100 + texto tono-800; el tono sale del ID (repartirTonos), nunca lo elige nadie"
 ---
 
 # Design System: Apúntate Fácil
 
-> Migrado al sistema nuevo "Instrumento de precisión" (jun 2026): **tipografía Geist** (familia única, sin mono), **acento ultramarine `#374CCE`** (solo acción/nav/foco/selección; el uso decorativo se neutraliza a slate), **neutros grafito**, radios por rol (inputs/tarjetas 10px, botones 8px), botón con relieve (`lib/buttons.ts`) y logo SVG. Los tokens (frontmatter, arriba) ya reflejan el sistema nuevo; parte de la prosa narrativa aún menciona el viejo (índigo/Inter) y se regenerará con `/impeccable document`. Fuente de verdad: `CLAUDE.md`.
+> Resumen del sistema "Instrumento de precisión" tras el reskin de ago 2026 (lateral único,
+> botón plano, rejilla de datos, etiquetas con color). **Fuente de verdad: `CLAUDE.md`**
+> (doctrina visual + secciones "Nitidez" y "Acabado") y los tokens de `src/index.css`;
+> si esto diverge, ganan ellos. Actualizado ago 2026.
 
 ## 1. Overview
 
 **Creative North Star: "La mesa de trabajo despejada"**
 
-Apúntate Fácil recibe el caos de decenas de respuestas sueltas en un chat y las deja en una superficie ordenada donde cada cosa está en su sitio. La interfaz es la mesa de trabajo despejada: sobria, precisa, sin adornos, con bajo coste cognitivo. La herramienta desaparece en la tarea. El registro es el de "SaaS confiable" tipo Linear, Notion y Stripe: familiaridad ganada, no sorpresa. La emoción objetivo es **control y calma sobre el caos**: nada parpadea pidiendo atención, el siguiente paso siempre está claro.
+Apúntate Fácil recibe el caos de decenas de respuestas sueltas en un chat y las deja en una superficie ordenada donde cada cosa está en su sitio. La interfaz es la mesa de trabajo despejada: sobria, precisa, sin adornos, con bajo coste cognitivo. El registro es el de "SaaS confiable" tipo Linear: familiaridad ganada, no sorpresa. La emoción objetivo es **control y calma sobre el caos**.
 
-La densidad es la de una herramienta de trabajo: tablas con muchas filas, paneles con muchas etiquetas, datos cuando el usuario los necesita. La jerarquía se construye con **peso y color antes que con tamaño**, porque hay muchos elementos de tipo y el contraste exagerado solo crearía ruido. El color es contenido: un único acento índigo para lo accionable y una escala neutra slate para todo lo demás. Multisector neutro: un bar, una obra y una ETT usan la misma app, así que la estética **nunca** se inclina a un gremio (cero cascos, naranjas de obra, iconografía de oficio).
+La densidad es la de una herramienta de trabajo, y la jerarquía se construye con **peso y color antes que con tamaño**. El color es contenido: un único acento para lo accionable y una escala neutra grafito para todo lo demás. Multisector neutro: una obra, un almacén y una ETT usan la misma app, así que la estética **nunca** se inclina a un gremio.
 
-Este sistema rechaza explícitamente el molde de SaaS de plantilla (rejillas de cards idénticas, eyebrow tracked sobre cada sección, plantilla hero-métrica, degradados de IA), todo lo que huela a ganga (`.99`, urgencia, gradientes chillones), lo infantil (mascotas, emojis, colores de caramelo) y cualquier dark pattern. La calidad se demuestra en la contención y el detalle, no en efectos.
+Lo que produce la sensación de caro no es ninguna decisión grande: es **coherencia física** repetida en veinte sitios (el mismo filo, la misma sombra por elevación, el mismo press, las mismas tres duraciones), y **nitidez** (lo que se pulsa va en tinta; el gris de apoyo es para lo que acompaña).
 
 **Key Characteristics:**
-- Un solo acento (índigo `#374CCE`) y neutros slate; color = significado, nunca decoración.
-- Jerarquía por peso y color antes que por tamaño; una sola familia (Inter).
-- Plano por defecto, una sola sombra por elevación, bordes que hacen el trabajo.
-- Estado de candidato = punto de color **+** texto, con paleta propia que nunca usa el índigo.
-- Mobile-first donde el candidato (y a menudo quien contrata) están; accesibilidad como suelo, no como extra.
+- Un solo acento (ultramarine `#3B4FE4`) y neutros grafito; color = significado, nunca decoración.
+- Jerarquía por peso y color antes que por tamaño; una sola familia (Geist), cifras tabulares.
+- Plano por defecto: el hairline hace la profundidad y la sombra solo la confirma. El botón es plano desde ago 2026.
+- Estado de candidato = punto de color **+** texto, con paleta propia que nunca usa el acento.
+- Accesibilidad como suelo: AA en texto con significado, foco visible, alternativa de teclado a todo arrastre.
 
-## 2. Colors: La paleta de la mesa despejada
-
-Un único acento índigo de confianza sobre una escala neutra slate; el color solo aparece donde hay significado.
+## 2. Colors
 
 ### Primary
-- **Índigo de confianza** (`#374CCE`): el acento de marca. Aparece SOLO en lo accionable: botón primario, nav activo, anillo de foco, selección y el acento configurable del formulario público. Profundo y sereno, dice "fiable" sin gritar. Variantes: hover/active `#2D3FB0`, brillo superior del relieve `#4761F0`, lavado de fondo (nav activo, tinte de foco) `#EEF2FE`.
+- **Ultramarine** (`#3B4FE4`, reasignado sobre la rampa `indigo` en `@theme`): SOLO acción, foco y selección. **Desde el reskin de ago 2026 ya no marca ni el nav activo**: la fila activa del lateral se dice con un gris propio y tinta, así el acento solo aparece donde hay algo que pulsar. Rampa: hover `#2D3FB0` (700), press `#263690` (800), lavado `#EEF2FE` (50). **Dos gemelos que se mantienen a mano**: `--color-indigo-600`/`--accent` en `index.css` y `ACENTO_MARCA` en `lib/colors.ts`.
 
-### Neutral
-- **Tinta** (`#131822`, slate-900): texto principal. **Tinta fuerte** (`#242833`, slate-800): texto de botón secundario y énfasis. **Tinta secundaria** (`#50545E`, slate-600): subtítulos y texto de apoyo legible. **Tinta terciaria** (`#6F727C`, slate-500): metadatos, placeholders con significado. Todo texto con significado cumple ≥ 4.5:1.
-- **Superficie** (`#FFFFFF`): tarjetas, paneles, inputs. **Fondo de app** (`#F9FAFB`, slate-50): el lienzo bajo las superficies, una segunda capa neutra. **Relleno tenue** (`#F4F5F7`, slate-100): chips neutros, filas en hover, mini-stats. **Borde** (`#E5E7EB`, slate-200): divisores y contornos de tarjeta. **Borde fuerte** (`#D1D4DB`, slate-300): contorno de input.
+### Neutral (grafito, rampa `slate` reasignada, OKLCH)
+- **Tinta** `#131822` (900) / **secundaria** `#50545E` (600) / **terciaria** `#6F727C` (500). Texto con significado siempre ≥ 4.5:1; `slate-400` NO vale para texto con significado, solo iconos. **Lo que se pulsa va en tinta**: una fila de menú o una cabecera de tabla es un destino, no un pie de foto.
+- **Superficie** `#FFFFFF`, **fondo de app** `#F9FAFB`, **borde** `#E5E7EB`. El lateral es BLANCO y el trabajo un paso por debajo: el sitio con más texto pequeño por centímetro se lleva el fondo más claro.
 
-### Tertiary (paleta de estado, semántica y fija)
-Los cinco estados de candidato tienen color propio y **nunca** usan el índigo de marca:
-- **Nuevo** (`#6F727C`, slate): a la espera, neutro. **Contactado** (`#3B82F6`, azul). **Entrevista** (`#F59E0B`, ámbar). **Contratado** (`#22C55E`, verde): el único hito celebrable. **Descartado** (`#D1D4DB`, slate apagado): rutina y reversible, **nunca rojo**.
-- **Peligro** (`#DC2626`, red-600): SOLO errores reales y acciones destructivas, con borde + icono, nunca solo color.
+### Estados de candidato (paleta propia y fija, nunca el acento)
+- Nuevo = slate, contactado = azul, entrevista = ámbar, contratado = verde, descartado = slate apagado (**nunca rojo**: descartar es rutina y reversible). Punto de color **+** texto, jamás solo color. Mapa en `STATUS_META` (`lib/types.ts`). La pastilla es un **relleno teñido sin anillo** (tono-100 + texto tono-800) desde ago 2026.
 
-### Named Rules
-**La regla del acento único.** El índigo `#374CCE` se reserva a acción, navegación activa, foco y selección. Nunca para estado ni para decorar. Es el error número uno a evitar: un índigo decorativo destruye su significado.
-
-**La regla "estado no es marca".** Los estados de candidato usan su paleta fija (slate / azul / ámbar / verde / slate). Si un estado aparece en índigo, está mal. Descartar es rutina: nunca rojo, nunca shake.
-
-**La regla del punto y el texto.** Un estado se comunica con punto de color **y** texto, jamás solo con color (daltonismo, contraste).
+### Los demás colores con significado
+- **Rojo `#DC2626`, UN solo uso**: errores reales y acciones destructivas (borde + icono, nunca solo color). El punto de novedad del menú se probó en rojo y se revirtió: en cuanto el rojo también dice "hay algo sin mirar", deja de avisar de lo que puede salir mal.
+- **Favorito = estrella DORADA** (`amber-400` relleno, `amber-500` contorno, `FAVORITO_STAR`): la única excepción a "estado y marca no comparten paleta". No choca con el ámbar de "entrevista" porque el estado jamás usa este glifo: se distinguen por forma.
+- **Etiquetas de candidato con color por ID** (`tagTone`/`repartirTonos`): rectángulo de 4px, relleno tono-100 + texto tono-800, sin borde. La FORMA (rectángulo contra píldora) es lo que las separa de un estado. Fuera de su paleta: rojo, rosa y el ultramarine.
 
 ## 3. Typography
 
-**Display / Body / Label Font:** Inter Variable (autoalojada), con `system-ui, sans-serif` de reserva. Una sola familia para titulares, botones, etiquetas, cuerpo y datos.
-
-**Character:** Inter es una grotesca neutra y legible que desaparece: ni editorial ni técnica, exactamente la voz "herramienta de confianza" del sistema. La personalidad la dan el peso y el color, no la elección de fuente.
+**Una sola familia: Geist Variable** (autoalojada), para todo: wordmark, titulares, cuerpo, etiquetas y datos. Sin monospace para datos (se probó Geist Mono y se descartó): las cifras van con `tabular-nums` (clase `.num`, y `tnum` global en el body).
 
 ### Hierarchy
-- **Headline** (600, 1.25rem / 20px, line-height 1.35): títulos de página ("Vista general", "Sedes"). El elemento de tipo más grande del panel; el producto no necesita display.
-- **Title** (600, 1rem / 16px): títulos de sección y de panel/tarjeta.
-- **Body** (400, 0.875rem / 14px, line-height 1.5): el texto de UI por defecto. Prosa hasta 65–75ch; datos y UI compacta pueden ir más densos.
-- **Label** (500, 0.8125rem / 13px): etiquetas, chips, controles. Verbo-primero, 1–3 palabras, sentence case.
-- **Overline** (600, 0.6875rem / 11px, tracking 0.05em, mayúsculas): SOLO las cabeceras de grupo del menú lateral (p. ej. nombres de sede). Es el único uso de mayúsculas tracked del sistema, deliberado y acotado.
+- **Título de pantalla** (700, 24px, tracking `-0.012em`): `PageHeader`, la misma cabecera en todas las pantallas. Un número de dentro no puede ganarle al nombre de la pantalla.
+- **Title** (600, 16px): títulos de sección y de tarjeta.
+- **Body** (400, 14px): el texto de UI por defecto.
+- **Label** (500, 13px): etiquetas, chips, controles. Verbo-primero, sentence case.
+- **Overline** (600, 11px, tracking +0.05em, mayúsculas): solo rótulos de CATEGORÍA. **Un nombre propio se escribe, no se grita**: el nombre de la empresa en el lateral va en caja normal a 13px.
+- Las superficies de LECTURA (la página pública del anuncio, la pantalla de acceso) suben la escala entera a propósito: ahí no trabaja nadie, lee una persona con prisa.
 
 ### Named Rules
-**La regla del peso antes que el tamaño.** La jerarquía se construye subiendo el peso (400 → 500 → 600) y oscureciendo el color (terciaria → secundaria → tinta) antes que agrandando la fuente. Mantiene la densidad sin ruido.
-
-**La regla de los números tabulares.** Todo número, fecha y teléfono usa `tabular-nums` (`tnum`) para que las columnas alineen. Es global; no se desactiva.
+- **Peso antes que tamaño**: la jerarquía sube por peso (400→500→600) y tinta (terciaria→secundaria→tinta), no agrandando.
+- **El peso se declara UNA vez y ningún estado lo toca**: una etiqueta que engorda al activarse se lee como un temblor (pestañas, lateral, cabeceras de tabla).
+- `font-synthesis-weight: none`: antes que una negrita falsa, que se note que falta.
 
 ## 4. Elevation
 
-> Los valores viven en el `@theme` de `src/index.css` y la doctrina completa en la sección
-> **"Acabado"** de `CLAUDE.md`. Esto es el resumen; si divergen, gana el CSS.
+> Los valores viven en el `@theme` de `src/index.css` y la doctrina en la sección **"Acabado"** de `CLAUDE.md`, vigilada por `src/lib/acabado.test.ts`. Si divergen, gana el CSS.
 
-Plano por defecto. La profundidad la dan los bordes y la capa de fondo (`#f9fafb` bajo superficies blancas), no las sombras. Cuando hace falta elevación hay **seis piezas con nombre**, y nunca se apilan.
+Plano por defecto: **el hairline hace la profundidad y la sombra solo la confirma**. El marco de una superficie se pinta a dos manos (`filo` = border + outline a −1px, que corrige la esquina) y la superficie con radio recorta con `overflow-clip` (ni `visible` ni `hidden`).
 
-### Shadow Vocabulary
-- **`shadow-control`** (`0 1px 2px rgba(18,22,34,0.06)`): un control en reposo, botón hairline o campo.
-- **`shadow-raised`** (`inset 0 1px 0 rgba(255,255,255,0.16), 0 1px 2px rgba(18,22,34,0.24)`): sólido con relieve. Filo de luz de 1px arriba por dentro más sombra de contacto: es lo que da el tacto mecanizado del primario sin convertirlo en un objeto 3D.
-- **`shadow-pressed`** (`inset 0 1px 2px rgba(15,20,60,0.35)`): hundido. Sustituye al relieve mientras se pulsa.
-- **`shadow-card`** (`0 1px 2px rgba(18,22,34,0.05), 0 2px 6px -2px rgba(18,22,34,0.08)`): tarjeta o panel asentado. Dos capas porque un objeto apoyado produce una línea apretada donde toca más una penumbra ancha; con solo la segunda, flota en niebla.
-- **`shadow-pop`** (`0 16px 40px -12px rgba(18,22,34,0.20), 0 6px 16px -8px rgba(18,22,34,0.12)`): SOLO lo que de verdad flota (dropdowns, paneles, modales).
-- **`shadow-sticky`** (`0 6px 8px -7px rgba(18,22,34,0.24)`): cabecera pegajosa con contenido pasando por debajo. El spread negativo grande la deja en una banda fina y dirigida.
+**Seis piezas con nombre, nunca apiladas**: `shadow-control` (control en reposo), `shadow-raised` (solo el pomo del `Switch`), `shadow-card` (tarjeta apoyada), `shadow-pop` (lo que de verdad flota: dropdowns, paneles, modales, la barra de selección), `shadow-sticky` (cabecera pegajosa) y `shadow-acceso` (la lámina de la pantalla de acceso). `--shadow-pressed` se retiró con el botón plano. Prohibidas las de Tailwind (`shadow-sm/md/lg/xl`). Ninguna en negro puro: teñidas con la tinta `#131822`.
 
-Ninguna es negro puro: van teñidas con la tinta `#131822`, porque el negro sobre un fondo frío se enturbia. Todas por debajo del 10% de opacidad salvo el relieve.
-
-### Named Rules
-**La regla de una sombra por elevación.** Cada elemento usa como mucho una del vocabulario. Apilarlas, usar `shadow-pop` en algo que no flota, o escribir una a mano con `shadow-[...]`, está prohibido: el test `src/lib/acabado.test.ts` lo hace fallar. La escala de Tailwind (`shadow-sm/md/lg/xl`) no pertenece al sistema. En `forced-colors`, las sombras se refuerzan con un borde de 1px.
+**Sin gradientes**, con tres excepciones declaradas que no pintan, informan: el barrido del skeleton, el desvanecido de un scroll que continúa (`lib/desvanecido.ts`) y el velo de legibilidad sobre una foto.
 
 ## 5. Components
 
-Familiar y de confianza: vocabulario estándar, cero affordances inventadas. La herramienta desaparece en la tarea. Misma forma de botón, mismo control de formulario, mismo estilo de icono en toda la app (Lucide a `--stroke-icon`, hoy 1,75; el trazo se gobierna desde `index.css`, la prop `strokeWidth` ya no pinta).
+Familiar y de confianza: vocabulario estándar, cero affordances inventadas. Iconos lucide a trazo 1,75 (`--stroke-icon` gobierna los ~420 desde `index.css`; la prop `strokeWidth` ya no pinta). `size-4` por defecto, `size-3.5` en metadatos.
 
-### Buttons
-- **Shape:** esquinas de 10px (`rounded-[10px]`), altura fija 36px (`h-9`).
-- **Primary:** relieve índigo. Degradado `#4761F0 → #374CCE`, texto blanco 600, anillo interior `rgba(67,56,202,0.5)`, brillo superior + sombra ínfima. Padding `0 16px`.
-- **Hover / Active:** hover oscurece el degradado a `#2D3FB0`; active baja 1px (`translateY(1px)`) y cambia a sombra interior. Foco: `outline: 2px solid #374CCE` con `outline-offset: 2px`.
-- **Secondary:** superficie blanca con borde `rgba(203,213,225,0.7)`, texto tinta fuerte `#242833` 500, sombra de reposo mínima. Hover a `#F9FAFB`, active baja 1px. Es la acción de menor peso, no un botón fantasma plano.
+### Buttons (`src/lib/buttons.ts`, única fuente)
+- **PLANO Y NÍTIDO** (ago 2026): ni filo de luz, ni anillo interior en el sólido, ni sombra de contacto. El color hace el trabajo y al pulsar **oscurece** (600→700→800 el sólido; blanco→50→100 el de línea). Press = `translate-y-px`, **nunca `scale`**.
+- Radio 8px, alto 36px (44 en táctil), un solo relleno por talla (14px en `md`). El anillo del secundario va **SIEMPRE `ring-inset`** (un `ring` a secas pinta fuera y desalinea 2px, y `getBoundingClientRect` no lo ve).
+- Un botón de solo icono se fabrica con `botonIcono()`, **nunca** `BTN_* + px-0` (dos utilidades del mismo eje no se resuelven por orden de escritura).
 
-### Chips
-- **Style:** píldora (`rounded-full`), `bg-{estado}-50` + `text-{estado}-700` + anillo interior `ring-{estado}-200`. Punto de color a la izquierda + etiqueta.
-- **State:** los chips de estado son lectura (no togglan); los chips de filtro activos llevan una "x" para quitarse. Nunca usan el índigo de marca.
+### Data grid (`ui/DataTable.tsx`, compartida por el panel y Candidatos)
+- Rejilla con **filo vertical entre columnas** (interior `slate-100`, marco `slate-200`), cabeceras en frase con el icono de su tipo (semibold, `slate-700`; la que ordena, tinta), filas de 56px, `border-separate`.
+- **Anchos de columna del usuario** (arrastrar el filo de la cabecera; mínimo y máximo por contenido), **casilla y candidato fijos** al desplazar, y **solo se pintan las filas a la vista** (`useFilasALaVista`; el alto de fila es un contrato vigilado por `tabla.test.ts`).
+- La fila entera abre la ficha (`clickDeFila`); dentro de una fila solo controles imprescindibles.
 
-### Cards / Containers
-- **Corner Style:** 12px (`rounded-xl`).
-- **Background:** superficie blanca sobre fondo `#F9FAFB`.
-- **Shadow Strategy:** `shadow-card` en reposo (ver Elevation). Nunca `shadow-pop` salvo que floten de verdad.
-- **Border:** 1px `#E5E7EB` siempre; el borde hace tanto trabajo como la sombra.
-- **Internal Padding:** 16–20px (`p-4` / `p-5`). Tarjetas anidadas: prohibidas.
+### Inputs
+- 40px de alto, radio 10px, borde `slate-300`; foco borde `indigo-500` + `ring-4 indigo-500/15`. En el formulario público: 48px y fuente 16px (evita el zoom de iOS). Validación al blur y al enviar, jamás al teclear; nunca borrar lo que el candidato escribió.
 
-### Inputs / Fields
-- **Style:** 12px de radio, borde `#D1D4DB`, fondo blanco, alto 40px en panel (48px y fuente 16px en el formulario público para evitar el zoom de iOS).
-- **Focus:** borde a `#374CCE` + halo `0 0 0 4px rgba(79,70,229,0.15)`. Nunca se quita el outline.
-- **Error / Disabled:** error con borde + icono `#DC2626` (nunca solo color); validación al blur y al enviar, jamás al teclear. En un envío fallido **nunca** se borra lo que el candidato escribió ni su CV.
-
-### Navigation
-- **Style:** menú lateral blanco (240px) con borde derecho `#E5E7EB`; en móvil, drawer deslizante con overlay. Ítems de 36px, radio 12px.
-- **States:** inactivo `text-slate-600` con icono `#94A3B8`; hover `bg-slate-100`; **activo** `bg-#EEF2FE` + texto tinta 600 + icono índigo. Los puestos se agrupan por sede bajo cabeceras overline.
+### Navigation (el lateral, única capa de navegación)
+- **256px, blanco, sin sombra** (el filo basta); contraíble a **64px** con asomarse al pasar por encima (el `<aside>` es un hueco y el raíl va absoluto encima: asomarse no reajusta nada). Preferencia en `localStorage`.
+- Fila de 34px (44 táctil), icono 18, hueco 16, texto 15 en `slate-900`; activo = fondo `--color-lateral-activo` + tinta, **sin acento y sin engordar la letra**. Sublistas con raíl alineado al centro del icono de su madre. Contadores: la cifra pelada, `slate-500`, tope "15+".
+- En móvil: barrita de 56px (marca izquierda, botón derecha) y el menú a pantalla completa con fundido, sin telón y sin gesto de deslizar.
 
 ### Signature: el FieldRenderer WYSIWYG
-Un único componente pinta a la vez la preview del constructor de formularios y el formulario público real. Si tocas uno, tocas los dos: no existe una versión "bonita" distinta del producto. El acento configurable del cliente pasa por una guarda de contraste AA (`src/lib/colors.ts`): si el blanco no llega a 4.5:1 sobre su color, el texto del botón pasa a tinta oscura automáticamente.
+Un único componente pinta a la vez la preview del constructor y el formulario público real. Si tocas uno, tocas los dos. El acento del cliente pasa por guardas de contraste (`readableOn` para el texto encima, `accentOnWhite` para el acento sobre papel).
 
-### Signature: el detalle en pop-up con pestañas
-El detalle de un candidato abre en un **pop-up con pestañas** (`src/screens/CandidateModal.tsx`, jul 2026): reparto fijo, a la izquierda lo que dice el candidato (Resumen / Respuestas / CV) y a la derecha lo que dice tu equipo (Equipo / Historial), con flechas al siguiente de la lista filtrada y enlace directo. Sustituyó al SlideOver de 460px, que obligaba a apilar en una columna estrecha todo lo que hay que saber de una persona; que la lista siga a la vista ya lo da el telón translúcido. El SlideOver sigue siendo lo correcto para detalles SECUNDARIOS (peticiones del tablón).
+### Signature: la ficha del candidato
+Pop-up con **tres pestañas** (Información · Conversación · Historial) y un **raíl** fijo a la derecha (Datos, Etiquetas, Notas del equipo): los hechos no se piden, están puestos. En móvil, franjas planas separadas por un filo y un solo grupo de pastillas como navegación. Las acciones viven encima de las pestañas: una sola acción principal por estado.
+
+### Signature: la página pública del anuncio
+El enlace abre lo que se LEE (el anuncio) y el formulario se abre al pulsar "Apúntate ahora" (`?apuntarse`, misma URL). Ahí la marca es DEL CLIENTE: su acento puede teñir superficies (ficha, filo, CTA), la letra sube de cuerpo y bajo el botón se dice lo que cuesta apuntarse ("9 preguntas · Sin CV · Sin crear cuenta"), que es un cálculo, no una promesa.
 
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** reservar el índigo `#374CCE` a acción, nav activo, foco y selección; para todo lo demás, slate.
-- **Do** comunicar el estado con punto de color **+** texto, usando la paleta fija de estado (slate / azul / ámbar / verde / slate), nunca el índigo.
-- **Do** construir jerarquía con peso (400/500/600) y color antes que con tamaño; una sola familia, Inter, con `tabular-nums` en todo número.
-- **Do** mantener plano por defecto: borde + `shadow-card` en reposo, `shadow-pop` solo en lo que flota de verdad, una sola sombra por elevación.
-- **Do** respetar el suelo de accesibilidad: `:focus-visible` siempre visible, contraste ≥ 4.5:1 (incluido placeholder), `prefers-reduced-motion`, alternativa de teclado al drag, inputs de 16px en táctil.
-- **Do** mantener movimiento corto y sobrio (120/180/240 ms, solo transform/opacity); el verde "contratado" es el único hito con un pulse sutil.
+- **Do** reservar el ultramarine a acción, foco y selección; para todo lo demás, grafito. El nav activo ya no lo lleva.
+- **Do** comunicar estado con punto + texto (paleta fija) y clasificación con etiquetas rectangulares de color por ID: la forma carga con el significado.
+- **Do** construir jerarquía con peso y tinta; una sola familia, cifras tabulares, el peso declarado una vez.
+- **Do** mantener plano: `filo` a dos manos + `overflow-clip`, una sombra por elevación, botón que oscurece al pulsar.
+- **Do** respetar el suelo: AA en texto con significado, `:focus-visible` siempre, alternativa de teclado a todo arrastre (la trae `ui/ListaOrdenable`), `prefers-reduced-motion`, 16px en campos táctiles.
+- **Do** usar los tres tiempos (150/180/240) con su curva: `--ease-out` para lo que responde al dedo, `--ease-standard` para lo que transforma. Lo que flota se coloca contra la ventana, en portal.
 
 ### Don't:
-- **Don't** usar el índigo de marca para estados ni para decorar; **don't** pintar "descartado" en rojo ni con shake (es rutina y reversible).
-- **Don't** caer en el molde de SaaS de plantilla: rejillas de cards idénticas, eyebrow tracked sobre cada sección, plantilla hero-métrica, degradados de IA.
-- **Don't** parecer cutre o de ganga: nada de `.99`, contadores de urgencia, gradientes chillones ni prueba social inventada (testimonios, contadores de usuarios, logos). Cero dark patterns: el test es "¿funcionaría igual si el usuario supiera cómo está hecho?".
-- **Don't** parecer infantil ni de juguete (mascotas, ilustraciones blandas, emojis decorativos, colores de caramelo) ni sesgar la estética a un gremio (cascos, naranjas de obra, iconografía de oficio).
-- **Don't** usar borde lateral de color (`border-left`/`right` > 1px) como acento, texto con degradado (`background-clip: text`), glassmorphism decorativo ni sombras apiladas.
-- **Don't** abrir el detalle en un modal a pantalla completa; **don't** anidar tarjetas; **don't** validar al teclear ni borrar lo que el candidato ya escribió en un envío fallido.
+- **Don't** usar el acento para estados, para decorar ni para el nav; **don't** pintar "descartado" en rojo ni con shake.
+- **Don't** escribir sombras, radios o botones a mano en una pantalla: lo que se decide, se nombra (`buttons.ts`, `@theme`), y los guardianes (`acabado`, `arrastre`, `flotante`, `tabla`) lo hacen fallar.
+- **Don't** caer en molde de plantilla, ganga (`.99`, urgencia), infantilismo ni sesgo de gremio; cero dark patterns: "¿funcionaría igual si el usuario supiera cómo está hecho?".
+- **Don't** apilar dos utilidades del mismo eje esperando que gane la escrita después; **don't** componer nombres de clase de Tailwind con variables.
+- **Don't** validar al teclear, borrar lo escrito por el candidato, ni ofrecer una acción que acabe en un mensaje que no sale (`WHATSAPP_LISTO`).

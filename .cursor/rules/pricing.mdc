@@ -1,19 +1,30 @@
 ---
-description: Estrategia y reglas de pricing (premium, "los mejores")
+description: Pricing vigente, pago por proceso abierto (sustituye a los tiers, ago 2026)
 globs: src/lib/pricing.ts,src/screens/Plan.tsx,src/screens/Landing.tsx
 alwaysApply: false
 ---
 
-# Pricing (decidido: premium, no el más barato)
+# Pricing: PAGO POR PROCESO ABIERTO (ago 2026; los tiers quedaron legacy)
 
-Editable en `src/lib/pricing.ts`. Good-better-best con **números redondos** (prestigio + honesto +
-citable; el `.99` grita ganga).
+Una sola cifra, editable en `src/lib/pricing.ts` (`PRECIO_PROCESO`); el importe de cobro real
+vive en el price de Stripe (`STRIPE_PRICE_PROCESO`: recrearlo si cambia el número).
 
-- **Esencial 150 €/mes** (2 procesos activos), **Pro 250 €/mes** (10 procesos), **Multi 450 €/mes**
-  (ilimitado, multi-local, ETT). Anual = ×10 (2 meses gratis). Cifras fechadas a junio 2026.
-- Diferencia por **procesos/anuncios activos**, **NUNCA por nº de candidatos** (no estrangular en
-  plena oleada) ni por usuario (castigaría al bar de 1-2 personas). **Usuarios siempre ilimitados.**
-- Chapa del plan Pro: **"Recomendado"** (ver regla de copy: nada de prueba social inventada).
-- En la landing, **ancla el coste real ANTES del precio**, como dos verdades: hacerlo **a mano**
-  (56 candidatos/vacante, horas, perfiles perdidos) frente a **pagando** (InfoJobs 295-369 €/oferta,
-  empresa de selección 15-20% del salario, mala contratación hasta 3 sueldos). Sin jerga tipo "ATS".
+- **49 €/mes + IVA por proceso abierto.** El IVA se comunica SIEMPRE junto al precio ("+ IVA"):
+  somos B2B. Un proceso ABIERTO es el que no está cerrado; **pausar NO deja de cobrar** (detiene
+  el enlace, el proceso sigue abierto) y la UI lo dice pegado a la opción que lo causa.
+- **Sin tiers y sin features de pago: TODO el producto incluido** (Meridian, Equipo, Entrevistas,
+  vistas, encargados). Se cobra por escala real (nº de procesos abiertos), **NUNCA por candidatos**
+  (no estrangular en plena oleada) **ni por usuario**. Los tiers viejos (esencial/pro/multi) son
+  legacy: conservan sus suscripciones y límites, y ganaron todas las features.
+- **Prueba: el primer proceso gratis 15 días o 25 candidaturas** (lo que llegue antes), sin tarjeta
+  al empezar. Al agotarse se SIGUE recopilando y lo nuevo entra bloqueado; pagar lo desbloquea.
+  Una prueba por empresa.
+- **Cerrar es un clic y deja de cobrarse.** Mes empezado, mes cobrado; reabrir dentro del ciclo ya
+  pagado es gratis (`paid_until`). El proceso cerrado se conserva entero y exportable.
+- **La puerta de facturación vive en el store** (`cerrarProceso`/`reabrirProceso`/`contratarHueco`/
+  `previewReabrir`), nunca `updateCampaign` con cerrada/activa. El importe se enseña SIEMPRE antes
+  de cobrar (previews con prorrata). `/app/plan` es **Facturación**: procesos abiertos, total/mes y
+  portal de Stripe; sin catálogo de planes.
+- En la landing, **anclar el coste real ANTES del precio** y la referencia de mercado (por debajo
+  de un solo anuncio de InfoJobs, 69 € + IVA en ago 2026). Presentación: `PrecioProceso.tsx`,
+  "Sin permanencia" pegado al precio. Números redondos: el `.99` grita ganga.

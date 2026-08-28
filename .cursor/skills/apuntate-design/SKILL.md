@@ -11,12 +11,12 @@ Sobria, nítida y premium. Registro "SaaS confiable" (Linear). **Multisector neu
 
 1. Read `PRODUCT.md` (usuarios, anti-referencias, principios) and skim `DESIGN.md` frontmatter (tokens).
 2. Read at least one source of truth in code: `src/index.css` (`@theme`), `src/lib/buttons.ts`, or the file you will edit.
-3. Check scope: solo estas 4 superficies (`/`, `/app/puestos/:id`, `/app/puestos/:id/formulario`, `/a/:slug`). No añadir features fuera sin hablarlo.
+3. Check scope: solo estas 5 superficies (`/`, `/app/puestos/:id`, `/app/puestos/:id/formulario`, y `/a/:slug`, que es el anuncio público y, con `?apuntarse`, el formulario). No añadir features fuera sin hablarlo.
 
 ## Non-negotiables
 
 ### Acento (error nº1)
-Ultramarine `#374cce` **solo** para acción, nav activo, foco y selección. **Nunca** para estado ni decoración. Eyebrows, iconos de feature, pasos, checks → slate/tinta. Excepción consciente: chapa "Recomendado" del plan Pro.
+Ultramarine `#3b4fe4` **solo** para acción, foco y selección. **Nunca** para estado, decoración **ni el nav activo** (desde el reskin de ago 2026 la fila activa del lateral se dice con gris propio y tinta). Eyebrows, iconos de feature, pasos, checks → slate/tinta.
 
 Tailwind: la rampa `indigo-*` está reasignada al ultramarine en `@theme`.
 
@@ -39,14 +39,15 @@ Punto de color **+** texto. Mapa: `STATUS_META` en `src/lib/types.ts`.
 
 ### Radios, botones, sombras
 - Inputs/campos/tarjetas/paneles/modales: **10px** (`rounded-xl`). Botones/controles pequeños: **8px** (`rounded-lg`). Pills: 999px. Landing/formulario público: tarjetas grandes hasta 16px.
-- Botones: constantes `BTN_*` en `src/lib/buttons.ts`. Relieve nítido, press = `translate-y-px` (nunca `scale`).
-- Elevación: seis piezas con nombre (`shadow-control/raised/pressed/card/pop/sticky`). Nunca a mano, nunca apiladas, nunca la escala de Tailwind. Sin gradientes (salvo skeleton).
+- Botones: constantes `BTN_*` en `src/lib/buttons.ts`. **PLANO** (ago 2026): al pulsar oscurece (600/700/800) y baja 1px (`translate-y-px`, nunca `scale`); anillo SIEMPRE `ring-inset`; un botón de solo icono se fabrica con `botonIcono()`.
+- Elevación: seis piezas con nombre (`shadow-control/raised/card/pop/sticky/acceso`; `pressed` se retiró con el botón plano y `raised` solo lo lleva el pomo del Switch). Nunca a mano, nunca apiladas, nunca la escala de Tailwind. El marco de una superficie es `filo` + `overflow-clip`. Sin gradientes (salvo las tres excepciones declaradas: skeleton, desvanecido de scroll, velo sobre foto).
 - Iconos: lucide a `--stroke-icon` (1,75). La prop `strokeWidth` NO pinta, la pisa la regla `.lucide`; usa la propiedad arbitraria `stroke-width` entre corchetes.
 - **El acabado entero está en la sección "Acabado" de CLAUDE.md, y lo vigila `src/lib/acabado.test.ts`.**
 
 ### Componentes clave
 - `FieldRenderer`: WYSIWYG real (builder preview = formulario público). Tocar uno, tocar ambos.
-- Detalle candidato: `src/screens/CandidateModal.tsx` (pop-up con pestañas, jul 2026). El `SlideOver` es lo correcto para detalles SECUNDARIOS (peticiones del tablón), no para el candidato.
+- Detalle candidato: `src/screens/CandidateModal.tsx` (tres pestañas + raíl fijo de Datos/Etiquetas/Notas, ago 2026). El `SlideOver` es lo correcto para detalles SECUNDARIOS (peticiones del tablón), no para el candidato.
+- Tablas: la rejilla de `ui/DataTable.tsx` (filos verticales, columnas ajustables y fijas, solo se pintan las filas a la vista). Listas reordenables: `ui/ListaOrdenable`. Tooltips: solo `ui/Tooltip`. Lo que flota va en portal contra la ventana.
 - Checkbox de marca: `src/components/ui/Checkbox.tsx` (app). Formulario público usa acento del cliente vía `--accent`, no ultramarine.
 - Logo: `src/components/Logo.tsx` (SVG inline).
 
@@ -66,7 +67,7 @@ Punto de color **+** texto. Mapa: `STATUS_META` en `src/lib/types.ts`.
 
 ### 2. Implement
 - Reutiliza tokens `@theme`, `BTN_*`, `STATUS_META`, `Checkbox`, `FieldRenderer`.
-- Formulario público: mobile-first (480px, inputs 48px/16px, validación al blur y enviar, nunca borrar datos en fallo). Ver `.cursor/rules/public-form.mdc`.
+- Formulario público: mobile-first (480px, inputs 48px/16px, validación al blur y enviar, nunca borrar datos en fallo). La doctrina entera, en `CLAUDE.md`.
 - Acento cliente: guarda AA en `src/lib/colors.ts` (`readableOn`).
 
 ### 3. Verify (obligatorio para cambios observables)
@@ -93,4 +94,4 @@ Rechazar: plantilla SaaS genérica, `.99`, urgencia falsa, testimonios inventado
 
 - Tokens y reglas narrativas: [DESIGN.md](../../../DESIGN.md), [CLAUDE.md](../../../CLAUDE.md)
 - Checklist ampliado, mapa de archivos y formulario público: [reference.md](reference.md)
-- Reglas Cursor: `.cursor/rules/design-system.mdc`, `copy.mdc`, `public-form.mdc`
+- Reglas Cursor: `.cursor/rules/design-system.mdc` (resumen; manda `CLAUDE.md`)

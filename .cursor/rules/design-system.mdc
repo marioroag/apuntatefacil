@@ -6,58 +6,70 @@ alwaysApply: false
 
 # Doctrina visual: "Instrumento de precisión"
 
-Sobria, nítida y premium, carácter Linear (registro "SaaS confiable"). **Multisector**: nunca
-debe oler a construcción (cero cascos, naranjas de obra, mascotas). Tokens en `src/index.css`;
-botones en `src/lib/buttons.ts`; logo en `src/components/Logo.tsx` (SVG inline, no PNG).
+> Resumen. La fuente de verdad es `CLAUDE.md` (doctrina + secciones "Nitidez" y "Acabado"),
+> con sus guardianes en tests (`acabado`, `arrastre`, `flotante`, `tabla`, `nav`, `etiquetas`).
+> Si algo de aquí la contradice, gana ella.
+
+Sobria, nítida y premium, carácter Linear. **Multisector**: nunca debe oler a construcción
+(cero cascos, naranjas de obra, mascotas). Tokens en `src/index.css` (`@theme`); botones en
+`src/lib/buttons.ts`; logo en `src/components/Logo.tsx` (SVG inline, no PNG).
 
 ## Acento (el error nº1)
-- Acento **ULTRAMARINE `#374cce` SOLO para acción, nav activo, foco y selección. NUNCA para
-  estado ni decorativo.** Eyebrows, iconos de feature, círculos de paso, checks decorativos →
-  neutralizados a slate/tinta. El acento se reserva a CTAs/enlaces + el plan "Recomendado".
-- Está reasignado sobre la rampa `indigo` de Tailwind en `@theme`, así que `bg-indigo-*` /
-  `text-indigo-*` pintan el ultramarine.
+- **ULTRAMARINE `#3b4fe4` SOLO para acción, foco y selección. NUNCA para estado ni decorativo,
+  y desde el reskin de ago 2026 TAMPOCO para el nav activo** (la fila activa del lateral se dice
+  con un gris propio y tinta). Reasignado sobre la rampa `indigo` de Tailwind en `@theme`
+  (`bg-indigo-*` pinta el ultramarine). Dos gemelos a mano: `--color-indigo-600`/`--accent` en
+  `index.css` y `ACENTO_MARCA` en `lib/colors.ts`.
 
-## Estados de candidato (paleta propia y fija, NUNCA el acento de marca)
-5 estados: **nuevo = slate, contactado = azul, entrevista = ámbar, contratado = verde,
-descartado = slate apagado** (nunca rojo: descartar es rutina y reversible). Estado = punto de
-color **+** texto, nunca solo color. Mapa en `src/lib/types.ts` (`STATUS_META`).
+## Estados, etiquetas y los otros colores con significado
+- 5 estados, paleta propia y fija (NUNCA el acento): nuevo = slate, contactado = azul,
+  entrevista = ámbar, contratado = verde, descartado = slate apagado (nunca rojo: es rutina y
+  reversible). Punto de color **+** texto, jamás solo color. Pastilla = relleno teñido
+  (tono-100 + texto tono-800) **sin anillo**. Mapa: `STATUS_META` en `src/lib/types.ts`.
+- **Etiquetas de candidato**: rectángulo de 4px (`rounded-sm`) teñido, tono derivado del ID
+  (`repartirTonos`: el hash propone, el reparto evita colisiones). La FORMA las separa de un
+  estado. Fuera de su paleta: rojo, rosa y el ultramarine.
+- **Rojo `#DC2626`, UN solo uso**: errores reales y destructivo (borde + icono, nunca solo color).
+- **Favorito**: estrella dorada (`FAVORITO_STAR`), única excepción a "estado y marca no comparten
+  paleta"; nunca informa sola.
 
-## Neutros, rojo, tipografía
+## Neutros y tipografía
 - Neutros **GRAFITO** (rampa `slate` reasignada, OKLCH, AA): fondo app `#f9fafb`, superficies
-  `#FFFFFF`, borde `#e5e7eb`, texto `#131822` / secundario `#50545e` / terciario `#6f727c`.
-  Texto con significado siempre ≥ 4.5:1 (`slate-400` NO vale para texto con significado).
-- **Rojo `#DC2626` solo** para errores reales y acciones destructivas (borde + icono, nunca solo
-  color; `BTN_DANGER`).
-- Tipografía: una sola familia, **Geist** (variable, autoalojada). Jerarquía por peso/color antes
-  que por tamaño. `tabular-nums` (clase `.num`) en cualquier número/fecha/teléfono. Sin monospace
-  para datos.
+  `#FFFFFF`, borde `#e5e7eb`, texto `#131822` / `#50545e` / `#6f727c`. Texto con significado
+  siempre ≥ 4.5:1 (`slate-400` NO vale, solo iconos). **Lo que se pulsa va en TINTA**.
+- Una sola familia, **Geist**. Jerarquía por peso/color antes que por tamaño, y **el peso se
+  declara una vez: ningún estado engorda la letra**. `tabular-nums` (clase `.num`) en cifras.
+  Sin monospace para datos. Un nombre propio va en caja normal, no en versalita.
 
-## Radios por rol (consistencia absoluta)
-- inputs/campos/tarjetas/paneles/modales **10px** (`rounded-xl`)
-- botones y controles pequeños **8px** (`rounded-lg`)
-- pills/chips/avatares 999px
-- superficies externas (landing, formulario público) pueden usar 16px en tarjetas grandes
+## Radios por rol
+- inputs/campos/tarjetas/paneles/modales **10px** (`rounded-xl`, reasignado); botones y controles
+  pequeños **8px** (`rounded-lg`); pills/avatares 999px; etiquetas **4px** (`rounded-sm`);
+  superficies externas (landing, formulario público) pueden usar 16px en tarjetas grandes.
+- Un radio que se ANIMA se escribe como la mitad de su caja, nunca `rounded-full`
+  (`calc(infinity*1px)` no se interpola).
 
 ## Botones, sombras, movimiento
-
-> Resumen. La fuente de verdad es la sección **"Acabado"** de `CLAUDE.md`, y la hace
-> cumplir el test `src/lib/acabado.test.ts`. Si algo de aquí la contradice, gana ella.
-- Botón "instrumento": relieve nítido (filo de luz interior + anillo 1px + sombra mínima),
-  press = `translate-y-px` (nunca `scale`). Constantes `BTN_PRIMARY/SECONDARY/DANGER/_LG/_SM`
-  en `src/lib/buttons.ts`.
-- **Una sola sombra por elevación**: `shadow-card` para tarjetas; `shadow-pop` solo para overlays
-  reales (dropdowns, paneles, modales). Nunca apilar sombras. **Sin gradientes** (salvo el barrido
-  del skeleton).
-- Movimiento corto y sobrio (120/180/240ms), solo `transform`/`opacity`. Sin springs ni rebotes.
-  El verde "contratado" es el único hito con un pulse sutil; "descartado" solo cambia de color.
-  Respeta `prefers-reduced-motion`.
+- **Botón PLANO** (ago 2026; sustituye al "instrumento" con relieve): sin filo de luz, sin anillo
+  interior, sin sombra de contacto. Al pulsar **oscurece** (600/700/800) y baja 1px
+  (`translate-y-px`, nunca `scale`). El anillo del secundario SIEMPRE `ring-inset`. Constantes
+  `BTN_*` en `src/lib/buttons.ts`; un botón de solo icono se fabrica con `botonIcono()`, nunca
+  `BTN_* + px-0` (dos utilidades del mismo eje no se resuelven por orden de escritura).
+- **Una sola sombra por elevación** (control / raised solo en el pomo del Switch / card / pop /
+  sticky / acceso; `pressed` se retiró). El **hairline hace la profundidad**: marco = `filo`
+  (dos manos) y `overflow-clip` en superficies con radio. **Sin gradientes** salvo las tres
+  excepciones declaradas (skeleton, desvanecido de scroll, velo sobre foto).
+- Movimiento: tres duraciones (**150/180/240ms**) y dos curvas con reparto fijo: `--ease-out`
+  para lo que responde al dedo, `--ease-standard` para lo que transforma un estado en otro.
+  Solo `transform`/`opacity`. Un reset no se anima. `prefers-reduced-motion` respetado.
 
 ## Componentes y accesibilidad (suelo)
-- Hay un componente `Checkbox` de marca en `src/components/ui/Checkbox.tsx` (acento ultramarine);
-  úsalo, no `<input type=checkbox>` nativo (sin `@tailwindcss/forms`, el nativo sale fuera de marca).
-- Foco visible con `:focus-visible` (nunca quitar el outline sin reemplazo visible). `<button>`/`<a>`
-  reales. `<table>` semántica con `aria-sort`. Drag-to-reorder SIEMPRE con alternativa de teclado y
-  botones subir/bajar.
-- Detalle del candidato = pop-up con pestañas (`screens/CandidateModal.tsx`). El SlideOver es para detalles secundarios (tablón).
-- Un único `FieldRenderer` (`src/components/FieldRenderer.tsx`) pinta a la vez la preview del builder
-  y el formulario público (WYSIWYG real): si tocas uno, tocas los dos.
+- `Checkbox` de marca en `ui/Checkbox.tsx` (elegir de una lista); `Switch` para un ajuste que
+  funciona. Tooltips SOLO con `ui/Tooltip` (portal + `colocarFlotante`): lo que flota se coloca
+  contra la ventana. Toda lista reordenable se monta con `ui/ListaOrdenable` (eje clavado +
+  alternativa de teclado).
+- Las tablas son la rejilla de `ui/DataTable` (filos verticales, cabeceras con icono, columnas
+  ajustables y fijas, y **solo se pintan las filas a la vista**). La fila entera abre la ficha
+  (`clickDeFila`); dentro de una fila, solo controles imprescindibles.
+- Foco visible con `:focus-visible` (nunca quitar el outline sin reemplazo). `<button>`/`<a>`
+  reales. Detalle del candidato = pop-up de tres pestañas + raíl (`CandidateModal`). Un único
+  `FieldRenderer` pinta preview y formulario público (WYSIWYG real).

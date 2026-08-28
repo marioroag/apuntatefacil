@@ -26,7 +26,7 @@ Contexto: eyebrow "Para quien contrata por Milanuncios"; subhead explica chat �
 | --- | --- |
 | Pruébalo gratis | Empieza ya (urgencia) |
 | Ver la demo | Ver la magia en acción |
-| Empezar con Pro | No te quedes sin tu plan |
+| Abrir un proceso | No te quedes sin tu plan |
 | Exportar | Descargar datos (glosario: exportar) |
 
 ## Panel (instrumento)
@@ -50,9 +50,9 @@ Contexto: eyebrow "Para quien contrata por Milanuncios"; subhead explica chat �
 
 | Bien | Mal |
 | --- | --- |
-| Recomendado (chapa Pro) | El más elegido |
-| 250 €/mes | Desde 249,99 € |
-| 10 procesos a la vez | Hasta 500 candidatos |
+| 49 €/mes + IVA por proceso abierto | Desde 48,99 € |
+| Tu primer proceso gratis: 15 días o 25 candidaturas | Prueba gratis* |
+| Pausado: el proceso sigue abierto y se sigue cobrando | (esconder que pausar cobra) |
 | Sin permanencia | Cancela cuando quieras (sin presión) |
 
 ## FAQ (estructura)

@@ -10,7 +10,7 @@ Escribe copy que suene a **instrumento de confianza**, no a plantilla SaaS ni a 
 ## Antes de escribir
 
 1. Lee `PRODUCT.md` (usuarios, propósito, anti-referencias, principios).
-2. Lee `.cursor/rules/copy.mdc` (glosario, ética, tono).
+2. Lee la sección **Reglas de copy** de `CLAUDE.md` (glosario, ética, tono).
 3. Lee el **bloque completo** que vas a tocar (eyebrow + h1 + subhead + CTA, no solo el titular).
 4. Si es UI visible, cruza con `apuntate-design` para jerarquía y longitud en pantalla.
 
@@ -32,7 +32,7 @@ El producto **ordena las respuestas que ya llegan**; **no capta candidatos nuevo
 | Honesto aunque reste | Prometer captación, "ideal", "mágico" |
 | Frases cortas, verbos claros | Párrafos densos, adjetivos vacíos |
 | Sentence case en headings y botones | Title Case, MAYÚSCULAS decorativas |
-| Números redondos y citables (150 €) | `.99`, "desde", letra pequeña |
+| Números redondos y citables (49 € + IVA) | `.99`, "desde", letra pequeña |
 
 **Sin guion largo (—)** en nada visible. Usa comas, dos puntos o puntos.
 
@@ -45,6 +45,8 @@ Usa **exactamente** estos términos:
 | puesto | vacante, oferta, campaña |
 | candidato | — |
 | candidatura | envío (salvo aclaración puntual) |
+| anuncio (lo que el puesto cuenta de sí) | oferta, vacante, campaña |
+| apuntarse (el verbo del candidato) | aplicar (calco de *to apply*) |
 | enlace | link |
 | estado | — |
 | exportar | — |
@@ -56,8 +58,7 @@ Labels de acción: **verbo primero**, 1-3 palabras ("Exportar", "Ver detalle", "
 
 ## Cero dark patterns
 
-- Sin testimonios, contadores, logos o "el más elegido" inventados.
-- Chapa Pro: **"Recomendado"**, nunca "el más elegido".
+- Sin testimonios, contadores, logos o "el más elegido" inventados (los testimonios reales pasan por la puerta `confirmado` de `lib/testimonios.ts`).
 - Sin confirmshaming ni preselecciones. Checkboxes de consentimiento **sin marcar** por defecto.
 - Sin urgencia/escasez falsa.
 
@@ -72,7 +73,7 @@ Labels de acción: **verbo primero**, 1-3 palabras ("Exportar", "Ver detalle", "
 | CTA | Verbo + objeto claro; sin fricción oculta ("Pruébalo gratis", "Ver la demo") |
 | Panel / app | Instrumento: qué pasa si pulso; sin marketing |
 | Formulario público | Tranquilidad, claridad, móvil; validación al blur, nunca culpar al candidato |
-| Pricing | Precio redondo, límites por **procesos activos**, candidatos/usuarios ilimitados |
+| Pricing | Pago por proceso abierto (49 €/mes **+ IVA**, dicho siempre junto); candidatos/usuarios ilimitados; pausar sigue cobrando y se dice |
 | FAQ | Respuesta en la primera frase; sin evasivas |
 | Errores | Qué pasó + qué puede hacer; rojo solo si es error real |
 
@@ -139,6 +140,6 @@ Checklist rápido:
 ## Recursos
 
 - Doctrina completa: `CLAUDE.md` (sección Reglas de copy)
-- Reglas Cursor: `.cursor/rules/copy.mdc`, `pricing.mdc`
+- Pricing: `.cursor/rules/pricing.mdc`
 - Estrategia: `PRODUCT.md`
 - Ejemplos buenos/malos: [examples.md](examples.md)

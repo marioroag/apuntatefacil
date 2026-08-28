@@ -8,16 +8,17 @@ Project rules live in `.cursor/rules/` and are flat `.mdc` files with frontmatte
 
 - `project.mdc`: always-on project context, stack, scope, verification.
 - `design-system.mdc`: UI doctrine, tokens, components, accessibility.
-- `copy.mdc`: Spanish copy, glossary, ethics.
-- `backend.mdc`: Supabase, multi-tenant, RLS, public form RPCs.
-- `public-form.mdc`: mobile-first public form and builder constraints.
-- `pricing.mdc`: plan and pricing rules.
+- `pricing.mdc`: pay-per-open-process pricing rules.
+
+Copy, backend and public-form rules were folded into `CLAUDE.md` and the skills
+(`apuntate-copy`, `supabase-workflow`) in ago 2026: one source, fewer stale summaries.
 
 ## Skills
 
 Project skills live in `.cursor/skills/<skill-name>/SKILL.md`.
 
-- `apuntate-design`: visual/UX/copy workflow.
+- `apuntate-design`: visual/UX workflow.
+- `apuntate-copy` / `apuntate-pro-copy`: Spanish product copy (glossary, ethics, register).
 - `supabase-workflow`: migrations, RLS, edge functions, auth/store.
 - `verify-before-close`: final verification checklist.
 - `pr-review`: review PRs and branch changes with project standards.
