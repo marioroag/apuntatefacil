@@ -861,7 +861,10 @@ export function Sidebar({
         <Link
           to={base}
           onClick={onNavigate}
-          className="flex flex-1 items-center gap-1.5 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
+          // 11 y no el 6 de siempre: es lo que deja el wordmark en los mismos 64
+          // que las etiquetas del menú con el logo ya centrado en su columna
+          // (25 + 28 + 11 = 64). Ver `ZONA_MARCA`.
+          className="flex flex-1 items-center gap-[11px] rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
         >
           {/* El MISMO lockup que el resto del producto (Mario, ago 2026):
               monograma bicolor a pelo + wordmark "apuntatefacil" en minúscula,

@@ -368,14 +368,22 @@ export const ZONA_LATERAL =
  * ASIMÉTRICO A PROPÓSITO: 30 a la izquierda y 16 a la derecha. No es descuido, es
  * que cada lado tiene un vecino distinto y por eso se alinea con cosas distintas.
  *
- * A LA IZQUIERDA MANDA EL GLIFO. 30 es lo que deja el monograma en la MISMA
- * vertical que los iconos del menú, y de paso el wordmark en la de sus etiquetas
- * (30 + 28 + 6 = 64, medido). Se probó bajarlo a 16 para que la caja de la marca
- * empezara donde empiezan las píldoras, y **Mario lo revirtió**: lo que se ve al
- * bajar la vista por el lateral es la COLUMNA DE GLIFOS, y romperla para cuadrar
- * un borde que solo se dibuja al pasar el ratón sale perdiendo. El logo mide 28 y
- * un icono 20, así que las dos alineaciones son incompatibles y hay que elegir;
- * aquí gana la que se ve siempre.
+ * A LA IZQUIERDA MANDA EL GLIFO, Y SE ALINEA POR EL CENTRO, NO POR EL BORDE.
+ * 25 deja el monograma (28px) centrado en **39**, que es donde caen los centros
+ * de los iconos del menú (18px que arrancan en 30). Se probó bajarlo a 16 para
+ * que la caja de la marca empezara donde empiezan las píldoras, y **Mario lo
+ * revirtió**: lo que se ve al bajar la vista por el lateral es la COLUMNA DE
+ * GLIFOS, y romperla para cuadrar un borde que solo se dibuja al pasar el ratón
+ * sale perdiendo.
+ *
+ * ESTUVO EN 30 Y ESO ERA ALINEARLOS POR EL BORDE IZQUIERDO, que no es como los
+ * empareja el ojo: medido, el logo quedaba centrado en 44 contra los 39 de los
+ * iconos, o sea 5px descolgado a la derecha (Mario lo vio, ago 2026). Y la nota
+ * que había aquí afirmaba que las dos alineaciones (glifo y wordmark) eran
+ * incompatibles y había que elegir. **No lo eran**: el hueco entre el logo y el
+ * wordmark es libre, así que subiéndolo de 6 a 11 el texto sigue arrancando en
+ * los mismos 64 que las etiquetas. 25 + 28 + 11 = 64. La lección: antes de
+ * declarar dos medidas incompatibles, mira si hay una tercera que no es fija.
  *
  * A LA DERECHA MANDA LA CAJA. 16 (Mario, ago 2026: "esto llévalo más a la
  * derecha"): el botón de contraer cierra en 240, que es donde acaban los fondos
@@ -398,7 +406,7 @@ export const ZONA_LATERAL =
  * en 56). Por eso el estado contraído sigue declarando los dos lados a la vez.
  */
 export const ZONA_MARCA =
-  'pl-7.5 pr-4 group-data-[contraido]/lateral:px-[18px] transition-[padding] duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none'
+  'pl-[25px] pr-4 group-data-[contraido]/lateral:px-[18px] transition-[padding] duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none'
 
 /** Una etiqueta CENTRADA que se apaga con el raíl (el rótulo del CTA del pie).
  *  Misma idea que `FILA_ETIQUETA` sin el `flex-1`, porque aquí no compite con
