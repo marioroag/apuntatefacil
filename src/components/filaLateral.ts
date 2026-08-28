@@ -140,14 +140,46 @@
    recorte.
 ----------------------------------------------------------------------------- */
 
-/** Media transición de la forma: lo que dura cada mitad del relevo. */
-const MEDIO_RELEVO =
-  'transition-opacity duration-[calc(var(--duration-max)/2)] ease-[var(--ease-standard)] motion-reduce:transition-none'
+/** La transición del relevo. Los TIEMPOS no van aquí: los declara cada estado,
+ *  porque irse y llegar no duran lo mismo (ver justo debajo). */
+const RELEVO = 'transition-opacity ease-[var(--ease-standard)] motion-reduce:transition-none'
 
-/** Lo que SOLO se ve con el raíl ancho: se va en la primera mitad al contraer y
- *  vuelve en la segunda al expandir. */
+/**
+ * IRSE TIENE FECHA LÍMITE; LLEGAR NO. De ahí la asimetría.
+ *
+ * Lo que se va tiene que estar apagado ANTES de que la caja lo recorte a media
+ * palabra, así que ocupa media transición y arranca sin retardo. Medido en el
+ * raíl: la etiqueta más larga ("Notificaciones", 104px) deja de caber cuando el
+ * raíl baja de 177, y eso pasa a los ~96ms de los 240.
+ *
+ * Lo que llega no tiene esa prisa, así que ocupa la transición ENTERA y solo
+ * espera un cuarto: a los 96ms (que es cuando ya cabe) va por el 5% de opacidad,
+ * o sea invisible mientras podría verse cortado, y a partir de ahí sube despacio.
+ *
+ * ESTO ES LO QUE ARREGLA EL PARPADEO (Mario, ago 2026: "al expandir, los botones
+ * y el logo aparecen de un parpadeo un poco brusco"). Con las dos mitades iguales
+ * (120ms cada una), aparecer costaba **80ms para el 80% del cambio** y encima
+ * empezaba con la caja ya casi parada: nada, nada, nada, y de golpe todo. Lo que
+ * se nota no es cuándo empieza, es la VELOCIDAD: repartido sobre los 240, el pico
+ * de cambio baja de 1,7 a 0,8 puntos de opacidad por milisegundo, la mitad.
+ *
+ * Se paga que la letra termine de asentarse 60ms después de que el menú haya
+ * llegado. Es a propósito, y es el patrón de siempre: **primero llega el
+ * continente y después el contenido.**
+ *
+ * Y van ESCRITOS ENTEROS en cada estado, no compuestos con una constante:
+ * Tailwind busca nombres de clase COMPLETOS en el código fuente, así que una
+ * clase armada con un prefijo en una variable no se generaría nunca. Ya pasó una
+ * vez en este proyecto con el chevron del `<select>`.
+ *
+ *   · llegar (`duration-max` con un cuarto de retardo)  ->  lo declara el ancho
+ *   · irse   (media `duration-max`, sin retardo)        ->  lo declara el estrecho
+ */
 const DESVANECE =
-  `${MEDIO_RELEVO} delay-[calc(var(--duration-max)/2)] group-data-[contraido]/lateral:opacity-0 group-data-[contraido]/lateral:delay-0`
+  `${RELEVO} duration-[var(--duration-max)] delay-[calc(var(--duration-max)/4)] ` +
+  'group-data-[contraido]/lateral:opacity-0 ' +
+  'group-data-[contraido]/lateral:duration-[calc(var(--duration-max)/2)] ' +
+  'group-data-[contraido]/lateral:delay-0'
 
 export const FILA =
   'flex h-11 w-full items-center gap-4 overflow-hidden rounded-xl px-3.5 text-[15px] font-medium outline-none lg:h-[34px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)]'
@@ -378,7 +410,10 @@ export const FILA_ETIQUETA_CENTRADA = `truncate ${DESVANECE}`
  *  segunda al contraerse, así que nunca se cruza con el rótulo al que sustituye.
  */
 export const FILA_SOLO_ESTRECHO =
-  `opacity-0 ${MEDIO_RELEVO} delay-0 group-data-[contraido]/lateral:opacity-100 group-data-[contraido]/lateral:delay-[calc(var(--duration-max)/2)]`
+  `opacity-0 ${RELEVO} duration-[calc(var(--duration-max)/2)] delay-0 ` +
+  'group-data-[contraido]/lateral:opacity-100 ' +
+  'group-data-[contraido]/lateral:duration-[var(--duration-max)] ' +
+  'group-data-[contraido]/lateral:delay-[calc(var(--duration-max)/4)]'
 
 /**
  * EL CTA DEL PIE, CONTRAÍDO: un círculo del tamaño de la cara (Mario, ago 2026:
