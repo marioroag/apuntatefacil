@@ -294,9 +294,18 @@ function Columna({
     // que es la regla de siempre de la casa: **el hairline hace la profundidad y
     // el fondo solo la acompaña**. Un filo dentro de otro filo no es anidar
     // tarjetas: la columna es un carril, no una caja de contenido.
+    // EL TINTE DE SOLTAR PINTA LA COLUMNA ENTERA, no solo la zona de tarjetas
+    // (Mario, ago 2026). Con el tinte en la zona interior, el azul arrancaba por
+    // debajo del rótulo y dentro del relleno: un rectángulo flotando DENTRO de la
+    // columna, que decía "suelta en este hueco" en vez de "esta columna te
+    // acepta". El droppable sube con él: la cabecera también es columna, y un
+    // objetivo mayor solo puede acertarse más.
     <section
+      ref={setNodeRef}
       aria-label={`${m.label}: ${candidatos.length} ${candidatos.length === 1 ? 'candidato' : 'candidatos'}`}
-      className="flex min-w-0 flex-col gap-2 rounded-xl filo bg-[var(--color-kanban-columna)] p-2"
+      className={`flex min-w-0 flex-col gap-2 rounded-xl filo p-2 transition-colors duration-[var(--duration-control)] ${
+        isOver ? 'bg-indigo-50' : 'bg-[var(--color-kanban-columna)]'
+      }`}
     >
       {/* La cabecera es la de siempre: punto + palabra (nunca solo color) y la
           cifra pelada, sin chapa, como los contadores del lateral. */}
@@ -309,16 +318,10 @@ function Columna({
         <h3 className="text-[13px] font-semibold text-slate-700">{m.label}</h3>
         <span aria-hidden className="num text-[13px] font-medium text-slate-500">{candidatos.length}</span>
       </header>
-      {/* La zona de soltar es la columna ENTERA de arriba abajo (`flex-1`): un
-          objetivo que solo midiera lo que sus tarjetas convertiría las columnas
-          vacías, que son justo el destino típico, en las más difíciles de
-          acertar. El tinte de acento es el de selección: soltar es elegir. */}
-      <div
-        ref={setNodeRef}
-        className={`flex min-h-24 flex-1 flex-col gap-2 rounded-lg transition-colors duration-[var(--duration-control)] ${
-          isOver ? 'bg-indigo-50' : ''
-        }`}
-      >
+      {/* `flex-1` para que la lista llegue al pie de la columna: el droppable es
+          la sección entera, y sin esto una columna vacía se quedaría sin cuerpo.
+          El tinte de acento es el de selección: soltar es elegir. */}
+      <div className="flex min-h-24 flex-1 flex-col gap-2">
         {candidatos.map((c) => (
           <TarjetaArrastrable
             key={c.id}
