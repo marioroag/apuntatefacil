@@ -52,7 +52,7 @@ import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, HEAD_CELL_FLUSH_FIJA, FIJA, TRANSICION_FILA } from '../components/ui/DataTable'
+import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, HEAD_CELL_FLUSH_FIJA, FIJA, TRANSICION_FILA, useFilasALaVista, HuecoFilas } from '../components/ui/DataTable'
 import { createPortal } from 'react-dom'
 import { colocarFlotante, colocarLateral } from '../lib/flotante'
 import { useColumnasAjustables } from '../lib/columnas'
@@ -2040,6 +2040,14 @@ const CandidateTable = memo(function CandidateTable({
   // En móvil está apagado: allí los anchos están medidos al píxel para que quepan
   // nombre y estado sin empujar, y un asa de 9px no es un objetivo de toque.
   const { col, minTabla } = useColumnasAjustables('puesto', orden, !esMovil)
+  // Solo se pintan las filas que caben en pantalla, más su colchón (ver
+  // `useFilasALaVista` en `DataTable`): colocar 127 filas cuesta 1,4ms cada vez
+  // que la página se recalcula, y 593 en Candidatos cuestan 9. Las bloqueadas no
+  // entran aquí: son pocas y viven en su propio `<tbody>`, encima de estas.
+  const cuerpoRef = useRef<HTMLTableSectionElement>(null)
+  const { desde, hasta, huecoArriba, huecoAbajo } = useFilasALaVista(rows.length, cuerpoRef)
+  // La casilla de selección no está en `orden`: es el asa de la fila, no un campo.
+  const columnasTabla = orden.length + 1
   // EL MÍNIMO DE CADA COLUMNA LO DICE SU CONTENIDO (Mario, ago 2026). No hay un
   // número que valga para las seis: una fecha necesita la mitad que una pastilla
   // de estado. Son los anchos que Mario ajustó a ojo, y coinciden con lo medido
@@ -2415,8 +2423,9 @@ const CandidateTable = memo(function CandidateTable({
             ))}
           </tbody>
         )}
-        <tbody>
-          {rows.map((c) => {
+        <tbody ref={cuerpoRef}>
+          <HuecoFilas alto={huecoArriba} columnas={columnasTabla} />
+          {rows.slice(desde, hasta).map((c) => {
             const sel = selected.has(c.id)
             // El fondo de las dos celdas FIJAS. Es el mismo de la fila y no puede
             // no serlo: la fila lo necesita para pintarse y ellas para tapar lo
@@ -2546,6 +2555,7 @@ const CandidateTable = memo(function CandidateTable({
               </tr>
             )
           })}
+          <HuecoFilas alto={huecoAbajo} columnas={columnasTabla} />
         </tbody>
       </table>
       {/* CTA ÚNICO del bloque bloqueado, centrado sobre TODAS las filas bloqueadas.

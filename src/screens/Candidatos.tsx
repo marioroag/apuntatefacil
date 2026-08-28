@@ -5,7 +5,7 @@ import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { StatusSelect } from '../components/ui/StatusPill'
-import { ColHead, TABLE, ROW, CELL, FIJA, TRANSICION_FILA } from '../components/ui/DataTable'
+import { ColHead, TABLE, ROW, CELL, FIJA, TRANSICION_FILA, useFilasALaVista, HuecoFilas } from '../components/ui/DataTable'
 import { CandidateModal } from './CandidateModal'
 import { fechaCorta, fullDateTime, formatPhone, candidateName } from '../lib/format'
 import { clickDeFila } from '../lib/fila'
@@ -113,6 +113,12 @@ const ListaCandidatos = memo(function ListaCandidatos({
   // ("Contactado", 128) mas los 16 de relleno de celda en movil.
   const anchoMovil = 196 + 144 + 180 + 116
 
+  // Solo se pintan las filas que caben en pantalla (más su colchón): con las 593
+  // de la demo puestas, cualquier recálculo de la página costaba 9ms y la
+  // animación del lateral perdía uno de cada dos fotogramas. Ver `DataTable`.
+  const cuerpoRef = useRef<HTMLTableSectionElement>(null)
+  const { desde, hasta, huecoArriba, huecoAbajo } = useFilasALaVista(rows.length, cuerpoRef)
+
   return (
     <div className="overflow-clip rounded-xl filo bg-white">
       {/* UNA SOLA VISTA A TODOS LOS ANCHOS: la rejilla, que en movil se desplaza a
@@ -151,8 +157,9 @@ const ListaCandidatos = memo(function ListaCandidatos({
               })}
             </tr>
           </thead>
-          <tbody>
-            {rows.map((c) => {
+          <tbody ref={cuerpoRef}>
+            <HuecoFilas alto={huecoArriba} columnas={orden.length} />
+            {rows.slice(desde, hasta).map((c) => {
               const camp = getCampaign(c.campaignId)
               const name = candidateName(c) || 'Sin nombre'
               const phone = answer(c, 'telefono')
@@ -234,6 +241,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
                 </tr>
               )
             })}
+            <HuecoFilas alto={huecoAbajo} columnas={orden.length} />
           </tbody>
         </table>
       </div>

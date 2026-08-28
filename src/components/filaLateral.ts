@@ -103,12 +103,51 @@
 // Ya pasó una vez en este proyecto con el chevron del `<select>`.
 // -----------------------------------------------------------------------------
 
-/** Lo que se apaga al estrecharse el raíl. `opacity` y no `display`, que es de
- *  layout y saltaría; y con su propia transición, más corta que la del ancho,
- *  para que el texto haya desaparecido antes de que la caja lo recorte a media
- *  palabra. Es el mismo reparto de tiempos que el informe de Meridian al cerrarse. */
+/* -----------------------------------------------------------------------------
+   EL RELEVO: primero se va lo que sobra, después llega lo que entra.
+   -----------------------------------------------------------------------------
+   Todo lo que aparece o desaparece con el ancho del raíl (las etiquetas, los
+   chevrones, las cifras, y los dos rótulos del CTA del pie) se apaga con
+   `opacity` y no con `display`, que es layout y saltaría.
+
+   LO QUE CAMBIÓ EN AGO 2026, y lo pidió Mario mirándolo ("esta animación al
+   expandirse/retraerse se ve escalonada"): estos apagados llevaban el reparto de
+   un CONTROL (`--duration-control` con `--ease-out`, o sea 150ms con la curva que
+   llega al 62% en el 20% del tiempo) y eso los hacía terminar ANTES de que el
+   raíl se moviera de sitio. Medido fotograma a fotograma: a los 28ms el relevo
+   iba ya 0,31/0,69 y a los 65ms estaba HECHO, con el raíl todavía en 250 de 256.
+   El texto se evaporaba y LUEGO se movía la caja: dos movimientos, o sea el
+   escalón. La curva no estaba mal elegida por gusto, estaba mal elegida por
+   REGLA: `--ease-out` es "responde a tu dedo" y esto no responde a nada, esto
+   acompaña a una caja que se transforma.
+
+   Ahora cada mitad ocupa la mitad del recorrido de la forma, y la duración se
+   escribe como una CUENTA sobre `--duration-max` en vez de como un cuarto número
+   suelto: el vocabulario sigue teniendo tres duraciones.
+
+   Y LO QUE HACE QUE FUNCIONE EN LAS DOS DIRECCIONES ES EL RETARDO, declarado en
+   cada ESTADO y no en la clase base: una transición coge sus tiempos del estado
+   de DESTINO, así que el retardo que escribe el estado ancho es el que se usa al
+   EXPANDIR, y el que escribe el estrecho, el que se usa al CONTRAER. Con eso, en
+   los dos sentidos lo que se va sale en la primera mitad y lo que llega entra en
+   la segunda, sin pisarse a media opacidad (que es lo que emborrona el centro de
+   un botón donde dos rótulos se cruzan en el sitio).
+
+   Además resuelve solo lo que antes obligaba a correr: **el texto no puede estar
+   puesto cuando la caja ya lo recorta a media palabra.** La etiqueta de una fila
+   se empieza a cortar cuando el raíl baja de ~165px, y eso pasa a los ~115ms de
+   los 240; llegando o yéndose en la mitad que le toca, nunca coincide con el
+   recorte.
+----------------------------------------------------------------------------- */
+
+/** Media transición de la forma: lo que dura cada mitad del relevo. */
+const MEDIO_RELEVO =
+  'transition-opacity duration-[calc(var(--duration-max)/2)] ease-[var(--ease-standard)] motion-reduce:transition-none'
+
+/** Lo que SOLO se ve con el raíl ancho: se va en la primera mitad al contraer y
+ *  vuelve en la segunda al expandir. */
 const DESVANECE =
-  'transition-opacity duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none group-data-[contraido]/lateral:opacity-0'
+  `${MEDIO_RELEVO} delay-[calc(var(--duration-max)/2)] group-data-[contraido]/lateral:opacity-0 group-data-[contraido]/lateral:delay-0`
 
 export const FILA =
   'flex h-11 w-full items-center gap-4 overflow-hidden rounded-xl px-3.5 text-[15px] font-medium outline-none lg:h-[34px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)]'
@@ -334,11 +373,12 @@ export const ZONA_MARCA =
  *  nada: va superpuesta a su gemela estrecha. */
 export const FILA_ETIQUETA_CENTRADA = `truncate ${DESVANECE}`
 
-/** Lo contrario: lo que SOLO se ve con el raíl estrecho (el "+" del CTA). Se
- *  enciende justo cuando el rótulo se apaga, así que el botón nunca se queda sin
- *  contenido ni cambia de caja. */
+/** Lo contrario, y es el MISMO relevo del revés: lo que solo se ve con el raíl
+ *  estrecho (el "+" del CTA). Se va en la primera mitad al expandir y llega en la
+ *  segunda al contraerse, así que nunca se cruza con el rótulo al que sustituye.
+ */
 export const FILA_SOLO_ESTRECHO =
-  'opacity-0 transition-opacity duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none group-data-[contraido]/lateral:opacity-100'
+  `opacity-0 ${MEDIO_RELEVO} delay-0 group-data-[contraido]/lateral:opacity-100 group-data-[contraido]/lateral:delay-[calc(var(--duration-max)/2)]`
 
 /**
  * EL CTA DEL PIE, CONTRAÍDO: un círculo del tamaño de la cara (Mario, ago 2026:
@@ -355,8 +395,19 @@ export const FILA_SOLO_ESTRECHO =
  * centro **32**, la mitad exacta de 64. El mismo truco (un solo valor que acierta
  * los dos anchos) que centra la cara.
  *
+ * **EL RADIO ES 15 Y NO `rounded-full`, y no es un detalle de estilo: es lo que
+ * impide que la forma SALTE.** `rounded-full` es `calc(infinity * 1px)`, o sea
+ * unos 16,7 millones; interpolando desde los 10 del reposo, en el PRIMER
+ * fotograma animado ya iba por 483.582 (medido), muy por encima del tope visible
+ * (la mitad de la caja, 18px). O sea que el botón se volvía pastilla de golpe y
+ * luego encogía despacio, que es justo lo que Mario vio como escalonado. Con 15,
+ * que es la mitad de los 30 del círculo, el resultado final es EL MISMO (círculo
+ * perfecto) y el recorrido 10 -> 15 sí se anima. **Regla general: un valor
+ * "infinito" no se interpola; si una forma redonda tiene que morfarse, su radio
+ * se escribe como la mitad de su caja.**
+ *
  * La transición de la forma la pone `cta-lateral` en `index.css`, que es donde
  * puede declarar sus dos velocidades.
  */
 export const CTA_LATERAL_CONTRAIDO =
-  'mx-auto group-data-[contraido]/lateral:lg:h-[30px] group-data-[contraido]/lateral:w-[30px] group-data-[contraido]/lateral:rounded-full'
+  'mx-auto group-data-[contraido]/lateral:lg:h-[30px] group-data-[contraido]/lateral:w-[30px] group-data-[contraido]/lateral:rounded-[15px]'

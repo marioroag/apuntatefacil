@@ -1,3 +1,5 @@
+import { startTransition, useLayoutEffect, useState } from 'react'
+import type { RefObject } from 'react'
 import { ArrowUp, ArrowUpDown } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { AsaColumna } from '../../lib/columnas'
@@ -332,5 +334,136 @@ export function ColHead({
       </button>
       {asa && <AsaAncho asa={asa} />}
     </th>
+  )
+}
+
+/* ---------------------------------------------------------------------------
+   PINTAR SOLO LAS FILAS QUE SE VEN (Mario, ago 2026)
+   ---------------------------------------------------------------------------
+   El síntoma no parecía de la tabla: "al contraer el menú se ve laggy". Medido
+   con el gesto en la mano (pantalla de 120 Hz, o sea 8,3 ms de presupuesto por
+   fotograma), el lateral resultó ser inocente y la tabla, la culpable:
+
+     Vista general (0 filas) ....  8,3 ms/fotograma, CERO perdidos
+     Un puesto (127 filas) ......  9,4 ms,  uno de 17
+     Candidatos (593 filas) ..... 20,8 ms,  6 de 28
+
+   La cadena es esta: el `<aside>` anima su ANCHO, así que el trabajo de al lado
+   se recalcula ENTERO en cada fotograma. Un solo recálculo forzado cuesta
+   **9,1 ms con las 593 filas puestas y 0,0 ms sin ellas**; con el contenido en
+   `display:none` la animación sale perfecta, y **con 20 filas en el DOM también
+   (8,3 ms, cero perdidos, idéntico al reposo)**. O sea que el coste es
+   exactamente proporcional a cuántas filas hay que colocar.
+
+   Lo que se descartó MIDIENDO, para que nadie lo vuelva a intentar:
+    - No es React: cero mutaciones en el DOM durante el gesto (MutationObserver).
+    - No son las columnas fijas: 9,1 -> 8,0 al quitarles el `sticky`.
+    - No es el plegable de un submenú, que sale a 8,3 ms y cero perdidos.
+    - **NO HAY TRUCO DE CSS.** La contención no se aplica a los elementos
+      internos de una tabla: con `content-visibility: hidden` en el `<tbody>`,
+      este sigue midiendo sus 33.208 px y el coste no se mueve. Contener el
+      contenido de cada celda (`td > *`) baja de 10,5 a 5,1 ms, que sigue sin
+      caber en 8,3.
+    - Y no vale animar con `transform` en vez de con ancho: el contenido va
+      CENTRADO a `max-w-trabajo`, así que al estrechar el menú 192px la columna
+      solo se mueve 96. Cualquier versión que fije la maquetación y la deslice
+      acaba con un salto de 96px o con una franja vacía al expandir.
+
+   Así que se pinta una VENTANA de filas y el resto son dos huecos con la altura
+   exacta que ocuparían. Arregla mucho más que la animación: es también el tirón
+   al ordenar y al filtrar que este proyecto llevaba anotado como pendiente.
+
+   Tres cosas que hay que respetar al usarlo, y las tres se aprendieron aquí:
+
+   1. **EL ALTO DE FILA ES UN CONTRATO** (`ALTO_FILA`, los mismos 56px del `h-14`
+      de `ROW`). El hueco de arriba mide `desde * ALTO_FILA`, así que si una fila
+      creciera, el hueco mentiría y la ventana se desplazaría respecto a lo que
+      de verdad se ve. Por eso el alto lo declara ESTE módulo y no cada pantalla:
+      si un día `ROW` cambia de alto, cambia con él.
+   2. **LA VENTANA SE ESTIRA, NO SE PERSIGUE.** Solo se recalcula cuando lo que
+      hay que ver se sale de lo pintado, y entonces se pinta con COLCHÓN a los
+      dos lados. Sin esa histéresis habría un render por cada píxel de scroll, y
+      cambiaríamos el tirón de la animación por uno al desplazarse.
+   3. **LO QUE SE PAGA, DECLARADO**: el Ctrl+F del navegador solo encuentra lo
+      pintado. Es el precio de esta técnica en cualquier producto que la usa, y
+      se acepta porque esta app tiene su propio buscador (⌘K) y sus filtros, que
+      es como se busca aquí a una persona.
+--------------------------------------------------------------------------- */
+
+/** El alto de una fila de datos, en píxeles: los mismos 56 del `h-14` de `ROW`. */
+export const ALTO_FILA = 56
+
+/** Filas de más que se pintan por encima y por debajo de lo que se ve. 12 son
+ *  672px de margen a cada lado: bastante para que un desplazamiento normal no
+ *  llegue nunca al borde de lo pintado, y poco para que un render siga siendo de
+ *  unas cuarenta filas y no de seiscientas. */
+const COLCHON = 12
+
+/**
+ * Qué filas hay que pintar. Devuelve el tramo y la altura de los dos huecos.
+ *
+ * El desplazamiento es el de la PÁGINA (`main`), no el de la tabla: aquí ninguna
+ * tabla tiene scroll vertical propio. Y la posición se mide contra el `<tbody>`,
+ * que no se mueve al cambiar la ventana porque el hueco de arriba ocupa
+ * exactamente lo que ocuparían las filas que no se pintan.
+ */
+export function useFilasALaVista(total: number, cuerpo: RefObject<HTMLTableSectionElement | null>) {
+  const [[desde, hasta], setTramo] = useState<[number, number]>(() => [
+    0,
+    Math.min(total, Math.ceil((typeof window === 'undefined' ? 900 : window.innerHeight) / ALTO_FILA) + COLCHON),
+  ])
+
+  useLayoutEffect(() => {
+    const cuerpoEl = cuerpo.current
+    const scroller = cuerpoEl?.closest('main')
+    if (!cuerpoEl || !scroller) return
+    const mirar = () => {
+      const c = cuerpoEl.getBoundingClientRect()
+      const s = scroller.getBoundingClientRect()
+      const primera = Math.max(0, Math.floor((s.top - c.top) / ALTO_FILA))
+      const ultima = Math.min(total, primera + Math.ceil(s.height / ALTO_FILA) + 1)
+      // EN TRANSICIÓN, que es la otra mitad del arreglo. Estirar la ventana es un
+      // render de unas cuarenta filas, o sea ~20ms: puesto como urgente se come
+      // dos fotogramas y se nota como un tirón cada vez que el scroll llega al
+      // borde del colchón (medido: 3-6 fotogramas perdidos por cada 600ms de
+      // desplazamiento). En transición, React lo trocea y cede el hilo entre
+      // trozo y trozo, así que el scroll no espera a nadie. Es el mismo reparto
+      // que ya hace el buscador del panel entre lo que se ve y lo que filtra.
+      startTransition(() =>
+        setTramo(([d, h]) =>
+          // Ya está pintado lo que hace falta: no se toca nada. Es la histéresis
+          // que evita un render por píxel de scroll.
+          primera >= d && ultima <= h && h <= total
+            ? [d, h]
+            : [Math.max(0, primera - COLCHON), Math.min(total, ultima + COLCHON)],
+        ),
+      )
+    }
+    mirar()
+    scroller.addEventListener('scroll', mirar, { passive: true })
+    window.addEventListener('resize', mirar)
+    return () => {
+      scroller.removeEventListener('scroll', mirar)
+      window.removeEventListener('resize', mirar)
+    }
+  }, [total, cuerpo])
+
+  return { desde, hasta, huecoArriba: desde * ALTO_FILA, huecoAbajo: (total - hasta) * ALTO_FILA }
+}
+
+/**
+ * El hueco que dejan las filas que no se pintan.
+ *
+ * Va sin relleno ni filo: no es una fila, es el sitio de las que no están. Y no
+ * se pinta cuando mide cero, para que al llegar al final de la lista la última
+ * fila de verdad vuelva a ser `:last-child` y se quede sin su filo inferior, que
+ * es lo que cierra la tabla.
+ */
+export function HuecoFilas({ alto, columnas }: { alto: number; columnas: number }) {
+  if (alto <= 0) return null
+  return (
+    <tr aria-hidden style={{ height: alto }}>
+      <td colSpan={columnas} className="p-0" />
+    </tr>
   )
 }
