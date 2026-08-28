@@ -3,12 +3,36 @@ import { AlertCircle, Check, Loader2, Lock } from 'lucide-react'
 import type { Campaign } from '../lib/types'
 import { FieldRenderer } from './FieldRenderer'
 import type { FieldValue } from './FieldRenderer'
-import { readableOn } from '../lib/colors'
+import { accentOnWhite, readableOn } from '../lib/colors'
+import { HojaPublica } from './HojaPublica'
 import { ENLACE_PRIVACIDAD, consentimientoVigente } from '../lib/consent'
 
 /**
  * Render presentacional del formulario. Lo usan TANTO el formulario público
  * como la vista previa del builder, con el mismo markup y CSS (WYSIWYG real).
+ *
+ * ES LA SEGUNDA MITAD DEL ANUNCIO, NO OTRA PANTALLA (Mario, ago 2026). Antes
+ * era una tarjeta de 480px flotando sobre gris, con el banner metido DENTRO y
+ * redondeado por las cuatro esquinas: al pulsar "Apúntate ahora" la foto
+ * encogía, se despegaba del borde y el fondo cambiaba de color, así que el
+ * candidato pasaba de una página a otra distinta justo en el momento en el que
+ * hay que decidir si te fías. Ahora comparte con el anuncio la pieza que hace
+ * ese gesto (`HojaPublica`): la foto a sangre y la hoja subiendo sobre ella.
+ * Lo que cambia entre las dos pantallas es lo que hay DEBAJO de la foto, que es
+ * lo único que tiene que cambiar.
+ *
+ * LA HOJA VA A SANGRE Y LO QUE SE ACOTA ES LA COLUMNA. El formulario sigue
+ * siendo de una columna de 480 (mobile-first, inputs de 48 y letra de 16), pero
+ * esa columna vive centrada dentro de una hoja que llega a los bordes, igual
+ * que el contenido del anuncio vive centrado en la suya. Si se acotara la hoja,
+ * en una ventana ancha la foto asomaría por los lados acabada en seco.
+ *
+ * EL TÍTULO VA PRIMERO Y LA MARCA DEBAJO, como en el anuncio en columna
+ * estrecha: en una pantalla de móvil el nombre del puesto es lo único que no
+ * puede esperar, y con la marca delante el titular arranca una línea más abajo.
+ * El logo va en su caja con filo y el nombre en el color de la empresa, que es
+ * exactamente lo que se acaba de ver en el anuncio: el candidato tiene que
+ * reconocer que sigue en el mismo sitio.
  */
 export function ApplicationForm({
   campaign,
@@ -25,6 +49,7 @@ export function ApplicationForm({
   consent = false,
   onConsentChange,
   consentError,
+  aviso,
   preview = false,
 }: {
   campaign: Campaign
@@ -42,12 +67,23 @@ export function ApplicationForm({
   consent?: boolean
   onConsentChange?: (v: boolean) => void
   consentError?: string
+  /**
+   * El aviso de que el envío ha fallado. Lo pinta el padre (es él quien habla
+   * con la red) pero VIVE AQUÍ DENTRO: con la hoja a sangre, un bloque pintado
+   * antes del formulario caería encima de la foto de cabecera.
+   */
+  aviso?: React.ReactNode
   preview?: boolean
 }) {
   const accent = campaign.branding.accent
+  // Tres variables y no dos: el acento tal cual (fondos), el texto que se lee
+  // ENCIMA de él, y el acento oscurecido lo justo para leerse SOBRE blanco, que
+  // es lo que necesita el nombre de la empresa. Un amarillo de marca sobre
+  // blanco se queda en 1,67:1 y el nombre no se leería.
   const style = {
     '--accent': accent,
     '--accent-contrast': readableOn(accent),
+    '--accent-ink': accentOnWhite(accent),
   } as CSSProperties
   // "Leer más" del aviso de privacidad: despliega una explicación honesta inline.
   const [showPrivacy, setShowPrivacy] = useState(false)
@@ -82,31 +118,33 @@ export function ApplicationForm({
       noValidate
       className="w-full"
     >
-      {/* Cabecera con el branding del cliente */}
-      <header className="mb-6">
-        {bannerUrl && (
-          <img src={bannerUrl} alt="" className="mb-4 h-28 w-full rounded-xl object-cover sm:h-32" />
-        )}
+      <HojaPublica bannerUrl={bannerUrl}>
+        {/* La hoja llega a los bordes; lo que se acota es la COLUMNA. El
+            formulario sigue siendo de 480, mobile-first. */}
+        <div className="mx-auto w-full max-w-[480px] px-6 pb-10 pt-7 sm:px-8">
+      {aviso}
+      {/* Cabecera con el branding del cliente, con la anatomía del anuncio en
+          columna estrecha: el puesto primero y la marca debajo. */}
+      <header className="mb-7">
+        <h1 className="break-words text-[26px] font-bold leading-tight tracking-tight text-slate-900">
+          {campaign.title}
+        </h1>
         {campaign.branding.showLogo && (
-          <div className="mb-4 flex items-center gap-2.5">
+          <div className="mt-5 flex items-center gap-3.5">
             {logoUrl ? (
-              <img src={logoUrl} alt="" className="size-10 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" />
+              // `object-contain` y relleno, no `cover`: un logotipo no se
+              // recorta. La caja con filo es la del anuncio.
+              <img src={logoUrl} alt="" className="size-12 shrink-0 rounded-xl bg-white object-contain p-1.5 filo" />
             ) : (
-              <span
-                className="grid size-8 place-items-center rounded-lg text-sm font-bold text-on-accent"
-                style={{ backgroundColor: accent }}
-              >
+              <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-accent text-lg font-bold text-on-accent">
                 {companyName.slice(0, 1)}
               </span>
             )}
-            <span className="min-w-0 break-words text-sm font-semibold text-slate-700">{companyName}</span>
+            <span className="min-w-0 break-words text-base font-bold text-[var(--accent-ink)]">{companyName}</span>
           </div>
         )}
-        <h1 className="break-words text-[25px] font-bold leading-tight tracking-tight text-slate-900">
-          {campaign.title}
-        </h1>
         {campaign.branding.welcome && (
-          <p className="mt-2 whitespace-pre-line break-words text-[15px] leading-relaxed text-slate-600">{campaign.branding.welcome}</p>
+          <p className="mt-5 whitespace-pre-line break-words text-[15px] leading-relaxed text-slate-600">{campaign.branding.welcome}</p>
         )}
       </header>
 
@@ -228,8 +266,12 @@ export function ApplicationForm({
         type="submit"
         disabled={busy || preview}
         aria-busy={busy}
-        className="on-accent mt-4 flex w-full items-center justify-center gap-2 rounded-xl text-base font-semibold text-on-accent ring-1 ring-inset ring-black/10 transition-[filter] duration-[var(--duration-control)] ease-[var(--ease-out)] hover:brightness-[1.06] active:brightness-95 disabled:opacity-70"
-        style={{ backgroundColor: accent, height: 52 }}
+        // EL MISMO BOTÓN QUE EL "Apúntate ahora" DEL ANUNCIO (ago 2026): son dos
+        // pantallas seguidas y tenían dos acabados distintos, uno que ACLARABA al
+        // pasar por encima y otro que oscurecía. Oscurecer es lo que dice la
+        // doctrina del botón, y el anillo negro al 10% sobraba: el color ya hace
+        // el trabajo.
+        className="mt-4 flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-accent text-base font-semibold text-on-accent transition-[filter] duration-[var(--duration-control)] ease-[var(--ease-out)] hover:brightness-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color-mix(in_srgb,var(--accent)_22%,transparent)] active:translate-y-px disabled:opacity-70 motion-reduce:transition-none"
       >
         {busy && <Loader2 className="size-5 shrink-0 animate-spin" aria-hidden />}
         {submitLabel}
@@ -237,6 +279,8 @@ export function ApplicationForm({
       {preview && (
         <p className="mt-2 text-center text-[12px] text-slate-500">Vista previa, lo que verá el candidato</p>
       )}
+        </div>
+      </HojaPublica>
     </form>
   )
 }

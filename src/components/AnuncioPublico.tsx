@@ -8,6 +8,7 @@ import { accentOnWhite, readableOn } from '../lib/colors'
 import { resumenApuntarse, senalesApuntarse, type ResumenApuntarse } from '../lib/apuntarse'
 import { useHayDosColumnas } from '../lib/media'
 import { publicFormPath } from '../lib/brand'
+import { HojaPublica } from './HojaPublica'
 import type { OtroPuesto } from '../lib/demoPublico'
 import type { Campaign } from '../lib/types'
 
@@ -99,53 +100,10 @@ export function AnuncioPublico({
 
   return (
     <div style={style} className="min-h-svh bg-white">
-      {/* SIN FOTO, EL BANNER ES EL COLOR DE LA IDENTIDAD (Mario, ago 2026). Antes
-          no se pintaba nada y la página empezaba en seco, con el título pegado al
-          filo del navegador; una franja del acento la abre igual y de paso dice de
-          quién es esto antes de leer una palabra. Es el mismo recurso que el
-          cuadro con la inicial cuando no hay logo. */}
-      {/* MÁS ALTO EN ESCRITORIO (Mario, ago 2026). En un móvil, 136px ya son una
-          cabecera; en una ventana de 1400 la misma medida es una franja fina, y
-          con la hoja comiéndole 28 quedaba en poco más de cien. A 152 la foto
-          tiene sitio para leerse como el sitio donde se trabaja sin pasarse: se
-          probó a 200 (demasiado) y a 168 (aún de más), y la cabecera empezaba a
-          disputarle la primera pantalla al puesto, que es lo que se ha venido a
-          leer. El techo de una foto de cabecera es el punto donde deja de
-          presentar la página y pasa a ser la página.
-          
-          Sin foto, la franja de color se queda MÁS BAJA (120): es un relleno que
-          da identidad y cierra el arranque de la página, no una imagen que haya
-          que mirar, y a 200 sería un bloque de color ocupando media pantalla. */}
-      {bannerUrl ? (
-        <img src={bannerUrl} alt="" className="h-[136px] w-full object-cover lg:h-[152px]" />
-      ) : (
-        <div className="h-24 w-full bg-accent lg:h-28" aria-hidden />
-      )}
-
-      {/* SIN RAÍL, EL CONTENIDO ES UNA HOJA QUE SUBE SOBRE LA FOTO (diseño de
-          Mario en Figma, ago 2026). El solape y el radio de arriba son lo que
-          convierte la foto en la cabecera de ESTA hoja en vez de en una imagen
-          pegada encima; es el gesto que hace que un móvil se lea como una ficha
-          y no como una página web recortada.
-          
-          RADIO GRANDE (32) Y SOLAPE DE 28 (Mario, ago 2026: "más redondeado para
-          que haga mejor blend con la foto"). Los dos van juntos y por eso se
-          tocan a la vez: con poco solape, un radio grande deja las esquinas de la
-          foto asomando por los lados como dos cuernos; con solape de sobra, la
-          curva entra en la foto y la transición se lee como una sola pieza. Es el
-          único sitio de la app con este radio, y se justifica en que aquí no
-          separa dos superficies del producto, funde una foto con una hoja.
-          
-          VA EN LOS DOS ANCHOS ("también quiero dar ese efecto en desktop", Mario).
-          
-          LA HOJA LLEGA A LOS BORDES Y LO QUE SE ACOTA ES EL CONTENIDO, en dos
-          elementos. Se hizo primero con uno solo, reutilizando el contenedor de
-          la rejilla (que ya iba centrado a `max-w-trabajo`), y en una ventana
-          ancha eso dejaba **dos colas de foto de 28px a los lados de la hoja que
-          acababan en seco**: el banner va a sangre y la hoja no, así que por
-          debajo de la foto y fuera de la hoja no había nada. Con la hoja a
-          sangre no hay lados que rematar. */}
-      <div className="relative -mt-7 rounded-t-[32px] bg-white">
+      {/* La foto a sangre y la hoja que sube sobre ella son la MISMA pieza que usa
+          el formulario: es la misma página en dos momentos, y el gesto (radio 32,
+          solape 28, alto del banner) se declara una sola vez en `HojaPublica`. */}
+      <HojaPublica bannerUrl={bannerUrl}>
         <div className="mx-auto grid w-full max-w-trabajo gap-8 px-6 pb-36 pt-7 sm:px-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-14 lg:px-12 lg:pb-12 lg:pt-12">
         {/* ---------------- Lo que hay que leer ---------------- */}
         <main className="min-w-0">
@@ -295,7 +253,7 @@ export function AnuncioPublico({
           </aside>
         )}
         </div>
-      </div>
+      </HojaPublica>
 
       {/* LA ACCIÓN VA PEGADA AL PULGAR donde no hay raíl (diseño de Mario), y por
           eso NO se pinta también en el flujo: la página es larga y hay UNA sola

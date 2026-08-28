@@ -1154,11 +1154,16 @@ function DeviceToggle({ device, setDevice }: { device: 'mobile' | 'desktop'; set
   )
 }
 
+// SIN RELLENO, y es lo que mantiene el WYSIWYG (ago 2026). Desde que el
+// formulario es una hoja a sangre bajo la foto (`HojaPublica`), su banner llega
+// al filo de la pantalla; con el `p-5`/`p-7` que este marco ponía por su cuenta,
+// la vista previa enseñaba una foto metida hacia dentro que el candidato no ve
+// nunca. El relleno lo pone el formulario, que es quien lo tiene que decidir.
 function PreviewFrame({ device, children }: { device: 'mobile' | 'desktop'; children: React.ReactNode }) {
   if (device === 'mobile') {
     return (
       <div className="w-[380px] overflow-clip rounded-[2rem] border-[8px] border-slate-900 bg-white shadow-pop">
-        <div className="max-h-[640px] overflow-y-auto p-5">{children}</div>
+        <div className="max-h-[640px] overflow-y-auto">{children}</div>
       </div>
     )
   }
@@ -1166,7 +1171,7 @@ function PreviewFrame({ device, children }: { device: 'mobile' | 'desktop'; chil
   // flotando sobre nada. `shadow-pop` es el vocabulario de los overlays de verdad
   // (menús, paneles, modales). El bastidor de móvil de arriba sí es un objeto, un
   // teléfono puesto encima de la mesa, y conserva la suya.
-  return <div className="w-full max-w-[520px] overflow-clip rounded-2xl filo bg-white p-7 shadow-card">{children}</div>
+  return <div className="w-full max-w-[520px] overflow-clip rounded-2xl filo bg-white shadow-card">{children}</div>
 }
 
 function Preview({ campaign }: { campaign: Campaign }) {

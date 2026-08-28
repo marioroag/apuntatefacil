@@ -12,6 +12,7 @@ import { FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { CONSENT_VERSION } from '../lib/consent'
 import { brandAssetUrl } from '../lib/brandAsset'
 import { AnuncioPublico } from '../components/AnuncioPublico'
+import { HojaPublica } from '../components/HojaPublica'
 import { hayAnuncio, leerAnuncio } from '../lib/anuncio'
 import type { OtroPuesto } from '../lib/demoPublico'
 import type { Campaign } from '../lib/types'
@@ -326,15 +327,20 @@ export function PublicForm() {
   const cleanErrors = Object.fromEntries(Object.entries(errors).filter(([, v]) => v)) as Record<string, string>
 
   return (
-    <div className="min-h-svh bg-slate-50 px-4 py-8 sm:py-12">
-      <div ref={formTop} className="mx-auto w-full max-w-[480px]">
-        {submitError && (
-          <div role="alert" className="mb-3 rounded-xl filo-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
-            {submitError}
-          </div>
-        )}
-        <div className="rounded-2xl filo bg-white p-5 shadow-card sm:p-7">
-          <ApplicationForm
+    // LA MISMA PÁGINA QUE EL ANUNCIO, NO OTRA (Mario, ago 2026). Ocupa la
+    // pantalla entera y la foto se integra igual: a sangre, con la hoja subiendo
+    // sobre ella. El fondo gris y la tarjeta de 480 flotando se fueron con eso;
+    // el formulario es la segunda mitad del anuncio, y lo que cambia al pulsar
+    // "Apúntate ahora" tiene que ser el contenido, no el producto.
+    <div ref={formTop} className="min-h-svh bg-white">
+        <ApplicationForm
+            aviso={
+              submitError ? (
+                <div role="alert" className="mb-5 rounded-xl filo-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                  {submitError}
+                </div>
+              ) : null
+            }
             campaign={campaign}
             values={values}
             errors={cleanErrors}
@@ -349,24 +355,22 @@ export function PublicForm() {
             consent={consent}
             onConsentChange={(v) => { setConsent(v); setConsentError('') }}
             consentError={consentError}
+        />
+        {/* Honeypot: invisible y fuera del recorrido de teclado/lector. Un humano no lo
+            rellena; un bot que autocompleta campos, sí. Envuelto en un contenedor 0x0 con
+            overflow-hidden: oculta sin sacarlo de pantalla (nada de -left:-9999px, que
+            provocaría scroll horizontal) y sin display:none (que algunos bots saltan). */}
+        <div aria-hidden="true" className="h-0 w-0 overflow-hidden">
+          <input
+            type="text"
+            name="empresa_web"
+            tabIndex={-1}
+            autoComplete="off"
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
           />
-          {/* Honeypot: invisible y fuera del recorrido de teclado/lector. Un humano no lo
-              rellena; un bot que autocompleta campos, sí. Envuelto en un contenedor 0x0 con
-              overflow-hidden: oculta sin sacarlo de pantalla (nada de -left:-9999px, que
-              provocaría scroll horizontal) y sin display:none (que algunos bots saltan). */}
-          <div aria-hidden="true" className="h-0 w-0 overflow-hidden">
-            <input
-              type="text"
-              name="empresa_web"
-              tabIndex={-1}
-              autoComplete="off"
-              value={honeypot}
-              onChange={(e) => setHoneypot(e.target.value)}
-            />
-          </div>
         </div>
-        <p className="mt-4 text-center text-[12px] text-slate-500">Formulario con {BRAND}</p>
-      </div>
+        <p className="pb-10 text-center text-[12px] text-slate-500">Formulario con {BRAND}</p>
     </div>
   )
 }
@@ -385,12 +389,14 @@ function ThankYou({ campaign, isTest = false }: { campaign: PublicCampaign; isTe
   useEffect(() => { h1.current?.focus() }, [])
   const accent = campaign.branding.accent
   return (
+    // La misma hoja que el formulario del que viene: si el fondo cambiara de
+    // color al enviar, el último paso se leería como otra web.
     <div
-      className="min-h-svh bg-slate-50 px-4 py-8 sm:py-12"
+      className="min-h-svh bg-white"
       style={{ ['--accent' as string]: accent, ['--accent-contrast' as string]: readableOn(accent) }}
     >
-      <div className="mx-auto w-full max-w-[480px]">
-        <div className="rounded-2xl filo bg-white p-7 text-center shadow-card" role="status">
+      <HojaPublica bannerUrl={campaign.bannerUrl}>
+        <div className="mx-auto w-full max-w-[480px] px-6 pb-14 pt-9 text-center sm:px-8" role="status">
           <motion.div
             initial={{ scale: 0.6, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -417,11 +423,11 @@ function ThankYou({ campaign, isTest = false }: { campaign: PublicCampaign; isTe
               Volver a tu lista de candidatos
             </Link>
           )}
+          <p className="mt-8 text-[12px] text-slate-500">
+            Formulario con {BRAND}, enviado a {campaign.companyName}
+          </p>
         </div>
-        <p className="mt-4 text-center text-[12px] text-slate-500">
-          Formulario con {BRAND}, enviado a {campaign.companyName}
-        </p>
-      </div>
+      </HojaPublica>
     </div>
   )
 }

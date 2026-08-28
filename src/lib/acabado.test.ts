@@ -400,6 +400,27 @@ describe('el vocabulario se mantiene coherente', () => {
     ).toEqual([])
   })
 
+  it('la hoja sobre la foto se declara UNA vez', () => {
+    // El anuncio y el formulario son la misma página en dos momentos: la foto a
+    // sangre y la hoja subiendo sobre ella tienen que ser idénticas o pulsar
+    // "Apúntate ahora" se lee como cambiar de web (pasó: el formulario metía su
+    // banner dentro de una tarjeta de 480 sobre gris).
+    //
+    // El radio (32) y el solape (28) son un PAR que se toca a la vez: con poco
+    // solape, un radio grande deja las esquinas de la foto asomando como dos
+    // cuernos. Escritos en dos ficheros, el día que se afine uno el otro se
+    // queda con la mitad del gesto, y eso no lo ve nadie hasta que las dos
+    // pantallas están una al lado de la otra.
+    const fuera = buscar(/rounded-t-\[32px\]|-mt-7\b/g, (f) => !f.ruta.endsWith('HojaPublica.tsx'))
+
+    expect(
+      fuera.map((f) => `${f.ruta}:${f.linea}`),
+      `El gesto de la hoja sobre la foto, escrito fuera de su pieza:\n` +
+        fuera.map((f) => `  · ${f.ruta}:${f.linea}  ${f.texto.trim().slice(0, 70)}`).join('\n') +
+        `\n\nUsa <HojaPublica>. El radio y el solape son un par y viven juntos.`,
+    ).toEqual([])
+  })
+
   it('cada excepción trae su motivo escrito', () => {
     const vacias = [
       ...Object.entries(SOMBRAS_SIN_TOKEN),
