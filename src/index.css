@@ -752,6 +752,43 @@
 }
 
 /* ---------------------------------------------------------------------------
+   `cta-lateral` · el botón del pie del menú, que cambia de FORMA al contraerse.
+
+   Con el raíl ancho es un botón de bloque; con el estrecho es un círculo de 30px,
+   del tamaño exacto de la cara que tiene debajo. O sea que su ancho, su alto y su
+   radio se mueven, y tienen que hacerlo AL RITMO DEL RAÍL: sin transición, el
+   botón se convertiría en un círculo en el fotograma 0 y se quedaría flotando
+   solo en un pie de 256px durante 240ms, que es exactamente el tirón que este
+   lateral se ha dedicado a quitar.
+
+   VA AQUÍ Y NO EN UNA UTILIDAD DE TAILWIND porque son DOS velocidades en la misma
+   transición, y eso no se puede escribir con `transition-[...] duration-[...]`:
+   el color responde al dedo (`--duration-control` con `--ease-out`, como
+   cualquier botón) y la forma transforma la pantalla de un estado a otro
+   (`--duration-max` con `--ease-standard`, los mismos tokens que el ancho del
+   raíl). Con una sola duración, o el hover del CTA se arrastra 240ms o la forma
+   llega antes que el menú y se ve descoordinada.
+
+   Sustituye a `BTN_MOTION` en ese botón, no se le suma: las dos declaran
+   `transition-property` y ganaría la que se emitiese después en el CSS, no la que
+   se escriba al final del `className`. La PINTURA se sigue compartiendo
+   (`BTN_SUPERFICIE.primary`), que es lo único que de verdad estaba duplicado.
+--------------------------------------------------------------------------- */
+@utility cta-lateral {
+  transition-property: background-color, box-shadow, color, width, height, border-radius;
+  transition-duration:
+    var(--duration-control), var(--duration-control), var(--duration-control),
+    var(--duration-max), var(--duration-max), var(--duration-max);
+  transition-timing-function:
+    var(--ease-out), var(--ease-out), var(--ease-out),
+    var(--ease-standard), var(--ease-standard), var(--ease-standard);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition-property: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
    `acceso-fundido` · la imagen de la lámina de acceso muere en el marfil.
 
    Es la ÚNICA excepción viva a "sin gradientes" junto al barrido del skeleton, y

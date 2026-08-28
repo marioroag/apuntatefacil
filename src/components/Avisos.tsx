@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { useAvisos } from '../lib/avisos'
+import { cifraCorta } from '../lib/nav'
 import { useProfiles } from '../lib/profiles'
 import { relativeDate } from '../lib/format'
 import { Avatar } from './ui/Avatar'
-import { FILA, FILA_ABIERTA, FILA_QUIETA } from './filaLateral'
+import { FILA, FILA_ABIERTA, FILA_ETIQUETA, FILA_QUIETA, FILA_SOLO_ANCHO } from './filaLateral'
 
 /**
  * Notificaciones: la fila del LATERAL y su panel. Lo que enseña sale entero de
@@ -30,7 +32,7 @@ import { FILA, FILA_ABIERTA, FILA_QUIETA } from './filaLateral'
  * Lo pendiente se marca como visto AL CERRAR, no al abrir: si se marcase al
  * abrir, lo nuevo perdería su marca justo en el momento de mirarlo.
  */
-export function Avisos({ label }: { label: string }) {
+export function Avisos({ label, contraido = false }: { label: string; contraido?: boolean }) {
   const { disponible, items, sinVer, marcarVisto } = useAvisos()
   const profiles = useProfiles()
   const [open, setOpen] = useState(false)
@@ -107,7 +109,11 @@ export function Avisos({ label }: { label: string }) {
   useEffect(() => {
     if (!open) return
     const onDoc = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) cerrar()
+      // El panel se pinta en un PORTAL, así que ya NO está dentro de `wrapRef`:
+      // sin mirarlo aparte, pulsar un aviso contaría como "has pulsado fuera" y
+      // el panel se cerraría antes de abrir el enlace.
+      const dentro = (n: HTMLElement | null) => n?.contains(e.target as Node)
+      if (!dentro(wrapRef.current) && !dentro(panelRef.current)) cerrar()
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -136,13 +142,30 @@ export function Avisos({ label }: { label: string }) {
   // La cifra: la ÚNICA del lateral, y por eso puede permitirse peso. La doctrina
   // dice que la negrita es para cuando hay una sola chapa; aquí la hay. Fondo
   // `slate-100` para no gritar sobre el blanco.
+  // LA CIFRA, PELADA, como las del menú (Mario, ago 2026). Era una chapa (fondo
+  // gris, radio completo, negrita de 11px) y se va con las demás: lo que hacía que
+  // una columna de contadores se leyera como un tablero de resultados no era el
+  // número, era la chapa. Un número gris al margen derecho es un dato, no un
+  // marcador. El porqué entero, en `Novedad` (`Sidebar.tsx`).
+  //
+  // El tope es el MISMO que el del menú (`cifraCorta`, 15+), y por eso sale de
+  // `lib/nav.ts` en vez de escribirse aquí: dos contadores en la misma columna con
+  // dos topes distintos se leen como dos escalas. Llevaba "9+" por su cuenta,
+  // heredado de cuando era una pastilla que tenía que caber.
   const cifra = sinVer > 0 && (
-    <span className="num shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">
-      {sinVer > 9 ? '9+' : sinVer}
-      <span className="sr-only"> {sinVer === 1 ? 'aviso sin ver' : 'avisos sin ver'}</span>
+    <span className={`shrink-0 ${FILA_SOLO_ANCHO}`}>
+      <span aria-hidden className="num text-sm font-medium text-slate-500">{cifraCorta(sinVer)}</span>
+      <span className="sr-only">{sinVer} {sinVer === 1 ? 'aviso sin ver' : 'avisos sin ver'}</span>
     </span>
   )
 
+  // CONTRAÍDO, LA CIFRA SE VUELVE UN PUNTO SOBRE EL ICONO. No es una excepción a
+  // "aquí el número SÍ es la información": es que en 64px no cabe, y una chapa
+  // recortada informa peor que una marca que se lee entera. El número no se
+  // pierde: la chapa sigue montada (se apaga con `FILA_SOLO_ANCHO`, no se
+  // desmonta, o al estrecharse el raíl empujaría a lo demás) y con ella su
+  // `sr-only`. El punto se monta EN el icono, que es la regla de las filas que no
+  // tienen final donde poner nada.
   const filaAvisos = (
     <button
       ref={triggerRef}
@@ -152,8 +175,16 @@ export function Avisos({ label }: { label: string }) {
       aria-controls={open ? panelId : undefined}
       className={`${FILA} ${open ? FILA_ABIERTA : FILA_QUIETA}`}
     >
-      <Bell className={`size-5 shrink-0 ${open ? 'text-slate-900' : 'text-slate-700'}`} aria-hidden />
-      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      <span className="relative shrink-0">
+        <Bell className={`size-[18px] shrink-0 ${open ? 'text-slate-900' : 'text-slate-800'}`} aria-hidden />
+        {contraido && sinVer > 0 && (
+          <span
+            aria-hidden
+            className="absolute -right-0.5 -top-0.5 block size-1.5 rounded-full bg-[var(--color-novedad)] ring-2 ring-[var(--color-lateral)]"
+          />
+        )}
+      </span>
+      <span className={FILA_ETIQUETA}>{label}</span>
       {cifra}
     </button>
   )
@@ -162,64 +193,78 @@ export function Avisos({ label }: { label: string }) {
     <div ref={wrapRef}>
       {filaAvisos}
 
-      {open && (
-        <div
-          ref={panelRef}
-          id={panelId}
-          role="dialog"
-          aria-label="Avisos"
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowDown') { e.preventDefault(); move(1) }
-            else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1) }
-          }}
-          // `visibility` y no montaje condicional: el panel tiene que estar en
-          // el DOM para poder medirlo, y `useLayoutEffect` corre antes de pintar,
-          // así que nadie llega a ver el fotograma sin colocar.
-          style={pos ? { top: pos.top, left: pos.left } : { top: 0, left: 0, visibility: 'hidden' }}
-          className="fixed z-40 w-[min(22rem,calc(100vw-1rem))] rounded-xl filo bg-white shadow-pop"
-        >
-          <div className="px-3 py-2.5">
-            <h2 className="text-sm font-semibold text-slate-900">Avisos</h2>
-          </div>
+      {/* EN UN PORTAL, y no es cosmético: el raíl del lateral es
+          `absolute z-30`, o sea un CONTEXTO DE APILAMIENTO, y dentro de él
+          ningún `z-40` puede subir por encima de lo que el contenido pinte a 30
+          o más. Se vio en Entrevistas, cuya cabecera de días es `sticky z-30`:
+          empatada con el raíl y más abajo en el DOM, se dibujaba ENCIMA del panel
+          de avisos. Subirle el z al raíl no lo arregla, lo mueve de sitio: el
+          contenido usa hasta z-50 (la barra de selección del panel de un puesto),
+          y un raíl por encima de ella taparía la propia barra.
+          Es la regla que esta doctrina ya tiene escrita para lo que flota: se
+          pinta en un portal contra la VENTANA, así ningún antepasado (ni por
+          `overflow` ni por apilamiento) puede atraparlo. */}
+      {open &&
+        createPortal(
 
-          {items.length === 0 ? (
-            <p className="px-3 pb-4 pt-1 text-[13px] leading-5 text-slate-500">
-              Nada nuevo. Aquí te avisamos cuando alguien te mencione o mueva algo en el tablón.
-            </p>
-          ) : (
-            <ul className="max-h-[min(70vh,26rem)] overflow-y-auto border-t border-slate-100 p-1.5">
-              {items.map((a) => {
-                const nombre = profiles.nameFor(a.actorUserId, a.actorEmail) || 'Alguien'
-                return (
-                  <li key={a.id}>
-                    <Link
-                      data-av
-                      to={a.to}
-                      onClick={cerrar}
-                      className="flex items-start gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-slate-50"
-                    >
-                      <Avatar
-                        name={nombre}
-                        seed={a.actorEmail || a.actorUserId}
-                        src={profiles.avatarFor(a.actorUserId)}
-                        size={28}
-                        className="mt-0.5"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[13px] leading-5 text-slate-800">
-                          <span className="font-semibold text-slate-900">{nombre}</span> {a.accion}
+          <div
+            ref={panelRef}
+            id={panelId}
+            role="dialog"
+            aria-label="Avisos"
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') { e.preventDefault(); move(1) }
+              else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1) }
+            }}
+            // `visibility` y no montaje condicional: el panel tiene que estar en
+            // el DOM para poder medirlo, y `useLayoutEffect` corre antes de pintar,
+            // así que nadie llega a ver el fotograma sin colocar.
+            style={pos ? { top: pos.top, left: pos.left } : { top: 0, left: 0, visibility: 'hidden' }}
+            className="fixed z-40 w-[min(22rem,calc(100vw-1rem))] rounded-xl filo bg-white shadow-pop"
+          >
+            <div className="px-3 py-2.5">
+              <h2 className="text-sm font-semibold text-slate-900">Avisos</h2>
+            </div>
+
+            {items.length === 0 ? (
+              <p className="px-3 pb-4 pt-1 text-[13px] leading-5 text-slate-500">
+                Nada nuevo. Aquí te avisamos cuando alguien te mencione o mueva algo en el tablón.
+              </p>
+            ) : (
+              <ul className="max-h-[min(70vh,26rem)] overflow-y-auto border-t border-slate-100 p-1.5">
+                {items.map((a) => {
+                  const nombre = profiles.nameFor(a.actorUserId, a.actorEmail) || 'Alguien'
+                  return (
+                    <li key={a.id}>
+                      <Link
+                        data-av
+                        to={a.to}
+                        onClick={cerrar}
+                        className="flex items-start gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-slate-50"
+                      >
+                        <Avatar
+                          name={nombre}
+                          seed={a.actorEmail || a.actorUserId}
+                          src={profiles.avatarFor(a.actorUserId)}
+                          size={28}
+                          className="mt-0.5"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[13px] leading-5 text-slate-800">
+                            <span className="font-semibold text-slate-900">{nombre}</span> {a.accion}
+                          </span>
+                          <span className="block truncate text-[12px] text-slate-500">{a.detalle}</span>
                         </span>
-                        <span className="block truncate text-[12px] text-slate-500">{a.detalle}</span>
-                      </span>
-                      <span className="num mt-0.5 shrink-0 text-[11px] text-slate-500">{relativeDate(a.at)}</span>
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
-      )}
+                        <span className="num mt-0.5 shrink-0 text-[11px] text-slate-500">{relativeDate(a.at)}</span>
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   )
 }

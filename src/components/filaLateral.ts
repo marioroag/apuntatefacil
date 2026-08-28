@@ -8,33 +8,143 @@
 // filas que empiezan iguales y se separan al primer retoque. Que es exactamente
 // como el botón de la app acabó teniendo nueve clones.
 //
-// Una sola geometría para todas: icono de 20 y etiqueta a 48px del filo interior.
+// Una sola geometría para todas: icono de 18, hueco de 16 y etiqueta a 48px del
+// filo interior de la fila (o sea, 64 desde el filo del menú), que es la columna
+// sobre la que está construido todo lo demás y NO se mueve.
+//
+// EL ICONO BAJÓ DE 20 A 18 Y EL HUECO SUBIÓ DE 14 A 16, y es el hallazgo de la
+// referencia de ago 2026: lo que la hacía verse mejor no era el tamaño general,
+// era el REPARTO entre glifo y palabra. Medido en proporciones, su icono mide
+// **0,94 veces** la altura de mayúscula de su etiqueta; el nuestro medía **1,98**,
+// o sea el doble. Un menú se lee por los NOMBRES, y ahí los iconos pesaban el
+// doble que las letras a las que acompañan. Su hueco entre glifo y palabra
+// también era mayor que el icono (1,16 contra nuestro 0,70).
+//
+// Los dos cambios se compensan a propósito (18 + 16 = 20 + 14): la etiqueta sigue
+// arrancando en los mismos 64px, así que las filas hijas, el raíl de las
+// sublistas y el wordmark de la marca no se enteran. Cambiar el reparto sin mover
+// la columna es lo que evita una cascada de retoques.
 // Lo que cambia de una fila a otra es qué la envuelve (un enlace, un botón, un
 // plegable), nunca su forma.
 //
-// EL ALTO ES 34px EN ESCRITORIO, NO 42, Y ESO NO ES "MÁS DENSO": ES MÁS AIRE.
-// Medido contra la referencia (JOIN, ago 2026): su paso entre filas es de 40px
-// con una píldora de 30, o sea 10px de hueco entre una y la siguiente. El nuestro
-// era de 46 con una píldora de 42: 4px de hueco. Mismo espacio, repartido al
-// revés. Su fila se lee como un OBJETO pequeño rodeado de aire y la nuestra como
-// una losa que casi toca a su vecina, y esa es la diferencia que se percibe como
-// "el suyo respira". La regla que se saca: **en una lista de filas con fondo, el
-// aire va ENTRE las píldoras, no DENTRO de ellas.**
+// EL ALTO ES 40px EN ESCRITORIO, con 6 de hueco. Dos ajustes, y el segundo NO
+// deshace al primero.
+//
+// (1) De 42+4 a 34+6 (JOIN, ago 2026). Su paso entre filas era de 40 con una
+// píldora de 30, o sea 10 de hueco; el nuestro, 46 con una de 42: 4 de hueco.
+// Mismo espacio, repartido al revés. Su fila se lee como un OBJETO rodeado de
+// aire y la nuestra como una losa que casi toca a su vecina. La regla que quedó:
+// **en una lista de filas con fondo, el aire va ENTRE las píldoras, no DENTRO.**
+//
+// (2) Con la referencia de ago 2026 ("copiemos estos tamaños") la píldora subió a
+// 40 y Mario lo revirtió al verlo: "siento que hay demasiado espacio entre
+// botones". Tenía razón, y el fallo fue MÍO al medir: de las cuatro proporciones
+// que saqué de esa captura me apoyé en la MENOS fiable.
+//
+//   - `píldora / paso` = 0,90. Es la peor: se lee sobre una imagen sin anclar y
+//     ±5px en cualquiera de las dos medidas la mueve entre 0,82 y 0,98.
+//   - `altura de mayúscula / píldora` = 0,33. Es mucho mejor: las dos medidas
+//     están en el MISMO eje y en el mismo objeto, así que un error de lectura se
+//     va en las dos a la vez y el cociente aguanta.
+//
+// Con texto de 15px (mayúscula ~10,8), ese 0,33 pide una píldora de **32,7**, no
+// de 40. La fila se queda en 34 (0,32) y el paso vuelve a 40. La regla que se
+// saca, que vale para la próxima captura: **entre dos proporciones que se
+// contradicen, gana la que mide dos cosas del mismo eje.**
+//
+// Lo que sí sobrevive de esa referencia es lo importante, que es el reparto entre
+// glifo y palabra (icono 18, hueco 16, texto 15): ver la cabecera de arriba.
 //
 // En táctil sube a 44px (`h-11`), que es el objetivo de toque mínimo: la densidad
 // de escritorio no se paga con un dedo que falla. Mismo criterio que el botón.
 //
 // El foco lleva `ring-offset` del color del lateral y no del blanco: sobre la
 // superficie recesiva, un halo blanco se vería como una segunda línea.
+//
+// -----------------------------------------------------------------------------
+// EL LATERAL CONTRAÍDO: la misma fila, más estrecha. NADA CAMBIA DE SITIO.
+//
+// Cuando el raíl se estrecha a 64px, `<nav>` se marca con `data-contraido` y de
+// ahí cuelgan las variantes `group-data-[contraido]/lateral:` de este fichero. Se
+// hace con CSS y no con una prop porque las filas las pintan TRES ficheros (el
+// lateral, `Avisos.tsx` y, en el pie, `CuentaMenu`): con una prop habría que
+// enhebrarla por los tres y acordarse en cada fila nueva.
+//
+// LA REGLA QUE MANDA AQUÍ, y que costó rehacer esto entero (Mario, ago 2026: "se
+// teletransporta a los lados al darle al botón"): **con el ancho animándose, NADA
+// de dentro puede cambiar de caja.** La primera versión ponía a las filas un
+// `w-[34px] justify-center px-0`, o sea que en el fotograma 0 el icono saltaba de
+// 30 a 22 y las etiquetas desaparecían de golpe, mientras la caja tardaba 240ms
+// en llegar. El ojo lee eso como dos movimientos que no van juntos, y da igual lo
+// bien que se anime el contenedor.
+//
+// Lo que se hace en su lugar, y son tres cosas:
+//  1. La fila NO cambia de anatomía: sigue `w-full` con su relleno de 14 y su
+//     hueco de 14. Su ancho lo dicta el raíl, que se está animando, así que
+//     encoge FOTOGRAMA A FOTOGRAMA en vez de saltar.
+//  2. Lo que sobra se DESVANECE (`opacity`), que no es una propiedad de layout:
+//     la etiqueta, el chevron y las chapas se apagan mientras la caja encoge.
+//     Siguen ocupando su sitio en el flujo, y por eso la fila lleva
+//     `overflow-hidden`: lo que ya no cabe se recorta por el lado derecho en vez
+//     de empujar al icono.
+//  3. El ICONO se queda donde está y solo se desplaza lo que le mueva el RELLENO
+//     del contenedor, que también se anima (16 -> 8). Esos 8px son justo los que
+//     dejan el glifo centrado en un raíl de 64: 8 de contenedor + 14 de fila + 10
+//     de medio icono = 32, la mitad exacta.
+//
+// A `opacity: 0` el texto SIGUE existiendo para el lector de pantalla, así que la
+// etiqueta no hace falta esconderla aparte: es el nombre accesible del enlace y
+// se queda puesto. El texto visible lo devuelve el tooltip, que monta quien pinta
+// la fila.
+//
+// Las clases van ESCRITAS ENTERAS y no compuestas con una constante de prefijo:
+// Tailwind busca nombres de clase COMPLETOS en el código fuente, así que un
+// `${PREFIJO}opacity-0` no se generaría nunca y la regla no existiría en el CSS.
+// Ya pasó una vez en este proyecto con el chevron del `<select>`.
 // -----------------------------------------------------------------------------
 
-export const FILA =
-  'flex h-11 w-full items-center gap-3.5 rounded-xl px-3.5 text-sm font-medium outline-none lg:h-[34px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)]'
+/** Lo que se apaga al estrecharse el raíl. `opacity` y no `display`, que es de
+ *  layout y saltaría; y con su propia transición, más corta que la del ancho,
+ *  para que el texto haya desaparecido antes de que la caja lo recorte a media
+ *  palabra. Es el mismo reparto de tiempos que el informe de Meridian al cerrarse. */
+const DESVANECE =
+  'transition-opacity duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none group-data-[contraido]/lateral:opacity-0'
 
-/** En reposo. La etiqueta va en TINTA (`slate-800`), no en gris de apoyo: una
- *  fila del menú es un destino, no un pie de foto, y en gris medio sobre blanco
- *  la columna entera se lee borrosa. Es la diferencia que se veía comparando con
- *  JOIN, más que ningún tamaño. El hover tiene peldaño propio
+export const FILA =
+  'flex h-11 w-full items-center gap-4 overflow-hidden rounded-xl px-3.5 text-[15px] font-medium outline-none lg:h-[34px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)]'
+
+/** LA ETIQUETA de una fila. Se declara aquí y no se escribe en cada sitio porque
+ *  contraído tiene que desaparecer de la vista SIN desaparecer del lector: en
+ *  `sr-only` sigue siendo el nombre accesible del enlace o del botón, que es lo
+ *  único que impide que el raíl contraído sea una columna de dibujos anónimos.
+ *  `text-left` va incluido porque la mitad de las filas son `<button>`, y ahí el
+ *  texto se centraría solo. */
+export const FILA_ETIQUETA = `min-w-0 flex-1 truncate text-left ${DESVANECE}`
+
+/** Lo que solo tiene sentido con el raíl ancho: el chevron de un plegable, la
+ *  chapa de avisos, el punto del final de una fila. No se desmonta, se apaga:
+ *  desmontarlo cambiaría el ancho del contenido en el fotograma 0 y empujaría al
+ *  icono, que es justo lo que esta versión vino a quitar. */
+export const FILA_SOLO_ANCHO = DESVANECE
+
+/** En reposo. La etiqueta va en TINTA PLENA (`slate-900`), no en gris de apoyo:
+ *  una fila del menú es un destino, no un pie de foto, y en gris medio sobre
+ *  blanco la columna entera se lee borrosa. Es la diferencia que se veía
+ *  comparando con JOIN, más que ningún tamaño.
+ *
+ *  SEGUNDA SUBIDA (Mario, ago 2026: "los iconos y los textos más oscuros"): de
+ *  `slate-800` a `slate-900`, o sea de 14,7:1 a **17,8:1**. Y no va sola: la
+ *  sube el ICONO, que pasa de 700 a 800 (10,4 -> 14,7) y necesita que su
+ *  etiqueta se aparte para seguir sentándose medio peldaño por debajo, que es la
+ *  regla que impide que la columna de glifos compita con la de nombres.
+ *
+ *  Lo que se paga y se declara: la fila activa ya NO se distingue por la tinta de
+ *  su etiqueta (las dos son 900). La dicen su fondo (`--color-lateral-activo`) y
+ *  su icono, que sí sube de 800 a 900. Es coherente con lo que esta doctrina ya
+ *  hizo con el peso: el estado no cambia el cuerpo de la letra, y ahora tampoco
+ *  su color; lo dice la superficie.
+ *
+ *  El hover tiene peldaño propio
  *  (`--color-lateral-hover`): tiene que distinguirse del riel Y del activo, y
  *  entre dos grises tan juntos eso no sale de una opacidad puesta a ojo.
  *
@@ -42,7 +152,7 @@ export const FILA =
  *  estado declarase el suyo, volver a descuadrarlos sería cuestión de tocar uno.
  *  Declarado una vez en la base, ningún estado puede cambiar el cuerpo de la
  *  letra sin que se note al escribirlo. */
-export const FILA_QUIETA = 'text-slate-800 hover:bg-[var(--color-lateral-hover)] hover:text-slate-900'
+export const FILA_QUIETA = 'text-slate-900 hover:bg-[var(--color-lateral-hover)]'
 
 /** ESTÁS AQUÍ. Fondo recesivo + tinta, y **SIN cambiar el peso de la letra**
  *  (Mario, ago 2026). Llegó a subir a `font-semibold` y se retiró por lo mismo
@@ -89,13 +199,13 @@ export const FILA_ABIERTA = 'bg-[var(--color-lateral-activo)] text-slate-900'
 
 /** La caja: solo el fondo y el alto. No es focusable ni pulsable. */
 export const FILA_CAJA =
-  'flex h-11 w-full items-center rounded-xl text-sm font-medium lg:h-[34px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)]'
+  'flex h-11 w-full items-center overflow-hidden rounded-xl text-[15px] font-medium lg:h-[34px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)]'
 
 /** La mitad que lleva a un sitio. Se queda con todo el ancho menos el chevron, y
  *  repite la geometría de `FILA` (14px de sangría, icono de 20, hueco de 14) para
  *  que su etiqueta arranque en los mismos 48px que todas las demás del menú. */
 export const FILA_ENLACE =
-  'flex min-w-0 flex-1 items-center gap-3.5 self-stretch rounded-l-xl pl-3.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-600'
+  'flex min-w-0 flex-1 items-center gap-4 self-stretch rounded-l-xl pl-3.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-600'
 
 /** El chevron. `px-3.5` y no un ancho fijo: así el glifo queda a los mismos 14px
  *  del filo derecho que el de "Puestos", que va dentro del relleno de su fila. */
@@ -112,6 +222,141 @@ export const FILA_CHEVRON =
  *
  *  Vive aquí y no escrita a mano en cada lista porque ya hay dos consumidoras
  *  (los puestos y las vistas de Candidatos) y este proyecto ya sabe cómo acaba
- *  eso: dos filas que empiezan iguales y se separan al primer retoque. */
+ *  eso: dos filas que empiezan iguales y se separan al primer retoque.
+ *
+ *  EL RELLENO ES 12 PORQUE LA LISTA TRAE AHORA SU RAÍL (`FILA_SUBLISTA`, ago
+ *  2026). Antes eran 48 medidos desde el filo del menú; ahora 23 los pone el
+ *  margen de la lista, 1 el propio raíl y 12 su relleno, así que aquí quedan 12
+ *  para que el texto siga aterrizando en los MISMOS 64px que la etiqueta de su
+ *  madre. El número no es a ojo: es lo que sobra de una cuenta que no ha cambiado
+ *  de resultado, y se movió de 11 a 12 al recentrarse el raíl con el icono de 18. */
 export const FILA_HIJA =
-  'flex h-10 w-full items-center gap-2 rounded-xl pl-12 pr-3.5 text-sm font-medium outline-none lg:h-[30px] transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)]'
+  'flex h-10 w-full items-center gap-2 rounded-xl pl-3 pr-3.5 text-[15px] font-medium outline-none lg:h-8 transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)]'
+
+/**
+ * EL RAÍL DE UNA SUBLISTA: una línea que cae del icono de su madre (Mario, ago
+ * 2026, con la referencia de shadcn delante).
+ *
+ * Lo que resuelve es una pregunta que la sangría sola no contestaba: **hasta
+ * dónde llega esta lista.** Con seis puestos seguidos de "Candidatos", el ojo no
+ * sabía dónde acababan los hijos y empezaba la siguiente fila de primer nivel; la
+ * sangría dice "esto va dentro" pero no dice "y termina aquí". La línea sí, y
+ * además ata visualmente la lista a la fila que la abrió.
+ *
+ * CAE EN EL CENTRO DEL ICONO DE LA MADRE, que es de donde parece salir: el icono
+ * ocupa de 30 a 48 desde el filo del menú, así que el raíl va en el **39**, o sea
+ * `ml-[23px]` sobre el relleno de 16 del contenedor. Puesto en cualquier otro
+ * sitio se lee como una línea decorativa en vez de como la continuación de una
+ * fila.
+ *
+ * Estuvo en 40 (`ml-6`) mientras el icono medía 20, y se quedó 1px descolgado al
+ * bajar el icono a 18 (Mario lo vio: "el raíl también déjalo centrado con el
+ * icono"). Es el segundo número derivado que cobra ese cambio, después del
+ * relleno del raíl contraído: **un número que sale de una cuenta se recalcula
+ * cuando cambia un término de la cuenta**, y por eso la cuenta va escrita aquí y
+ * no solo su resultado.
+ *
+ * VA EN EL FILO DE LA CASA (`--color-lateral-filo`, o sea `slate-200`, 1,24:1
+ * sobre blanco). Se probó subirlo a `slate-300` (1,48) con el argumento de que un
+ * raíl no es el canto de una caja sino una GUÍA que el ojo sigue de arriba abajo,
+ * y **Mario lo revirtió el mismo día**. El argumento no era falso, pero pesaba
+ * menos que lo que costaba: en una superficie donde todo lo demás (la marca, las
+ * tarjetas, el campo del pie) usa un solo hairline, una línea medio tono más
+ * oscura no se lee como "más guía", se lee como una línea de OTRO sistema. Un
+ * vocabulario de un solo filo vale más que el matiz.
+ *
+ * NO CONTRADICE "la sangría va en la FILA, no en la lista", que es lo que impedía
+ * que las señales de los hijos cayeran 6px a la izquierda de las demás: eso lo
+ * rompía un relleno a los DOS lados. Aquí solo se mete el lado izquierdo; el
+ * derecho sigue llegando al filo, así que los puntos de novedad siguen cayendo en
+ * la misma vertical que el chevron de su madre (medido: 225 en las dos).
+ */
+export const FILA_SUBLISTA = 'ml-[23px] space-y-0.5 border-l border-[var(--color-lateral-filo)] pb-1 pl-3 pt-1'
+
+/**
+ * EL RELLENO DE UNA ZONA DEL LATERAL, animado.
+ *
+ * 16 con el raíl ancho y 9 con el estrecho, y esos dos números no son de gusto:
+ * son los que dejan el icono de una fila centrado en cada ancho. Con 9, el glifo
+ * cae en 9 + 14 + 9 = 32, la mitad exacta de 64. Eran 8 mientras el icono medía
+ * 20; al bajar a 18 la cuenta se movió medio píxel y hubo que devolverlo. **Un
+ * número derivado se recalcula cuando cambia aquello de lo que deriva**, y por eso
+ * la cuenta está escrita aquí y no solo el resultado.
+ *
+ * Se ANIMA (`transition-[padding]`) porque es lo único que mueve al icono de
+ * sitio: sin transición, esos 8px serían el salto lateral que esta versión vino a
+ * quitar. Es layout, sí, pero solo del raíl y de una docena de filas; lo caro
+ * (el contenido de la aplicación) ya se reajusta por el ancho del `<aside>`.
+ */
+export const ZONA_LATERAL =
+  'px-4 group-data-[contraido]/lateral:px-[9px] transition-[padding] duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none'
+
+/**
+ * EL RELLENO DE LA FILA DE MARCA, animado por el mismo motivo.
+ *
+ * ASIMÉTRICO A PROPÓSITO: 30 a la izquierda y 16 a la derecha. No es descuido, es
+ * que cada lado tiene un vecino distinto y por eso se alinea con cosas distintas.
+ *
+ * A LA IZQUIERDA MANDA EL GLIFO. 30 es lo que deja el monograma en la MISMA
+ * vertical que los iconos del menú, y de paso el wordmark en la de sus etiquetas
+ * (30 + 28 + 6 = 64, medido). Se probó bajarlo a 16 para que la caja de la marca
+ * empezara donde empiezan las píldoras, y **Mario lo revirtió**: lo que se ve al
+ * bajar la vista por el lateral es la COLUMNA DE GLIFOS, y romperla para cuadrar
+ * un borde que solo se dibuja al pasar el ratón sale perdiendo. El logo mide 28 y
+ * un icono 20, así que las dos alineaciones son incompatibles y hay que elegir;
+ * aquí gana la que se ve siempre.
+ *
+ * A LA DERECHA MANDA LA CAJA. 16 (Mario, ago 2026: "esto llévalo más a la
+ * derecha"): el botón de contraer cierra en 240, que es donde acaban los fondos
+ * de las filas, así que al pasar por encima su relleno cae en la misma vertical
+ * que el de cualquier destino. Y ahí no hay ninguna columna de glifos que
+ * respetar: lo que tiene debajo son chevrones y chapas, que viven en el filo del
+ * CONTENIDO (226) y no son una columna que se barra con la vista.
+ *
+ * La regla, en una frase: **se alinea con el vecino que de verdad se ve.** A la
+ * izquierda eso es una columna de iconos; a la derecha, el borde de las píldoras.
+ *
+ * Con el raíl estrecho, los dos lados a 18: es lo que deja el monograma centrado
+ * en 64 (18 + 28/2 = 32) y, a la derecha, lo único que garantiza que el botón
+ * quede FUERA del recorte (con 8 se asomarían 4px). Entre un ancho y otro el logo
+ * se desliza en vez de saltar.
+ *
+ * El relleno derecho del raíl estrecho NO baja con él, y no es un descuido: ahí
+ * es lo único que garantiza que el botón quede FUERA del recorte. Con 8 se
+ * asomarían 4px del botón en un raíl de 64 (medido: empieza en 52 y se recortaría
+ * en 56). Por eso el estado contraído sigue declarando los dos lados a la vez.
+ */
+export const ZONA_MARCA =
+  'pl-7.5 pr-4 group-data-[contraido]/lateral:px-[18px] transition-[padding] duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none'
+
+/** Una etiqueta CENTRADA que se apaga con el raíl (el rótulo del CTA del pie).
+ *  Misma idea que `FILA_ETIQUETA` sin el `flex-1`, porque aquí no compite con
+ *  nada: va superpuesta a su gemela estrecha. */
+export const FILA_ETIQUETA_CENTRADA = `truncate ${DESVANECE}`
+
+/** Lo contrario: lo que SOLO se ve con el raíl estrecho (el "+" del CTA). Se
+ *  enciende justo cuando el rótulo se apaga, así que el botón nunca se queda sin
+ *  contenido ni cambia de caja. */
+export const FILA_SOLO_ESTRECHO =
+  'opacity-0 transition-opacity duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none group-data-[contraido]/lateral:opacity-100'
+
+/**
+ * EL CTA DEL PIE, CONTRAÍDO: un círculo del tamaño de la cara (Mario, ago 2026:
+ * "el de + colapsado tiene que ser un círculo del tamaño de la foto de perfil").
+ *
+ * 30px y redondo del todo. Los dos glifos del pie pasan a ser dos discos del mismo
+ * calibre, y el raíl estrecho se lee como una columna en vez de como un botón
+ * ancho con una cara suelta debajo. Es además la única forma que le queda: un
+ * rectángulo de 46x36 en un raíl de 64 no es un botón de bloque, es un botón de
+ * bloque recortado.
+ *
+ * `mx-auto` lo centra sin necesitar una variante: con `w-full` no hay hueco que
+ * repartir, así que ancho no hace nada, y contraído deja el círculo en 17..47,
+ * centro **32**, la mitad exacta de 64. El mismo truco (un solo valor que acierta
+ * los dos anchos) que centra la cara.
+ *
+ * La transición de la forma la pone `cta-lateral` en `index.css`, que es donde
+ * puede declarar sus dos velocidades.
+ */
+export const CTA_LATERAL_CONTRAIDO =
+  'mx-auto group-data-[contraido]/lateral:lg:h-[30px] group-data-[contraido]/lateral:w-[30px] group-data-[contraido]/lateral:rounded-full'

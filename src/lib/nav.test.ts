@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { navGroups, type NavContext } from './nav'
+import { cifraCorta, navGroups, TOPE_CIFRA, type NavContext } from './nav'
 
 /**
  * EL GUARDIÁN DEL MENÚ.
@@ -112,6 +112,29 @@ describe('el menú se declara, no se improvisa', () => {
       for (const it of g.items) {
         expect(it.label, `La etiqueta "${it.label}" lleva guion largo.`).not.toContain('—')
       }
+    }
+  })
+})
+
+describe('la cifra que se ve nunca miente', () => {
+  it('por debajo del tope dice la cuenta exacta', () => {
+    for (let n = 0; n < TOPE_CIFRA; n++) expect(cifraCorta(n)).toBe(String(n))
+  })
+
+  it('a partir del tope dice "15+", el 15 incluido', () => {
+    // "15+" se lee "15 o MÁS", así que incluir el 15 exacto no miente. Es la
+    // frontera fácil de dejarse en un `>` y por eso se comprueba justo ahí.
+    expect(cifraCorta(TOPE_CIFRA)).toBe(`${TOPE_CIFRA}+`)
+    expect(cifraCorta(TOPE_CIFRA + 1)).toBe(`${TOPE_CIFRA}+`)
+    expect(cifraCorta(999)).toBe(`${TOPE_CIFRA}+`)
+  })
+
+  it('nunca enseña un número mayor del que hay', () => {
+    // El tope RECORTA, no redondea: lo que se ve tiene que ser siempre <= la
+    // cuenta real, o el menú prometería más trabajo del que hay.
+    for (const n of [0, 1, 9, 14, 15, 16, 84, 274]) {
+      const visto = cifraCorta(n)
+      expect(Number.parseInt(visto, 10)).toBeLessThanOrEqual(n)
     }
   })
 })

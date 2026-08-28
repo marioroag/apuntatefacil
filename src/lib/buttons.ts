@@ -214,11 +214,15 @@ export const BTN_ICONO_FRANJA = [CAJA, BTN_MOTION, BTN_SUPERFICIE.secondary, 'si
  * Estaba recreado a mano en seis sitios (Login ×3, Invitación ×2, ResetPassword),
  * cada uno con su propia opacidad de `disabled`. Ahora se declara una vez.
  */
-export function botonBloque(variant: BtnVariant = 'primary', extra = '') {
+export function botonBloque(variant: BtnVariant = 'primary', extra = '', motion = BTN_MOTION) {
   return [
     'flex w-full items-center justify-center gap-2 rounded-xl whitespace-nowrap select-none',
     'h-11 text-sm font-semibold',
-    BTN_MOTION,
+    // El movimiento es un parámetro porque el CTA del lateral cambia de FORMA al
+    // contraerse y necesita dos velocidades en la misma transición (ver
+    // `cta-lateral` en index.css). No se le SUMA a `BTN_MOTION`: las dos declaran
+    // `transition-property` y ganaría la que se emita después en el CSS.
+    motion,
     BTN_SUPERFICIE[variant],
     'disabled:pointer-events-none disabled:opacity-60',
     extra,
@@ -244,7 +248,7 @@ export const BTN_SECONDARY_BLOCK = botonBloque('secondary')
  * `className` del lateral, que es exactamente como el botón de esta app llegó a
  * tener nueve clones.
  */
-export const BTN_PRIMARY_LATERAL = botonBloque('primary', 'lg:h-9')
+export const BTN_PRIMARY_LATERAL = botonBloque('primary', 'lg:h-9', 'cta-lateral')
 
 // -----------------------------------------------------------------------------
 // LOS DOS BOTONES DE LA PANTALLA DE ACCESO (diseño de Mario en Figma, ago 2026).

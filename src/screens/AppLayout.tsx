@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { seedDemoData } from '../lib/seedDemo'
 import { Sidebar } from '../components/Sidebar'
+import type { EstadoRail } from '../components/Sidebar'
 import { GlobalSearch } from '../components/GlobalSearch'
 import { Logo } from '../components/Logo'
 import { ProfileDialog } from '../components/ProfileDialog'
@@ -18,6 +19,7 @@ import { OnboardingGuide, OnboardingCreatePuesto } from '../components/Onboardin
 import { useOnboarding } from '../lib/onboarding'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
+import { useLateralContraido } from '../lib/lateral'
 import { AccionesProvider, RegistrarAccion } from '../lib/acciones'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { IconoVacio } from '../components/ui/IconoVacio'
@@ -115,6 +117,37 @@ export function AppLayout() {
   const navigate = useNavigate()
   const demo = base === '/demo'
   const [open, setOpen] = useState(false)
+  const [lateralFijadoEstrecho, contraerLateral] = useLateralContraido()
+  // Asomarse: con el raíl estrecho, el ratón (o el foco de teclado) lo abre un
+  // momento. Ver el `<aside>` de abajo.
+  const [asomado, setAsomado] = useState(false)
+  const estadoRail: EstadoRail = !lateralFijadoEstrecho ? 'ancho' : asomado ? 'asomado' : 'estrecho'
+  const lateralContraido = estadoRail === 'estrecho'
+
+  /**
+   * PULSAR "CONTRAER" CONTRAE, aunque el ratón siga encima (Mario, ago 2026).
+   *
+   * Sin el `setAsomado(false)` no pasaba nada visible: para llegar al botón hay
+   * que estar encima del raíl, así que al soltar el clic el asomarse seguía
+   * activo y el menú se quedaba abierto. O sea que el gesto que MÁS claramente
+   * dice lo que quieres perdía contra una heurística que solo lo adivina. La
+   * regla: **una intención declarada gana siempre a una inferida.**
+   *
+   * No hace falta nada más para que no vuelva a abrirse solo: `mouseenter` no se
+   * repite mientras el puntero no salga, así que el raíl no se asoma otra vez
+   * hasta que de verdad salgas y vuelvas a entrar.
+   *
+   * Y al contraer se SUELTA EL FOCO: el botón se queda recortado fuera del raíl
+   * (por eso pasa a `aria-hidden` y fuera del tabulador), y el foco no puede
+   * vivir en un control invisible que el lector de pantalla ya no anuncia.
+   */
+  const alternarLateral = () => {
+    setAsomado(false)
+    if (!lateralFijadoEstrecho && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    contraerLateral()
+  }
   const [wizardOpen, setWizardOpen] = useState(false)
   const [supportOpen, setSupportOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -188,7 +221,11 @@ export function AppLayout() {
   // El lateral es la MISMA pieza en escritorio y en el cajón móvil: una sola
   // navegación, dos sitios donde ponerla. `onNavigate` es lo único que cambia de
   // sentido (en escritorio no hay cajón que cerrar, y cerrarlo es un no-op).
-  const lateral = (
+  //
+  // Es una FUNCIÓN y ya no un elemento suelto porque las dos superficies difieren
+  // en una cosa más: el raíl estrecho existe en escritorio y NUNCA en el cajón,
+  // donde el menú ocupa la pantalla entera y contraerlo no ahorraría nada.
+  const lateral = (rail: EstadoRail, cajon = false) => (
     <Sidebar
       onNavigate={() => setOpen(false)}
       onNewCampaign={() => { setWizardOpen(true); setOpen(false) }}
@@ -198,6 +235,9 @@ export function AppLayout() {
       onOpenOnboarding={abrirGuia}
       onboardingPaso={pasoGuia}
       onReiniciarDemo={() => setConfirmReset(true)}
+      rail={rail}
+      cajon={cajon}
+      onAlternarContraido={alternarLateral}
     />
   )
 
@@ -247,8 +287,51 @@ export function AppLayout() {
             sigue en el `title` y el lector de pantalla lo lee completo: `truncate`
             es solo CSS.) El filo lo pinta el LATERAL y no el contenido, para que
             el borde sea siempre el mismo aunque debajo cambie la pantalla. */}
-        <aside className="hidden w-64 shrink-0 border-r border-[var(--color-lateral-filo)] lg:block">
-          {lateral}
+        {/* EL RAÍL SE CONTRAE A 64px, Y SE ASOMA AL PASAR POR ENCIMA (Mario, ago
+            2026: "el botón de colapsar no debería estar cuando está colapsado;
+            para descolapsar se pasa por encima, y si quieres que se quede así le
+            das otra vez al botón").
+
+            SON DOS ELEMENTOS Y NO UNO, que es lo que hace que esto no dé tirones y
+            es el mecanismo que usa shadcn: el `<aside>` es solo un HUECO en el
+            flujo (empuja el trabajo) y el raíl de verdad va `absolute` encima. Así:
+
+             - ASOMARSE no reajusta nada. El hueco solo cambia cuando de verdad
+               contraes o despliegas; pasar el ratón únicamente ensancha una capa
+               que flota sobre el contenido. Sin esto, cada vez que el ratón rozara
+               el menú se recalcularían las 593 filas de la tabla de al lado.
+             - Y cuando SÍ se contrae, lo que se anima es un ancho, no un montón de
+               cajas: el interior del raíl no cambia de anatomía (ver `filaLateral.ts`).
+
+            Asomado lleva `shadow-pop` porque entonces es lo que de verdad es, una
+            capa sobre el trabajo; apoyado en su hueco le basta su filo, como a
+            cualquier superficie de esta app.
+
+            El foco cuenta como asomarse (`onFocus`, que es `focusin` y llega desde
+            cualquier fila): con teclado no hay ratón que pasar por encima, y sin
+            esto el menú estrecho sería un callejón sin salida para quien tabula.
+
+            256px (`w-64`). El mockup traía 264; se bajó a 256 para darle esos
+            píxeles al trabajo, y se probó a seguir hasta 240: ahí se parte, porque
+            "Mozo/a de almacén" y "Preparador/a de pedidos" se cortan a media
+            palabra. 256 es el suelo. Y 64 = 8 de relleno + 48 de fila, que es lo
+            que deja el icono de 20 centrado en el raíl. */}
+        <aside
+          className={`relative hidden shrink-0 transition-[width] duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none lg:block ${
+            lateralFijadoEstrecho ? 'w-16' : 'w-64'
+          }`}
+          onMouseEnter={() => setAsomado(true)}
+          onMouseLeave={() => setAsomado(false)}
+          onFocus={() => setAsomado(true)}
+          onBlur={() => setAsomado(false)}
+        >
+          <div
+            className={`absolute inset-y-0 left-0 z-30 border-r border-[var(--color-lateral-filo)] transition-[width] duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none ${
+              lateralContraido ? 'w-16' : 'w-64'
+            } ${lateralFijadoEstrecho && asomado ? 'shadow-pop' : ''}`}
+          >
+            {lateral(estadoRail)}
+          </div>
         </aside>
 
         {/* En móvil el mismo menú OCUPA LA PANTALLA ENTERA (Mario, ago 2026), no
@@ -280,7 +363,7 @@ export function AppLayout() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
             >
-              {lateral}
+              {lateral('ancho', true)}
             </motion.div>
           )}
         </AnimatePresence>

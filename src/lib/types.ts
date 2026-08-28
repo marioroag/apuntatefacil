@@ -620,15 +620,19 @@ export const TEAM_REQUEST_STATUS_META: Record<
  */
 export const SOURCE_META: Record<
   CandidateSource,
-  { label: string; punto: string; trazo: string; area: string }
+  { label: string; punto: string; trazo: string; area: string; relleno: string }
 > = {
-  milanuncios: { label: 'Milanuncios', punto: 'bg-violet-500', trazo: 'stroke-violet-500', area: 'fill-violet-500/12' },
-  enlace: { label: 'Enlace', punto: 'bg-sky-500', trazo: 'stroke-sky-500', area: 'fill-sky-500/12' },
-  qr: { label: 'QR', punto: 'bg-teal-500', trazo: 'stroke-teal-500', area: 'fill-teal-500/12' },
+  // `relleno` es el tono SÓLIDO, para los puntos que marca el lector de datos de
+  // la gráfica sobre cada serie. No se puede sacar de `trazo` (`stroke-*` no pinta
+  // el `fill`) ni de `area`, que va al 12% a propósito. Se declara aquí, con los
+  // otros tres, para que un origen nuevo no pueda estrenarse a medias.
+  milanuncios: { label: 'Milanuncios', punto: 'bg-violet-500', trazo: 'stroke-violet-500', area: 'fill-violet-500/12', relleno: 'fill-violet-500' },
+  enlace: { label: 'Enlace', punto: 'bg-sky-500', trazo: 'stroke-sky-500', area: 'fill-sky-500/12', relleno: 'fill-sky-500' },
+  qr: { label: 'QR', punto: 'bg-teal-500', trazo: 'stroke-teal-500', area: 'fill-teal-500/12', relleno: 'fill-teal-500' },
   // La candidatura que el dueño se envía a sí mismo al probar su enlace durante
   // el onboarding. Chip neutro en la lista; puede borrarse para liberar cupo. En
   // la gráfica va en gris a propósito: no es un canal, es una prueba.
-  prueba: { label: 'Prueba', punto: 'bg-slate-400', trazo: 'stroke-slate-400', area: 'fill-slate-400/12' },
+  prueba: { label: 'Prueba', punto: 'bg-slate-400', trazo: 'stroke-slate-400', area: 'fill-slate-400/12', relleno: 'fill-slate-400' },
 }
 
 export const FIELD_TYPE_META: Record<

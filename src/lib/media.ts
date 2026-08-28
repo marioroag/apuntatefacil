@@ -58,3 +58,13 @@ export const useHayDosColumnas = () => useMediaQuery('(min-width: 1024px)')
  * en CSS con `pointer-coarse` para los objetivos de toque.
  */
 export const useEsTactil = () => useMediaQuery('(pointer: coarse)')
+
+/**
+ * "Prefiero menos movimiento." Se pregunta en JS y no solo con `motion-reduce:`
+ * cuando lo que hay que evitar no es la transición sino el ESTADO DE PARTIDA: una
+ * animación que arranca desde cero (la gráfica creciendo desde su eje) sin
+ * transición pinta un fotograma vacío antes de aparecer, y eso es un parpadeo, no
+ * una animación más corta. Para lo demás siguen mandando las variantes de CSS,
+ * que no cuestan render.
+ */
+export const useMenosMovimiento = () => useMediaQuery('(prefers-reduced-motion: reduce)')

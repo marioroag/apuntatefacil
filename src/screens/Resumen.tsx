@@ -10,6 +10,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { SOURCE_META } from '../lib/types'
 import type { Campaign, Candidate, CandidateSource } from '../lib/types'
 import { IconoVacio } from '../components/ui/IconoVacio'
+import { useMenosMovimiento } from '../lib/media'
 
 const STALE_DAYS = 7
 
@@ -462,6 +463,57 @@ function Lienzo({ datos, rango }: { datos: Datos; rango: Rango }) {
   // lee es la POSICIÓN del lienzo (dónde empieza), y eso no depende de su alto,
   // que es lo único que esto cambia.
   const [alto, setAlto] = useState(260)
+  // Qué cubo está señalando el puntero. `null` = nadie, y entonces no hay lectura
+  // ni guía: la gráfica en reposo se lee por su forma, no por un dato suelto.
+  const [señalado, setSeñalado] = useState<number | null>(null)
+
+  /**
+   * LA FORMA CRECE DESDE SU EJE AL CAMBIAR DE PUESTO O DE INTERVALO (Mario, ago
+   * 2026). Un `scaleY` sobre el grupo entero de series, de 0 a 1, con los tokens
+   * de siempre.
+   *
+   * ES CSS Y NO UN BUCLE DE `requestAnimationFrame`, y esa es la decisión: con
+   * rAF habría que recalcular los `path` treinta veces por segundo y volver a
+   * renderizar la pantalla en cada fotograma; con `transform` lo pinta el
+   * compositor y no cuesta un solo reflow. Es además lo ÚNICO que esta casa anima.
+   *
+   * CRECE, NO SE TRANSFORMA DE UNA CURVA A LA OTRA, y no es por comodidad: al
+   * cambiar de puesto cambia también el TECHO del eje, así que interpolar punto a
+   * punto dibujaría la curva vieja sobre la escala nueva y, con un techo que
+   * encoge, se saldría por arriba. Y animar el eje con ella dejaría unas líneas
+   * de rejilla moviéndose con etiquetas que ya dicen otra cosa: una rejilla que
+   * miente es peor que un cambio brusco. Creciendo desde el eje, la escala ya es
+   * la definitiva desde el primer fotograma y nada se sale ni miente.
+   *
+   * `--ease-standard` y no `--ease-out`: esto no reacciona a un dedo sobre sí
+   * mismo, TRANSFORMA la gráfica de un estado a otro, que es el reparto que la
+   * doctrina de acabado hace entre las dos curvas.
+   */
+  const menosMovimiento = useMenosMovimiento()
+  const [crecido, setCrecido] = useState(true)
+  useLayoutEffect(() => {
+    if (menosMovimiento) return setCrecido(true)
+    setCrecido(false)
+    // DOS `requestAnimationFrame` ANIDADOS, y el segundo no es de adorno. Con uno
+    // solo esto NO se veía: el efecto de layout corre dentro de la misma tarea del
+    // clic, así que el rAF que registra entra en la fase de callbacks del
+    // siguiente fotograma, que va ANTES de pintar. El 1 llegaba al DOM sin que el
+    // 0 se hubiera pintado nunca, y una transición entre dos valores que el
+    // navegador no ha pintado por separado sencillamente no existe: el cambio se
+    // veía instantáneo. Con el segundo rAF, el 0 se pinta en un fotograma y el 1
+    // empieza en el siguiente, que es lo que le da a la transición de dónde salir.
+    //
+    // Es exactamente lo que ya costó dos rAF en el salto al fondo del hilo de
+    // notas, y el síntoma es el mismo: "no pasa nada" en vez de un error.
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setCrecido(true))
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [datos, menosMovimiento])
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
@@ -505,8 +557,35 @@ function Lienzo({ datos, rango }: { datos: Datos; rango: Rango }) {
     .map((s) => `${SOURCE_META[s.origen].label} ${s.total}`)
     .join(', ')
 
+  // A QUÉ CUBO APUNTA EL PUNTERO. Se redondea al MÁS CERCANO en vez de exigir
+  // acertarle: los cubos de "12 meses" caen cada 60px, pero los de 30 días caen
+  // cada 22, y ahí pedir puntería convierte una lectura en un juego de destreza.
+  //
+  // El lienzo mide sus coordenadas en píxeles de verdad (el `viewBox` se fija al
+  // ancho medido), así que la `x` del ratón dentro de la caja ES la `x` del SVG,
+  // sin conversión ninguna. Si algún día se le pone `preserveAspectRatio`, esto
+  // deja de valer.
+  const apuntar = (e: React.PointerEvent<HTMLDivElement>) => {
+    const caja = e.currentTarget.getBoundingClientRect()
+    const px = e.clientX - caja.left
+    const util = w - padL - padR
+    const j = n === 1 ? 0 : Math.round(((px - padL) / util) * (n - 1))
+    setSeñalado(Math.max(0, Math.min(n - 1, j)))
+  }
+
   return (
-    <div ref={ref} className="mt-4">
+    <div
+      ref={ref}
+      className="relative mt-4"
+      // `pointermove` y no `mousemove`: el mismo manejador sirve para el ratón y
+      // para un dedo que se arrastra por la gráfica, que es como se lee esto en
+      // una tablet. Y al levantar el dedo se retira, como al salir el ratón:
+      // dejarla clavada sería un dato viejo esperando a que alguien lo crea.
+      onPointerMove={apuntar}
+      onPointerDown={apuntar}
+      onPointerLeave={() => setSeñalado(null)}
+      onPointerUp={(e) => e.pointerType !== 'mouse' && setSeñalado(null)}
+    >
       <svg
         viewBox={`0 0 ${w} ${H}`}
         height={H}
@@ -526,24 +605,55 @@ function Lienzo({ datos, rango }: { datos: Datos; rango: Rango }) {
         ))}
         <line x1={padL} y1={baseY} x2={w - padR} y2={baseY} className="stroke-slate-200" />
 
-        {datos.series.map((s) => {
-          const pts = s.valores.map((v, i) => `${x(i).toFixed(1)} ${y(v).toFixed(1)}`)
-          const linea = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p}`).join(' ')
-          const area = `${linea} L${x(n - 1).toFixed(1)} ${baseY} L${x(0).toFixed(1)} ${baseY} Z`
-          return (
-            <g key={s.origen}>
-              <path d={area} className={SOURCE_META[s.origen].area} />
-              <path
-                d={linea}
-                fill="none"
-                strokeWidth="2"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                className={SOURCE_META[s.origen].trazo}
-              />
-            </g>
-          )
-        })}
+        {/* El origen del `scaleY` es la LÍNEA BASE, no el centro: la gráfica
+            crece desde su eje, que es de donde salen los datos. Y los trazos
+            llevan `non-scaling-stroke` porque un `scaleY` es una escala NO
+            uniforme: sin eso, la línea de 2px se aplastaría a 0,4 mientras crece y
+            se vería adelgazar, que es justo el efecto de goma que esta doctrina no
+            quiere. */}
+        <g
+          style={{ transform: `scaleY(${crecido ? 1 : 0})`, transformOrigin: `0px ${baseY}px` }}
+          // LA TRANSICIÓN SOLO EXISTE AL CRECER, y esto se cazó con los eventos de
+          // transición en la mano: con la clase puesta siempre, poner el 0 también
+          // se animaba (`transitionrun` -> `transitionstart` -> `transitioncancel`
+          // en 6ms), o sea que el grupo se ponía a bajar despacio, y el 1 llegaba
+          // cuando apenas había bajado al 0,95. La segunda transición iba entonces
+          // de 0,95 a 1 y terminaba en el mismo milisegundo: el cambio se veía
+          // instantáneo aunque el DOM sí pasara por el 0.
+          //
+          // Sin transición, el 0 se aplica de golpe (que es lo que queremos: es un
+          // punto de partida, no un movimiento) y el 1 la trae consigo. Cambiar
+          // `transition-property` en el mismo commit que el valor funciona porque
+          // el navegador crea la transición leyendo el estado DESPUÉS del cambio.
+          //
+          // La regla que queda: **un reset no se anima. Si el estado de partida de
+          // una animación tiene transición, nunca se llega a ver.**
+          className={
+            crecido
+              ? 'transition-transform duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none'
+              : 'transition-none'
+          }
+        >
+          {datos.series.map((s) => {
+            const pts = s.valores.map((v, i) => `${x(i).toFixed(1)} ${y(v).toFixed(1)}`)
+            const linea = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p}`).join(' ')
+            const area = `${linea} L${x(n - 1).toFixed(1)} ${baseY} L${x(0).toFixed(1)} ${baseY} Z`
+            return (
+              <g key={s.origen}>
+                <path d={area} className={SOURCE_META[s.origen].area} />
+                <path
+                  d={linea}
+                  fill="none"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                  className={SOURCE_META[s.origen].trazo}
+                />
+              </g>
+            )
+          })}
+        </g>
 
         {idx.map((i, j) => (
           <text
@@ -556,7 +666,157 @@ function Lienzo({ datos, rango }: { datos: Datos; rango: Rango }) {
             {datos.cubos[i].label}
           </text>
         ))}
+
+        {/* LA GUÍA. Una vertical y un punto por serie: sin ella, la tarjeta diría
+            unas cifras sin decir DE DÓNDE salen, y en una gráfica de treinta cubos
+            eso obliga a estimar a ojo cuál estás mirando. El punto lleva un aro
+            blanco porque cae encima del trazo de su propia serie: sin él, un punto
+            del mismo color sobre su línea no se ve. */}
+        {/* LA GUÍA SE DESLIZA, NO SALTA (Mario, ago 2026: "quiero que el
+            movimiento sea smooth"), y por eso la posición va en `transform` y no
+            en `x1`/`cx`: son atributos de geometría, o sea LAYOUT, y esta casa
+            solo anima `transform` y `opacity`. Con la línea en `x1` cada cubo era
+            un salto; con `translateX` el ojo la sigue de uno a otro.
+
+            Los puntos llevan su transform ENTERO (las dos coordenadas) en vez de
+            translate en X y `cy` a pelo: si no, se deslizarían de lado mientras
+            pegan un brinco vertical, que es peor que saltar en los dos ejes a la
+            vez.
+
+            `--duration-control` con `--ease-out`, que es el par declarado para lo
+            que RESPONDE A TU DEDO: aquí la guía persigue al puntero, así que con
+            la curva de transformar (`--ease-standard`, que arranca despacio) se
+            quedaría por detrás de la mano. */}
+        {señalado !== null && (
+          <g aria-hidden>
+            <line
+              x1={0}
+              y1={padTop}
+              x2={0}
+              y2={baseY}
+              style={{ transform: `translateX(${x(señalado)}px)` }}
+              className="stroke-slate-300 transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none"
+            />
+            {datos.series.map((s) => (
+              <circle
+                key={s.origen}
+                cx={0}
+                cy={0}
+                r="4"
+                strokeWidth="2"
+                style={{ transform: `translate(${x(señalado)}px, ${y(s.valores[señalado])}px)` }}
+                className={`${SOURCE_META[s.origen].relleno} stroke-white transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none`}
+              />
+            ))}
+          </g>
+        )}
       </svg>
+
+      {señalado !== null && <Lectura datos={datos} rango={rango} i={señalado} x={x(señalado)} ancho={w} />}
+    </div>
+  )
+}
+
+/** Lo que mide la tarjeta de lectura. Fijo y no medido: así las cifras caen en
+ *  columna y la tarjeta no cambia de ancho al pasar de 9 a 10, que en un objeto
+ *  que sigue al puntero se lee como un temblor. */
+const LECTURA_ANCHO = 188
+
+/**
+ * LA LECTURA DE UN CUBO: qué día es, cuántas entraron y por dónde.
+ *
+ * Es un LECTOR DE DATOS, no un tooltip, y la diferencia no es de nombre: un
+ * tooltip explica un control que ya está en pantalla, y por eso vive en
+ * `ui/Tooltip` y lleva el rol de ARIA de ese nombre; esto ENSEÑA UN DATO que en
+ * la gráfica solo está dibujado. Por eso no lleva ese rol (un lector de pantalla
+ * no debe anunciarlo como la descripción de nada) y por eso puede llevar cifras.
+ *
+ * (Y por eso el rol no se escribe aquí ni entre comillas: el guardián de los
+ * flotantes busca esa cadena LITERAL en el código fuente para cazar globos hechos
+ * a mano, y no sabe distinguir un comentario de un atributo. Lo cazó a la primera
+ * al intentar commitear esto. **Una prosa que cita el literal que un guardián
+ * persigue lo hace saltar**, así que el literal se nombra y no se transcribe.)
+ *
+ * SE ACOTA CONTRA LA GRÁFICA Y NO CONTRA LA VENTANA, que es la excepción a la
+ * regla de los flotantes de esta casa y conviene decir por qué: aquella regla
+ * existe para lo que se ancla a un control y se corta en un filo. Esto no se
+ * ancla a un control, sigue un DATO, y su marco natural es el lienzo: acotado
+ * contra la ventana podría salirse de la gráfica y quedarse señalando un punto
+ * que ya no está debajo. Como el lienzo vive dentro de la columna de trabajo, el
+ * filo de la pantalla nunca entra en juego.
+ *
+ * `pointer-events-none`: la tarjeta se mueve por debajo del puntero todo el rato,
+ * y si atrapara el ratón se pelearía con la propia gráfica que la alimenta.
+ *
+ * SIN VARIACIÓN CONTRA EL CUBO ANTERIOR, que es lo que trae la referencia con su
+ * "+0,32 %". Aquí sería ruido: de un día a otro estas cifras oscilan por motivos
+ * que no dependen de nadie (un festivo, un fin de semana), así que un porcentaje
+ * en verde o en rojo invitaría a leer una tendencia donde solo hay varianza. La
+ * tendencia ya la dice la forma de la curva, que es para lo que está la gráfica.
+ */
+function Lectura({
+  datos,
+  rango,
+  i,
+  x,
+  ancho,
+}: {
+  datos: Datos
+  rango: Rango
+  i: number
+  x: number
+  ancho: number
+}) {
+  const total = datos.series.reduce((t, s) => t + s.valores[i], 0)
+  const cubo = datos.cubos[i]
+  // La semana se dice entera: su etiqueta es el LUNES, y "12 ago" a secas para
+  // siete días se lee como un solo día.
+  const cuando = rango.bucket === 'semana' ? `Semana del ${cubo.label}` : cubo.label
+  // Pegada al cubo y dentro del lienzo: nunca asoma por ningún lado.
+  const izq = Math.max(0, Math.min(x - LECTURA_ANCHO / 2, ancho - LECTURA_ANCHO))
+
+  return (
+    <div
+      // `status` y no `tooltip`: es una lectura que cambia, no la ayuda de un
+      // control. Y `aria-live` apagado a propósito: con el ratón cruzando treinta
+      // cubos, anunciarlos todos sería un chorro de voz inservible. Lo que un
+      // lector de pantalla necesita saber ya está en el `aria-label` del lienzo.
+      role="status"
+      aria-hidden
+      // `translateX` y no `left`, por lo mismo que la guía: `left` es layout y
+      // recalcula la caja en cada cubo; `transform` lo pinta el compositor y
+      // encima se puede animar sin que a nadie le cueste un reflow. La primera
+      // aparición NO se anima sola (una transición no arranca con el valor
+      // inicial), así que la tarjeta no entra volando desde el filo, que es el
+      // mismo tropiezo que ya tuvo la barra deslizante de las pestañas.
+      style={{ transform: `translateX(${izq}px)`, width: LECTURA_ANCHO }}
+      className="pointer-events-none absolute left-0 top-0 rounded-xl filo bg-white px-3 py-2.5 shadow-pop transition-transform duration-[var(--duration-control)] ease-[var(--ease-out)] motion-reduce:transition-none"
+    >
+      <p className="text-[11px] font-medium text-slate-500">{cuando}</p>
+      <p className="num mt-0.5 text-[19px] font-bold leading-none tracking-tight text-slate-900">
+        {total}
+        <span className="ml-1.5 text-[11px] font-medium tracking-normal text-slate-500">
+          {total === 1 ? 'candidatura' : 'candidaturas'}
+        </span>
+      </p>
+
+      {/* El filo separa el TOTAL de su desglose, que es la misma jerarquía que la
+          referencia: primero lo que preguntas, luego de dónde sale. */}
+      <div className="mt-2.5 space-y-1.5 border-t border-slate-100 pt-2.5">
+        {datos.series.map((s) => (
+          <div key={s.origen} className="flex items-center gap-2">
+            {/* El MISMO punto que la leyenda de arriba: si el desglose usara otra
+                forma para el mismo origen habría que aprenderse dos códigos. */}
+            <span className={`size-2 shrink-0 rounded-full ${SOURCE_META[s.origen].punto}`} />
+            <span className="min-w-0 flex-1 truncate text-[13px] text-slate-600">
+              {SOURCE_META[s.origen].label}
+            </span>
+            <span className="num shrink-0 text-[13px] font-semibold text-slate-900">
+              {s.valores[i]}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -639,8 +899,29 @@ function construir(candidates: Candidate[], rango: Rango): Datos {
     // La más grande primero: se pinta detrás y no tapa a las pequeñas.
     .sort((a, b) => b.total - a.total)
 
+  // EL TECHO SALE DEL MÁXIMO DEL INTERVALO, CON UN SUELO DE 5 (Mario, ago 2026).
+  //
+  // Lo primero ya se hacía: el eje se ajusta a lo que hay en el rango elegido, y
+  // por eso "12 meses" (sumas mensuales) y "30 días" no comparten escala. Lo que
+  // faltaba es el SUELO, y lo que arregla es una mentira de escala: sin él, un
+  // puesto con tres candidaturas en su mejor día dibujaba una montaña que tocaba
+  // el techo, porque la rejilla se apretaba hasta 3. La forma decía "aquí ha
+  // pasado mucho" y el número decía tres.
+  //
+  // 5, y se llegó bajando desde 20 y desde 10 con la gráfica delante (Mario). El
+  // suelo tiene UN solo trabajo, impedir que una gráfica casi vacía se vea llena,
+  // y cuanto más alto se pone más empieza a hacer otro que no le toca: aplanar
+  // puestos pequeños pero VIVOS, que a 20 se quedaban sin relieve. Con 5, un día
+  // de tres candidaturas ya no llena el lienzo y a partir de ahí manda el dato,
+  // que es lo que tiene que mandar. **Un suelo se pone en el mínimo que resuelve
+  // su caso, no en el que parece prudente.**
+  //
+  // El suelo se aplica ANTES de `escalaBonita`, no después: si no, la rejilla se
+  // calcularía con el máximo real y luego el techo se subiría por su cuenta,
+  // dejando la última línea a media altura.
+  const TECHO_MINIMO = 5
   const max = series.reduce((m, s) => Math.max(m, ...s.valores), 0)
-  const { techo, lineas } = escalaBonita(max)
+  const { techo, lineas } = escalaBonita(Math.max(max, TECHO_MINIMO))
 
   return {
     cubos: inicios.map((t) => ({ inicio: t, label: etiquetaCubo(t, rango.bucket) })),

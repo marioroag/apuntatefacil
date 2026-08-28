@@ -9,6 +9,7 @@ import { procesosAbiertos } from '../lib/pricing'
 import { initials } from '../lib/format'
 import { FACTURACION_ICON } from '../lib/nav'
 import { Avatar } from './ui/Avatar'
+import { FILA_ETIQUETA, FILA_SOLO_ANCHO } from './filaLateral'
 
 // -----------------------------------------------------------------------------
 // EL MENÚ DE CUENTA (antes `CompanyMenu`, en la barra superior).
@@ -178,20 +179,50 @@ export function CuentaMenu({
         // Misma altura que el botón de arriba (36 en escritorio, 44 en táctil) y
         // no 46: el pie tiene que pertenecer al mismo sistema que las filas de
         // 34 que tiene encima. Iba suelto, con su propia medida, y se notaba.
-        className={`flex h-11 w-full items-center gap-2.5 rounded-xl px-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)] lg:h-9 ${
+        // UNA SOLA ANATOMÍA en los dos anchos, como las filas del menú: lo que
+        // sobra se recorta (`overflow-hidden`) y se apaga, en vez de cambiar la
+        // caja en el fotograma 0 mientras el raíl se está animando.
+        //
+        // LA CARA SE ALINEA POR SU CENTRO, NO POR SU FILO IZQUIERDO, y de ahí sale
+        // el relleno de 8. Mide 30 y un icono del menú 18, así que cuadrarlas por
+        // la izquierda las descuadra por el centro; y lo que el ojo empareja en
+        // una columna de glifos redondos es el centro. Con 8: el raíl ancho deja
+        // la cara en 24..54, centro **39**, que es exactamente el centro de la
+        // columna de iconos (30..48); y el raíl estrecho la deja en 17..47, centro
+        // **32**, que es la mitad exacta de 64 (Mario, ago 2026: "la foto de perfil
+        // al estar colapsado tiene que estar centrada"). Un solo número acierta
+        // los dos anchos, así que no hace falta ninguna variante ni animar nada.
+        //
+        // De regalo, el nombre sigue arrancando en 64 (54 + los 10 del hueco), que
+        // es la columna de etiquetas de todo el lateral.
+        className={`flex h-11 w-full items-center gap-2.5 overflow-hidden rounded-xl px-2 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)] lg:h-9 ${
           open ? 'bg-[var(--color-lateral-activo)]' : 'hover:bg-[var(--color-lateral-hover)]'
         }`}
       >
-        <Avatar name={nombre} seed={email || uid} src={foto} size={26} />
-        {/* 14px, el mismo cuerpo que las etiquetas del menú: tu nombre es una
-            fila más del lateral, no un titular. */}
-        <span className="min-w-0 flex-1 truncate text-left text-sm font-medium text-slate-900">{nombre}</span>
+        {/* 30 y no 26 (Mario, ago 2026: "un poco más grande"). El mismo tamaño en
+            los dos anchos a propósito: cambiarlo al contraer sería justo el salto
+            de caja que esta versión del lateral se ha dedicado a quitar. Y es la
+            pieza más grande del pie porque es la única que identifica a alguien;
+            todo lo demás de esa columna son glifos de 18. */}
+        <Avatar name={nombre} seed={email || uid} src={foto} size={30} />
+        {/* Con el raíl estrecho se queda SOLO la cara: es el único glifo del
+            lateral que ya identifica por sí mismo a quien lo mira, así que no
+            necesita etiqueta. El nombre no se pierde, sigue entero en el
+            `aria-label` de arriba, que es lo que lee el lector de pantalla.
+            Se APAGA, no se desmonta, por lo mismo que en las filas del menú. */}
+        {/* 14px, el mismo cuerpo que las etiquetas del menú: tu nombre es una fila
+            más del lateral, no un titular. */}
+        <span className={`text-[15px] font-medium text-slate-900 ${FILA_ETIQUETA}`}>{nombre}</span>
         {/* El aviso de la guía viaja con la cuenta: es lo último que queda por
             hacer para terminar de montar la casa, y aquí está siempre a la vista
             sin ocupar una fila propia del menú. */}
-        {onboardingPaso !== null && <Anillo paso={onboardingPaso} />}
+        {onboardingPaso !== null && (
+          <span className={FILA_SOLO_ANCHO}>
+            <Anillo paso={onboardingPaso} />
+          </span>
+        )}
         <ChevronDown
-          className={`size-3.5 shrink-0 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`size-3.5 shrink-0 text-slate-600 transition-transform ${FILA_SOLO_ANCHO} ${open ? 'rotate-180' : ''}`}
           aria-hidden
         />
       </button>

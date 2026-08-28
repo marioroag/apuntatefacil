@@ -152,6 +152,31 @@ const contar = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno
  */
 export const contarNuevas = (n: number) => contar(n, 'candidatura nueva', 'candidaturas nuevas')
 
+/**
+ * LA CIFRA QUE SE VE, con tope (Mario, ago 2026: "a partir de 15 será 15+").
+ *
+ * A partir de 15 se escribe "15+" y no la cuenta exacta, y el tope no es de
+ * ancho: es de SIGNIFICADO. Por debajo, el número cambia lo que haces (84 y 158
+ * te dicen por qué puesto empezar); por encima, todos quieren decir lo mismo,
+ * "aquí hay mucho", y la precisión deja de comprar nada mientras la columna sigue
+ * pagando dígitos.
+ *
+ * "15+" se lee "15 o MÁS", así que incluir el 15 exacto no miente. Es distinto del
+ * "9+" que llevaba Avisos, que era `> 9` porque salía de una pastilla que tenía
+ * que caber; aquel tope se retiró al irse la chapa y este entra por otro motivo.
+ *
+ * El número EXACTO no se pierde, cambia de canal: los `novedadesLabel` de arriba
+ * lo siguen diciendo entero en el `sr-only`. Quien no ve la pantalla se lleva más
+ * precisión que quien la ve, que es lo que esta doctrina hace siempre.
+ *
+ * Vive aquí, con las otras dos funciones de contar del menú, porque lo usan DOS
+ * ficheros que no se hablan (el lateral y `Avisos.tsx`): escrito en los dos, el
+ * día que el tope cambie uno se queda con el viejo.
+ */
+export const TOPE_CIFRA = 15
+
+export const cifraCorta = (n: number) => (n >= TOPE_CIFRA ? `${TOPE_CIFRA}+` : String(n))
+
 /** "6 puestos". Misma pieza, otro sustantivo. */
 export const contarPuestos = (n: number) => contar(n, 'puesto', 'puestos')
 
