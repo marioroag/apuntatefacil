@@ -141,6 +141,7 @@ export function CandidateModal({
   maskPhone = false,
   siblings,
   onNavigate,
+  focoInicial,
 }: {
   campaign: Campaign
   candidate: Candidate | null
@@ -155,6 +156,9 @@ export function CandidateModal({
    */
   siblings?: Candidate[]
   onNavigate?: (id: string) => void
+  /** A qué se viene: el `id` del control donde empieza el foco (ver `ui/Modal`).
+   *  Lo usa el tablero para abrir la ficha con el cursor ya en la nota. */
+  focoInicial?: string
 }) {
   const { setFavorito, setStatus, deleteCandidate, loadCandidateComments, addCandidateComment, loadCandidateEvents, members, chatVersion } =
     useStore()
@@ -301,7 +305,7 @@ export function CandidateModal({
 
   return (
     <>
-      <Modal open={open} onClose={onClose} labelledBy="candidato-nombre" inert={confirmarBorrado}>
+      <Modal open={open} onClose={onClose} labelledBy="candidato-nombre" inert={confirmarBorrado} focoInicial={focoInicial}>
         {/* En escritorio la cabecera respira más que en móvil: la identidad es lo
             primero que se lee de una persona y pegada al filo se leía como una
             barra de herramientas. */}

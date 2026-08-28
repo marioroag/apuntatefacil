@@ -14,6 +14,7 @@ function candidate(response: CandidateInterestResponse | null, withCheck = true)
     answers: { email: 'candidato@ejemplo.com' },
     status: 'nuevo',
     submittedAt: '2026-07-21T10:00:00.000Z',
+    statusChangedAt: '2026-08-01T10:00:00.000Z',
     source: 'enlace',
     favorito: false,
     notes: '',

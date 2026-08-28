@@ -152,6 +152,12 @@
      tiene que ser una línea. Ya lo ha sido dos veces. */
   --color-novedad: #131822;
 
+  /* La superficie que recoge una columna del tablero del puesto (Mario, ago
+     2026). Va entre el fondo de trabajo (#f9fafb) y el blanco de las tarjetas:
+     tres peldaños que casi se tocan, porque lo que hace que las tarjetas se
+     lean recogidas es el canto de la columna, no el contraste. */
+  --color-kanban-columna: #fdfdfd;
+
   /* --- LA SUPERFICIE DE ACCESO (login / alta, diseño de Mario, ago 2026) -------
      Cuatro tokens con nombre, igual que los del lateral y por el mismo motivo: son
      los colores de UNA superficie concreta, y escritos a mano en el `className` de

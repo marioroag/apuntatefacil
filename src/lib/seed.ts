@@ -76,6 +76,25 @@ function dateAgo(maxDaysAgo: number) {
   return new Date(ms).toISOString()
 }
 
+/**
+ * Cuándo entró el candidato en su estado ACTUAL, para el "3 días en esta etapa"
+ * del tablero. Quien sigue en `nuevo` no ha cambiado nunca: su fecha es la de
+ * llegar. Los demás cambiaron en algún punto ENTRE llegar y hoy; se reparte con
+ * el `rnd()` sembrado, sesgado hacia atrás (0.15-0.85 del recorrido) para que en
+ * una demo convivan tarjetas recientes y tarjetas que llevan días esperando.
+ */
+function statusChangedAtFor(status: CandidateStatus, submittedAt: string): string {
+  if (status === 'nuevo') return submittedAt
+  const t0 = new Date(submittedAt).getTime()
+  // El recorrido entre llegar y ahora, sesgado hacia atrás (0.15-0.85) para que
+  // convivan tarjetas recientes y tarjetas que llevan días esperando. El
+  // `Math.max` no es defensa teórica: una candidatura de hoy mismo puede tener
+  // el reloj del seed unos milisegundos por detrás, y una etapa que empieza
+  // ANTES de la llegada es justo el dato imposible que esto vino a arreglar.
+  const recorrido = Math.max(0, DEMO_SEED_NOW_MS - t0)
+  return new Date(t0 + recorrido * (0.15 + rnd() * 0.7)).toISOString()
+}
+
 // Fecha de incorporación: próximas semanas desde el reloj del seed.
 function dateSoon() {
   const start = DEMO_SEED_NOW_MS
@@ -783,6 +802,7 @@ for (const cmp of campaigns) {
       answers,
       status,
       submittedAt,
+      statusChangedAt: statusChangedAtFor(status, submittedAt),
       source: pick(SOURCES),
       favorito,
       // Aceptó al enviar. En la demo lo tienen TODOS y es lo correcto: la
@@ -833,6 +853,12 @@ const preparadores = seedOf('cmp_preparador')
 // Marca en la base a los candidatos que salen en el tablón (parece trabajo real).
 function markProposed(c: Candidate | undefined, status: CandidateStatus, tags: string[]) {
   if (!c) return
+  // CAMBIAR EL ESTADO ES REINICIAR EL RELOJ DE LA ETAPA, aquí igual que en la
+  // base (allí lo hace un trigger). Sin esto, un candidato que se creó como
+  // `entrevista` y aquí pasa a `nuevo` conservaba su fecha vieja, y la tarjeta
+  // decía "43 días en esta etapa" de alguien que llegó hace tres. Es el mismo
+  // dato contado desde dos sitios: quien mueve el estado mueve la fecha.
+  if (c.status !== status) c.statusChangedAt = statusChangedAtFor(status, c.submittedAt)
   c.status = status
   // Las etiquetas viejas se conservan, MENOS la que contradiga al estado nuevo:
   // salían candidatos con entrevista el lunes y un "No encaja ahora" al lado,
@@ -1702,6 +1728,8 @@ export function freshenDemoData<T extends DemoFreshable>(data: T, now = Date.now
   }
 
   for (const c of clone.campaigns) note(c.createdAt)
+  // `statusChangedAt` NO ancla el reloj: lo que fija el delta es la última
+  // ACTIVIDAD narrativa, y la etapa es siempre una consecuencia de ella.
   for (const c of clone.candidates) note(c.submittedAt)
   for (const r of clone.teamRequests) {
     note(r.createdAt)
@@ -1719,6 +1747,13 @@ export function freshenDemoData<T extends DemoFreshable>(data: T, now = Date.now
   for (const c of clone.campaigns) c.createdAt = shiftDemoTime(c.createdAt, delta)
   for (const c of clone.candidates) {
     c.submittedAt = shiftDemoTime(c.submittedAt, delta)
+    // El reloj de la etapa viaja con el de la llegada, o se queda anclado al
+    // "ahora" narrativo del seed mientras la llegada se muda a hoy: la etapa
+    // empezaría ANTES de que la persona existiera, y la tarjeta del tablero
+    // diría "43 días en esta etapa" de alguien que llegó hace tres (pasó, ago
+    // 2026). **Un campo de fecha nuevo en la demo se añade AQUÍ el mismo día
+    // que se añade al tipo, o envejece solo.**
+    c.statusChangedAt = shiftDemoTime(c.statusChangedAt, delta)
     // Fechas de respuesta (p. ej. disponibilidad): se mueven con el mismo delta,
     // pero no anclan el reloj (pueden ser futuras a propósito).
     for (const [k, v] of Object.entries(c.answers)) {

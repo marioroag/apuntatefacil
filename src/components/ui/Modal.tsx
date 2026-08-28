@@ -26,6 +26,7 @@ export function Modal({
   /** Ancho máximo en escritorio. El alto lo fija el contenido, con techo de 88vh. */
   maxWidthClass = 'sm:max-w-[1080px]',
   inert = false,
+  focoInicial,
 }: {
   open: boolean
   onClose: () => void
@@ -35,6 +36,20 @@ export function Modal({
   children: ReactNode
   maxWidthClass?: string
   inert?: boolean
+  /**
+   * El `id` del control donde tiene que empezar el foco, en vez del panel.
+   *
+   * Existe porque a un modal se puede llegar A HACER ALGO concreto (desde el
+   * tablero, "Añadir nota" abre la ficha para escribir), y sin esto el foco es
+   * una pelea que se pierde: medido, el campo se enfoca a los 477ms y el modal
+   * se lo lleva 100ms después, porque su foco de arranque va en un `setTimeout`.
+   * Se declara aquí, que es quien manda sobre el foco, en vez de que cada
+   * pantalla intente ganarle la carrera.
+   *
+   * Espera a que el control exista (llega con el contenido del modal) y, si no
+   * aparece, se queda con el panel: el comportamiento de siempre.
+   */
+  focoInicial?: string
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const reducedMotion = useReducedMotion()
@@ -99,12 +114,25 @@ export function Modal({
       }
     }
     document.addEventListener('keydown', onKey)
-    const t = window.setTimeout(() => panelRef.current?.focus(), 50)
+    let t = 0
+    let intentos = 0
+    const enfocar = () => {
+      const objetivo = focoInicial ? document.getElementById(focoInicial) : null
+      if (objetivo) return objetivo.focus()
+      // El control puede tardar en montar (el contenido del modal llega después).
+      // ~500ms de margen y, si no llega, el panel de siempre.
+      if (focoInicial && intentos++ < 12) {
+        t = window.setTimeout(enfocar, 40)
+        return
+      }
+      panelRef.current?.focus()
+    }
+    t = window.setTimeout(enfocar, 50)
     return () => {
       document.removeEventListener('keydown', onKey)
       window.clearTimeout(t)
     }
-  }, [open, inert])
+  }, [open, inert, focoInicial])
 
   // Entra en `enter` (180ms, "algo aparece") y sale en `control` (150ms): cerrar
   // es una respuesta a tu dedo y lo que se va no hay que anunciarlo. Las dos son

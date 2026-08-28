@@ -37,6 +37,9 @@ import {
   Search,
   SearchX,
   Settings2,
+  Rows3,
+  Columns3,
+  Timer,
   Share2,
   Sparkles,
   Star,
@@ -56,8 +59,10 @@ import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, HEAD_CELL_FLUSH
 import { createPortal } from 'react-dom'
 import { colocarFlotante, colocarLateral } from '../lib/flotante'
 import { useColumnasAjustables } from '../lib/columnas'
-import { useVistaTabla, type ColumnaVista } from '../lib/vistaTabla'
+import { useVistaTabla, type ColumnaVista, type VistaTabla } from '../lib/vistaTabla'
 import { AjustesVista, type OpcionOrden } from '../components/AjustesVista'
+import { KanbanPuesto } from '../components/KanbanPuesto'
+import { useModoPanel, type ModoPanel } from '../lib/modoPanel'
 import { DUR, EASE } from '../lib/motion'
 import { Avatar } from '../components/ui/Avatar'
 import { useProfiles } from '../lib/profiles'
@@ -71,7 +76,7 @@ import { exportCandidatesToExcel, exportCandidatesToCsv, exportCandidateDocs } f
 /** Los tres formatos de exportación (ver la página Exportar del `···`). */
 type FormatoExport = 'xlsx' | 'csv' | 'zip'
 import { RegistrarAccion } from '../lib/acciones'
-import { CAMPOS_YA_PINTADOS, relativeDate, fechaCorta, fullDateTime, miles, formatPhone, candidateName } from '../lib/format'
+import { answerStr, CAMPOS_YA_PINTADOS, relativeDate, fechaCorta, fullDateTime, miles, formatPhone, candidateName } from '../lib/format'
 import { clickDeFila } from '../lib/fila'
 // El anillo de ajuste se queda en el avatar (Mario, jul 2026) y desde ago 2026 lo
 // acompaña la columna "Encaje", que dice en palabras lo que el anillo dice en arco:
@@ -83,7 +88,7 @@ import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
 import { TIPOS_ORDENABLES } from '../lib/types'
 import type { Campaign, Candidate, CandidateInterestState, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
 import { PRECIO_PROCESO, PRUEBA_CANDIDATOS, PRUEBA_DIAS, TAGS_ENABLED } from '../lib/pricing'
-import { TagCell, BulkTagMenu, ManageTagsModal } from '../components/Tags'
+import { TagCell, BulkTagMenu, ManageTagsModal, campoEtiquetaId } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { OnboardingTestCard } from '../components/OnboardingGuide'
 import { ShareReply } from '../components/ShareReply'
@@ -101,14 +106,6 @@ import { InterestCheckDialog } from '../components/InterestCheckDialog'
 import { InterestOutcomeIcon } from '../components/InterestSignal'
 import { candidateInterestState, INTEREST_STATE_LABEL } from '../lib/interest'
 import { IconoVacio } from '../components/ui/IconoVacio'
-
-function answerStr(c: Candidate, fieldId: string): string {
-  const v = c.answers[fieldId]
-  if (v === undefined) return ''
-  if (typeof v === 'boolean') return v ? 'Sí' : 'No'
-  if (Array.isArray(v)) return v.join(', ')
-  return String(v)
-}
 
 /** El campo del formulario detrás de una clave `campo:<id>`, si lo es. */
 function campoDeClave(campaign: Campaign | undefined, key: string): FormField | undefined {
@@ -151,7 +148,7 @@ const SIN_FECHAS: string[] = []
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany, setStatusMany } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany, setStatusMany, setStatus, setFavorito, commentCounts } = useStore()
   const { company, role, user } = useAuth()
   const profiles = useProfiles()
   const toast = useToast()
@@ -168,6 +165,9 @@ export function Dashboard() {
   const canManageTags = !isEncargado
 
   const [loading, setLoading] = useState(true)
+  // Tabla o tablero. Solo en escritorio: en móvil cinco columnas de 232px son
+  // cinco pantallas, y la tabla ya resuelve el ancho desplazándose.
+  const [modo, setModo] = useModoPanel()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<Set<CandidateStatus>>(new Set())
   const [valueFilters, setValueFilters] = useState<{ fieldId: string; label: string; value: string }[]>([])
@@ -176,7 +176,11 @@ export function Dashboard() {
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set()) // ids de etiqueta; OR dentro del grupo
   const [interestFilter, setInterestFilter] = useState<Set<CandidateInterestState>>(new Set())
   const [manageTagsOpen, setManageTagsOpen] = useState(false)
-  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'fecha', dir: 'desc' })
+  // Arranca con el orden de fábrica del modo con el que se entra (la preferencia
+  // de tabla/tablero está guardada, así que se sabe ya en el primer render).
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>(() =>
+    modo === 'tablero' ? ORDEN_INICIAL_TABLERO : ORDEN_INICIAL,
+  )
   // El candidato abierto vive en la URL (?candidato=<id>), no en estado local:
   // así el aviso de una mención puede enlazar directamente a su ficha, y volver
   // atrás cierra el detalle en vez de salir del puesto.
@@ -216,6 +220,9 @@ export function Dashboard() {
   // Estado, igual que los otros cuatro.
   const esMovil = useEsMovil()
   const [vista, setVista] = useState<'activos' | 'rechazados'>('activos')
+  // El tablero solo existe en escritorio; la preferencia guardada no se pierde
+  // al pasar por un móvil, simplemente ahí no aplica.
+  const tablero = modo === 'tablero' && !esMovil
 
   /**
    * EL CONMUTADOR SIGUE AL FILTRO DE ESTADO (Mario, ago 2026).
@@ -505,6 +512,32 @@ export function Dashboard() {
     return [...base, ...COLUMNAS_DE(campaign)]
   }, [company?.plan, tags.length, campaign])
   const vistaTabla = useVistaTabla('puesto', columnasDisponibles)
+  // LOS CAMPOS DE LA TARJETA DEL TABLERO: las mismas columnas menos las dos que
+  // allí no son un campo (el candidato ES la tarjeta y el estado ES la columna).
+  // Mismo registro y mismo panel; cajón de guardado propio, porque qué te
+  // importa en una tabla ancha y en una tarjeta de 232px no tiene por qué
+  // coincidir.
+  const camposTarjeta = useMemo<ColumnaVista<string>[]>(() => {
+    // Las columnas de la tabla menos las dos que en una tarjeta no son un campo
+    // (el candidato ES la tarjeta y el estado ES la columna), más una que la
+    // tabla no tiene: CUÁNTO LLEVA EN SU ETAPA (Mario, ago 2026). En un tablero
+    // la pregunta de cada tarjeta es "¿está atascada?", y eso lo dice el tiempo
+    // en la fase, no la fecha de llegada.
+    const otros = columnasDisponibles.filter((c) => c.key !== 'candidato' && c.key !== 'estado')
+    const todos: ColumnaVista<string>[] = [{ key: 'etapa', label: 'En esta etapa', icon: Timer }, ...otros]
+    // DE FÁBRICA SE VEN TRES, Y EN ESTE ORDEN (Mario, ago 2026): cuánto lleva
+    // parado, si encaja y cómo lo tenéis clasificado. Es lo que se mira para
+    // decidir a quién mover, y son tres líneas: una tarjeta con seis datos deja
+    // de leerse de un vistazo, que es lo único que un tablero hace mejor que la
+    // tabla. El resto (teléfono, fecha, las respuestas) nace APAGADO y está a un
+    // clic en el engranaje: existen para que los pidas, no para que lleguen.
+    const DE_FABRICA = ['etapa', 'encaje', 'etiquetas']
+    return [
+      ...DE_FABRICA.flatMap((k) => todos.filter((c) => c.key === k)),
+      ...todos.filter((c) => !DE_FABRICA.includes(c.key)).map((c) => ({ ...c, apagada: true })),
+    ]
+  }, [columnasDisponibles])
+  const vistaTablero = useVistaTabla('tablero', camposTarjeta)
   // El estado que comparten TODOS los marcados, o null si hay mezcla: es lo que
   // decide si el menú de estado de la barra marca alguno. Con mezcla no se marca
   // ninguno, porque señalar uno diría que los demás también lo tienen.
@@ -520,9 +553,25 @@ export function Dashboard() {
   }, [all, selected])
   // El orden por defecto no es un dato suelto: es lo que decide si "Restablecer"
   // se puede pulsar y si, buscando, manda la relevancia (ver `sorted`).
-  const ordenPorDefecto = sort.key === ORDEN_INICIAL.key && sort.dir === ORDEN_INICIAL.dir
+  const ordenDeFabrica = tablero ? ORDEN_INICIAL_TABLERO : ORDEN_INICIAL
+  const ordenPorDefecto = sort.key === ordenDeFabrica.key && sort.dir === ordenDeFabrica.dir
   const ordenar = useCallback((key: string, dir: 'asc' | 'desc') => setSort({ key: key as SortKey, dir }), [])
-  const restablecerOrden = useCallback(() => setSort(ORDEN_INICIAL), [])
+  const restablecerOrden = useCallback(() => setSort(ordenDeFabrica), [ordenDeFabrica])
+  // Marcar/desmarcar UNA tarjeta del tablero. Es la misma selección que la
+  // tabla y la misma barra flotante: el tablero solo cambia el asa (la cara).
+  // A qué se abre la ficha cuando se llega desde el tablero ("Añadir nota"): el
+  // control donde tiene que caer el cursor. Se limpia al cerrar, o la próxima
+  // ficha se abriría también en la nota.
+  const [focoFicha, setFocoFicha] = useState<'nota' | 'etiqueta' | null>(null)
+  const abrirEnNota = useCallback((id: string) => { setFocoFicha('nota'); setOpenId(id) }, [setOpenId])
+  const abrirEnEtiqueta = useCallback((id: string) => { setFocoFicha('etiqueta'); setOpenId(id) }, [setOpenId])
+  const toggleSeleccion = useCallback((id: string) => {
+    setSelected((prev) => {
+      const n = new Set(prev)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+  }, [])
   // "Actualizado hace X": la candidatura más reciente. El puesto no guarda un
   // `updatedAt` y no se inventa uno; lo que se pregunta en la cabecera es cuándo
   // fue la última vez que aquí pasó algo, y eso es que entró alguien.
@@ -629,9 +678,14 @@ export function Dashboard() {
 
     let list = base0.filter((c) => {
       // La mitad de la lista en la que estás, antes que cualquier filtro. Solo
-      // donde el conmutador se ve: ver el comentario de `vista`.
-      if (!esMovil && (c.status === 'descartado') !== (vista === 'rechazados')) return false
-      if (statusFilter.size && !statusFilter.has(c.status)) return false
+      // donde el conmutador se ve: ver el comentario de `vista`. En TABLERO no
+      // corta ni el conmutador ni el filtro de estado: las columnas SON los
+      // estados, y un recorte por estado encima de columnas por estado es la
+      // misma pregunta contestada dos veces.
+      if (!tablero) {
+        if (!esMovil && (c.status === 'descartado') !== (vista === 'rechazados')) return false
+        if (statusFilter.size && !statusFilter.has(c.status)) return false
+      }
       if (interestFilter.size && !interestFilter.has(candidateInterestState(campaign, c))) return false
       if (favoritosOnly && !c.favorito) return false
       // Etiquetas: OR dentro del grupo (basta tener UNA de las seleccionadas), AND
@@ -671,6 +725,11 @@ export function Dashboard() {
         let cmp = 0
         if (sort.key === 'nombre') cmp = candidateName(a).localeCompare(candidateName(b))
         else if (sort.key === 'estado') cmp = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)
+        // DÍAS en la etapa, no fecha de entrada en ella: más días es una fecha
+        // más ANTIGUA, así que la comparación va del revés. Escrito como días
+        // para que `asc`/`desc` signifiquen lo que dice el panel ("de menos a
+        // más días") y no lo contrario.
+        else if (sort.key === 'etapa') cmp = b.statusChangedAt.localeCompare(a.statusChangedAt)
         else if (sort.key === 'encaje') {
           const fa = candidateFit(a.ai)
           const fb = candidateFit(b.ai)
@@ -697,7 +756,7 @@ export function Dashboard() {
       })
     }
     return list
-  }, [all, campaign, q, rpcIds, base, esMovil, vista, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
+  }, [all, campaign, q, rpcIds, base, esMovil, tablero, vista, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
 
   // Dominio real (mín/máx) de cada pregunta numérica, para acotar sus sliders.
   const numberDomains = useMemo(() => {
@@ -868,8 +927,11 @@ export function Dashboard() {
         ),
       })
     }
-    return d
-  }, [campaign, statusFilter, favoritosOnly, interestFilter, tags, tagFilter, valueFilters, numberFilters, numberDomains, ajustarVista, estadoBloqueado])
+    // En TABLERO el estado no es un filtro: es la maquetación (las columnas).
+    // Ofrecerlo sería la misma pregunta dos veces, y como ahí tampoco se aplica
+    // (ver `filtered`), sería además un chip que no filtra, que está prohibido.
+    return tablero ? d.filter((dim) => dim.id !== 'estado') : d
+  }, [campaign, tablero, statusFilter, favoritosOnly, interestFilter, tags, tagFilter, valueFilters, numberFilters, numberDomains, ajustarVista, estadoBloqueado])
 
   // UN CHIP EXISTE SI FILTRA. No hay un estado paralelo de "categorías añadidas":
   // lo hubo, y dejaba el chip vivo después de desmarcar su último valor, o sea una
@@ -895,7 +957,7 @@ export function Dashboard() {
     )
   }
 
-  const activeFilterCount = statusFilter.size + interestFilter.size + valueFilters.length + numberFilters.length + (favoritosOnly ? 1 : 0) + tagFilter.size
+  const activeFilterCount = (tablero ? 0 : statusFilter.size) + interestFilter.size + valueFilters.length + numberFilters.length + (favoritosOnly ? 1 : 0) + tagFilter.size
   // Los dos inquilinos de la línea de contexto. Se nombran porque de ellos depende
   // que esa fila separe o no separe: vacía no debe ocupar nada.
   // Buscar también estrecha la lista: si solo se mirasen los filtros, escribir un
@@ -1060,11 +1122,21 @@ export function Dashboard() {
           lleva ya cinco cosas y el peso hace la jerarquía. Por eso esta pantalla no
           usa `PageHeader`; es la única con pestañas y conmutador propios. */}
       <header className="mb-0">
-        {/* `pb-3` y no `pb-6`: medido, había 40px por encima de los filtros y 28 por
-            debajo. Los 12 de aquí más los 16 del `py-4` de la fila dan los mismos 28
-            de abajo, así que la franja de herramientas queda centrada en su hueco en
-            vez de colgada del título. */}
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 pb-3 pt-3">
+        {/* EL HUECO SE MIDE HASTA LA TINTA, NO HASTA LA CAJA DE LÍNEA (Mario, ago
+            2026, segunda pasada sobre esta misma franja). Con `pb-3` la cuenta salía
+            redonda (12 de aquí + los 16 del `py-4` de la fila = los mismos 28 que hay
+            por debajo), y aun así se leía con más aire arriba. El motivo es que los
+            dos huecos NO están limitados por la misma clase de borde: abajo hay una
+            CAJA (el filo de la tarjeta o el de la columna), que empieza justo donde
+            dice su rectángulo; arriba hay TEXTO, y la caja de línea de un 14/20 se
+            acaba unos píxeles por debajo de donde se acaba la letra (medido con las
+            métricas reales de la fuente: la tinta muere en 88 y la caja en 90). Así
+            que 28 de caja a caja son 30 de blanco arriba contra 28 abajo.
+            Con `pb-2` el blanco queda en 26 contra 28: nunca más arriba que abajo,
+            que es el lado seguro del error. REGLA GENERAL: cuando un hueco lo cierra
+            un texto por un lado y una caja por el otro, se descuenta la interlínea
+            que sobra por debajo de la última línea. */}
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 pb-2 pt-3">
           <div className="min-w-0">
             {/* 12px y no 8 entre el nombre y su estado: la cápsula encogió a 24px y
                 pegada al título se leía como parte de la palabra. Cuanto más
@@ -1216,20 +1288,49 @@ export function Dashboard() {
               propósito, así que ahí no hay nada que elegir. */}
           {!esMovil && (
             <div className="order-3 flex shrink-0 items-center gap-2 sm:order-4">
-              <SwitchVista
-                vista={vista}
-                onChange={setVista}
-                nActivos={all.length - nRechazados}
-                nRechazados={nRechazados}
-              />
+              {/* En TABLERO no se pintan ni el conmutador de mitades ni el
+                  engranaje: el primero recorta por estado, que allí es la
+                  maquetación, y el segundo gobierna columnas y orden de la
+                  TABLA. No se apagan, no aplican; la regla de la casa es que un
+                  control que no puede hacer nada no se enseña. */}
+              {!tablero && (
+                <SwitchVista
+                  vista={vista}
+                  onChange={setVista}
+                  nActivos={all.length - nRechazados}
+                  nRechazados={nRechazados}
+                />
+              )}
+              {/* El MISMO engranaje en los dos modos; lo que gobierna cambia con
+                  el modo (Mario, ago 2026). En tablero, la lista son los CAMPOS
+                  DE LA TARJETA y el orden pierde "Estado", que allí es la
+                  maquetación; el orden que queda es el de las tarjetas DENTRO de
+                  su columna. */}
               <AjustesVista
-                ordenes={ordenesDe(campaign, showFit)}
+                ordenes={tablero ? ordenesDe(campaign, showFit).filter((o) => o.key !== 'estado') : ordenesDe(campaign, showFit)}
                 sort={sort}
                 onOrdenar={ordenar}
                 ordenPorDefecto={ordenPorDefecto}
                 onRestablecerOrden={restablecerOrden}
-                vista={vistaTabla}
+                vista={(tablero ? vistaTablero : vistaTabla) as VistaTabla<string>}
+                rotuloLista={tablero ? 'Qué se ve en la tarjeta' : undefined}
                 buscando={q.length > 0}
+              />
+              <ConmutadorModo
+                modo={modo}
+                onChange={(m) => {
+                  // EL ORDEN SIGUE AL MODO, PERO SOLO SI NO LO HABÍAS TOCADO:
+                  // una intención declarada gana a una inferida (la misma regla
+                  // que hace que el conmutador de mitades solo se mueva cuando
+                  // el lado en el que estás no puede tener nada). Si estabas en
+                  // el orden de fábrica, pasas al de fábrica del otro modo; si
+                  // habías elegido uno, se respeta.
+                  const antes = m === 'tablero' ? ORDEN_INICIAL : ORDEN_INICIAL_TABLERO
+                  if (sort.key === antes.key && sort.dir === antes.dir) {
+                    setSort(m === 'tablero' ? ORDEN_INICIAL_TABLERO : ORDEN_INICIAL)
+                  }
+                  setModo(m)
+                }}
               />
             </div>
           )}
@@ -1331,6 +1432,26 @@ export function Dashboard() {
             diferencia de `hidden`, NO crea contenedor de scroll, que es lo que le
             robaría el `sticky` a la cabecera de la tabla. Era `hidden` en móvil
             porque allí no había tabla dentro; ahora la hay. */}
+        {tablero && !loading && filtered.length > 0 ? (
+          // El tablero NO va dentro de la tarjeta blanca de la tabla: sus
+          // tarjetas son las superficies, y una tarjeta de tarjetas es una caja
+          // dentro de otra caja. Vive directamente sobre el fondo de trabajo.
+          <KanbanPuesto
+            rows={filtered}
+            campos={vistaTablero.lista.filter((c) => vistaTablero.visible(c.key))}
+            campaign={campaign}
+            tags={tags}
+            comentarios={commentCounts}
+            maskPhone={maskPhone}
+            setFavorito={setFavorito}
+            seleccion={selected}
+            onSeleccion={toggleSeleccion}
+            onOpen={setOpenId}
+            onOpenEnNota={abrirEnNota}
+            onOpenEnEtiqueta={abrirEnEtiqueta}
+            setStatus={setStatus}
+          />
+        ) : (
         <div className="mt-3 overflow-clip rounded-xl filo bg-white">
           {loading ? (
             <SkeletonRows showFit={showFit} />
@@ -1368,6 +1489,7 @@ export function Dashboard() {
             />
           )}
         </div>
+        )}
 
         {/* Hueco para que la barra inferior fija no tape la última fila (móvil) */}
         {selected.size > 0 && <div className="h-20 sm:hidden" aria-hidden />}
@@ -1391,7 +1513,10 @@ export function Dashboard() {
         campaign={campaign}
         candidate={openCandidate}
         maskPhone={maskPhone}
-        onClose={() => setOpenId(null)}
+        focoInicial={
+          !openId || !focoFicha ? undefined : focoFicha === 'nota' ? `chat-${openId}` : campoEtiquetaId(openId)
+        }
+        onClose={() => { setFocoFicha(null); setOpenId(null) }}
         onOpenManageTags={canManageTags ? () => setManageTagsOpen(true) : undefined}
         onDeleted={(c) =>
           toast.success('Candidato eliminado', { action: { label: 'Deshacer', onClick: () => restoreCandidate(c) } })
@@ -1797,10 +1922,30 @@ const ORDENES_BASE: OpcionOrden[] = [
   // descartado" sería mentira justo en la mitad de la lista donde más se usa.
   { key: 'estado', label: 'Estado', asc: 'Del inicio al final del proceso', desc: 'Del final al inicio del proceso' },
   { key: 'fecha', label: 'Recibida', asc: 'De la más antigua a la más reciente', desc: 'De la más reciente a la más antigua' },
+  // Se ofrece en los DOS modos aunque la tabla no pinte esa columna: ordenar por
+  // algo que no se ve es legítimo (ya lo hacen las preguntas del formulario con
+  // su columna apagada), y si solo existiera en el tablero, volver a la tabla
+  // dejaría el panel enseñando un orden que no está en su propia lista.
+  { key: 'etapa', label: 'En esta etapa', asc: 'De menos a más días', desc: 'De más a menos días' },
 ]
 
 /** El orden de fábrica de la tabla, y el que "Restablecer" devuelve. */
+/**
+ * EL ORDEN DE FÁBRICA DEPENDE DEL MODO, porque el reloj que importa depende del
+ * modo (Mario, ago 2026).
+ *
+ * En una TABLA lo que ordena es cuándo llegó la candidatura. En un TABLERO cada
+ * columna es una FASE, así que el reloj que cuenta es cuándo entró en ella: de
+ * más reciente a más antiguo, o sea **lo último que se ha movido, arriba**.
+ *
+ * Es la misma dirección que la tabla ("de la más reciente a la más antigua"), no
+ * la contraria: una lista de trabajo se lee empezando por lo último que ha
+ * pasado. Lo escribo porque yo había argumentado lo opuesto (poner arriba al que
+ * lleva más esperando, para atacar lo atascado) y Mario lo corrigió: para eso
+ * está el sentido inverso, a un clic en el engranaje, no el valor de fábrica.
+ */
 const ORDEN_INICIAL: { key: SortKey; dir: 'asc' | 'desc' } = { key: 'fecha', dir: 'desc' }
+const ORDEN_INICIAL_TABLERO: { key: SortKey; dir: 'asc' | 'desc' } = { key: 'etapa', dir: 'asc' }
 
 /**
  * LAS PREGUNTAS DE SÍ/NO Y DE NÚMERO TAMBIÉN ORDENAN (Mario, ago 2026).
@@ -3204,6 +3349,67 @@ function SwitchVista({
             >
               {o.n}
             </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * TABLA O TABLERO (Mario, ago 2026, con una referencia de CRM delante).
+ *
+ * Es el hermano icónico del conmutador Activos/Rechazados: la misma caja
+ * rectangular con filo y divisoria, el mismo `radiogroup` con flechas. Aquí los
+ * dos lados van en ICONO y no en palabra, y no contradice el "un icono hay que
+ * aprendérselo" que le puso el nombre a Compartir: estos dos glifos (filas
+ * contra columnas) son el vocabulario universal de los conmutadores de vista, y
+ * la palabra está en el `aria-label`, el `title` y el lector.
+ *
+ * Va el ÚLTIMO de la franja, detrás incluso del engranaje: la fila se lee en el
+ * orden de las decisiones (qué lista miras, cómo se te presenta), y esta es la
+ * más envolvente de todas, decide qué controles existen a su izquierda.
+ */
+function ConmutadorModo({ modo, onChange }: { modo: ModoPanel; onChange: (m: ModoPanel) => void }) {
+  const opciones = [
+    { value: 'tabla' as const, label: 'Tabla', Icono: Rows3 },
+    { value: 'tablero' as const, label: 'Tablero', Icono: Columns3 },
+  ]
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const mover = (dir: 1 | -1) => {
+    const i = opciones.findIndex((o) => o.value === modo)
+    const j = (i + dir + opciones.length) % opciones.length
+    onChange(opciones[j].value)
+    requestAnimationFrame(() => refs.current[j]?.focus())
+  }
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Cómo se presenta la lista"
+      className="flex h-10 shrink-0 items-center overflow-clip rounded-lg filo bg-white shadow-control pointer-coarse:h-11"
+    >
+      {opciones.map((o, i) => {
+        const activa = modo === o.value
+        return (
+          <button
+            key={o.value}
+            ref={(el) => { refs.current[i] = el }}
+            type="button"
+            role="radio"
+            aria-checked={activa}
+            aria-label={o.label}
+            title={o.label}
+            tabIndex={activa ? 0 : -1}
+            onClick={() => onChange(o.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); mover(1) }
+              else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); mover(-1) }
+            }}
+            className={`grid h-full w-10 place-items-center outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+              i > 0 ? 'border-l border-slate-200' : ''
+            } ${activa ? 'bg-indigo-50/60 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'}`}
+          >
+            <o.Icono className="size-4" aria-hidden />
           </button>
         )
       })}

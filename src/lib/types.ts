@@ -419,6 +419,12 @@ export interface Candidate {
    * nada, y rellenarlo sería fabricar la prueba de algo que no ocurrió.
    */
   consentAt?: string | null
+  /**
+   * Cuándo entró en su estado ACTUAL. Lo escribe un trigger al cambiar `status`
+   * (nunca el cliente) y nace con la llegada: es lo que deja decir "3 días en
+   * esta etapa" sin cargar el historial de toda la lista.
+   */
+  statusChangedAt: string // ISO
   /** Señal independiente del estado de selección. Ausente = nunca comprobado. */
   interest?: CandidateInterestSummary
   /** Triaje de IA (Meridian). Ausente = nunca analizado. */
@@ -452,7 +458,7 @@ export interface Company {
  * selección no tienen un orden que signifique nada, y ordenar por ellos sería
  * ofrecer un botón que devuelve un resultado arbitrario.
  */
-export type SortKey = 'nombre' | 'fecha' | 'estado' | 'encaje' | `campo:${string}`
+export type SortKey = 'nombre' | 'fecha' | 'etapa' | 'estado' | 'encaje' | `campo:${string}`
 
 /** Los tipos de pregunta que se pueden ordenar. Ver `SortKey`. */
 export const TIPOS_ORDENABLES: FieldType[] = ['boolean', 'number']

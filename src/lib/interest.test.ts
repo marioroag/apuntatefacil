@@ -41,6 +41,7 @@ function candidato(patch: Partial<Candidate> = {}): Candidate {
     answers: { email: 'ana@example.com', telefono: '612345678' },
     status: 'nuevo',
     submittedAt: at(1),
+    statusChangedAt: '2026-08-01T10:00:00.000Z',
     source: 'enlace',
     favorito: false,
     notes: '',

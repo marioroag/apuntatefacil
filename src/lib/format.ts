@@ -210,6 +210,20 @@ export function toTitleCase(s: string): string {
  */
 export const CAMPOS_YA_PINTADOS = ['nombre', 'apellidos', 'telefono']
 
+/**
+ * Una respuesta del formulario, como TEXTO. Vive aquí y no en una pantalla
+ * porque la pintan dos superficies que no se hablan (la celda de la tabla y la
+ * línea de la tarjeta del tablero), y dos copias de la misma verdad se separan
+ * al primer retoque.
+ */
+export function answerStr(c: { answers: Record<string, unknown> }, fieldId: string): string {
+  const v = c.answers[fieldId]
+  if (v === undefined) return ''
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No'
+  if (Array.isArray(v)) return v.join(', ')
+  return String(v)
+}
+
 export function candidateName(c: Candidate): string {
   const part = (id: string) => {
     const v = c.answers[id]

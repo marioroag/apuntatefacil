@@ -120,6 +120,7 @@ export function AjustesVista<K extends string>({
   onRestablecerOrden,
   vista,
   buscando,
+  rotuloLista = 'Qué columnas se ven',
 }: {
   ordenes: OpcionOrden[]
   sort: { key: string; dir: 'asc' | 'desc' }
@@ -130,6 +131,10 @@ export function AjustesVista<K extends string>({
   vista: VistaTabla<K>
   /** Hay búsqueda escrita: entonces el orden por defecto lo pisa la relevancia. */
   buscando: boolean
+  /** Cómo se llama aquí lo que se enciende y se ordena. El mismo panel gobierna
+   *  las COLUMNAS de la tabla y los CAMPOS de la tarjeta del tablero, y un
+   *  rótulo que dice "columnas" en un tablero que no las tiene miente. */
+  rotuloLista?: string
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -244,7 +249,7 @@ export function AjustesVista<K extends string>({
 
           <section className="p-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-[13px] font-semibold text-slate-700">Qué columnas se ven</h3>
+            <h3 className="text-[13px] font-semibold text-slate-700">{rotuloLista}</h3>
             {/* Sin nada tocado no hay nada que restablecer, y no se pinta: una
                 acción que no puede hacer nada es una puerta pintada en la pared. */}
             {vista.personalizada && (

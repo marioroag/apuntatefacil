@@ -47,6 +47,7 @@ type CandidateRow = {
   notes: string
   cv_path: string | null
   created_at: string
+  status_changed_at: string | null
   consent_at: string | null
   ai: CandidateAI | null
 }
@@ -94,6 +95,8 @@ const toCandidate = (r: CandidateRow, tagIds: string[] = []): Candidate => ({
   notes: r.notes ?? '',
   cvPath: r.cv_path ?? undefined,
   submittedAt: r.created_at,
+  // El `??` cubre el instante entre desplegar el cliente y migrar la base.
+  statusChangedAt: r.status_changed_at ?? r.created_at,
   tagIds,
   consentAt: r.consent_at ?? null,
   ai: r.ai ?? undefined,
@@ -578,7 +581,7 @@ const Ctx = createContext<Store | null>(null)
 // nivel y evidencia. Un estado v9 guardado los traería sin desglose en la ficha.
 // v11: el anuncio del puesto (ago 2026). Un estado v10 guardado traería los seis
 // puestos sin anuncio, o sea con la pantalla nueva vacía en toda la demo.
-const DEMO_KEY = 'apuntatefacil.demo.v11'
+const DEMO_KEY = 'apuntatefacil.demo.v13'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
@@ -1259,10 +1262,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     sendInterestCheck,
 
     setStatus: async (id, status) => {
-      const prev = candidates.find((c) => c.id === id)?.status
-      patchCandidateLocal(id, { status })
+      const antes = candidates.find((c) => c.id === id)
+      const prev = antes?.status
+      const prevAt = antes?.statusChangedAt
+      // El reloj de la etapa arranca ya en el optimista; el trigger lo estampa
+      // en la base y la próxima recarga lo cuadra al milisegundo del servidor.
+      patchCandidateLocal(id, { status, ...(prev !== status ? { statusChangedAt: new Date().toISOString() } : {}) })
       logDemoEvent(id, 'estado', { de: prev, a: status })
-      await dbCandidate(id, { status }, () => prev && patchCandidateLocal(id, { status: prev }))
+      await dbCandidate(id, { status }, () => prev && patchCandidateLocal(id, { status: prev, statusChangedAt: prevAt }))
     },
     /**
      * MISMO ESTADO PARA VARIOS, en UNA sola escritura.
@@ -1280,8 +1287,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const targets = candidates.filter((c) => candidateIds.includes(c.id) && c.status !== status)
       if (!targets.length) return
       const ids = targets.map((t) => t.id)
-      const antes = new Map(targets.map((t) => [t.id, t.status]))
-      setCandidates((cs) => cs.map((c) => (antes.has(c.id) ? { ...c, status } : c)))
+      const antes = new Map(targets.map((t) => [t.id, { status: t.status, at: t.statusChangedAt }]))
+      const ahora = new Date().toISOString()
+      setCandidates((cs) => cs.map((c) => (antes.has(c.id) ? { ...c, status, statusChangedAt: ahora } : c)))
       if (companyId === 'demo') {
         targets.forEach((t) => logDemoEvent(t.id, 'estado', { de: t.status, a: status }))
         return
@@ -1290,7 +1298,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const { error } = await supabase.from('candidates').update({ status }).in('id', ids)
       ids.forEach((id) => pendingCandidateWrites.current.delete(id))
       if (error) {
-        setCandidates((cs) => cs.map((c) => (antes.has(c.id) ? { ...c, status: antes.get(c.id)! } : c)))
+        setCandidates((cs) => cs.map((c) => (antes.has(c.id) ? { ...c, status: antes.get(c.id)!.status, statusChangedAt: antes.get(c.id)!.at } : c)))
         toast.error('No se pudo cambiar el estado.')
       }
     },

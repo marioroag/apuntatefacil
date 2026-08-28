@@ -177,6 +177,11 @@ export function TagCell({ tagIds, tags }: { tagIds: string[]; tags: Tag[] }) {
  * candidato (ahora vive en `BulkTagMenu`) y la puerta a administrar el
  * vocabulario, que desde la ficha era la única que había.
  */
+/** El `id` del campo de añadir etiqueta de una ficha. Vive aquí y no escrito a
+ *  mano en quien enfoca: es el mismo nombre en dos sitios que no se hablan (esta
+ *  sección lo pone, el tablero lo pide), y así no se pueden separar. */
+export const campoEtiquetaId = (candidateId: string) => `etiqueta-${candidateId}`
+
 export function TagSection({
   candidateId,
   tagIds,
@@ -226,6 +231,7 @@ export function TagSection({
         onOpenManage={onOpenManage}
         flotante
         campo
+        campoId={campoEtiquetaId(candidateId)}
         // Las mismas medidas de siempre (36 de alto, radio 8, texto de 13: en la
         // ficha los campos son controles pequeños). Lo que cambia respecto al
         // disparador-botón es la TINTA: lo que escribes va en tinta y el gris se
@@ -448,6 +454,7 @@ export function BulkTagMenu({
   placement = 'down',
   flotante = false,
   campo = false,
+  campoId,
   children,
   onDone,
 }: {
@@ -486,6 +493,9 @@ export function BulkTagMenu({
    * pieza que no es de él.
    */
   campo?: boolean
+  /** `id` del campo, para poder llegar a él con el foco desde otra pantalla
+   *  (`ui/Modal` acepta `focoInicial`). Solo tiene sentido con `campo`. */
+  campoId?: string
   /** Contenido del disparador. Sin él, el icono y la palabra "Etiquetas". */
   children?: ReactNode
   onDone?: () => void
@@ -726,6 +736,7 @@ export function BulkTagMenu({
         // lo que hace falta cuando vuelves a él con el panel ya cerrado.
         <input
           ref={campoRef}
+          id={campoId}
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
