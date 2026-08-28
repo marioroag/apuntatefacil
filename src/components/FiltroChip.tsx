@@ -354,6 +354,23 @@ export function MenuAnadirFiltro({
   const ref = useRef<HTMLDivElement>(null)
   const campoRef = useRef<HTMLInputElement>(null)
   const botonRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  // COMO SU HERMANO `ChipDimension`: portal con posición fija y `colocarFlotante`,
+  // no `absolute` colgando del botón (Mario, ago 2026).
+  //
+  // Esto ya se arregló UNA VEZ a mano, con `max-sm:right-0`, y la nota que había
+  // aquí explicaba por qué: en el panel del puesto, Filtros vive pegado al filo
+  // derecho en móvil, así que colgarlo de la izquierda lo sacaba 205px. Pero ese
+  // arreglo depende de DÓNDE esté el botón, y en Candidatos no está pegado a
+  // ningún filo (tiene la cápsula de Puesto a su izquierda): medido allí, el
+  // panel empezaba en **-106**, o sea 106px fuera de la pantalla.
+  //
+  // La regla de la casa ya lo resolvía y esta pieza no la usaba: **lo que flota
+  // se coloca contra la VENTANA**, y `colocarFlotante` aprieta contra el filo en
+  // vez de salirse, en cualquier pantalla y con el botón donde esté. Una copia a
+  // mano de lo que ya hace la pieza de al lado es justo lo que este proyecto
+  // sabe que se separa al primer retoque.
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
   const hoja = ruta[ruta.length - 1] ?? null
   const PAGINAS = ['preguntas', 'vistas']
@@ -363,6 +380,34 @@ export function MenuAnadirFiltro({
   const preguntas = dimensiones.filter((d) => d.grupo === 'preguntas')
   const raizDims = dimensiones.filter((d) => !d.grupo)
   const nPreguntas = preguntas.reduce((t, d) => t + d.n, 0)
+
+  useLayoutEffect(() => {
+    if (!open) return
+    const colocar = () => {
+      const ancla = botonRef.current?.getBoundingClientRect()
+      const panel = panelRef.current?.getBoundingClientRect()
+      if (!ancla || !panel) return
+      setPos(
+        colocarFlotante(
+          ancla,
+          { width: panel.width, height: panel.height },
+          { width: window.innerWidth, height: window.innerHeight },
+          { alinear: 'izquierda' },
+        ),
+      )
+    }
+    colocar()
+    window.addEventListener('resize', colocar)
+    const main = document.getElementById('contenido')
+    main?.addEventListener('scroll', colocar, { passive: true })
+    return () => {
+      window.removeEventListener('resize', colocar)
+      main?.removeEventListener('scroll', colocar)
+    }
+    // La RUTA y la búsqueda cambian el alto del panel (una página con tres filas
+    // no mide lo que una con quince), así que hay que volver a colocarlo: si no,
+    // al entrar en una categoría el panel crece hacia abajo y se sale.
+  }, [open, ruta, q])
 
   const entrar = (id: string) => { setRuta((r) => [...r, id]); setQ('') }
   const volver = () => { setRuta((r) => r.slice(0, -1)); setQ('') }
@@ -453,16 +498,18 @@ export function MenuAnadirFiltro({
         <span className="max-sm:hidden">Filtros</span>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
+          ref={panelRef}
           role="menu"
           aria-label={dim ? `Elegir ${dim.label}` : enPreguntas ? 'Preguntas de este puesto' : enVistas ? 'Vistas guardadas' : 'Filtros'}
-          // Cuelga del filo IZQUIERDO de su botón en escritorio y del DERECHO en
-          // móvil, porque es donde está el botón en cada sitio: al pasar Filtros a
-          // la derecha del buscador, un panel de 288px anclado a la izquierda se
-          // salía 205px de la pantalla y hacía scrollear la página entera a lo
-          // ancho. Un flotante se ancla al filo que tiene más cerca.
-          className="absolute left-0 z-40 mt-1.5 w-72 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop max-sm:left-auto max-sm:right-0"
+          // El ancho se acota a la ventana además de colocarse contra ella: en un
+          // móvil de 320px, 288 de panel más los 8 de margen que deja
+          // `colocarFlotante` no caben, y lo que sobra se saldría igualmente.
+          className="fixed z-50 w-72 max-w-[calc(100vw-16px)] overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop"
+          // Hasta que está medido se pinta fuera de la vista, como el chip: en
+          // 0,0 se vería saltar en el primer fotograma.
+          style={pos ? { top: pos.top, left: pos.left } : { top: -9999, left: -9999 }}
         >
           {/* El campo cambia de papel según la página: busca CATEGORÍAS en la raíz
               y VALORES dentro de una. El placeholder es lo que dice dónde estás. */}
@@ -588,7 +635,8 @@ export function MenuAnadirFiltro({
               </button>
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
