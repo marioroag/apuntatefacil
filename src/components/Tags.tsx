@@ -505,6 +505,17 @@ export function BulkTagMenu({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const esTactil = useEsTactil()
+  // EN TÁCTIL EL DISPARADOR VUELVE A SER UN BOTÓN, aunque se pinte como el campo
+  // (Mario, ago 2026: "al abrir lo de las etiquetas, que no entre solo al campo
+  // de texto"). La variante `campo` nació con el argumento de que el teclado no
+  // molesta porque el dedo ha tocado el campo a propósito; en el uso real el
+  // primer toque significa "enséñame la lista", no "voy a escribir", y el
+  // teclado del sistema se levanta tapando justo lo que se ha venido a mirar.
+  // Con puntero fino se queda el campo vivo (abres y filtras sin mover el
+  // ratón); con el dedo, el toque abre la lista y el buscador vive DENTRO del
+  // panel, sin enfocarse solo, que es la regla de siempre de esta casa. Quien
+  // quiera buscar lo toca, que está ahí.
+  const campoVivo = campo && !esTactil
   const ref = useRef<HTMLDivElement>(null)
   // El ancla es el DISPARADOR (el botón, o el campo en la variante `campo`), no
   // el envoltorio: en modo flotante el envoltorio va en `display: contents` (para
@@ -513,7 +524,7 @@ export function BulkTagMenu({
   // colocaría en la esquina de la pantalla.
   const botonRef = useRef<HTMLButtonElement>(null)
   const campoRef = useRef<HTMLInputElement>(null)
-  const anclaRef = campo ? campoRef : botonRef
+  const anclaRef = campoVivo ? campoRef : botonRef
   const panelRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   // Ancho del campo, para que el panel mida lo mismo. Se mide en vez de heredarse
@@ -644,11 +655,12 @@ export function BulkTagMenu({
 
   const lista = (
     <>
-          {/* El buscador SOLO cuando el disparador es un botón. En la variante
-              `campo` el disparador YA es este mismo campo, así que pintarlo aquí
-              serían dos cajas de texto, una encima de la otra, y la que acabas de
-              tocar no filtraría nada. */}
-          {!campo && (
+          {/* El buscador SOLO cuando el disparador es un botón (el de siempre, o
+              el de la variante `campo` en táctil). Con el campo VIVO el
+              disparador YA es ese mismo campo, así que pintarlo aquí serían dos
+              cajas de texto, una encima de la otra, y la que acabas de tocar no
+              filtraría nada. */}
+          {!campoVivo && (
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -730,10 +742,10 @@ export function BulkTagMenu({
 
   return (
     <div className={flotante && !campo ? 'contents' : 'relative'} ref={ref}>
-      {campo ? (
+      {campoVivo ? (
         // El MISMO campo que pulsas es el que filtra. Se abre al enfocarlo (con
-        // el dedo, con el ratón o con el tabulador) y también al escribir, que es
-        // lo que hace falta cuando vuelves a él con el panel ya cerrado.
+        // el ratón o con el tabulador) y también al escribir, que es lo que hace
+        // falta cuando vuelves a él con el panel ya cerrado.
         <input
           ref={campoRef}
           id={campoId}
@@ -747,6 +759,25 @@ export function BulkTagMenu({
           aria-label={COPY.add}
           className={triggerClass}
         />
+      ) : campo ? (
+        // El mismo aspecto que el campo (es el hermano del de añadir una nota y
+        // tienen que seguir pareciéndolo), pero un BOTÓN: abrirlo no levanta el
+        // teclado. La tinta es la del marcador de posición, porque lo que enseña
+        // es la invitación, no un valor escrito.
+        <button
+          ref={botonRef}
+          type="button"
+          id={campoId}
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={COPY.add}
+          className={`${triggerClass ?? ''} block text-left`}
+        >
+          {/* La tinta del marcador va en un HIJO y no pegada al triggerClass:
+              este trae su `text-slate-900` y dos colores en el mismo className
+              se resuelven por orden de emisión del CSS, no de escritura. */}
+          <span className="text-slate-500">{typeof children === 'string' ? children : COPY.add}</span>
+        </button>
       ) : (
       <button
         ref={botonRef}
