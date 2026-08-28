@@ -15,6 +15,37 @@ import { SpeedInsights } from '@vercel/speed-insights/react'
 import '@fontsource-variable/geist'
 import './index.css'
 
+// -----------------------------------------------------------------------------
+// UNA PESTAÑA ABIERTA ES UNA APP VIEJA, y cada deploy le rompe los chunks.
+//
+// Con code-splitting, el index.html que la pestaña tiene en memoria apunta a los
+// hashes de SU build; al desplegar, esos ficheros dejan de existir en el alias.
+// La primera pantalla perezosa que se visite después pide un chunk que ya no
+// está, el import dinámico falla y React se queda desmontado: página en blanco
+// hasta recargar a mano. Se vio en producción (ago 2026) con la consola delante:
+// `Candidatos-jGDFMSMN.js` pedido, `Candidatos-DVkOnVVO.js` desplegado.
+//
+// Vite avisa de exactamente esto con `vite:preloadError`, y la salida documentada
+// es recargar: el index.html nuevo trae los hashes nuevos y la URL se conserva,
+// así que quien navegaba ni se entera. Con candado por pestaña para no entrar en
+// bucle si el fallo es otro (sin red, por ejemplo): si acabamos de recargar por
+// esto, la segunda vez se deja correr el error, que un fallo visible es mejor
+// que una página que recarga sin parar.
+//
+// La otra mitad vive en `vercel.json`: el rewrite de SPA excluye `/assets/`, para
+// que un chunk que falta sea un 404 honesto y no un 200 con HTML disfrazado de
+// JavaScript (que era lo que convertía el error en uno de MIME, más raro de leer).
+// -----------------------------------------------------------------------------
+const RECARGA_CHUNK = 'apuntatefacil.recarga-chunk'
+window.addEventListener('vite:preloadError', (e) => {
+  let ultima = 0
+  try { ultima = Number(sessionStorage.getItem(RECARGA_CHUNK) ?? 0) } catch { /* sin sessionStorage no hay candado: mejor recargar que quedarse en blanco */ }
+  if (Date.now() - ultima < 15_000) return
+  e.preventDefault()
+  try { sessionStorage.setItem(RECARGA_CHUNK, String(Date.now())) } catch { }
+  window.location.reload()
+})
+
 import { AuthProvider, DemoAuthProvider } from './lib/auth'
 import { StoreProvider } from './lib/store'
 import { ProfilesProvider } from './lib/profiles'
