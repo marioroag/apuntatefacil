@@ -321,6 +321,53 @@ export function esCvIlegible(texto: string | null): boolean {
   return !texto || texto.replace(/\s/g, '').length < 200
 }
 
+// ----------------------------------------------------------------------------
+// LA IA NO SE TRAGA TEXTO ESCONDIDO (Mario, ago 2026). La capa de texto de un
+// PDF puede llevar contenido que ningún renderizador pinta a la vista, y es un
+// truco conocido contra los filtros automáticos (palabras clave en cuerpo
+// microscópico, bloques arrastrados fuera de la página). Lo que la capa de
+// texto permite detectar se filtra AQUÍ, antes de que llegue a ningún prompt:
+//
+//  - texto FUERA de la caja de página (ni un píxel dentro): no existe visualmente;
+//  - texto por debajo de MIN_LETRA_PT: a menos de 4pt no lo lee ni una lupa,
+//    solo existe para las máquinas.
+//
+// LÍMITES DECLARADOS, porque un filtro que promete más de lo que ve es peor
+// que ninguno: el texto blanco-sobre-blanco y el tapado por una imagen NO se
+// pueden detectar desde la capa de texto (el color y el orden de pintado no
+// viajan en ella). Contra eso, la única verdad visual es el respaldo de VISIÓN
+// (el modelo mira la página renderizada); si algún día compensa pagarlo para
+// todos los CVs, el interruptor es de coste, no de código nuevo.
+// ----------------------------------------------------------------------------
+
+/** Lo mínimo que este filtro necesita de un item de texto de pdf.js. */
+export interface ItemTexto {
+  str: string
+  transform: number[]
+  width?: number
+  hasEOL?: boolean
+}
+
+export const MIN_LETRA_PT = 4
+
+export function filtrarTextoVisible(items: ItemTexto[], view: number[]): ItemTexto[] {
+  const [x0, y0, x1, y1] = view
+  return items.filter((it) => {
+    const t = it.transform
+    if (!Array.isArray(t) || t.length < 6) return false
+    const x = t[4]
+    const y = t[5]
+    const alto = Math.hypot(t[2], t[3]) || Math.abs(t[3])
+    if (alto > 0 && alto < MIN_LETRA_PT) return false
+    const ancho = it.width ?? 0
+    // Se descarta solo lo que queda ENTERO fuera de la página: un item que
+    // asoma aunque sea en parte se ve, y tirar texto visible es peor que
+    // dejar pasar un margen raro.
+    if (x + ancho < x0 || x > x1 || y + alto < y0 || y > y1) return false
+    return true
+  })
+}
+
 /** El juez conserva o quita elementos de una lista, nunca añade ni reescribe:
  *  lo que devuelva que no estuviera en la del evaluador, se descarta. */
 export function soloConservados(originales: string[], juez: string[]): string[] {

@@ -40,16 +40,16 @@
 //
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY, OPENAI_MODEL?
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { extractText, getDocumentProxy } from 'npm:unpdf@0.12.1'
+import { getDocumentProxy } from 'npm:unpdf@0.12.1'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { planHasMeridian } from '../_shared/plans.ts'
 import { OPENAI_API_KEY, OPENAI_BASE, OPENAI_MODEL, openaiError, tuning } from '../_shared/openai.ts'
 import {
   ESQUEMA_GENERADOR, ESQUEMA_TRAYECTORIA, agregarJuicios, criteriosEfectivos, esCvIlegible,
-  esquemaEvaluador, esquemaJuez, fusionarJuicio, hashPuesto, normalizarJuicios, promptEvaluador,
-  promptGenerador, promptJuez, promptTrayectoria, sanearContrastes, sanearCriterios,
-  sanearTrayectoria, serializarContraste, soloConservados,
-  type Baremo, type FuenteJuicio, type Juicio, type Valor,
+  esquemaEvaluador, esquemaJuez, filtrarTextoVisible, fusionarJuicio, hashPuesto,
+  normalizarJuicios, promptEvaluador, promptGenerador, promptJuez, promptTrayectoria,
+  sanearContrastes, sanearCriterios, sanearTrayectoria, serializarContraste, soloConservados,
+  type Baremo, type FuenteJuicio, type ItemTexto, type Juicio, type Valor,
 } from '../_shared/triaje.ts'
 
 const admin = createClient(
@@ -78,6 +78,11 @@ function answerLine(v: Answers[string] | undefined): string {
 // (doc/docx) se analizan sin CV (honestidad: no fingimos leer lo que no leemos).
 // Devuelve también los bytes: si la capa de texto no da para nada (escaneo), la
 // transcripción de visión los necesita, y descargar dos veces sería pagar dos.
+//
+// La extracción es a mano (getTextContent por página) y no con extractText de
+// unpdf, por una razón: cada item pasa por `filtrarTextoVisible` ANTES de
+// entrar al texto. Lo que la página no enseña (fuera de caja, cuerpo
+// microscópico) no llega a ningún prompt: la IA no se traga texto escondido.
 async function cvDescarga(cvPath: string | null): Promise<{ texto: string | null; bytes: Uint8Array | null }> {
   if (!cvPath) return { texto: null, bytes: null }
   if (!cvPath.toLowerCase().endsWith('.pdf')) return { texto: null, bytes: null }
@@ -86,9 +91,17 @@ async function cvDescarga(cvPath: string | null): Promise<{ texto: string | null
     if (error || !data) return { texto: null, bytes: null }
     const bytes = new Uint8Array(await data.arrayBuffer())
     const pdf = await getDocumentProxy(bytes)
-    const { text } = await extractText(pdf, { mergePages: true })
-    const joined = Array.isArray(text) ? text.join('\n') : String(text ?? '')
-    return { texto: joined.slice(0, MAX_CV_CHARS).trim() || null, bytes }
+    let texto = ''
+    for (let n = 1; n <= pdf.numPages && texto.length < MAX_CV_CHARS; n++) {
+      const page = await pdf.getPage(n)
+      const contenido = await page.getTextContent()
+      const items = (contenido.items as unknown[]).filter(
+        (it) => typeof (it as { str?: unknown }).str === 'string',
+      ) as ItemTexto[]
+      const visibles = filtrarTextoVisible(items, page.view as number[])
+      texto += visibles.map((it) => it.str + (it.hasEOL ? '\n' : ' ')).join('') + '\n'
+    }
+    return { texto: texto.slice(0, MAX_CV_CHARS).trim() || null, bytes }
   } catch (_e) {
     return { texto: null, bytes: null }
   }

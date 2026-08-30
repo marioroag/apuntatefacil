@@ -24,8 +24,8 @@ import { describe, expect, it } from 'vitest'
 // vigila) antes de darlo por bueno.
 import {
   FIT_BIEN, MAX_CONTRASTES, MAX_CRITERIOS,
-  agregarJuicios, criteriosEfectivos, esCvIlegible, fusionarJuicio, hashPuesto,
-  normalizarJuicios, sanearContrastes, sanearCriterios, sanearTrayectoria,
+  agregarJuicios, criteriosEfectivos, esCvIlegible, filtrarTextoVisible, fusionarJuicio,
+  hashPuesto, normalizarJuicios, sanearContrastes, sanearCriterios, sanearTrayectoria,
   serializarContraste, soloConservados,
   type BaremoCriterio, type Juicio, type Nivel, type Valor,
 } from '../../supabase/functions/_shared/triaje'
@@ -330,6 +330,45 @@ describe('trayectoria: transcripción con techos', () => {
       formacion: Array.from({ length: 6 }, () => 'f'.repeat(200)),
     })
     expect(JSON.stringify(lleno).length).toBeLessThan(6000)
+  })
+})
+
+describe('filtrarTextoVisible: la IA no se traga texto escondido', () => {
+  // Página A4 en unidades PDF (view de pdf.js): [x0, y0, x1, y1].
+  const view = [0, 0, 595, 842]
+  const item = (str: string, x: number, y: number, alto = 11, width = 100) => ({
+    str,
+    transform: [alto, 0, 0, alto, x, y],
+    width,
+  })
+
+  it('el texto de la página pasa; el descolgado FUERA de la caja, no', () => {
+    const out = filtrarTextoVisible(
+      [
+        item('Mozo de almacén', 49, 460),
+        item('carretillero carnet C E excel sap', 700, 400), // a la derecha de la página
+        item('palabras clave para el filtro', 100, -60), // por debajo del papel
+      ],
+      view,
+    )
+    expect(out.map((i) => i.str)).toEqual(['Mozo de almacén'])
+  })
+
+  it('un item que ASOMA en parte se queda: tirar texto visible es peor', () => {
+    const out = filtrarTextoVisible([item('al filo del margen', 560, 400, 11, 80)], view)
+    expect(out).toHaveLength(1)
+  })
+
+  it('el cuerpo microscópico (el truco de las palabras clave) se tira', () => {
+    const out = filtrarTextoVisible(
+      [item('texto normal', 100, 400, 11), item('experto en todo lo que pidas', 100, 380, 1.5)],
+      view,
+    )
+    expect(out.map((i) => i.str)).toEqual(['texto normal'])
+  })
+
+  it('un item sin transform utilizable no pasa', () => {
+    expect(filtrarTextoVisible([{ str: 'roto', transform: [] }], view)).toEqual([])
   })
 })
 
