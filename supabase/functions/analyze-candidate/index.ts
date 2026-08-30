@@ -396,7 +396,11 @@ Deno.serve(async (req) => {
       let summary = String(ev.summary ?? '').slice(0, 600)
       let highlights = (Array.isArray(ev.highlights) ? ev.highlights : []).map((s) => String(s)).slice(0, 4)
       let concerns = (Array.isArray(ev.concerns) ? ev.concerns : []).map((s) => String(s)).slice(0, 3)
-      let contrastes = sanearContrastes(ev.contrastes)
+      // Sin texto de CV no puede haber contraste (es respuesta-VS-CV por
+      // definición): se tira lo que el modelo alucine, fallen los prompts que
+      // fallen. Lo cazó el banco de pruebas con el stub: un evaluador tonto
+      // devolvía un contraste sin CV y el código se lo guardaba.
+      let contrastes = cv ? sanearContrastes(ev.contrastes) : []
       const brutos: Juicio[] = (Array.isArray(ev.criterios) ? ev.criterios : []).map((c) => {
         const j = c as { clave?: unknown; valor?: unknown; evidencia?: unknown; fuente?: unknown }
         return {
