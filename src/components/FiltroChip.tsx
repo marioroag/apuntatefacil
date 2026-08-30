@@ -422,7 +422,18 @@ export function MenuAnadirFiltro({
 
   useEffect(() => {
     if (!open) return
-    const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && cerrar()
+    // EL PANEL VIVE EN UN PORTAL, así que NO está dentro de `ref`: hay que
+    // preguntarle a él también o cualquier clic DENTRO del menú se lee como un
+    // clic fuera y lo cierra (pasó al sacarlo al portal para que dejara de
+    // salirse de la pantalla en móvil). Es lo mismo que ya hacen su hermano
+    // `ChipDimension` y el panel de avisos. Corolario: **al sacar algo a un
+    // portal hay que repasar todo lo que preguntaba "¿está dentro?"**, porque en
+    // el DOM ha dejado de estarlo aunque en la pantalla siga dentro.
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node
+      const dentro = (ref.current?.contains(t) ?? false) || (panelRef.current?.contains(t) ?? false)
+      if (!dentro) cerrar()
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       // Escape sube UN nivel; en la raíz, cierra. Así no se sale de todo por querer
