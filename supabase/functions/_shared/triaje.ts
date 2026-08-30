@@ -223,11 +223,38 @@ export function serializarContraste(c: Contraste): string {
 // aparte (meterla en el evaluador re-invitaría a la varianza que la triada
 // mató). El saneo pone techos duros: con ellos, el peor caso del objeto cabe
 // de sobra en los 20000 chars de candidates_ai_size.
+//
+// Y VERIFICA CONTRA EL TEXTO DEL CV, porque el primer CV real de producción
+// (ago 2026) enseñó al modelo inventando: un empleo clonado (misma empresa y
+// fechas que otro, con un puesto que el CV no dice en ninguna parte) y la
+// formación duplicada. "Transcribe, no interpretes" es el contrato del prompt;
+// esto es el contrato en CÓDIGO: lo que no está en el documento, no se pinta.
 // ----------------------------------------------------------------------------
 
-export function sanearTrayectoria(bruto: unknown): TrayectoriaCv | null {
+/** Normaliza para COMPROBAR PRESENCIA: minúsculas, sin acentos y solo
+ *  alfanumérico, así "WIERTZ - SHIMANO" y "Wiertz (Shimano)" comparan igual.
+ *  Es la hermana servidor de normalizarCita (src/lib/citas.ts): aquella además
+ *  mapea posiciones para subrayar; esta solo pregunta "¿está?". */
+export function normalizarComparacion(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+}
+
+export function sanearTrayectoria(bruto: unknown, cvTexto?: string | null): TrayectoriaCv | null {
   const t = bruto as Partial<TrayectoriaCv> | null
   const txt = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max)
+  // "¿Este dato está escrito en el CV?" Sin texto de CV no se puede comprobar
+  // y se deja pasar (el caso legítimo: transcripción de visión ya validada).
+  const pajar = cvTexto ? normalizarComparacion(cvTexto) : null
+  const enElCv = (s: string) => {
+    if (!pajar) return true
+    const aguja = normalizarComparacion(s)
+    return aguja.length === 0 || pajar.includes(aguja)
+  }
+  const vistos = new Set<string>()
   const empleos = (Array.isArray(t?.empleos) ? t.empleos : [])
     .map((e) => {
       const raw = e as Partial<TrayectoriaCv['empleos'][number]>
@@ -239,17 +266,49 @@ export function sanearTrayectoria(bruto: unknown): TrayectoriaCv | null {
       }
     })
     .filter((e) => e.empresa || e.puesto)
+    // Un empleo cuya empresa Y cuyo puesto no aparecen en el CV es un invento.
+    // Basta con que aparezca UNO de los dos: el modelo a veces normaliza el
+    // otro ("BP" contra "BP España"), y tirar un empleo real es peor que
+    // dejar pasar un matiz.
+    .filter((e) => enElCv(e.empresa) || enElCv(e.puesto))
+    // La misma empresa con las mismas fechas es UNA etapa: el clon del CV real
+    // era exactamente esto (dos "empleos" en BP, junio-septiembre 2024, uno de
+    // ellos con un puesto que el CV no menciona). Se queda el primero, que es
+    // el orden en que el documento lo cuenta. Un ascenso de verdad en la misma
+    // empresa trae fechas distintas y no cae aquí.
+    .filter((e) => {
+      const clave = `${normalizarComparacion(e.empresa)}|${normalizarComparacion(e.desde)}|${normalizarComparacion(e.hasta)}`
+      if (vistos.has(clave)) return false
+      vistos.add(clave)
+      return true
+    })
     .slice(0, 10)
+  const carnetsVistos = new Set<string>()
   const carnets = (Array.isArray(t?.carnets) ? t.carnets : [])
     .map((c) => {
       const raw = c as Partial<TrayectoriaCv['carnets'][number]>
       return { nombre: txt(raw?.nombre, 80), vigencia: txt(raw?.vigencia, 40) }
     })
-    .filter((c) => c.nombre)
+    .filter((c) => c.nombre && enElCv(c.nombre))
+    .filter((c) => {
+      const clave = normalizarComparacion(c.nombre)
+      if (carnetsVistos.has(clave)) return false
+      carnetsVistos.add(clave)
+      return true
+    })
     .slice(0, 8)
+  const formacionVista = new Set<string>()
   const formacion = (Array.isArray(t?.formacion) ? t.formacion : [])
     .map((f) => txt(f, 80))
-    .filter(Boolean)
+    .filter((f) => f && enElCv(f))
+    // El CV real llegó con "Certificado Inglés B1" dos veces: repetir no es
+    // transcribir.
+    .filter((f) => {
+      const clave = normalizarComparacion(f)
+      if (formacionVista.has(clave)) return false
+      formacionVista.add(clave)
+      return true
+    })
     .slice(0, 6)
   if (!empleos.length && !carnets.length && !formacion.length) return null
   return { empleos, carnets, formacion }
@@ -644,10 +703,13 @@ export function promptTrayectoria(cv: string): { system: string; user: string } 
     'interpretes: las fechas tal cual las escribe el CV ("mar 2021", "2019 - 2022", ' +
     '"actualidad"), los nombres de empresa y de puesto tal cual, y lo que el CV no ' +
     'diga, cadena vacía. No calcules duraciones, no rellenes huecos, no corrijas ' +
-    'erratas. Los empleos en el orden en que aparecen en el CV. En "carnets" van ' +
-    'carnets, licencias y certificados profesionales (carnet de conducir, carretillero, ' +
-    'PRL, manipulador de alimentos), con su vigencia o fecha si el CV la dice. En ' +
-    '"formacion" van estudios y cursos, una línea por cada uno. Español, sin guion largo.'
+    'erratas. Cada etapa UNA sola vez y solo si el CV la lista como experiencia ' +
+    'laboral con su empresa: no conviertas en empleo una sección del CV (habilidades, ' +
+    'áreas de interés, objetivos) ni repitas ningún elemento. Los empleos en el orden ' +
+    'en que aparecen en el CV. En "carnets" van carnets, licencias y certificados ' +
+    'profesionales (carnet de conducir, carretillero, PRL, manipulador de alimentos), ' +
+    'con su vigencia o fecha si el CV la dice. En "formacion" van estudios y cursos, ' +
+    'una línea por cada uno. Español, sin guion largo.'
   const user = `CV:\n${cv}`
   return { system, user }
 }

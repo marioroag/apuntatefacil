@@ -392,7 +392,11 @@ Deno.serve(async (req) => {
           ? chatJSON(pt.system, pt.user, ESQUEMA_TRAYECTORIA).catch(() => null)
           : Promise.resolve(null),
       ])
-      const trayectoria = sanearTrayectoria(trayectoriaBruta)
+      // El texto del CV entra como pajar de verificación: un empleo, carnet o
+      // curso que no esté escrito en el documento no se guarda (transcribir es
+      // eso). Lo enseñó el primer CV real: el modelo clonó un empleo con un
+      // puesto inventado y duplicó la formación.
+      const trayectoria = sanearTrayectoria(trayectoriaBruta, cv)
       let summary = String(ev.summary ?? '').slice(0, 600)
       let highlights = (Array.isArray(ev.highlights) ? ev.highlights : []).map((s) => String(s)).slice(0, 4)
       let concerns = (Array.isArray(ev.concerns) ? ev.concerns : []).map((s) => String(s)).slice(0, 3)

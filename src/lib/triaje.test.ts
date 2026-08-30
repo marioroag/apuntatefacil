@@ -256,6 +256,69 @@ describe('trayectoria: transcripción con techos', () => {
     expect(sanearTrayectoria('texto')).toBeNull()
   })
 
+  it('la misma empresa con las mismas fechas es UNA etapa (el clon del primer CV real)', () => {
+    // Caso de producción (ago 2026): la plantilla del CV traía un bloque
+    // duplicado INVISIBLE en la capa de texto (mismo empleador y fechas, otro
+    // título), y la ficha pintaba dos empleos donde el candidato tuvo uno.
+    const out = sanearTrayectoria({
+      empleos: [
+        { empresa: 'WIERTZ - SHIMANO', puesto: 'Mozo de almacén', desde: 'julio', hasta: 'agosto 2025' },
+        { empresa: 'BP (Sustitución por vacaciones)', puesto: 'Expendedor de gasolinera', desde: 'junio', hasta: 'septiembre 2024' },
+        { empresa: 'BP (SUSTITUCIÓN POR VACACIONES)', puesto: 'Área de Marketing Digital', desde: 'JUNIO', hasta: 'SEPTIEMBRE 2024' },
+      ],
+      carnets: [],
+      formacion: ['Bachillerato de Ciencias', 'Certificado Inglés B1', 'Certificado Inglés B1'],
+    })
+    expect(out?.empleos.map((e) => e.puesto)).toEqual(['Mozo de almacén', 'Expendedor de gasolinera'])
+    expect(out?.formacion).toEqual(['Bachillerato de Ciencias', 'Certificado Inglés B1'])
+  })
+
+  it('un ascenso de verdad no se deduplica: misma empresa, fechas distintas', () => {
+    const out = sanearTrayectoria({
+      empleos: [
+        { empresa: 'Turia Levante', puesto: 'Oficial de 2ª', desde: '2016', hasta: '2019' },
+        { empresa: 'Turia Levante', puesto: 'Oficial de 1ª', desde: '2019', hasta: 'actualidad' },
+      ],
+      carnets: [],
+      formacion: [],
+    })
+    expect(out?.empleos).toHaveLength(2)
+  })
+
+  it('lo que no está escrito en el CV no se guarda: verificación contra el texto', () => {
+    const cvTexto =
+      'Mozo de almacén en WIERTZ - SHIMANO, julio a agosto 2025. ' +
+      'Formación: Bachillerato de Ciencias. Carnet de conducir B.'
+    const out = sanearTrayectoria(
+      {
+        empleos: [
+          // La empresa aparece con otra puntuación: se queda (normalización).
+          { empresa: 'Wiertz (Shimano)', puesto: 'Mozo de almacén', desde: 'julio', hasta: 'agosto 2025' },
+          // Ni la empresa ni el puesto están en el CV: invento, fuera.
+          { empresa: 'Consultora Fantasma S.L.', puesto: 'Director de Marketing', desde: '2023', hasta: '2024' },
+        ],
+        carnets: [
+          { nombre: 'Carnet de conducir B', vigencia: '' },
+          { nombre: 'Carnet de camión C+E', vigencia: '' },
+        ],
+        formacion: ['Bachillerato de Ciencias', 'Máster inventado en logística'],
+      },
+      cvTexto,
+    )
+    expect(out?.empleos.map((e) => e.empresa)).toEqual(['Wiertz (Shimano)'])
+    expect(out?.carnets.map((c) => c.nombre)).toEqual(['Carnet de conducir B'])
+    expect(out?.formacion).toEqual(['Bachillerato de Ciencias'])
+  })
+
+  it('sin texto de CV que comprobar, la verificación no tira nada', () => {
+    const out = sanearTrayectoria({
+      empleos: [{ empresa: 'Cualquiera', puesto: 'Mozo/a', desde: '', hasta: '' }],
+      carnets: [],
+      formacion: [],
+    })
+    expect(out?.empleos).toHaveLength(1)
+  })
+
   it('el peor caso saneado cabe de sobra en el techo de candidates.ai', () => {
     // El constraint es 20000 chars para el objeto ai ENTERO; la trayectoria
     // saneada al máximo tiene que dejar sitio al resto del análisis.

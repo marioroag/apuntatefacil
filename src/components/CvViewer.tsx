@@ -124,7 +124,11 @@ export function CvViewer({
         if (!vivo) return
         setDoc(d)
         setPaginas(out)
-      } catch {
+      } catch (e) {
+        // La miga de pan importa: el fallo cae al iframe y desde fuera no se
+        // distingue de un iframe que tampoco pinta. Con esto, una captura de
+        // consola dice si murió pdf.js, el worker o el propio documento.
+        console.error('[apuntatefacil] el visor de CV no pudo abrir el documento:', e)
         if (vivo) onFallo()
       }
     })()

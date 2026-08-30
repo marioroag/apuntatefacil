@@ -1339,11 +1339,12 @@ function Cv({
     if (!esPdf || !url || visorFallo) return
     let vivo = true
     void fetch(url)
-      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((buf) => {
         if (vivo) setBytes(buf)
       })
-      .catch(() => {
+      .catch((e) => {
+        console.error('[apuntatefacil] no se pudo descargar el CV para el visor:', e)
         if (vivo) setVisorFallo(true)
       })
     return () => {
