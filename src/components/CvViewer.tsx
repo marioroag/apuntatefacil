@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { cargarPdfjs, type PDFDocumentProxy } from '../lib/pdf'
-import { localizarCita, type TramoCita } from '../lib/citas'
+import { ajustarAPalabras, fraccionAvance, localizarCita, type TramoCita } from '../lib/citas'
 import { MERIDIAN_NAME, type CitaCv } from '../lib/meridian'
 
 /**
@@ -64,6 +64,7 @@ export function CvViewer({
   citaActiva,
   nota,
   onFallo,
+  onLocalizadas,
 }: {
   data: ArrayBuffer
   titulo: string
@@ -73,6 +74,10 @@ export function CvViewer({
   nota?: string
   /** El PDF no se pudo abrir con pdf.js: el padre vuelve al iframe de siempre. */
   onFallo: () => void
+  /** Qué citas se han localizado de verdad en el documento. La ficha lo usa
+   *  para que el informe solo enlace citas con marca: un botón que salta a
+   *  ninguna parte es una puerta pintada. */
+  onLocalizadas?: (ids: string[]) => void
 }) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const [paginas, setPaginas] = useState<Pagina[] | null>(null)
@@ -124,6 +129,7 @@ export function CvViewer({
         if (!vivo) return
         setDoc(d)
         setPaginas(out)
+        onLocalizadas?.([...encontradas])
       } catch (e) {
         // La miga de pan importa: el fallo cae al iframe y desde fuera no se
         // distingue de un iframe que tampoco pinta. Con esto, una captura de
@@ -155,10 +161,17 @@ export function CvViewer({
   }
 
   // El viaje hasta una cita: se asegura su página, se hace scroll y destella.
+  // Si la cita no se pudo localizar, el visor LO DICE en su línea de estado en
+  // vez de quedarse quieto: un toque que no hace nada visible es un toque roto.
+  const [noEncontrada, setNoEncontrada] = useState(false)
   useEffect(() => {
     if (!citaActiva || !paginas) return
     const idx = paginas.findIndex((p) => p.marcas.some((m) => m.citaId === citaActiva.id))
-    if (idx < 0) return
+    if (idx < 0) {
+      setNoEncontrada(true)
+      return
+    }
+    setNoEncontrada(false)
     setPintadas((n) => Math.max(n, idx + 1))
     const cont = contRef.current
     const wrapper = wrapperRefs.current[idx]
@@ -175,11 +188,12 @@ export function CvViewer({
     return new Set(paginas.flatMap((p) => p.marcas.map((m) => m.citaId))).size
   }, [paginas])
 
-  const linea =
-    nota ??
-    (localizadas > 0
-      ? `${localizadas === 1 ? '1 cita' : `${localizadas} citas`} de ${MERIDIAN_NAME} subrayada${localizadas === 1 ? '' : 's'} en el documento`
-      : null)
+  const linea = noEncontrada
+    ? 'Esa cita no se ha podido localizar en el documento.'
+    : nota ??
+      (localizadas > 0
+        ? `${localizadas === 1 ? '1 cita' : `${localizadas} citas`} de ${MERIDIAN_NAME} subrayada${localizadas === 1 ? '' : 's'} en el documento`
+        : null)
 
   if (!paginas) {
     return (
@@ -253,8 +267,11 @@ export function CvViewer({
 
 // Un tramo de cita -> una marca en porcentajes de la página. La caja del item
 // sale de componer su transform con el del viewport (vale también para texto
-// rotado en lo que importa: dónde está); el recorte parcial dentro del item se
-// reparte PROPORCIONAL a los caracteres, que para un marcador es suficiente.
+// rotado en lo que importa: dónde está). El recorte parcial dentro del item se
+// AJUSTA A PALABRAS y se convierte a píxeles pesando cada carácter por su
+// anchura típica (fraccionAvance): el reparto por número de caracteres
+// derrapaba una letra o dos con fuentes proporcionales y la marca empezaba a
+// media palabra.
 function aMarca(
   cita: CitaCv,
   t: TramoCita,
@@ -265,9 +282,11 @@ function aMarca(
   const tx = pdfjs.Util.transform(viewport.transform, item.transform)
   const alto = Math.hypot(tx[2], tx[3])
   const anchoItem = item.width * viewport.scale
-  const len = Math.max(1, item.str.length)
-  const x = tx[4] + anchoItem * (t.desde / len)
-  const ancho = anchoItem * ((t.hasta - t.desde) / len)
+  const { desde, hasta } = ajustarAPalabras(item.str, t.desde, t.hasta)
+  const f0 = fraccionAvance(item.str, desde)
+  const f1 = fraccionAvance(item.str, hasta)
+  const x = tx[4] + anchoItem * f0
+  const ancho = anchoItem * (f1 - f0)
   // tx[5] es la línea de base; la marca cubre el ojo de la letra con un poco
   // de holgura por abajo, como un marcador de verdad.
   const y = tx[5] - alto

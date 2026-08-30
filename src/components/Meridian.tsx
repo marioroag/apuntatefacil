@@ -180,6 +180,7 @@ function CriteriosList({
   criterios,
   print,
   onVerEnCv,
+  citasLocalizables,
 }: {
   criterios: AiCriterion[]
   print?: boolean
@@ -187,6 +188,10 @@ function CriteriosList({
    *  que lleva a su cita subrayada en el visor del CV. Sin la prop (Parte
    *  diario, análisis sin CV localizable), todo se pinta como siempre. */
   onVerEnCv?: (citaId: string) => void
+  /** Qué citas tienen marca de verdad en el documento (lo dice el visor).
+   *  `null` = aún no se sabe: se enlaza con optimismo y el visor avisa si no.
+   *  Con el conjunto en la mano, una cita sin marca se pinta como texto. */
+  citasLocalizables?: Set<string> | null
 }) {
   if (criterios.length === 0) return null
   const ordenados = [...criterios].sort(
@@ -204,7 +209,11 @@ function CriteriosList({
             c.evidencia && c.evidencia.trim().toLowerCase() !== nombre.trim().toLowerCase()
               ? c.evidencia
               : undefined
-          const enlazable = !!hecho && !!onVerEnCv && c.fuente === 'cv'
+          const enlazable =
+            !!hecho &&
+            !!onVerEnCv &&
+            c.fuente === 'cv' &&
+            (citasLocalizables == null || citasLocalizables.has(idCitaCriterio(c.clave)))
           return (
             <li
               key={c.clave}
@@ -316,12 +325,15 @@ export function MeridianPanelBlock({
   candidate,
   plegable = true,
   onVerEnCv,
+  citasLocalizables,
 }: {
   candidate: Candidate
   /** Lleva una cita del análisis a su subrayado en el visor del CV. La pasa la
    *  ficha del candidato solo cuando hay citas localizables (cvLeido 'texto');
    *  sin ella, el informe se pinta como siempre. */
   onVerEnCv?: (citaId: string) => void
+  /** Qué citas tienen marca en el documento, cuando el visor ya lo sabe. */
+  citasLocalizables?: Set<string> | null
   /**
    * En la ficha de móvil, Meridian es una de las cinco vistas del selector: has
    * TOCADO su pastilla para leerlo, así que entra abierto y sin control de
@@ -443,7 +455,7 @@ export function MeridianPanelBlock({
             <div>
               {criterios.length > 0 && (
                 <div className={`mt-3 border-t border-slate-100 pt-2.5 ${print ? 'meridian-in' : ''}`} style={print ? { animationDelay: '40ms' } : undefined}>
-                  <CriteriosList criterios={criterios} print={print} onVerEnCv={onVerEnCv} />
+                  <CriteriosList criterios={criterios} print={print} onVerEnCv={onVerEnCv} citasLocalizables={citasLocalizables} />
                 </div>
               )}
               {/* Las contradicciones respuesta-vs-CV van en bloque propio, no
@@ -459,7 +471,7 @@ export function MeridianPanelBlock({
                     {contrastes.map((c, i) => (
                       <li key={i} className="text-[13px] leading-5 text-slate-600">
                         Responde <span className="font-medium text-slate-700">"{c.respuesta}"</span>, pero el CV dice{' '}
-                        {onVerEnCv ? (
+                        {onVerEnCv && (citasLocalizables == null || citasLocalizables.has(idCitaContraste(i))) ? (
                           <button
                             type="button"
                             onClick={() => onVerEnCv(idCitaContraste(i))}

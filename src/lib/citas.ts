@@ -93,9 +93,18 @@ function aTramos(pos: PosChar[]): TramoCita[] {
 
 /**
  * Busca la cita en los items y devuelve sus tramos, o null si no está (y
- * entonces no se subraya nada: la degradación silenciosa es el diseño). El
- * segundo intento quita los guiones de los dos lados, que es como se cuela la
- * partición de línea de un PDF ("instala-" + "ciones" contra "instalaciones").
+ * entonces no se subraya nada: la degradación silenciosa es el diseño). Tres
+ * intentos, del más estricto al más tolerante:
+ *  1. exacto (normalizado);
+ *  2. sin guiones a los dos lados, que es como se cuela la partición de línea
+ *     de un PDF ("instala-" + "ciones" contra "instalaciones");
+ *  3. APROXIMADO: la mejor ventana del documento a distancia de edición ≤ 25%
+ *     de la cita. Existe porque el evaluador debe citar literal y el modelo a
+ *     veces parafrasea un pelo ("en WIERTZ" donde el CV pone "· WIERTZ"), y
+ *     sin este intento la cita real se quedaba sin marca y el enlace del
+ *     informe saltaba a ninguna parte. El umbral es la frontera de la
+ *     honestidad: por debajo se subraya lo que ES la cita con otra puntuación;
+ *     por encima sería subrayar un trozo que se le parece.
  */
 export function localizarCita(cita: string, items: { str: string }[]): TramoCita[] | null {
   const needle = normalizarCita(cita)
@@ -115,6 +124,100 @@ export function localizarCita(cita: string, items: { str: string }[]): TramoCita
     pos2.push(pos[i])
   }
   const idx2 = chars2.join('').indexOf(needle2)
-  if (idx2 < 0) return null
-  return aTramos(pos2.slice(idx2, idx2 + needle2.length))
+  if (idx2 >= 0) return aTramos(pos2.slice(idx2, idx2 + needle2.length))
+
+  const aprox = mejorVentana(chars2.join(''), needle2)
+  if (!aprox) return null
+  return aTramos(pos2.slice(aprox.desde, aprox.hasta))
+}
+
+// Alineamiento semiglobal (la cita entera contra cualquier ventana del pajar),
+// con seguimiento del inicio de la ventana para poder volver a los items. Es
+// O(pajar x cita): con un CV normalizado de ~8000 caracteres y citas de ≤200,
+// decenas de milisegundos, y solo corre cuando los intentos exactos fallan.
+function mejorVentana(pajar: string, cita: string): { desde: number; hasta: number } | null {
+  const N = pajar.length
+  const M = cita.length
+  if (N === 0 || M === 0) return null
+  let prevD = new Array<number>(N + 1).fill(0)
+  let prevS = Array.from({ length: N + 1 }, (_, j) => j)
+  for (let i = 1; i <= M; i++) {
+    const curD = new Array<number>(N + 1)
+    const curS = new Array<number>(N + 1)
+    curD[0] = i
+    curS[0] = 0
+    const c = cita.charCodeAt(i - 1)
+    for (let j = 1; j <= N; j++) {
+      let d = prevD[j - 1] + (pajar.charCodeAt(j - 1) === c ? 0 : 1)
+      let s = prevS[j - 1]
+      if (prevD[j] + 1 < d) {
+        d = prevD[j] + 1
+        s = prevS[j]
+      }
+      if (curD[j - 1] + 1 < d) {
+        d = curD[j - 1] + 1
+        s = curS[j - 1]
+      }
+      curD[j] = d
+      curS[j] = s
+    }
+    prevD = curD
+    prevS = curS
+  }
+  let mejor = Infinity
+  let fin = -1
+  for (let j = 0; j <= N; j++) {
+    if (prevD[j] < mejor) {
+      mejor = prevD[j]
+      fin = j
+    }
+  }
+  const tope = Math.max(2, Math.round(M * 0.25))
+  if (mejor > tope || fin <= prevS[fin]) return null
+  return { desde: prevS[fin], hasta: fin }
+}
+
+// ----------------------------------------------------------------------------
+// Geometría de la marca: dos ayudas puras para que el rect caiga donde caen
+// las letras. pdf.js da el ancho del ITEM entero, no de cada carácter, así que
+// el recorte parcial se estima; estimarlo por NÚMERO de caracteres derrapaba
+// una letra o dos con fuentes proporcionales (una "i" no mide lo que una "m").
+// ----------------------------------------------------------------------------
+
+/** Un marcador de verdad cubre palabras enteras: el tramo se estira hasta los
+ *  límites de palabra, y de paso absorbe el pelo de deriva que le quede a la
+ *  estimación de anchos. */
+export function ajustarAPalabras(str: string, desde: number, hasta: number): { desde: number; hasta: number } {
+  let d = Math.max(0, Math.min(desde, str.length))
+  while (d > 0 && !/\s/.test(str[d - 1])) d--
+  let h = Math.max(d, Math.min(hasta, str.length))
+  while (h < str.length && !/\s/.test(str[h])) h++
+  return { desde: d, hasta: h }
+}
+
+const ESTRECHO = /[iíìîïjltf!.,:;'"|()[\]{}\s·-]/
+const ANCHO = /[mwMW@ÑÆŒ]/
+const MAYUSCULA = /[A-ZÁÉÍÓÚÜ0-9]/
+
+function pesoChar(ch: string): number {
+  if (ESTRECHO.test(ch)) return 0.5
+  if (ANCHO.test(ch)) return 1.5
+  if (MAYUSCULA.test(ch)) return 1.15
+  return 1
+}
+
+/** Qué fracción del ancho del item queda a la IZQUIERDA de `offset`, pesando
+ *  cada carácter por su anchura típica. Heurística, no medición: para un
+ *  marcador basta, y la alternativa de verdad (pintar la capa de texto de
+ *  pdf.js y medir con el navegador) cuesta una pieza entera. */
+export function fraccionAvance(str: string, offset: number): number {
+  const fin = Math.max(0, Math.min(offset, str.length))
+  let hasta = 0
+  let total = 0
+  for (let i = 0; i < str.length; i++) {
+    const w = pesoChar(str[i])
+    total += w
+    if (i < fin) hasta += w
+  }
+  return total > 0 ? hasta / total : 0
 }

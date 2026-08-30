@@ -174,6 +174,10 @@ export function CandidateModal({
   // + destello). Lleva un contador para que pedir la misma cita dos veces
   // vuelva a hacer el viaje.
   const [citaActiva, setCitaActiva] = useState<CitaActiva | null>(null)
+  // Qué citas localizó DE VERDAD el visor en el documento (null = aún no se
+  // sabe, el visor no ha cargado). Con esto el informe solo enlaza citas con
+  // marca: un enlace que salta a ninguna parte es una puerta pintada.
+  const [citasLocalizadas, setCitasLocalizadas] = useState<Set<string> | null>(null)
   const barraRef = useRef<HTMLDivElement>(null)
   const documentosRef = useRef<HTMLDivElement>(null)
   const dosColumnas = useDosColumnas()
@@ -193,6 +197,7 @@ export function CandidateModal({
     setVisto(candidate.id)
     setVista('respuestas')
     setCitaActiva(null)
+    setCitasLocalizadas(null)
   }
 
   // Lleva DIRECTO a la conversación, a cualquier ancho: una sola pieza de estado.
@@ -280,6 +285,7 @@ export function CandidateModal({
       candidate={candidate}
       plegable={!esMovil}
       onVerEnCv={citasCv.length > 0 ? verEnCv : undefined}
+      citasLocalizables={citasLocalizadas}
     />
   )
   const contenidoRespuestas = (
@@ -305,6 +311,7 @@ export function CandidateModal({
           citas={citasCv}
           citaActiva={citaActiva}
           cvLeido={candidate.ai && !candidate.ai.error ? candidate.ai.cvLeido : undefined}
+          onLocalizadas={(ids) => setCitasLocalizadas(new Set(ids))}
         />
       </div>
     </div>
@@ -1280,12 +1287,14 @@ function Cv({
   citas,
   citaActiva,
   cvLeido,
+  onLocalizadas,
 }: {
   candidate: Candidate
   cvName: string
   citas: CitaCv[]
   citaActiva: CitaActiva | null
   cvLeido: 'texto' | 'vision' | 'no' | undefined
+  onLocalizadas?: (ids: string[]) => void
 }) {
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState(false)
@@ -1414,6 +1423,7 @@ function Cv({
           citaActiva={citaActiva}
           nota={cvLeido === 'vision' ? `CV escaneado: ${MERIDIAN_NAME} lo leyó transcribiéndolo, sin citas que subrayar.` : undefined}
           onFallo={() => setVisorFallo(true)}
+          onLocalizadas={onLocalizadas}
         />
       ) : (
         <div className={`min-h-[360px] ${banda}`}>

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 // pierde lo que sí está, el visor subraya mentiras o calla verdades, y ninguna
 // de las dos se ve en una revisión de código. Cada detector se probó
 // rompiéndolo a propósito antes de darlo por bueno.
-import { MIN_CITA, localizarCita, normalizarCita } from './citas'
+import { MIN_CITA, ajustarAPalabras, fraccionAvance, localizarCita, normalizarCita } from './citas'
 
 describe('normalizarCita: la misma cadena desde los dos lados', () => {
   it('ignora mayúsculas, acentos y whitespace', () => {
@@ -61,5 +61,49 @@ describe('localizarCita: encuentra lo que está, calla lo que no', () => {
     expect(tramos).toHaveLength(1)
     const { desde, hasta } = tramos![0]
     expect(items[0].str.slice(desde, hasta)).toBe('carretillero (2027)')
+  })
+})
+
+describe('el intento aproximado: tolera la paráfrasis leve, no el parecido', () => {
+  it('una cita con la puntuación cambiada por el modelo se localiza igual', () => {
+    // El caso real: el CV escribe "Mozo de almacén · WIERTZ - SHIMANO" y el
+    // modelo cita "Mozo de almacén en WIERTZ SHIMANO". No es exacta y ES la
+    // misma cita: se subraya.
+    const items = [{ str: 'Mozo de almacén · WIERTZ - SHIMANO · julio - agosto 2025' }]
+    const tramos = localizarCita('Mozo de almacén en WIERTZ SHIMANO', items)
+    expect(tramos).not.toBeNull()
+    const { desde, hasta } = tramos![0]
+    expect(items[0].str.slice(desde, hasta)).toContain('WIERTZ')
+  })
+
+  it('una errata pequeña dentro de la cita tampoco la pierde', () => {
+    const items = [{ str: 'Curso de manipulación de cargas de 20 horas en 2024' }]
+    expect(localizarCita('curso de manipulacion de carga de 20 horas', items)).not.toBeNull()
+  })
+
+  it('lo que solo SE PARECE no se subraya: por encima del umbral, null', () => {
+    // Comparte palabras sueltas con el documento pero no es esa cita: marcarla
+    // sería subrayar una mentira con cara de prueba.
+    const items = [{ str: 'Experiencia de dos años como mozo de almacén en Valencia' }]
+    expect(localizarCita('cinco años de experiencia como carretillero en Madrid', items)).toBeNull()
+  })
+})
+
+describe('la geometría de la marca: palabras enteras y anchos pesados', () => {
+  it('ajustarAPalabras estira el tramo hasta los límites de palabra', () => {
+    const str = 'Carnet de carretillero elevador'
+    // Un tramo que empieza a media palabra ("rnet") cubre la palabra entera.
+    expect(ajustarAPalabras(str, 2, 9)).toEqual({ desde: 0, hasta: 9 })
+    expect(ajustarAPalabras(str, 10, 14)).toEqual({ desde: 10, hasta: 22 })
+    // Fuera de rango no revienta.
+    expect(ajustarAPalabras(str, -5, 999)).toEqual({ desde: 0, hasta: str.length })
+  })
+
+  it('fraccionAvance pesa los caracteres: una "i" avanza menos que una "m"', () => {
+    expect(fraccionAvance('iiiimmmm', 4)).toBeLessThan(0.5)
+    expect(fraccionAvance('mmmmiiii', 4)).toBeGreaterThan(0.5)
+    expect(fraccionAvance('abc', 0)).toBe(0)
+    expect(fraccionAvance('abc', 3)).toBe(1)
+    expect(fraccionAvance('', 0)).toBe(0)
   })
 })
