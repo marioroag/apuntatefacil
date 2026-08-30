@@ -153,10 +153,16 @@
   --color-novedad: #131822;
 
   /* La superficie que recoge una columna del tablero del puesto (Mario, ago
-     2026). Va entre el fondo de trabajo (#f9fafb) y el blanco de las tarjetas:
-     tres peldaños que casi se tocan, porque lo que hace que las tarjetas se
-     lean recogidas es el canto de la columna, no el contraste. */
-  --color-kanban-columna: #fdfdfd;
+     2026). BLANCO, el mismo que sus tarjetas. Estuvo en #fdfdfd, un peldaño por
+     debajo, para separarlas de su carril; al quitarle la sombra a la tarjeta ese
+     peldaño se quedó sin trabajo que hacer (1,01:1 no separa nada) y lo único
+     que aportaba era un tercer tono casi idéntico a los otros dos. Ahora son dos
+     niveles limpios: el gris de la página y el blanco de la columna, y lo que
+     dibuja cada tarjeta es su canto, que es la regla de la casa.
+     Sigue siendo un token con nombre y no `white` a pelo: es la superficie que
+     el tinte de soltar sustituye, y una decisión con nombre se cambia en una
+     línea. Ya lo ha sido dos veces. */
+  --color-kanban-columna: #ffffff;
 
   /* --- LA SUPERFICIE DE ACCESO (login / alta, diseño de Mario, ago 2026) -------
      Cuatro tokens con nombre, igual que los del lateral y por el mismo motivo: son

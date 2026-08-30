@@ -46,11 +46,19 @@ import type { Campaign, Candidate, CandidateStatus, Tag } from '../lib/types'
  *
  *  - LA COLUMNA ES UNA SUPERFICIE QUE RECOGE SUS TARJETAS (Mario, con la
  *    referencia delante: "que queden recogidas en sus columnas en vez de
- *    columnas flotando"). Es el gris de los bloques de relleno (`slate-100`,
- *    sin borde: la profundidad la ponen los filos de las tarjetas de dentro,
- *    que es la regla de la casa), con su cabecera DENTRO. Las cinco se estiran
- *    a la misma altura (lo hace la rejilla), así que el tablero se lee como
- *    cinco carriles y no como cinco pilas sueltas.
+ *    columnas flotando"). Es `--color-kanban-columna`, hoy el MISMO blanco que
+ *    sus tarjetas, con su `filo` y su cabecera DENTRO. Estuvo un peldaño por
+ *    debajo (#fdfdfd) para despegarlas del carril; al quitarle la sombra a la
+ *    tarjeta ese peldaño dejó de hacer nada (1,01:1) y sobraba como tercer tono.
+ *    Quedan dos niveles limpios, el gris de la página y el blanco de la columna,
+ *    y lo que dibuja cada tarjeta es su canto. Las cinco se estiran a la misma
+ *    altura (lo hace la rejilla), así que el tablero se lee como cinco carriles
+ *    y no como cinco pilas sueltas.
+ *
+ *  - Y POR ESO LA TARJETA NO LLEVA SOMBRA (Mario, ago 2026): está APOYADA en su
+ *    columna, no flotando sobre ella, así que el filo ya hace la profundidad y
+ *    la sombra solo la repetía, multiplicada por las veinte tarjetas de un
+ *    carril. La conserva lo único que de verdad flota: el clon del arrastre.
  *
  *  - QUÉ SE VE EN LA TARJETA Y EN QUÉ ORDEN LO DECIDE EL MISMO ENGRANAJE QUE LA
  *    TABLA (Mario: "como con la tabla, debe poderse configurar"). Los campos
@@ -391,7 +399,14 @@ function Tarjeta({
   const name = candidateName(c) || 'Sin nombre'
   const fit = candidateFit(c.ai)
   return (
-    <article className={`relative rounded-xl filo p-3.5 ${fantasma ? 'bg-white shadow-pop' : seleccionado ? 'bg-[var(--color-tabla-selec)] shadow-card' : 'bg-white shadow-card'}`}>
+    // SIN SOMBRA EN REPOSO (Mario, ago 2026). La tarjeta está APOYADA dentro de
+    // su columna, que ya la contiene con su propio filo y su fondo un punto por
+    // debajo del blanco: ahí la profundidad la hace el hairline y la sombra solo
+    // repetía lo que el filo ya dice, con la columna entera llena de tarjetas
+    // multiplicándola por veinte. Es la regla de la casa aplicada al pie de la
+    // letra: la sombra la gana lo que FLOTA por encima de otra cosa, y aquí lo
+    // único que flota es el clon del arrastre, que conserva su `shadow-pop`.
+    <article className={`relative rounded-xl filo p-3.5 ${fantasma ? 'bg-white shadow-pop' : seleccionado ? 'bg-[var(--color-tabla-selec)]' : 'bg-white'}`}>
       {!fantasma && <AccionesTarjeta candidato={c} pinta={pinta} />}
       {/* La identidad: quién es y sus señales (favorito, notas), como la columna
           Candidato de la tabla. No es configurable por lo mismo que allí: sin
