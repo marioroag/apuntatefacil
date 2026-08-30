@@ -25,6 +25,9 @@ import { WHATSAPP_LISTO } from './whatsapp'
 // tener otra vara, o el anillo contradiría al desglose que pinta la ficha.
 import { agregarJuicios } from '../../supabase/functions/_shared/triaje'
 import { ACENTO_MARCA } from './colors'
+// Los dos CVs ficticios (contenido + citas literales): la fuente única de la
+// que salen también los PDFs de public/demo (scripts/gen-demo-cvs.mjs).
+import { CITAS_ANDREI, CITAS_JOAQUIN, CV_ANDREI, CV_JOAQUIN } from './demoCv'
 
 // PRNG determinista (mulberry32) para que los datos de ejemplo sean estables.
 function rng(seed: number) {
@@ -245,6 +248,7 @@ const campaigns: Campaign[] = [
       f({ id: 'prl', type: 'select', label: 'Formación PRL en construcción', required: true, options: ['No tengo', '20 horas', '60 horas'] }),
       f({ id: 'carnet', type: 'boolean', label: '¿Carnet de conducir B?', required: true }),
       f({ id: 'disp', type: 'select', label: 'Disponibilidad para incorporarte', required: true, options: ['Inmediata', 'En 15 días', 'En 1 mes'] }),
+      f({ id: 'cv', type: 'file', label: 'Adjunta tu CV (PDF)' }),
       f({ id: 'comentarios', type: 'textarea', label: 'Obras destacadas o algo que añadir' }),
     ],
   },
@@ -357,6 +361,7 @@ const campaigns: Campaign[] = [
       f({ id: 'tipo_carretilla', type: 'multiselect', label: '¿Qué carretillas manejas?', required: true, options: ['Frontal', 'Retráctil', 'Transpaleta eléctrica', 'Recogepedidos', 'Apiladora'] }),
       f({ id: 'exp', type: 'number', label: 'Años de experiencia con carretilla', required: true, placeholder: '0' }),
       f({ id: 'turnos', type: 'multiselect', label: 'Turnos disponibles', required: true, options: ['Mañana', 'Tarde', 'Noche'] }),
+      f({ id: 'cv', type: 'file', label: 'Adjunta tu CV (PDF)' }),
       f({ id: 'inicio', type: 'date', label: 'Disponibilidad de incorporación' }),
     ],
   },
@@ -529,6 +534,11 @@ function answerFor(field: FormField, name: string, cmpId: string, candidateNumbe
       return chance(0.35)
         ? pick(['Puedo empezar ya mismo.', 'Tengo herramienta propia.', 'Busco estabilidad y proyecto largo.', 'Vivo cerca de la obra.', 'Carnet y PRL al día.', ''])
         : ''
+    // Sin respuesta, no un '' que pintaría una fila vacía: los candidatos
+    // generados NO adjuntan CV (solo los dos artesanales de demoCv, que traen
+    // su nombre de fichero escrito a mano).
+    case 'file':
+      return undefined
     default:
       return ''
   }
@@ -710,13 +720,23 @@ function valorPara(nivel: DemoCriterio['nivel'], fit: number): ValorCriterio {
   return chance(0.4) ? 'no_cumple' : chance(0.6) ? 'parcial' : 'no_consta'
 }
 
-export function aiFor(campaignId: string, status: CandidateStatus, favorito: boolean, submittedAt: string): CandidateAI {
+export function aiFor(
+  campaignId: string,
+  status: CandidateStatus,
+  favorito: boolean,
+  submittedAt: string,
+  // `cvUsed` lo decide quien conoce al candidato (`!!cvPath`), no el azar. El
+  // 65% aleatorio de antes dejaba a Meridian diciendo "he leído un CV" en
+  // fichas cuyo bloque Documentos decía "este formulario no pide documentos":
+  // la demo mentía sobre sí misma. Los únicos con CV son los dos artesanales
+  // de demoCv, y esos traen su análisis escrito a mano, no este.
+  cvUsed = false,
+): CandidateAI {
   // La banda objetivo (correlada con estado y favorito) solo GUÍA el reparto de
   // valores; el número final lo pone la MISMA agregación que producción
   // (agregarJuicios, _shared/triaje.ts). Así el anillo nunca contradice a las
   // filas: cinco "cumple" no pueden salir con un 77.
   const objetivo = fitFor(status, favorito)
-  const cvUsed = chance(0.65)
   const defs = (DEMO_CRITERIOS[campaignId] ?? []).filter((c) => c.fuente !== 'cv' || cvUsed)
   const criterios = defs.map((c) => {
     const valor = valorPara(c.nivel, objetivo)
@@ -755,6 +775,62 @@ export function aiFor(campaignId: string, status: CandidateStatus, favorito: boo
     model: 'demo',
     analyzedAt: submittedAt,
     cvUsed,
+    cvLeido: cvUsed ? 'texto' : 'no',
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Los análisis CON CV de los dos candidatos artesanales (demoCv). Escritos a
+// mano y no con aiFor: sus evidencias tienen que ser las citas LITERALES de
+// los PDFs para que el visor las subraye (lo vigila demoCv.test.ts con el
+// mismo código de localización del visor). El número lo sigue poniendo la
+// agregación real, como en todo el seed.
+// ---------------------------------------------------------------------------
+
+type JuicioDemo = { valor: ValorCriterio; evidencia?: string; fuente?: 'respuesta' | 'cv' }
+
+function aiConCv(args: {
+  campaignId: string
+  analyzedAt: string
+  summary: string
+  valores: Record<string, JuicioDemo>
+  contrastes?: { respuesta: string; cv: string }[]
+  trayectoria: NonNullable<CandidateAI['trayectoria']>
+}): CandidateAI {
+  const defs = DEMO_CRITERIOS[args.campaignId] ?? []
+  const criterios = defs.map((c) => {
+    const v = args.valores[c.clave] ?? { valor: 'no_consta' as ValorCriterio }
+    return {
+      clave: c.clave,
+      valor: v.valor,
+      nombre: c.nombre,
+      nivel: c.nivel,
+      ...(v.evidencia ? { evidencia: v.evidencia, fuente: v.fuente ?? ('respuesta' as const) } : {}),
+    }
+  })
+  const { fit } = agregarJuicios(
+    defs.map((c) => ({
+      clave: c.clave, familia: 'requisitos' as const, nombre: c.nombre, nivel: c.nivel,
+      fuente: c.fuente ?? ('formulario' as const), anclas: { cumple: '', parcial: '', no_cumple: '' },
+    })),
+    criterios.map((c) => ({ clave: c.clave, valor: c.valor, evidencia: c.evidencia })),
+  )
+  const highlights = criterios
+    .filter((c) => c.valor === 'cumple' && c.evidencia)
+    .map((c) => c.evidencia as string)
+    .slice(0, 3)
+  return {
+    summary: args.summary,
+    highlights,
+    concerns: [],
+    fit,
+    criterios,
+    ...(args.contrastes?.length ? { contrastes: args.contrastes } : {}),
+    trayectoria: args.trayectoria,
+    model: 'demo',
+    analyzedAt: args.analyzedAt,
+    cvUsed: true,
+    cvLeido: 'texto',
   }
 }
 
@@ -818,6 +894,122 @@ for (const cmp of campaigns) {
     n = candidateNumber
   }
 }
+
+// ---------------------------------------------------------------------------
+// LOS DOS CANDIDATOS CON CV (el wow del visor). Sus PDFs viven en public/demo
+// (cvPath empieza por '/': el visor los usa tal cual, sin firmar) y su análisis
+// es artesanal para que cada evidencia de fuente 'cv' exista LITERAL en el
+// documento y se vea subrayada. Andrei trae además el CONTRASTE: responde 5
+// años de experiencia y las etapas de su CV arrancan en 2021.
+// ---------------------------------------------------------------------------
+
+const entradaAndrei = dateAgo(2)
+candidates.push({
+  id: 'cand_cv_andrei',
+  campaignId: 'cmp_carretillero',
+  answers: {
+    nombre: CV_ANDREI.nombre,
+    telefono: phone(),
+    email: 'andrei.vasile@example.com',
+    carnet_vigente: true,
+    tipo_carretilla: ['Frontal', 'Retráctil'],
+    exp: '5',
+    turnos: ['Mañana', 'Tarde', 'Noche'],
+    cv: CV_ANDREI.nombreFichero,
+    inicio: dateSoon(),
+  },
+  cvPath: CV_ANDREI.fichero,
+  status: 'nuevo',
+  submittedAt: entradaAndrei,
+  statusChangedAt: statusChangedAtFor('nuevo', entradaAndrei),
+  source: 'enlace',
+  favorito: true,
+  consentAt: entradaAndrei,
+  notes: '',
+  tagIds: [],
+  ai: aiConCv({
+    campaignId: 'cmp_carretillero',
+    analyzedAt: entradaAndrei,
+    summary:
+      'Carnet en vigor y las carretillas del puesto, confirmado en el CV. Ojo a la ' +
+      'experiencia: responde 5 años y las etapas de su CV empiezan en 2021.',
+    valores: {
+      carnet_vigente: { valor: 'cumple', evidencia: CITAS_ANDREI.carnet, fuente: 'cv' },
+      tipos: { valor: 'cumple', evidencia: CITAS_ANDREI.tipos, fuente: 'cv' },
+      exp: { valor: 'parcial', evidencia: 'Años de experiencia con carretilla: 5', fuente: 'respuesta' },
+      turnos: { valor: 'cumple', evidencia: 'Mañana, Tarde, Noche', fuente: 'respuesta' },
+      continuidad: { valor: 'cumple', evidencia: CITAS_ANDREI.continuidad, fuente: 'cv' },
+    },
+    contrastes: [
+      { respuesta: '5 años de experiencia con carretilla', cv: CITAS_ANDREI.contrasteCv },
+    ],
+    trayectoria: {
+      empleos: [
+        { empresa: 'Logística Arganzuela S.L.', puesto: 'Carretillero', desde: 'feb 2023', hasta: 'jun 2024' },
+        { empresa: 'Distribuciones Vega Norte', puesto: 'Mozo de almacén', desde: 'mar 2021', hasta: 'dic 2022' },
+      ],
+      carnets: [
+        { nombre: 'Carnet de carretillero elevador', vigencia: 'en vigor hasta 2030' },
+        { nombre: 'Carnet de conducir B', vigencia: '' },
+      ],
+      formacion: ['ESO completa', 'Curso de manipulación de cargas (20 horas)'],
+    },
+  }),
+})
+
+const entradaJoaquin = dateAgo(3)
+candidates.push({
+  id: 'cand_cv_joaquin',
+  campaignId: 'cmp_oficial',
+  answers: {
+    nombre: CV_JOAQUIN.nombre,
+    telefono: phone(),
+    email: 'joaquin.soler@example.org',
+    exp: '9',
+    especialidad: ['Enfoscados y revestimientos', 'Solados y alicatados'],
+    prl: '60 horas',
+    carnet: true,
+    disp: 'En 15 días',
+    cv: CV_JOAQUIN.nombreFichero,
+    comentarios: 'Tres promociones seguidas con el mismo cliente en Valencia.',
+  },
+  cvPath: CV_JOAQUIN.fichero,
+  status: 'nuevo',
+  submittedAt: entradaJoaquin,
+  statusChangedAt: statusChangedAtFor('nuevo', entradaJoaquin),
+  source: 'enlace',
+  favorito: false,
+  consentAt: entradaJoaquin,
+  notes: '',
+  tagIds: [],
+  ai: aiConCv({
+    campaignId: 'cmp_oficial',
+    analyzedAt: entradaJoaquin,
+    summary:
+      'Oficial asentado: la PRL de 60 horas y siete años en el mismo tajo están ' +
+      'confirmados en el CV. Solo la incorporación en 15 días se aleja de lo pedido.',
+    valores: {
+      prl: { valor: 'cumple', evidencia: CITAS_JOAQUIN.prl, fuente: 'cv' },
+      exp_oficial: { valor: 'cumple', evidencia: CITAS_JOAQUIN.experiencia, fuente: 'cv' },
+      especialidad: { valor: 'cumple', evidencia: 'Enfoscados y revestimientos, Solados y alicatados', fuente: 'respuesta' },
+      incorporacion: { valor: 'parcial', evidencia: 'En 15 días', fuente: 'respuesta' },
+      carnet_b: { valor: 'cumple', evidencia: CITAS_JOAQUIN.carnet, fuente: 'cv' },
+      continuidad: { valor: 'cumple', evidencia: CITAS_JOAQUIN.continuidad, fuente: 'cv' },
+    },
+    trayectoria: {
+      empleos: [
+        { empresa: 'Construcciones Turia Levante', puesto: 'Oficial de 1ª', desde: 'sep 2019', hasta: 'actualidad' },
+        { empresa: 'Reformas Alboraya', puesto: 'Oficial de 2ª', desde: 'jun 2016', hasta: 'jul 2019' },
+      ],
+      carnets: [
+        { nombre: 'PRL de albañilería (60 horas)', vigencia: 'tarjeta TPC en vigor' },
+        { nombre: 'Carnet de conducir B', vigencia: '' },
+      ],
+      formacion: ['Graduado escolar', 'Curso de trabajos en altura (8 horas)'],
+    },
+  }),
+})
+
 // Orden: más recientes primero
 candidates.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
 

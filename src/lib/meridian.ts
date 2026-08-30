@@ -7,6 +7,8 @@
 // cámbialo aquí y cambia en toda la app (igual que la marca vive solo en brand.ts).
 // -----------------------------------------------------------------------------
 
+import type { CandidateAI } from './types'
+
 
 /** Nombre visible del asistente. Placeholder, renómbralo solo aquí. */
 export const MERIDIAN_NAME = 'Meridian'
@@ -90,4 +92,41 @@ export const CRITERIO_NOMBRE_LEGADO: Record<string, string> = {
 /** Nombre visible de un criterio, venga de un análisis nuevo o de uno viejo. */
 export function criterioNombre(c: { clave: string; nombre?: string }): string {
   return c.nombre || CRITERIO_NOMBRE_LEGADO[c.clave] || c.clave
+}
+
+// ---------------------------------------------------------------------------
+// Las citas del CV de un análisis: lo que el visor del documento puede
+// localizar y subrayar. UNA sola fuente para el visor y para el informe (que
+// enlaza cada juicio con su subrayado por el mismo id): dos listas de la misma
+// verdad se separan al primer retoque.
+// ---------------------------------------------------------------------------
+
+export interface CitaCv {
+  id: string
+  /** La cita literal, tal cual la guardó el análisis. */
+  texto: string
+  /** Qué juicio la usa ("Carnet de carretillas"), para el aria-label del subrayado. */
+  etiqueta: string
+}
+
+export const idCitaCriterio = (clave: string) => `crit:${clave}`
+export const idCitaContraste = (i: number) => `contraste:${i}`
+
+/**
+ * Solo con `cvLeido === 'texto'` hay algo que subrayar: una transcripción de
+ * visión no se puede localizar en el documento, y un análisis viejo no dice de
+ * dónde salió cada cita. Devolver vacío ES el comportamiento correcto ahí.
+ */
+export function citasDelAnalisis(ai: CandidateAI | null | undefined): CitaCv[] {
+  if (!ai || ai.error || ai.cvLeido !== 'texto') return []
+  const out: CitaCv[] = []
+  for (const c of ai.criterios ?? []) {
+    if (c.evidencia && c.fuente === 'cv') {
+      out.push({ id: idCitaCriterio(c.clave), texto: c.evidencia, etiqueta: criterioNombre(c) })
+    }
+  }
+  ;(ai.contrastes ?? []).forEach((c, i) => {
+    out.push({ id: idCitaContraste(i), texto: c.cv, etiqueta: 'Contraste con una respuesta' })
+  })
+  return out
 }

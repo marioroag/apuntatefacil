@@ -380,6 +380,41 @@
   .meridian-sweep { animation: meridian-sweep 620ms var(--ease-out) both; }
 }
 
+/* LA CITA SUBRAYADA EN EL CV (CvViewer). Ámbar de marcador fluorescente sobre el
+   documento, con multiply para que la letra respire debajo como con un marcador
+   de verdad. EXCEPCIÓN DECLARADA a "estado y decoración no comparten paleta":
+   esto no es un estado del producto ni decora la interfaz, es una marca SOBRE UN
+   DOCUMENTO ajeno (la misma frontera que ya cruzó SOMBRA_SOBRE_FOTO: dentro de
+   contenido que no es nuestro, el vocabulario es el del contenido, y el marcador
+   amarillo es el vocabulario universal de subrayar un papel). Ni ultramarine
+   (diría "esto se pulsa", y no se pulsa) ni rojo (diría error). El color nunca
+   es el único portador: el informe lista las mismas citas en texto y la línea de
+   estado del visor dice cuántas hay. */
+.cita-cv {
+  background-color: color-mix(in oklab, var(--color-amber-300) 40%, transparent);
+  mix-blend-mode: multiply;
+  border-radius: 2px;
+  pointer-events: auto;
+}
+
+/* El destello al llegar desde el informe: dos pulsos de color y se queda en su
+   tinte de reposo. Anima solo background-color (ni caja ni layout). Dura más
+   que el techo de 240ms por lo mismo que el barrido del anillo: no es un control
+   respondiendo, es una señal de "aquí" que el ojo tiene que poder encontrar
+   después de un scroll. */
+@keyframes cita-flash {
+  0%, 100% { background-color: color-mix(in oklab, var(--color-amber-300) 40%, transparent); }
+  40% { background-color: color-mix(in oklab, var(--color-amber-300) 85%, transparent); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cita-flash { animation: cita-flash 520ms var(--ease-standard) 2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Sin animación: el scroll ya deja la marca a la vista, y su tinte de reposo
+     basta para encontrarla. */
+  .cita-flash { animation: none; }
+}
+
 @keyframes pop-pulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.06); }

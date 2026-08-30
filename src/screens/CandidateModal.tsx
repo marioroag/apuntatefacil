@@ -26,7 +26,7 @@ import {
 import { useChatThread } from '../lib/useChatThread'
 import { StatusSelect } from '../components/ui/StatusPill'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import type { Campaign, Candidate, CandidateEvent, CandidateStatus } from '../lib/types'
+import type { AiTrayectoria, Campaign, Candidate, CandidateEvent, CandidateStatus } from '../lib/types'
 import { FAVORITO_STAR, SOURCE_META, STATUS_META } from '../lib/types'
 import { CAMPOS_YA_PINTADOS, answerText, candidateName, fechaCorta, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate, shortWhenInZone } from '../lib/format'
 import { useStore } from '../lib/store'
@@ -45,7 +45,8 @@ import { useEsMovil } from '../lib/media'
 import { colocarFlotante } from '../lib/flotante'
 import { InterviewConversation } from '../components/InterviewConversation'
 import { MeridianAvatar, MeridianPanelBlock } from '../components/Meridian'
-import { MERIDIAN_NAME, candidateFit } from '../lib/meridian'
+import { MERIDIAN_NAME, candidateFit, citasDelAnalisis, type CitaCv } from '../lib/meridian'
+import { CvViewer, type CitaActiva } from '../components/CvViewer'
 
 /**
  * Detalle del candidato: pop-up con pestañas.
@@ -169,7 +170,12 @@ export function CandidateModal({
   const [vista, setVista] = useState<Vista>('respuestas')
   const [agendarManual, setAgendarManual] = useState(false)
   const [confirmarBorrado, setConfirmarBorrado] = useState(false)
+  // La cita del análisis a la que viajar en el visor del CV (subrayado + scroll
+  // + destello). Lleva un contador para que pedir la misma cita dos veces
+  // vuelva a hacer el viaje.
+  const [citaActiva, setCitaActiva] = useState<CitaActiva | null>(null)
   const barraRef = useRef<HTMLDivElement>(null)
+  const documentosRef = useRef<HTMLDivElement>(null)
   const dosColumnas = useDosColumnas()
   const esMovil = useEsMovil()
 
@@ -186,6 +192,7 @@ export function CandidateModal({
   if (candidate && visto !== candidate.id) {
     setVisto(candidate.id)
     setVista('respuestas')
+    setCitaActiva(null)
   }
 
   // Lleva DIRECTO a la conversación, a cualquier ancho: una sola pieza de estado.
@@ -254,18 +261,52 @@ export function CandidateModal({
   // y no entre tú y lo que el candidato ha contestado.
   const cambiarEstado = (s: CandidateStatus) => void setStatus(candidate.id, s)
 
+  // Las citas del CV que el visor puede subrayar. Solo cuando las hay, el
+  // informe de Meridian recibe `onVerEnCv` y sus hechos se vuelven enlaces al
+  // documento; sin citas (sin CV, escaneo, análisis viejo) todo pinta como
+  // siempre. El viaje: en móvil se cambia a la pastilla Documentos; en columna,
+  // scroll hasta la sección. El destello lo remata el propio visor.
+  const citasCv: CitaCv[] = candidate.cvPath ? citasDelAnalisis(candidate.ai) : []
+  const verEnCv = (id: string) => {
+    setCitaActiva((prev) => ({ id, n: (prev?.n ?? 0) + 1 }))
+    if (esMovil) setVista('documentos')
+    else documentosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   // En el selector de móvil entra abierto y sin chevron: has tocado su
   // pastilla para leerlo (ver `plegable` en `MeridianPanelBlock`).
-  const contenidoMeridian = <MeridianPanelBlock candidate={candidate} plegable={!esMovil} />
+  const contenidoMeridian = (
+    <MeridianPanelBlock
+      candidate={candidate}
+      plegable={!esMovil}
+      onVerEnCv={citasCv.length > 0 ? verEnCv : undefined}
+    />
+  )
   const contenidoRespuestas = (
     <Respuestas campaign={campaign} candidate={candidate} maskPhone={maskPhone} conDocumentos={!!candidate.cvPath} />
   )
+  // La TRAYECTORIA (la ficha del CV que extrajo Meridian) vive DENTRO de
+  // Documentos y encima del visor: es lo que Meridian leyó DE ese documento, y
+  // juntos cuentan la historia completa ("esto pone, esto he entendido"). Sin
+  // `trayectoria` (sin CV leído, análisis viejo) no se pinta nada: los vacíos
+  // de este bloque ya dicen lo suyo y un tercer vacío sería ruido.
+  const trayectoria = candidate.ai && !candidate.ai.error ? candidate.ai.trayectoria : undefined
   // Alto declarado: el visor es un `flex-1` y dentro de una columna que scrollea
   // no tiene contra qué medirse, así que sin esto se quedaría en su `min-h`. El
   // techo en vh es para que en una pantalla baja no empuje el resto fuera.
   const contenidoDocumentos = candidate.cvPath ? (
-    <div className="flex h-[520px] max-h-[68vh] flex-col">
-      <Cv key={candidate.id} candidate={candidate} cvName={cvName} />
+    <div ref={documentosRef} className="scroll-mt-4">
+      {trayectoria && <Trayectoria t={trayectoria} />}
+      <div className="flex h-[520px] max-h-[68vh] flex-col">
+        <Cv
+          key={candidate.id}
+          candidate={candidate}
+          cvName={cvName}
+          citas={citasCv}
+          citaActiva={citaActiva}
+          cvLeido={candidate.ai && !candidate.ai.error ? candidate.ai.cvLeido : undefined}
+        />
+      </div>
     </div>
   ) : (
     <p className="pb-3.5 text-[13px] leading-5 text-slate-500 sm:px-3.5">
@@ -1165,25 +1206,107 @@ function Respuestas({
 }
 
 /**
+ * La ficha del CV que Meridian extrajo (empleos, carnets, formación): lo que el
+ * documento DICE, ordenado para no tener que bucearlo. Transcripción, no
+ * interpretación: las fechas se pintan tal cual las escribe el CV. Vive encima
+ * del visor, separada por el filo interior, y su rótulo dice de dónde sale.
+ */
+function Trayectoria({ t }: { t: AiTrayectoria }) {
+  const fila = 'flex items-baseline gap-2 text-[13px] leading-5'
+  return (
+    <div className="border-b border-slate-100 pb-3 sm:px-3.5">
+      <div className="flex items-baseline justify-between gap-2 pt-2.5">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Trayectoria</p>
+        <p className="text-[11px] text-slate-500">Extraída del CV por {MERIDIAN_NAME}</p>
+      </div>
+      {t.empleos.length > 0 && (
+        <ul className="mt-1.5 space-y-1">
+          {t.empleos.map((e, i) => (
+            <li key={i} className={fila}>
+              <span className="min-w-0 flex-1 text-slate-700">
+                {[e.puesto, e.empresa].filter(Boolean).map((parte, k) => (
+                  <span key={k}>
+                    {k > 0 && <span className="text-slate-400"> · </span>}
+                    <span className={k === 0 ? 'font-medium' : undefined}>{parte}</span>
+                  </span>
+                ))}
+              </span>
+              {(e.desde || e.hasta) && (
+                <span className="num shrink-0 text-slate-500">{[e.desde, e.hasta].filter(Boolean).join(' - ')}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {t.carnets.length > 0 && (
+        <p className="mt-2 text-[13px] leading-5 text-slate-700">
+          <span className="text-slate-500">Carnets y certificados: </span>
+          {t.carnets.map((c, i) => (
+            <span key={i}>
+              {i > 0 && ', '}
+              {c.nombre}
+              {c.vigencia && <span className="text-slate-500"> ({c.vigencia})</span>}
+            </span>
+          ))}
+        </p>
+      )}
+      {t.formacion.length > 0 && (
+        <p className="mt-1 text-[13px] leading-5 text-slate-700">
+          <span className="text-slate-500">Formación: </span>
+          {t.formacion.join(', ')}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
  * Visor del CV. Se firma la URL del bucket privado y se pinta dentro del pop-up:
  * abrir el CV era salir de la app a una pestaña nueva y volver.
  *
- * Solo el PDF se puede ver embebido. El formulario admite .doc y .docx, y un
+ * Los PDF se pintan con `CvViewer` (pdf.js), que es quien puede SUBRAYAR las
+ * citas de Meridian; si pdf.js no puede con el fichero, se cae al iframe de
+ * siempre, que enseña sin subrayar. El formulario admite .doc y .docx, y un
  * iframe con un .docx muestra un rectángulo en blanco o lo descarga a la brava;
  * para esos se dice claro y se ofrece descargarlo.
+ *
+ * Un `cvPath` que empieza por `/` es un ASSET de la demo (public/), no un
+ * objeto del bucket: se usa tal cual, sin firmar y sin pedir su peso, el mismo
+ * criterio que `brandAssetUrl` con las imágenes de marca de la demo.
  */
-function Cv({ candidate, cvName }: { candidate: Candidate; cvName: string }) {
+function Cv({
+  candidate,
+  cvName,
+  citas,
+  citaActiva,
+  cvLeido,
+}: {
+  candidate: Candidate
+  cvName: string
+  citas: CitaCv[]
+  citaActiva: CitaActiva | null
+  cvLeido: 'texto' | 'vision' | 'no' | undefined
+}) {
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState(false)
   const [peso, setPeso] = useState<string | null>(null)
+  const [bytes, setBytes] = useState<ArrayBuffer | null>(null)
+  const [visorFallo, setVisorFallo] = useState(false)
   const toast = useToast()
   const path = candidate.cvPath ?? ''
   const esPdf = path.toLowerCase().endsWith('.pdf')
+  const esAssetDemo = path.startsWith('/')
 
   useEffect(() => {
     let vivo = true
     // Sin reiniciar url/error aquí: el visor se remonta por `key` al cambiar de
     // candidato, así que el estado inicial ya es el correcto.
+    if (esAssetDemo) {
+      setUrl(path)
+      return () => {
+        vivo = false
+      }
+    }
     // La firma caduca: se pide al abrir la pestaña y se renueva al reintentar.
     void supabase.storage
       .from('cvs')
@@ -1207,9 +1330,32 @@ function Cv({ candidate, cvName }: { candidate: Candidate; cvName: string }) {
     return () => {
       vivo = false
     }
-  }, [path])
+  }, [path, esAssetDemo])
+
+  // Los BYTES del PDF, para el visor con subrayados: una sola descarga sirve
+  // para renderizar y para buscar las citas. Si la descarga falla se cae al
+  // iframe con la URL firmada, que es lo que había.
+  useEffect(() => {
+    if (!esPdf || !url || visorFallo) return
+    let vivo = true
+    void fetch(url)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((buf) => {
+        if (vivo) setBytes(buf)
+      })
+      .catch(() => {
+        if (vivo) setVisorFallo(true)
+      })
+    return () => {
+      vivo = false
+    }
+  }, [esPdf, url, visorFallo])
 
   const descargar = async () => {
+    if (esAssetDemo) {
+      window.open(path, '_blank', 'noopener')
+      return
+    }
     const { data, error: e } = await supabase.storage.from('cvs').createSignedUrl(path, 120, { download: true })
     if (e || !data?.signedUrl) {
       toast.error('No se pudo descargar el CV.')
@@ -1255,8 +1401,19 @@ function Cv({ candidate, cvName }: { candidate: Candidate; cvName: string }) {
         <div className={`min-h-[240px] ${banda}`}>
           <p className="max-w-[42ch] text-sm leading-6 text-slate-500">No se pudo abrir el CV. Prueba a descargarlo.</p>
         </div>
-      ) : url ? (
+      ) : visorFallo && url ? (
+        // Plan B: el iframe de siempre. Enseña el documento sin subrayados; las
+        // citas siguen enteras, en texto, en el informe de Meridian.
         <iframe src={url} title={`CV de ${candidateName(candidate) || 'el candidato'}`} className="min-h-[360px] flex-1 bg-slate-50" />
+      ) : bytes ? (
+        <CvViewer
+          data={bytes}
+          titulo={`CV de ${candidateName(candidate) || 'el candidato'}`}
+          citas={citas}
+          citaActiva={citaActiva}
+          nota={cvLeido === 'vision' ? `CV escaneado: ${MERIDIAN_NAME} lo leyó transcribiéndolo, sin citas que subrayar.` : undefined}
+          onFallo={() => setVisorFallo(true)}
+        />
       ) : (
         <div className={`min-h-[360px] ${banda}`}>
           <p className="flex items-center gap-2 text-sm text-slate-500" role="status">

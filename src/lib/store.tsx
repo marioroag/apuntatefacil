@@ -581,7 +581,7 @@ const Ctx = createContext<Store | null>(null)
 // nivel y evidencia. Un estado v9 guardado los traería sin desglose en la ficha.
 // v11: el anuncio del puesto (ago 2026). Un estado v10 guardado traería los seis
 // puestos sin anuncio, o sea con la pantalla nueva vacía en toda la demo.
-const DEMO_KEY = 'apuntatefacil.demo.v13'
+const DEMO_KEY = 'apuntatefacil.demo.v14'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
@@ -1321,7 +1321,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // saltaba el skeleton, que es donde se ve QUÉ está midiendo). La demo es
         // el producto, también en los tiempos.
         await new Promise((r) => setTimeout(r, 900))
-        const ai = aiFor(cand.campaignId, cand.status, cand.favorito, new Date().toISOString())
+        // `cvUsed` dice la verdad de ESTE candidato (¿hay CV?), no un azar: si
+        // no, Meridian decía "he leído un CV" en fichas sin documento.
+        const ai = aiFor(cand.campaignId, cand.status, cand.favorito, new Date().toISOString(), !!cand.cvPath)
         patchCandidateLocal(id, { ai })
         return true
       }

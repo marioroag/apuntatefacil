@@ -140,6 +140,24 @@ export interface AiCriterion {
   nivel?: 'clave' | 'importante' | 'deseable'
   /** Cita corta de la candidatura que sostiene el juicio. Nunca con no_consta. */
   evidencia?: string
+  /** De dónde salió la evidencia. Con 'cv', el visor del CV puede localizarla
+   *  y subrayarla. Ausente en análisis anteriores a ago 2026. */
+  fuente?: 'respuesta' | 'cv'
+}
+
+/** Contradicción entre una respuesta del formulario y el CV ("dice 5 años, las
+ *  etapas del CV suman 2"). `cv` es cita literal del CV: subrayable. */
+export interface AiContraste {
+  respuesta: string
+  cv: string
+}
+
+/** Ficha estructurada extraída del CV. Transcripción, no interpretación: las
+ *  fechas van como texto libre tal cual las escribe el CV. */
+export interface AiTrayectoria {
+  empleos: { empresa: string; puesto: string; desde: string; hasta: string }[]
+  carnets: { nombre: string; vigencia: string }[]
+  formacion: string[]
 }
 
 export interface CandidateAI {
@@ -149,11 +167,18 @@ export interface CandidateAI {
   fit: number // 0..100, ajuste al puesto (orientativo, nunca gate)
   /** De dónde sale `fit`. Ausente en análisis anteriores a jul 2026. */
   criterios?: AiCriterion[]
+  /** Contradicciones respuesta-vs-CV que el juez conservó. Ausente sin CV. */
+  contrastes?: AiContraste[]
+  /** Ficha del CV (empleos, carnets, formación). Ausente sin CV leído. */
+  trayectoria?: AiTrayectoria
   /** Con qué versión del baremo del puesto se midió (procedencia). */
   baremoHash?: string
   model: string // procedencia: qué modelo lo generó
   analyzedAt: string // ISO
   cvUsed?: boolean // false = analizado solo con las respuestas (CV ausente o no PDF)
+  /** Cómo se leyó el CV: capa de texto ('texto', subrayable), transcripción de
+   *  visión ('vision', sin subrayado) o nada ('no'). Ausente en análisis viejos. */
+  cvLeido?: 'texto' | 'vision' | 'no'
   error?: string
 }
 

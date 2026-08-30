@@ -63,12 +63,36 @@ export interface Baremo {
   generadoAt: string
 }
 
+/** De dónde salió la evidencia de UN juicio concreto (no confundir con la
+ *  `fuente` del criterio, que dice de dónde PODRÁ salir): el visor del CV solo
+ *  busca y subraya las citas que vienen del CV. */
+export type FuenteJuicio = 'respuesta' | 'cv'
+
 /** Juicio del evaluador sobre un criterio. La evidencia es una cita corta de la
  *  candidatura; sin ella, el valor se normaliza a no_consta (normalizarJuicios). */
 export interface Juicio {
   clave: string
   valor: Valor
   evidencia?: string
+  /** Solo viaja con evidencia: un no_consta no tiene cita que localizar. */
+  fuente?: FuenteJuicio
+}
+
+/** Contradicción entre lo que respondió el formulario y lo que dice el CV
+ *  ("dice 5 años, las etapas del CV suman 2"). `cv` es cita literal del CV,
+ *  así que el visor puede subrayarla igual que una evidencia. */
+export interface Contraste {
+  respuesta: string
+  cv: string
+}
+
+/** Ficha estructurada extraída del CV: transcripción, no interpretación. Las
+ *  fechas van como texto libre tal cual las escribe el CV ("mar 2021"): parsear
+ *  fechas de CVs reales es inventar precisión que el documento no tiene. */
+export interface TrayectoriaCv {
+  empleos: { empresa: string; puesto: string; desde: string; hasta: string }[]
+  carnets: { nombre: string; vigencia: string }[]
+  formacion: string[]
 }
 
 // ----------------------------------------------------------------------------
@@ -152,8 +176,90 @@ export function normalizarJuicios(juicios: Juicio[], claves: Set<string>): Juici
     .map((j) => {
       const evidencia = (j.evidencia ?? '').trim().slice(0, 200)
       if (j.valor !== 'no_consta' && !evidencia) return { clave: j.clave, valor: 'no_consta' as Valor }
-      return evidencia ? { clave: j.clave, valor: j.valor, evidencia } : { clave: j.clave, valor: j.valor }
+      if (!evidencia) return { clave: j.clave, valor: j.valor }
+      // La fuente solo viaja pegada a su evidencia: dice de dónde salió ESA
+      // cita, y sin cita no señala nada. Un valor fuera del vocabulario se tira
+      // (el structured output lo garantiza, esto cubre análisis re-procesados).
+      const fuente: FuenteJuicio | undefined =
+        j.fuente === 'cv' || j.fuente === 'respuesta' ? j.fuente : undefined
+      return fuente
+        ? { clave: j.clave, valor: j.valor, evidencia, fuente }
+        : { clave: j.clave, valor: j.valor, evidencia }
     })
+}
+
+// ----------------------------------------------------------------------------
+// Contrastes: el hallazgo experto (la respuesta dice una cosa y el CV otra).
+// El evaluador los propone, el juez los conserva o los quita (nunca los
+// reescribe: mismo contrato que "a favor" / "a confirmar"), y el saneo les
+// pone techo duro para que candidates.ai no crezca sin control.
+// ----------------------------------------------------------------------------
+
+export const MAX_CONTRASTES = 2
+
+export function sanearContrastes(brutos: unknown): Contraste[] {
+  if (!Array.isArray(brutos)) return []
+  const out: Contraste[] = []
+  for (const b of brutos) {
+    const c = b as Partial<Contraste>
+    const respuesta = String(c?.respuesta ?? '').trim().slice(0, 160)
+    const cv = String(c?.cv ?? '').trim().slice(0, 160)
+    if (!respuesta || !cv) continue
+    out.push({ respuesta, cv })
+    if (out.length >= MAX_CONTRASTES) break
+  }
+  return out
+}
+
+/** La forma en que un contraste se le enseña al juez y en la que el juez lo
+ *  devuelve si lo conserva. UNA sola serialización compartida: si el juez y el
+ *  código cruzaran formas distintas, soloConservados descartaría todo. */
+export function serializarContraste(c: Contraste): string {
+  return `dice "${c.respuesta}" pero el CV dice "${c.cv}"`
+}
+
+// ----------------------------------------------------------------------------
+// Trayectoria: la ficha estructurada del CV. Extracción mecánica en llamada
+// aparte (meterla en el evaluador re-invitaría a la varianza que la triada
+// mató). El saneo pone techos duros: con ellos, el peor caso del objeto cabe
+// de sobra en los 20000 chars de candidates_ai_size.
+// ----------------------------------------------------------------------------
+
+export function sanearTrayectoria(bruto: unknown): TrayectoriaCv | null {
+  const t = bruto as Partial<TrayectoriaCv> | null
+  const txt = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max)
+  const empleos = (Array.isArray(t?.empleos) ? t.empleos : [])
+    .map((e) => {
+      const raw = e as Partial<TrayectoriaCv['empleos'][number]>
+      return {
+        empresa: txt(raw?.empresa, 80),
+        puesto: txt(raw?.puesto, 80),
+        desde: txt(raw?.desde, 30),
+        hasta: txt(raw?.hasta, 30),
+      }
+    })
+    .filter((e) => e.empresa || e.puesto)
+    .slice(0, 10)
+  const carnets = (Array.isArray(t?.carnets) ? t.carnets : [])
+    .map((c) => {
+      const raw = c as Partial<TrayectoriaCv['carnets'][number]>
+      return { nombre: txt(raw?.nombre, 80), vigencia: txt(raw?.vigencia, 40) }
+    })
+    .filter((c) => c.nombre)
+    .slice(0, 8)
+  const formacion = (Array.isArray(t?.formacion) ? t.formacion : [])
+    .map((f) => txt(f, 80))
+    .filter(Boolean)
+    .slice(0, 6)
+  if (!empleos.length && !carnets.length && !formacion.length) return null
+  return { empleos, carnets, formacion }
+}
+
+/** ¿El texto extraído del PDF da para analizar? Por debajo de 200 caracteres
+ *  útiles es casi seguro un escaneo (la capa de texto no existe o es basura):
+ *  es el disparador del respaldo de visión. */
+export function esCvIlegible(texto: string | null): boolean {
+  return !texto || texto.replace(/\s/g, '').length < 200
 }
 
 /** El juez conserva o quita elementos de una lista, nunca añade ni reescribe:
@@ -273,7 +379,16 @@ export function promptGenerador(puesto: {
     '- "clave" en snake_case, única.\n' +
     '- PROHIBIDO cualquier criterio sobre edad, sexo, nacionalidad, origen, estado civil, ' +
     'foto o cualquier otro dato personal protegido. El permiso de trabajo solo puede ser ' +
-    'criterio si el formulario lo pregunta.'
+    'criterio si el formulario lo pregunta.' +
+    (puesto.tieneCampoCv
+      ? '\n- Este puesto RECOGE CV: léelo como un experto en selección. Del CV sale lo que ' +
+        'el formulario no pregunta, así que genera 2 o 3 criterios con fuente "cv" de este ' +
+        'tipo: duración REAL de la experiencia relevante (lo que suman las etapas del CV, ' +
+        'no los años que uno se atribuye), estabilidad (muchas etapas de pocos meses ' +
+        'encadenadas cuentan otra historia que dos etapas largas), vigencia de carnets o ' +
+        'certificados con fecha, y huecos largos sin actividad. Con anclas concretas para ' +
+        'este puesto, como los demás.'
+      : '')
   const preguntas = puesto.fields
     .map((f) => {
       const partes = [`"${f.label}"`, `tipo ${f.type}`]
@@ -356,9 +471,19 @@ export function promptEvaluador(args: {
     'que debes usar siempre que no tengas el dato: al candidato no se le puede penalizar ' +
     'por algo que nadie le preguntó.\n' +
     '- "no_cumple": la candidatura dice claramente que no.\n\n' +
-    'EVIDENCIA: todo valor distinto de "no_consta" lleva su evidencia, una cita corta y ' +
-    'literal de la respuesta o del CV en la que te apoyas. Sin evidencia, el valor es ' +
-    '"no_consta". No confundas "no_consta" con "no_cumple". Juzga solo lo que veas escrito.\n\n' +
+    'EVIDENCIA: todo valor distinto de "no_consta" lleva su evidencia, una cita corta, ' +
+    'LITERAL y CONTIGUA de la respuesta o del CV en la que te apoyas: copiada tal cual, ' +
+    'sin resumir, sin corregir erratas y sin juntar trozos de sitios distintos (la cita ' +
+    'se busca después en el documento, y una cita retocada no se encuentra). En "fuente" ' +
+    'di de dónde sale: "respuesta" si viene del formulario, "cv" si viene del CV. Sin ' +
+    'evidencia, el valor es "no_consta". No confundas "no_consta" con "no_cumple". ' +
+    'Juzga solo lo que veas escrito.\n\n' +
+    'CONTRASTE: si el CV contradice una respuesta del formulario (por ejemplo, responde ' +
+    '5 años de experiencia y las etapas del CV suman 2), el criterio afectado es ' +
+    '"parcial" como máximo y lo apuntas en "contrastes": en "respuesta" resumes lo que ' +
+    'respondió y en "cv" citas literal y contiguo el trozo del CV que lo contradice. ' +
+    'Como mucho ' + MAX_CONTRASTES + ', y solo contradicciones claras; sin CV o sin ' +
+    'contradicción, la lista va vacía.\n\n' +
     'Textos:\n' +
     '- "summary": 1 o 2 frases con la CONCLUSIÓN, no un resumen del CV. Si no se ' +
     'cumple algo de lo que más pesa para el puesto, eso se dice primero.\n' +
@@ -393,13 +518,36 @@ export function esquemaEvaluador(claves: string[]) {
             properties: {
               clave: { type: 'string', enum: claves },
               valor: { type: 'string', enum: VALORES },
-              evidencia: { type: 'string', description: 'Cita corta y literal. Vacía solo con no_consta.' },
+              evidencia: {
+                type: 'string',
+                description: 'Cita corta, literal y contigua, copiada tal cual. Vacía solo con no_consta.',
+              },
+              fuente: {
+                type: 'string',
+                enum: ['respuesta', 'cv'],
+                description: 'De dónde sale la evidencia. Con no_consta, pon "respuesta".',
+              },
             },
-            required: ['clave', 'valor', 'evidencia'],
+            required: ['clave', 'valor', 'evidencia', 'fuente'],
+          },
+        },
+        contrastes: {
+          type: 'array',
+          description:
+            'Contradicciones claras entre una respuesta del formulario y el CV. 0 a ' +
+            MAX_CONTRASTES + '. Vacía sin CV o sin contradicción.',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              respuesta: { type: 'string', description: 'Lo que respondió, resumido.' },
+              cv: { type: 'string', description: 'Cita literal y contigua del CV que lo contradice.' },
+            },
+            required: ['respuesta', 'cv'],
           },
         },
       },
-      required: ['summary', 'highlights', 'concerns', 'criterios'],
+      required: ['summary', 'highlights', 'concerns', 'criterios', 'contrastes'],
     },
   } as const
 }
@@ -409,12 +557,18 @@ export function promptJuez(args: {
   criterios: BaremoCriterio[]
   respuestas: string
   cvNota: string
-  evaluacion: { summary: string; highlights: string[]; concerns: string[]; criterios: Juicio[] }
+  evaluacion: {
+    summary: string
+    highlights: string[]
+    concerns: string[]
+    criterios: Juicio[]
+    contrastes: Contraste[]
+  }
 }): { system: string; user: string } {
   const system =
     'Eres el verificador de un triaje de candidaturas. NO re-evalúas: compruebas el ' +
     'trabajo de otro analista contra la candidatura, criterio a criterio.\n\n' +
-    'Compruebas tres cosas:\n' +
+    'Compruebas cuatro cosas:\n' +
     '1. Que la evidencia citada existe en la candidatura y sostiene el valor según el ' +
     'anclaje del criterio. Si no existe o no lo sostiene, REBAJA el valor: hacia ' +
     '"parcial" si la evidencia es más débil de lo afirmado, hacia "no_consta" si no hay ' +
@@ -424,7 +578,10 @@ export function promptJuez(args: {
     'origen del candidato. Si uno lo hace, rebájalo a "no_consta".\n' +
     '3. Que las listas de puntos a favor y a confirmar salen de los criterios y no ' +
     'contradicen sus valores ni repiten la conclusión. Devuelve SOLO los elementos que ' +
-    'se conservan, tal cual estaban escritos: no añadas ni reescribas ninguno.\n\n' +
+    'se conservan, tal cual estaban escritos: no añadas ni reescribas ninguno.\n' +
+    '4. Que cada contraste señala una contradicción REAL entre la respuesta y el CV, con ' +
+    'su cita presente en el CV. En "contrastes_conservados" devuelve SOLO los que se ' +
+    'conservan, copiados tal cual: no añadas ni reescribas ninguno.\n\n' +
     'Baremo del puesto:\n' + listaCriterios(args.criterios)
   const criteriosTxt = args.evaluacion.criterios
     .map((j) => `- ${j.clave}: ${j.valor}${j.evidencia ? ` (evidencia: "${j.evidencia}")` : ''}`)
@@ -437,7 +594,8 @@ export function promptJuez(args: {
     `Conclusión: ${args.evaluacion.summary}\n` +
     `Criterios:\n${criteriosTxt}\n` +
     `A favor: ${args.evaluacion.highlights.join(' | ') || '(nada)'}\n` +
-    `A confirmar: ${args.evaluacion.concerns.join(' | ') || '(nada)'}`
+    `A confirmar: ${args.evaluacion.concerns.join(' | ') || '(nada)'}\n` +
+    `Contrastes: ${args.evaluacion.contrastes.map(serializarContraste).join(' | ') || '(nada)'}`
   return { system, user }
 }
 
@@ -464,8 +622,77 @@ export function esquemaJuez(claves: string[]) {
         },
         a_favor: { type: 'array', items: { type: 'string' }, description: 'Puntos a favor que se conservan, tal cual.' },
         a_confirmar: { type: 'array', items: { type: 'string' }, description: 'Puntos a confirmar que se conservan, tal cual.' },
+        contrastes_conservados: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Contrastes que se conservan, copiados tal cual estaban escritos.',
+        },
       },
-      required: ['criterios', 'a_favor', 'a_confirmar'],
+      required: ['criterios', 'a_favor', 'a_confirmar', 'contrastes_conservados'],
     },
   } as const
 }
+
+// ----------------------------------------------------------------------------
+// Trayectoria: el prompt de la extracción. Llamada aparte del evaluador (corre
+// en paralelo) y con un solo trabajo: transcribir, no interpretar.
+// ----------------------------------------------------------------------------
+
+export function promptTrayectoria(cv: string): { system: string; user: string } {
+  const system =
+    'Transcribes los datos de un CV a una ficha estructurada. TRANSCRIBE, no ' +
+    'interpretes: las fechas tal cual las escribe el CV ("mar 2021", "2019 - 2022", ' +
+    '"actualidad"), los nombres de empresa y de puesto tal cual, y lo que el CV no ' +
+    'diga, cadena vacía. No calcules duraciones, no rellenes huecos, no corrijas ' +
+    'erratas. Los empleos en el orden en que aparecen en el CV. En "carnets" van ' +
+    'carnets, licencias y certificados profesionales (carnet de conducir, carretillero, ' +
+    'PRL, manipulador de alimentos), con su vigencia o fecha si el CV la dice. En ' +
+    '"formacion" van estudios y cursos, una línea por cada uno. Español, sin guion largo.'
+  const user = `CV:\n${cv}`
+  return { system, user }
+}
+
+export const ESQUEMA_TRAYECTORIA = {
+  name: 'trayectoria_cv',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      empleos: {
+        type: 'array',
+        description: 'Etapas laborales del CV, en su orden. Vacía si el CV no lista empleos.',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            empresa: { type: 'string' },
+            puesto: { type: 'string' },
+            desde: { type: 'string', description: 'Tal cual lo escribe el CV. Vacía si no consta.' },
+            hasta: { type: 'string', description: 'Tal cual lo escribe el CV. Vacía si no consta.' },
+          },
+          required: ['empresa', 'puesto', 'desde', 'hasta'],
+        },
+      },
+      carnets: {
+        type: 'array',
+        description: 'Carnets, licencias y certificados profesionales.',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            nombre: { type: 'string' },
+            vigencia: { type: 'string', description: 'Fecha o vigencia si el CV la dice. Vacía si no.' },
+          },
+          required: ['nombre', 'vigencia'],
+        },
+      },
+      formacion: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Estudios y cursos, una línea por cada uno.',
+      },
+    },
+    required: ['empleos', 'carnets', 'formacion'],
+  },
+} as const

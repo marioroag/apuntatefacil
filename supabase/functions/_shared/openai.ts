@@ -22,8 +22,11 @@ export const OPENAI_BASE =
  * `low` por defecto: lo que hacemos es traducir una frase a filtros y resumir,
  * no resolver problemas. Subir el esfuerzo aquí es pagar y esperar de más.
  */
-export function tuning(opts: { tools?: boolean } = {}): Record<string, unknown> {
-  const reasoning = /^(gpt-5|o[134])/.test(OPENAI_MODEL)
+export function tuning(opts: { tools?: boolean; model?: string } = {}): Record<string, unknown> {
+  // Por defecto se afina para OPENAI_MODEL; una llamada que use otro modelo (la
+  // transcripción de visión con OPENAI_VISION_MODEL) pasa el suyo, porque el
+  // parámetro correcto depende del modelo REAL de esa llamada, no del global.
+  const reasoning = /^(gpt-5|o[134])/.test(opts.model ?? OPENAI_MODEL)
   if (!reasoning) return { temperature: 0.2 }
   // Restricción de la API, no una preferencia: en /v1/chat/completions un modelo
   // de la familia 5.6 con function tools SOLO admite reasoning_effort 'none'

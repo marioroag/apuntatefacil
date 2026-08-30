@@ -14,6 +14,19 @@
 // categoría eliminatoria, y no_consta fuera del denominador) vive en
 // _shared/triaje.ts y la calcula el código. Resultado en candidates.ai.
 //
+// El CV se lee COMO UN EXPERTO (ago 2026): además de servir de evidencia a los
+// criterios, produce TRAYECTORIA (ficha estructurada: empleos, carnets,
+// formación; llamada aparte en paralelo con el evaluador, y si falla el
+// análisis sale sin ella) y CONTRASTES (contradicciones respuesta-vs-CV, que
+// el juez conserva o quita). Cada evidencia declara su FUENTE (respuesta o cv)
+// porque el visor de la ficha localiza y subraya las citas del CV en el PDF:
+// por eso el prompt exige citas literales y contiguas. Un PDF escaneado sin
+// capa de texto pasa por el RESPALDO DE VISIÓN: una llamada previa que manda el
+// PDF entero como fichero y devuelve su transcripción (cvLeido: 'vision'); sin
+// texto localizable no hay subrayado, pero el análisis funciona. Si el modelo
+// no admite ficheros, OPENAI_VISION_MODEL permite usar otro solo para eso; si
+// tampoco, se cae al comportamiento de siempre ("no he podido leer el CV").
+//
 // Lo invoca el formulario público al entrar la candidatura (verify_jwt=false)
 // y el panel a demanda. Guardas de coste/abuso (endpoint público):
 //  - Solo analiza si la empresa es Pro/Multi (fail-closed, planHasMeridian).
@@ -32,10 +45,11 @@ import { corsHeaders, json } from '../_shared/cors.ts'
 import { planHasMeridian } from '../_shared/plans.ts'
 import { OPENAI_API_KEY, OPENAI_BASE, OPENAI_MODEL, openaiError, tuning } from '../_shared/openai.ts'
 import {
-  ESQUEMA_GENERADOR, agregarJuicios, criteriosEfectivos, esquemaEvaluador, esquemaJuez,
-  fusionarJuicio, hashPuesto, normalizarJuicios, promptEvaluador, promptGenerador, promptJuez,
-  sanearCriterios, soloConservados,
-  type Baremo, type Juicio, type Valor,
+  ESQUEMA_GENERADOR, ESQUEMA_TRAYECTORIA, agregarJuicios, criteriosEfectivos, esCvIlegible,
+  esquemaEvaluador, esquemaJuez, fusionarJuicio, hashPuesto, normalizarJuicios, promptEvaluador,
+  promptGenerador, promptJuez, promptTrayectoria, sanearContrastes, sanearCriterios,
+  sanearTrayectoria, serializarContraste, soloConservados,
+  type Baremo, type FuenteJuicio, type Juicio, type Valor,
 } from '../_shared/triaje.ts'
 
 const admin = createClient(
@@ -45,6 +59,9 @@ const admin = createClient(
 const MAX_CV_CHARS = 15000
 /** Un análisis nunca debería tardar tanto: pasado esto, el reclamo se considera muerto. */
 const CLAIM_TTL_MS = 5 * 60 * 1000
+/** Modelo SOLO para la transcripción de visión, por si el principal no admite
+ *  ficheros como entrada. Sin definir, se usa el mismo. */
+const VISION_MODEL = Deno.env.get('OPENAI_VISION_MODEL') ?? OPENAI_MODEL
 
 type Answers = Record<string, string | string[] | boolean>
 type Field = { id: string; label: string; type: string; required?: boolean; options?: string[] }
@@ -59,17 +76,92 @@ function answerLine(v: Answers[string] | undefined): string {
 
 // Descarga el CV del bucket privado y extrae su texto. Solo PDF; otros formatos
 // (doc/docx) se analizan sin CV (honestidad: no fingimos leer lo que no leemos).
-async function cvText(cvPath: string | null): Promise<string | null> {
-  if (!cvPath) return null
-  if (!cvPath.toLowerCase().endsWith('.pdf')) return null
+// Devuelve también los bytes: si la capa de texto no da para nada (escaneo), la
+// transcripción de visión los necesita, y descargar dos veces sería pagar dos.
+async function cvDescarga(cvPath: string | null): Promise<{ texto: string | null; bytes: Uint8Array | null }> {
+  if (!cvPath) return { texto: null, bytes: null }
+  if (!cvPath.toLowerCase().endsWith('.pdf')) return { texto: null, bytes: null }
   try {
     const { data, error } = await admin.storage.from('cvs').download(cvPath)
-    if (error || !data) return null
-    const buf = new Uint8Array(await data.arrayBuffer())
-    const pdf = await getDocumentProxy(buf)
+    if (error || !data) return { texto: null, bytes: null }
+    const bytes = new Uint8Array(await data.arrayBuffer())
+    const pdf = await getDocumentProxy(bytes)
     const { text } = await extractText(pdf, { mergePages: true })
     const joined = Array.isArray(text) ? text.join('\n') : String(text ?? '')
-    return joined.slice(0, MAX_CV_CHARS).trim() || null
+    return { texto: joined.slice(0, MAX_CV_CHARS).trim() || null, bytes }
+  } catch (_e) {
+    return { texto: null, bytes: null }
+  }
+}
+
+// btoa no traga un Uint8Array grande de una vez (revienta la pila con spread):
+// se convierte por tramos. El bucket ya limita el CV a 8 MiB.
+function aBase64(bytes: Uint8Array): string {
+  let bin = ''
+  const TRAMO = 0x8000
+  for (let i = 0; i < bytes.length; i += TRAMO) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + TRAMO))
+  }
+  return btoa(bin)
+}
+
+const ESQUEMA_TRANSCRIPCION = {
+  name: 'transcripcion_cv',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      texto: { type: 'string', description: 'El texto del documento, en orden de lectura.' },
+    },
+    required: ['texto'],
+  },
+} as const
+
+/**
+ * Respaldo de visión para un PDF sin capa de texto útil (escaneo, foto): se
+ * manda el PDF entero como fichero y el modelo lo transcribe. La triada no se
+ * entera de nada: recibe texto, como siempre. Si el modelo no admite ficheros
+ * (400) o falla, null: se cae al "adjuntó un CV que no puedo leer" de siempre.
+ */
+async function transcribirCvVision(bytes: Uint8Array): Promise<string | null> {
+  try {
+    const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        ...tuning({ model: VISION_MODEL }),
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Transcribes documentos escaneados. Devuelve el texto del documento en orden ' +
+              'de lectura, tal cual está escrito, sin inventar, sin resumir y sin corregir ' +
+              'erratas. Si una parte no se lee, sáltala.',
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'file',
+                file: { filename: 'cv.pdf', file_data: `data:application/pdf;base64,${aBase64(bytes)}` },
+              },
+              { type: 'text', text: 'Transcribe este CV.' },
+            ],
+          },
+        ],
+        response_format: { type: 'json_schema', json_schema: ESQUEMA_TRANSCRIPCION },
+      }),
+    })
+    if (!res.ok) return null
+    const body = await res.json()
+    const content = body?.choices?.[0]?.message?.content
+    if (!content) return null
+    const texto = String(JSON.parse(content)?.texto ?? '').slice(0, MAX_CV_CHARS).trim()
+    // Una transcripción tan corta como para seguir siendo "ilegible" no es una
+    // transcripción: es el modelo rellenando. No se usa.
+    return esCvIlegible(texto) ? null : texto
   } catch (_e) {
     return null
   }
@@ -205,7 +297,17 @@ Deno.serve(async (req) => {
     const fields = (camp.fields ?? []) as Field[]
     const answers = (cand.answers ?? {}) as Answers
 
-    const cv = await cvText(cand.cv_path)
+    // Lectura del CV en dos peldaños: la capa de texto del PDF y, si no da para
+    // nada (escaneo), la transcripción de visión. `cvLeido` deja constancia de
+    // cuál funcionó: el visor de la ficha solo puede subrayar con 'texto',
+    // porque una transcripción no se puede localizar en el documento.
+    const descarga = await cvDescarga(cand.cv_path)
+    let cv = descarga.texto && !esCvIlegible(descarga.texto) ? descarga.texto : null
+    let cvLeido: 'texto' | 'vision' | 'no' = cv ? 'texto' : 'no'
+    if (!cv && cand.cv_path && descarga.bytes) {
+      cv = await transcribirCvVision(descarga.bytes)
+      if (cv) cvLeido = 'vision'
+    }
 
     // Minimización: al modelo no le hace falta saber el correo ni el teléfono
     // para juzgar experiencia o disponibilidad, así que no salen de aquí. Es el
@@ -219,9 +321,12 @@ Deno.serve(async (req) => {
 
     // "No adjuntó CV" y "adjuntó uno que no puedo leer" no son lo mismo, y
     // confundirlos hacía que Meridian dijera "el CV adjunto no es legible" de
-    // alguien que nunca adjuntó nada.
+    // alguien que nunca adjuntó nada. La transcripción de visión avisa de lo
+    // que es: el juez también tiene derecho a saber que puede traer erratas.
     const cvNota = cv
-      ? `Texto del CV adjunto:\n${cv}\n`
+      ? cvLeido === 'vision'
+        ? `Texto del CV adjunto (transcripción de un documento escaneado; puede tener erratas):\n${cv}\n`
+        : `Texto del CV adjunto:\n${cv}\n`
       : cand.cv_path
         ? 'Adjuntó un CV pero no he podido extraer su texto. No supongas nada sobre lo que ponga.\n'
         : 'No adjuntó CV. Valora solo con las respuestas del formulario, y no menciones el CV.\n'
@@ -268,25 +373,38 @@ Deno.serve(async (req) => {
         const writeError = await store({
           summary: 'El formulario de este puesto no tiene preguntas con las que valorar el encaje.',
           highlights: [], concerns: [], fit: 0, criterios: [], baremoHash: hash,
-          model: OPENAI_MODEL, analyzedAt: new Date().toISOString(), cvUsed: !!cv,
+          model: OPENAI_MODEL, analyzedAt: new Date().toISOString(), cvUsed: !!cv, cvLeido,
         })
         if (writeError) return json({ error: `No se pudo guardar el análisis: ${writeError.message}` }, 500)
         return json({ ok: true, analyzed: true })
       }
 
-      // --- Pieza 2: el evaluador, con evidencia obligatoria. ---
+      // --- Pieza 2: el evaluador, con evidencia obligatoria. La TRAYECTORIA
+      // (transcripción estructurada del CV) va en paralelo: es mecánica, no
+      // depende del baremo, y con su propio catch, porque es un extra y un
+      // análisis sin ficha de trayectoria sigue siendo un análisis. ---
       const claves = efectivos.map((c) => c.clave)
       const pe = promptEvaluador({ puesto, criterios: efectivos, respuestas, cvNota })
-      const ev = await chatJSON(pe.system, pe.user, esquemaEvaluador(claves))
+      const pt = cv ? promptTrayectoria(cv) : null
+      const [ev, trayectoriaBruta] = await Promise.all([
+        chatJSON(pe.system, pe.user, esquemaEvaluador(claves)),
+        pt
+          ? chatJSON(pt.system, pt.user, ESQUEMA_TRAYECTORIA).catch(() => null)
+          : Promise.resolve(null),
+      ])
+      const trayectoria = sanearTrayectoria(trayectoriaBruta)
       let summary = String(ev.summary ?? '').slice(0, 600)
       let highlights = (Array.isArray(ev.highlights) ? ev.highlights : []).map((s) => String(s)).slice(0, 4)
       let concerns = (Array.isArray(ev.concerns) ? ev.concerns : []).map((s) => String(s)).slice(0, 3)
+      let contrastes = sanearContrastes(ev.contrastes)
       const brutos: Juicio[] = (Array.isArray(ev.criterios) ? ev.criterios : []).map((c) => {
-        const j = c as { clave?: unknown; valor?: unknown; evidencia?: unknown }
+        const j = c as { clave?: unknown; valor?: unknown; evidencia?: unknown; fuente?: unknown }
         return {
           clave: String(j?.clave ?? ''),
           valor: (['cumple', 'parcial', 'no_consta', 'no_cumple'].includes(String(j?.valor)) ? String(j?.valor) : 'no_consta') as Valor,
           evidencia: String(j?.evidencia ?? ''),
+          // normalizarJuicios valida el vocabulario y la ata a su evidencia.
+          fuente: String(j?.fuente ?? '') as FuenteJuicio,
         }
       })
       // Mitad mecánica del juez: un juicio sin evidencia se queda en no_consta,
@@ -295,8 +413,8 @@ Deno.serve(async (req) => {
 
       // --- Pieza 3: el juez. Solo si hay algo que verificar. ---
       const hayJuicios = juicios.some((j) => j.valor !== 'no_consta')
-      if (hayJuicios || highlights.length > 0 || concerns.length > 0) {
-        const pj = promptJuez({ puesto, criterios: efectivos, respuestas, cvNota, evaluacion: { summary, highlights, concerns, criterios: juicios } })
+      if (hayJuicios || highlights.length > 0 || concerns.length > 0 || contrastes.length > 0) {
+        const pj = promptJuez({ puesto, criterios: efectivos, respuestas, cvNota, evaluacion: { summary, highlights, concerns, criterios: juicios, contrastes } })
         const jz = await chatJSON(pj.system, pj.user, esquemaJuez(claves))
         const veredictos = new Map(
           (Array.isArray(jz.criterios) ? jz.criterios : []).map((c) => {
@@ -312,6 +430,15 @@ Deno.serve(async (req) => {
         })
         highlights = soloConservados(highlights, (Array.isArray(jz.a_favor) ? jz.a_favor : []).map(String))
         concerns = soloConservados(concerns, (Array.isArray(jz.a_confirmar) ? jz.a_confirmar : []).map(String))
+        // Los contrastes se conservan o se quitan por su serialización, la
+        // misma que vio el juez: uno reescrito no casa y se descarta solo.
+        const conservados = new Set(
+          soloConservados(
+            contrastes.map(serializarContraste),
+            (Array.isArray(jz.contrastes_conservados) ? jz.contrastes_conservados : []).map(String),
+          ),
+        )
+        contrastes = contrastes.filter((c) => conservados.has(serializarContraste(c)))
       }
 
       // --- El número lo pone el código: pesos por nivel y cobertura. ---
@@ -325,13 +452,18 @@ Deno.serve(async (req) => {
           nombre: c.nombre,
           nivel: c.nivel,
           ...(j?.evidencia ? { evidencia: j.evidencia } : {}),
+          // La fuente viaja pegada a su evidencia: es lo que le dice al visor
+          // qué citas buscar en el PDF.
+          ...(j?.evidencia && j?.fuente ? { fuente: j.fuente } : {}),
         }
       })
       const writeError = await store({
         summary, highlights, concerns, fit,
         criterios: criteriosOut,
+        ...(contrastes.length > 0 ? { contrastes } : {}),
+        ...(trayectoria ? { trayectoria } : {}),
         baremoHash: hash,
-        model: OPENAI_MODEL, analyzedAt: new Date().toISOString(), cvUsed: !!cv,
+        model: OPENAI_MODEL, analyzedAt: new Date().toISOString(), cvUsed: !!cv, cvLeido,
       })
       // Sin este chequeo, un 42501 por falta de grant devolvía {analyzed:true}
       // sin haber guardado nada: la interfaz decía "listo" y no había análisis.

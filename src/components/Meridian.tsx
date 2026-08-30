@@ -6,6 +6,7 @@ import { useStore } from '../lib/store'
 import { BTN_SECONDARY } from '../lib/buttons'
 import {
   ANILLO_AJUSTE, CRITERIO_VALOR_LABEL, MERIDIAN_NAME, candidateFit, criterioNombre, fitTier,
+  idCitaContraste, idCitaCriterio,
 } from '../lib/meridian'
 import { Avatar } from './ui/Avatar'
 
@@ -175,7 +176,18 @@ function enFrase(nombre: string): string {
 // que la tabla, un informe medido y no una lista de bullets.
 // Los análisis anteriores a la triada (ago 2026) traen las 5 claves genéricas
 // sin nombre ni nivel: criterioNombre les pone el nombre y el orden se respeta.
-function CriteriosList({ criterios, print }: { criterios: AiCriterion[]; print?: boolean }) {
+function CriteriosList({
+  criterios,
+  print,
+  onVerEnCv,
+}: {
+  criterios: AiCriterion[]
+  print?: boolean
+  /** Con esto puesto, el hecho de un juicio con fuente 'cv' se vuelve un botón
+   *  que lleva a su cita subrayada en el visor del CV. Sin la prop (Parte
+   *  diario, análisis sin CV localizable), todo se pinta como siempre. */
+  onVerEnCv?: (citaId: string) => void
+}) {
   if (criterios.length === 0) return null
   const ordenados = [...criterios].sort(
     (a, b) => (NIVEL_RANGO[a.nivel ?? ''] ?? 1) - (NIVEL_RANGO[b.nivel ?? ''] ?? 1),
@@ -192,6 +204,7 @@ function CriteriosList({ criterios, print }: { criterios: AiCriterion[]; print?:
             c.evidencia && c.evidencia.trim().toLowerCase() !== nombre.trim().toLowerCase()
               ? c.evidencia
               : undefined
+          const enlazable = !!hecho && !!onVerEnCv && c.fuente === 'cv'
           return (
             <li
               key={c.clave}
@@ -208,7 +221,23 @@ function CriteriosList({ criterios, print }: { criterios: AiCriterion[]; print?:
                     {' '}
                     <span aria-hidden>{'· '}</span>
                     <span className="sr-only">, se apoya en: </span>
-                    {hecho}
+                    {enlazable ? (
+                      // El subrayado punteado dice "esto lleva a su cita". No
+                      // choca con "el nombre de la fila no se subraya": aquí el
+                      // botón ES exactamente el hecho, no promete más objetivo
+                      // del que hay. El color no es el portador (lo dice el
+                      // sr-only) y el foco lleva el anillo global.
+                      <button
+                        type="button"
+                        onClick={() => onVerEnCv!(idCitaCriterio(c.clave))}
+                        className="rounded-sm text-left underline decoration-slate-300 decoration-dotted underline-offset-2 transition-colors duration-[var(--duration-control)] hover:text-slate-700 hover:decoration-slate-500"
+                      >
+                        {hecho}
+                        <span className="sr-only"> (ver esta cita subrayada en el CV)</span>
+                      </button>
+                    ) : (
+                      hecho
+                    )}
                   </span>
                 )}
               </p>
@@ -286,8 +315,13 @@ export function MeridianCandidateRow({
 export function MeridianPanelBlock({
   candidate,
   plegable = true,
+  onVerEnCv,
 }: {
   candidate: Candidate
+  /** Lleva una cita del análisis a su subrayado en el visor del CV. La pasa la
+   *  ficha del candidato solo cuando hay citas localizables (cvLeido 'texto');
+   *  sin ella, el informe se pinta como siempre. */
+  onVerEnCv?: (citaId: string) => void
   /**
    * En la ficha de móvil, Meridian es una de las cinco vistas del selector: has
    * TOCADO su pastilla para leerlo, así que entra abierto y sin control de
@@ -351,9 +385,12 @@ export function MeridianPanelBlock({
     const porSaber = criterios.filter((c) => c.valor === 'no_consta' && c.nivel !== 'deseable')
     const print = recienId === candidate.id
     const delayPie = 80 + criterios.length * 45
+    // Contradicciones respuesta-vs-CV que el juez conservó: el hallazgo experto
+    // de la lectura del CV, con su cita subrayable.
+    const contrastes = ai.contrastes ?? []
     const hayPie = porSaber.length > 0 || ai.cvUsed === false
     const hayListas = !conHechos && (ai.highlights.length > 0 || ai.concerns.length > 0)
-    const hayDetalle = criterios.length > 0 || hayListas || hayPie
+    const hayDetalle = criterios.length > 0 || hayListas || hayPie || contrastes.length > 0
     // Sin plegable, siempre abierto: ver la explicación de arriba.
     const abierto = !plegable || abiertoId === candidate.id
     const conControl = plegable && hayDetalle
@@ -406,7 +443,38 @@ export function MeridianPanelBlock({
             <div>
               {criterios.length > 0 && (
                 <div className={`mt-3 border-t border-slate-100 pt-2.5 ${print ? 'meridian-in' : ''}`} style={print ? { animationDelay: '40ms' } : undefined}>
-                  <CriteriosList criterios={criterios} print={print} />
+                  <CriteriosList criterios={criterios} print={print} onVerEnCv={onVerEnCv} />
+                </div>
+              )}
+              {/* Las contradicciones respuesta-vs-CV van en bloque propio, no
+                  dentro de "A confirmar": son el hallazgo que solo da cruzar las
+                  dos fuentes, y su cita del CV se puede ir a ver subrayada. */}
+              {contrastes.length > 0 && (
+                <div
+                  className={`mt-3 border-t border-slate-100 pt-2.5 ${print ? 'meridian-in' : ''}`}
+                  style={print ? { animationDelay: `${delayPie}ms` } : undefined}
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">A contrastar</p>
+                  <ul className="mt-1 space-y-1">
+                    {contrastes.map((c, i) => (
+                      <li key={i} className="text-[13px] leading-5 text-slate-600">
+                        Responde <span className="font-medium text-slate-700">"{c.respuesta}"</span>, pero el CV dice{' '}
+                        {onVerEnCv ? (
+                          <button
+                            type="button"
+                            onClick={() => onVerEnCv(idCitaContraste(i))}
+                            className="rounded-sm text-left underline decoration-slate-300 decoration-dotted underline-offset-2 transition-colors duration-[var(--duration-control)] hover:text-slate-700 hover:decoration-slate-500"
+                          >
+                            "{c.cv}"
+                            <span className="sr-only"> (ver esta cita subrayada en el CV)</span>
+                          </button>
+                        ) : (
+                          <>"{c.cv}"</>
+                        )}
+                        .
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
               {hayListas && (
