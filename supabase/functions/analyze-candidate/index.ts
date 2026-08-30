@@ -250,7 +250,12 @@ Deno.serve(async (req) => {
     // `auto` = lo dispara la llegada de la candidatura (formulario público), no
     // una persona. Solo eso lo puede apagar la empresa en Ajustes: analizar UNA
     // ficha a mano siempre se puede, o el botón de su ficha mentiría.
-    const { candidate_id, auto } = await req.json()
+    // `force` = "Volver a analizar" desde la ficha (Mario, ago 2026): repite un
+    // análisis CORRECTO, porque los análisis envejecen cuando Meridian mejora
+    // (campos nuevos como fuente, trayectoria o contrastes). Solo salta la
+    // idempotencia: el plan, el reclamo atómico y el resto de guardas de coste
+    // se aplican igual, y las llamadas automáticas no lo usan nunca.
+    const { candidate_id, auto, force } = await req.json()
     if (!candidate_id) return json({ error: 'Falta candidate_id' }, 400)
 
     const { data: cand } = await admin
@@ -272,9 +277,10 @@ Deno.serve(async (req) => {
     }
 
     // Idempotencia: un análisis correcto ya existente no se repite (no gasta OpenAI).
-    // Uno con error sí se puede reintentar.
+    // Uno con error sí se puede reintentar, y `force` (manual y a propósito)
+    // repite también los correctos.
     const existing = cand.ai as { error?: string } | null
-    if (existing && !existing.error) {
+    if (existing && !existing.error && force !== true) {
       return json({ ok: true, analyzed: true, skipped: 'ya analizado' })
     }
 

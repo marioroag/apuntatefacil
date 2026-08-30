@@ -413,7 +413,10 @@ interface Store {
   // Meridian: pide (o repite) el triaje de IA de una candidatura. Devuelve true si
   // quedó analizada. La edge function gatea por plan y es idempotente; en demo se
   // fabrica un análisis plausible en memoria.
-  analyzeCandidate: (candidateId: string) => Promise<boolean>
+  /** `force` repite un análisis correcto ("Volver a analizar" de la ficha):
+   *  los análisis envejecen cuando Meridian mejora. El servidor mantiene
+   *  todas sus guardas de coste; solo salta la idempotencia. */
+  analyzeCandidate: (candidateId: string, opts?: { force?: boolean }) => Promise<boolean>
   deleteCandidate: (candidateId: string) => Candidate | undefined
   restoreCandidate: (candidate: Candidate) => Promise<void>
   updateFields: (campaignId: string, fields: FormField[]) => Promise<boolean>
@@ -1309,10 +1312,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       await dbCandidate(id, { favorito }, () => prev != null && patchCandidateLocal(id, { favorito: prev }))
     },
 
-    analyzeCandidate: async (id) => {
+    analyzeCandidate: async (id, opts) => {
       const cand = candidates.find((c) => c.id === id)
       if (!cand) return false
       if (companyId === 'demo') {
+        // Los dos candidatos artesanales con CV (demoCv) no se regeneran: su
+        // análisis está escrito a mano para que las citas existan literales en
+        // su PDF, y aiFor lo pisaría con uno sin subrayados. Repetir y llegar
+        // al mismo veredicto es además el mensaje correcto: la misma vara.
+        if (cand.cvPath) {
+          await new Promise((r) => setTimeout(r, 900))
+          return true
+        }
         // Demo: sin red. Fabricamos un triaje coherente con estado/favorito,
         // como hace la rama demo de sendInterestCheck.
         //
@@ -1328,7 +1339,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return true
       }
       const { data, error } = await supabase.functions.invoke('analyze-candidate', {
-        body: { candidate_id: id },
+        body: { candidate_id: id, ...(opts?.force ? { force: true } : {}) },
       })
       if (error || !data?.ok) {
         toast.error('Meridian no pudo analizar la candidatura. Inténtalo de nuevo.')

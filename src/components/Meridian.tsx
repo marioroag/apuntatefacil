@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Briefcase, Check, ChevronDown, ChevronRight, HelpCircle, Minus, Sparkles, X } from 'lucide-react'
+import { Briefcase, Check, ChevronDown, ChevronRight, HelpCircle, Minus, RefreshCw, Sparkles, X } from 'lucide-react'
 import type { AiCriterion, Candidate } from '../lib/types'
 import { initials, candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
-import { BTN_SECONDARY } from '../lib/buttons'
+import { BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import {
   ANILLO_AJUSTE, CRITERIO_VALOR_LABEL, MERIDIAN_NAME, candidateFit, criterioNombre, fitTier,
   idCitaContraste, idCitaCriterio,
@@ -363,15 +363,45 @@ export function MeridianPanelBlock({
   const ai = candidate.ai
   const failed = !!ai?.error
 
-  const run = async () => {
+  const run = async (force = false) => {
     if (busy) return
     setBusy(true)
-    const ok = await analyzeCandidate(candidate.id)
+    const ok = await analyzeCandidate(candidate.id, force ? { force: true } : undefined)
     setBusy(false)
     if (ok) {
       setRecienId(candidate.id)
       setAbiertoId(candidate.id)
     }
+  }
+
+  // El skeleton se decide ANTES que el informe: al VOLVER a analizar ya hay un
+  // análisis pintable, y sin este orden la espera no se veía (el informe viejo
+  // se quedaba quieto hasta aterrizar el nuevo, como si el botón no hiciera nada).
+  if (busy) {
+    return (
+      <div className={TARJETA_INFORME}>
+        <MeridianLabel />
+        <p className="mt-1.5 text-[13px] leading-5 text-slate-500" role="status">
+          Leyendo la candidatura y midiéndola contra lo que pide el puesto…
+        </p>
+        {/* La silueta es la del informe que viene, fila a fila (glifo, criterio y
+            su hecho, juicio a la derecha): el resultado aterriza en su propio
+            hueco en vez de empujar la ficha. Los anchos bajan de fila en fila
+            porque así se leen las de verdad, no por decorar. */}
+        <div className="mt-3 border-t border-slate-100 pt-2.5" aria-hidden>
+          <div className="skeleton h-2 w-28 rounded-full" />
+          <div className="mt-2 divide-y divide-slate-100">
+            {[['w-3/5', 'w-14'], ['w-4/6', 'w-16'], ['w-1/2', 'w-12']].map(([texto, juicio], i) => (
+              <div key={i} className="flex items-center gap-1.5 py-[9px]">
+                <div className="skeleton size-3 shrink-0 rounded-full" />
+                <div className={`skeleton h-2.5 rounded-full ${texto}`} />
+                <div className={`skeleton ml-auto h-2.5 rounded-full ${juicio}`} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Sin gating por plan: con el pago por proceso (ago 2026) Meridian está
@@ -382,9 +412,12 @@ export function MeridianPanelBlock({
   // Analizado con éxito. El veredicto (etiqueta y anillo) vive en la CABECERA del
   // panel, así que aquí queda solo la lectura: sin repetir la etiqueta ni la barra.
   //
-  // Y sin "Volver a analizar" a propósito: re-tirar un análisis correcto daba un
-  // número distinto cada vez y eso destruía la confianza. Reintentar solo tiene
-  // sentido cuando falló, que es la rama de abajo.
+  // "Volver a analizar" EXISTE desde ago 2026 (lo pidió Mario) y vive al FONDO
+  // del desglose, no en la cabecera: los análisis envejecen cuando Meridian
+  // mejora (citas localizables, trayectoria, contrastes) y tiene que haber
+  // forma de refrescarlos. La cautela vieja (re-tirar cambia el número y eso
+  // come confianza) no desaparece, decide el SITIO: se repite abriendo la
+  // prueba y bajando hasta el final, no desde un botón a un clic del veredicto.
   if (ai && !failed) {
     const criterios = ai.criterios ?? []
     // Con la triada, cada juicio lleva su hecho citado y el desglose lo enseña
@@ -519,40 +552,14 @@ export function MeridianPanelBlock({
                   {ai.cvUsed === false && <p className="text-[12px] leading-4 text-slate-500">Sin CV: lo he mirado solo por sus respuestas.</p>}
                 </div>
               )}
+              <div className="mt-3 border-t border-slate-100 pt-2.5">
+                <button type="button" onClick={() => void run(true)} className={BTN_SECONDARY_SM}>
+                  <RefreshCw className="size-3.5 text-slate-500" aria-hidden /> Volver a analizar
+                </button>
+              </div>
             </div>
           </div>
         )}
-      </div>
-    )
-  }
-
-  // Análisis en curso: un skeleton con la FORMA del informe que viene (una
-  // línea de lectura y dos filas de desglose), no un spinner en medio del
-  // contenido. En prod la triada tarda unos segundos; aquí se ve qué se está
-  // fabricando y dónde va a aparecer.
-  if (busy) {
-    return (
-      <div className={TARJETA_INFORME}>
-        <MeridianLabel />
-        <p className="mt-1.5 text-[13px] leading-5 text-slate-500" role="status">
-          Leyendo la candidatura y midiéndola contra lo que pide el puesto…
-        </p>
-        {/* La silueta es la del informe que viene, fila a fila (glifo, criterio y
-            su hecho, juicio a la derecha): el resultado aterriza en su propio
-            hueco en vez de empujar la ficha. Los anchos bajan de fila en fila
-            porque así se leen las de verdad, no por decorar. */}
-        <div className="mt-3 border-t border-slate-100 pt-2.5" aria-hidden>
-          <div className="skeleton h-2 w-28 rounded-full" />
-          <div className="mt-2 divide-y divide-slate-100">
-            {[['w-3/5', 'w-14'], ['w-4/6', 'w-16'], ['w-1/2', 'w-12']].map(([texto, juicio], i) => (
-              <div key={i} className="flex items-center gap-1.5 py-[9px]">
-                <div className="skeleton size-3 shrink-0 rounded-full" />
-                <div className={`skeleton h-2.5 rounded-full ${texto}`} />
-                <div className={`skeleton ml-auto h-2.5 rounded-full ${juicio}`} />
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     )
   }
@@ -566,7 +573,7 @@ export function MeridianPanelBlock({
           ? 'No he podido analizar esta candidatura. Inténtalo de nuevo.'
           : 'Aún no la he analizado. La reviso y te digo su ajuste al puesto.'}
       </p>
-      <button type="button" onClick={run} className={BTN_SECONDARY}>
+      <button type="button" onClick={() => void run()} className={BTN_SECONDARY}>
         <Sparkles className="size-3.5 text-slate-500" aria-hidden /> {failed ? 'Volver a analizar' : `Analizar con ${MERIDIAN_NAME}`}
       </button>
     </div>
