@@ -254,6 +254,23 @@ export function sanearTrayectoria(bruto: unknown, cvTexto?: string | null): Tray
     const aguja = normalizarComparacion(s)
     return aguja.length === 0 || pajar.includes(aguja)
   }
+  // Para carnets y formación, la comprobación va POR FRAGMENTOS, y esto salió
+  // de un CV real (ago 2026): el modelo compone la línea como se le pide
+  // ("Título, Escuela, Año") y cada pieza está escrita en el CV, pero la
+  // maquetación (columnas, saltos) las deja NO CONTIGUAS en la capa de texto,
+  // así que exigir la línea entera seguida tiraba estudios verdaderos (quedó
+  // un solo curso de una formación completa). Cada fragmento sí tiene que
+  // aparecer tal cual: una escuela o un título inventados siguen tirando la
+  // línea entera, que es para lo que existe el verificador.
+  const enElCvPorPartes = (s: string) => {
+    if (!pajar) return true
+    const partes = s
+      .split(/[,;·()|]/)
+      .map((p) => normalizarComparacion(p))
+      .filter((p) => p.length >= 3)
+    if (partes.length === 0) return enElCv(s)
+    return partes.every((p) => pajar.includes(p))
+  }
   const vistos = new Set<string>()
   const empleos = (Array.isArray(t?.empleos) ? t.empleos : [])
     .map((e) => {
@@ -289,7 +306,7 @@ export function sanearTrayectoria(bruto: unknown, cvTexto?: string | null): Tray
       const raw = c as Partial<TrayectoriaCv['carnets'][number]>
       return { nombre: txt(raw?.nombre, 80), vigencia: txt(raw?.vigencia, 40) }
     })
-    .filter((c) => c.nombre && enElCv(c.nombre))
+    .filter((c) => c.nombre && enElCvPorPartes(c.nombre))
     .filter((c) => {
       const clave = normalizarComparacion(c.nombre)
       if (carnetsVistos.has(clave)) return false
@@ -300,7 +317,7 @@ export function sanearTrayectoria(bruto: unknown, cvTexto?: string | null): Tray
   const formacionVista = new Set<string>()
   const formacion = (Array.isArray(t?.formacion) ? t.formacion : [])
     .map((f) => txt(f, 80))
-    .filter((f) => f && enElCv(f))
+    .filter((f) => f && enElCvPorPartes(f))
     // El CV real llegó con "Certificado Inglés B1" dos veces: repetir no es
     // transcribir.
     .filter((f) => {

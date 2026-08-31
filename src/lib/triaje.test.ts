@@ -333,6 +333,42 @@ describe('trayectoria: transcripción con techos', () => {
   })
 })
 
+describe('formación y carnets se verifican POR FRAGMENTOS', () => {
+  // El caso real (ago 2026): un CV a dos columnas deja las piezas de un mismo
+  // estudio NO CONTIGUAS en la capa de texto ("Bachillerato de Ciencias
+  // Certificado Inglés B1 IES Agustín de Bethancourt"), y el modelo compone la
+  // línea como se le pide ("Título, Centro, Año"). Exigir la línea entera
+  // seguida tiraba estudios verdaderos.
+  const cv =
+    'Camarero de sala con experiencia. Bachillerato de Ciencias Certificado Ingles B1 ' +
+    'IES Agustin de Bethancourt 2022 Carnet de conducir B en vigor desde 2021.'
+
+  it('conserva una línea cuyos trozos están en el CV aunque no seguidos', () => {
+    const t = sanearTrayectoria(
+      {
+        empleos: [],
+        carnets: [{ nombre: 'Carnet de conducir B', vigencia: '' }],
+        formacion: ['Bachillerato de Ciencias, IES Agustín de Bethancourt, 2022'],
+      },
+      cv,
+    )
+    expect(t?.formacion).toEqual(['Bachillerato de Ciencias, IES Agustín de Bethancourt, 2022'])
+    expect(t?.carnets).toEqual([{ nombre: 'Carnet de conducir B', vigencia: '' }])
+  })
+
+  it('un fragmento inventado sigue tirando la línea entera', () => {
+    const t = sanearTrayectoria(
+      {
+        empleos: [],
+        carnets: [{ nombre: 'Carnet de carretillero, en vigor' }],
+        formacion: ['Bachillerato de Ciencias, Universidad de Marte'],
+      },
+      cv,
+    )
+    expect(t).toBeNull()
+  })
+})
+
 describe('sanearInforme: un párrafo, sin guion largo y con techo', () => {
   it('colapsa saltos de línea y espacios en un solo párrafo', () => {
     expect(sanearInforme('Primera frase.\n\nSegunda   frase\ncon salto.')).toBe(
