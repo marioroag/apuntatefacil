@@ -43,6 +43,41 @@ export interface ConfigHuecos {
   maxAgenda?: number
 }
 
+/**
+ * Varios tramos ocupados, en uno por bloque continuo.
+ *
+ * Fundir no es cosmético. Lo ocupado llega de dos sitios (nuestras entrevistas
+ * y el calendario del anfitrión) y el segundo trae un tramo POR EVENTO, así que
+ * una mañana con seis reuniones seguidas son seis intervalos que se tocan, y
+ * `generarAgenda` los compara uno a uno contra cada hueco candidato. Fundidos
+ * son uno: se descarta lo mismo, pero la cuenta deja de crecer con la agenda de
+ * nadie.
+ *
+ * Y tira lo ilegible en vez de dejarlo pasar. Un intervalo con NaN dentro no
+ * choca con NADA, así que colarlo no deja un hueco raro: deja un hueco OCUPADO
+ * ofrecido como libre, que es el fallo que acaba con dos personas presentándose
+ * a la vez.
+ */
+export function fundirOcupado(tramos: Ocupado[]): Ocupado[] {
+  const buenos = tramos
+    .filter((t) => Number.isFinite(t.start.getTime()) && Number.isFinite(t.end.getTime()) && t.end > t.start)
+    .sort((a, b) => a.start.getTime() - b.start.getTime())
+
+  const out: Ocupado[] = []
+  for (const t of buenos) {
+    const ultimo = out[out.length - 1]
+    // `<=` y no `<`: dos tramos que se TOCAN (10:00-11:00 y 11:00-12:00) son un
+    // solo bloque ocupado, aunque no se solapen.
+    if (ultimo && t.start.getTime() <= ultimo.end.getTime()) {
+      if (t.end > ultimo.end) ultimo.end = t.end
+    } else {
+      // Copia: fundir no puede reescribir lo que le pasan.
+      out.push({ start: new Date(t.start), end: new Date(t.end) })
+    }
+  }
+  return out
+}
+
 /** Un día del anfitrión con todo lo que tiene libre. */
 export interface DiaHuecos {
   /** Día civil del ANFITRIÓN, no el de UTC ni el del navegador. */

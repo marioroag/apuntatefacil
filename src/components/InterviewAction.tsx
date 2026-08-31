@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CalendarDays, CalendarPlus, Loader2, MessageCircle, X } from 'lucide-react'
+import { AlertCircle, CalendarDays, CalendarPlus, Loader2, MessageCircle, X } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { useStore } from '../lib/store'
 import { useToast } from './ui/Toast'
@@ -7,6 +7,7 @@ import { SelectorFechaHora } from './ui/DateTimePicker'
 import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import { currentInterview } from '../lib/interviews'
 import { useAnfitrion } from '../lib/anfitrion'
+import { useOcupado } from '../lib/ocupado'
 import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import { ModoEntrevista } from './ModoEntrevista'
 import { formatPhone, shortWhenInZone } from '../lib/format'
@@ -134,6 +135,11 @@ export function AgendarManualDialog({
     if (!modoTocado.current) setModo(modoPorDefecto)
   }, [modoPorDefecto])
 
+  // Lo que ese anfitrión ya tiene cogido: sus otras entrevistas y, si lo ha
+  // conectado, su Google Calendar. Avisa antes de guardar, no bloquea.
+  const { choca } = useOcupado(anfitrion || null)
+  const solapa = choca(cuando, duracion)
+
   const telefono = typeof candidate.answers['telefono'] === 'string' ? candidate.answers['telefono'] : ''
 
   const guardar = async () => {
@@ -234,6 +240,15 @@ export function AgendarManualDialog({
             Día y hora
           </label>
           <SelectorFechaHora id="ent-cuando" value={cuando} onChange={setCuando} />
+          {solapa && (
+            // Ámbar y no rojo: esto no es un error ni impide nada. Solaparse a
+            // propósito es legítimo, y lo que de verdad no se puede hacer ya lo
+            // para la base al guardar.
+            <p className="mt-1.5 flex items-start gap-1.5 text-[13px] text-amber-700">
+              <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              A esa hora ya tienes algo. Puedes seguir, pero míralo.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">

@@ -6,6 +6,7 @@ import { BTN_PRIMARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import { useToast } from '../components/ui/Toast'
 import { ModoEntrevista } from '../components/ModoEntrevista'
 import { AvisoWhatsappPendiente } from '../components/WhatsappPendiente'
+import { CalendarioGoogle } from '../components/CalendarioGoogle'
 import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import type { InterviewMode } from '../lib/types'
 
@@ -476,6 +477,11 @@ export function AjustesCalendario() {
           ))}
         </div>
       </section>
+
+      {/* Va justo aquí y no al final: su único trabajo es afinar la respuesta
+          de arriba. Primero dices tus horas, y luego conectas el calendario
+          para que no te ofrezcamos las que ya no tienes. */}
+      <CalendarioGoogle />
 
       <section className="rounded-xl filo bg-white p-4 shadow-card sm:p-5">
         <h2 className="text-[15px] font-semibold text-slate-900">Cómo proponemos las citas</h2>
