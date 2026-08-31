@@ -17,14 +17,31 @@
 -- reintentos, deduplicación y latido.
 -- ============================================================================
 
-alter table public.interview_jobs drop constraint interview_jobs_kind_check;
+-- OJO AL TOCAR ESTA LISTA: es el vocabulario ENTERO de la tabla, no un añadido.
+-- Postgres no sabe extender un `check`, así que cada migración que quiere un
+-- tipo nuevo lo borra y lo vuelve a declarar con todos, y quien copie la lista
+-- de una migración vieja se lleva por delante los que añadieron las de en medio.
+-- Pasó aquí: la primera versión de este fichero copió los seis de
+-- `20260801200000_interview_jobs.sql` y borraba los once del canal de WhatsApp;
+-- lo paró el propio Postgres al empujar a producción, porque había filas con
+-- esos tipos. La lista de abajo sale de la ÚLTIMA que la tocó
+-- (`20260803000000_interes_por_whatsapp.sql`) más el tipo nuevo, y tiene
+-- guardián (`src/lib/tiposDeTrabajo.test.ts`): falla si una migración recorta
+-- el vocabulario de la anterior.
+--
+-- `if exists` para que se pueda reintentar: un push que falló a mitad no puede
+-- dejar la migración sin poder volver a correr.
+alter table public.interview_jobs drop constraint if exists interview_jobs_kind_check;
 alter table public.interview_jobs add constraint interview_jobs_kind_check check (kind in (
-  'recordatorio_24h',
-  'recordatorio_2h',
-  'marcar_realizada',
-  'enviar_invitacion',
-  'reofertar_horarios',
-  'avisar_intervencion',
+  'recordatorio_24h', 'recordatorio_2h', 'marcar_realizada', 'avisar_intervencion',
+  'recordatorio_vispera', 'acuse_asistencia',
+  'acuse_interes',
+  'enviar_invitacion', 'enviar_horarios', 'enviar_horas', 'reofertar_horarios',
+  'enviar_confirmacion', 'enviar_despedida', 'enviar_texto',
+  'clasificar_texto',
+  'conversar',
+  'responder_duda',
+  'mensaje_no_leible',
   -- Poner, mover o quitar el evento en el calendario del anfitrión. Uno por
   -- entrevista y a la vez (el dedupe_key lo garantiza): lo que importa es el
   -- estado FINAL de la fila, no cada paso por el que pasó.
