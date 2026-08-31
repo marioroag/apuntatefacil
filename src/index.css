@@ -243,7 +243,7 @@
   /* Excepción declarada al techo, y SOLO para el hero de la landing (ver su
      bloque más abajo): un control no puede durar esto, pero una superficie de
      marketing que se transforma entera, sí. Nada del producto la usa. */
-  --duration-hero: 560ms;
+  --duration-hero: 720ms;
   --default-transition-duration: var(--duration-control);
 
   /* --- Iconografía --------------------------------------------------------------
@@ -487,23 +487,286 @@
      del filo superior hacia abajo mientras la subida lo empuja hacia arriba, y se
      frenarían la una a la otra. Attio puede usar el centro porque su mock no se
      desplaza; el nuestro sí. */
+  /* EL TITULAR NO SE APAGA, SE DESENFOCA (Mario, ago 2026). Con solo opacidad, el
+     texto se vuelve transparente sin moverse de sitio y se lee como que alguien ha
+     bajado un mando; con el desenfoque se lee como que se va de FOCO, que es lo que
+     de verdad está pasando: la atención se la lleva el mock que sube por encima.
+     Y funciona en los dos sentidos, porque es una transición y no una animación:
+     al volver arriba el texto entra enfocándose.
+
+     Y no es una excepción al "solo transform y opacity": este gesto ya existe en
+     la casa, es el de `word-in`, el fundido con el que entra cada palabra que
+     escribe Meridian (blur 4px -> 0 junto a la opacidad). Lo que se hace aquí es
+     usarlo en los DOS sentidos y a un tamaño mayor, porque aquí no entra una
+     palabra, se va un titular de 64px. El coste es asumible por el área: un
+     titular, una línea y dos botones, no una sección entera.
+
+     8px: por debajo no se distingue de un fundido y por encima el titular se
+     convierte en una mancha de color antes de irse. */
   .hero-texto {
-    transition: opacity var(--duration-hero) var(--ease-standard);
+    transition:
+      opacity var(--duration-hero) var(--ease-standard),
+      filter var(--duration-hero) var(--ease-standard);
+  }
+  /* La capa del parallax: SIN transición a propósito (ver `useHeroParallax`).
+     Sigue al scroll al instante, y el hijo hace su gesto de entrada por su cuenta.
+     Fuera de aquí la variable no existe y esto se queda en `translate: 0`. */
+  .hero-parallax {
+    translate: 0 calc(var(--hero-parallax, 0px) * -1);
   }
   .hero-ventana {
-    --hero-sube: 44px;
+    --hero-sube: 28px;
     --hero-escala: 0.92;
     transform-origin: top center;
     transition:
       translate var(--duration-hero) var(--ease-out),
       scale var(--duration-hero) var(--ease-standard);
   }
-  [data-hero='movido'] .hero-texto { opacity: 0; }
+  /* LOS DOS MOCKS PEQUEÑOS SALEN DE DETRÁS DE LA VENTANA (Mario, ago 2026).
+     En reposo el hero enseña UNA cosa, el producto por dentro; al mover el scroll,
+     la ventana sube y encoge y por sus filos asoman el otro lado (el anuncio en el
+     móvil del candidato) y el de al lado (el equipo repartiéndose el trabajo).
+     Contado así, no compiten con el primero: llegan cuando ya ha dicho lo suyo.
+
+     LOS DOS A LA VEZ, y esto es una vuelta atrás con su motivo (Mario). Llegaron
+     escalonados 84ms, con el argumento de que dos objetos apareciendo a la vez
+     desde los dos lados se leen como un truco simétrico. El argumento no era falso,
+     pero pesa menos que lo que costaba: escalonados se leen como DOS sucesos, y lo
+     que pasa aquí es UNO, que la ventana se ha movido y ha destapado lo que tenía
+     detrás. Con el mismo tiempo, el ojo los agrupa.
+
+     `--ease-standard` y no `--ease-out`, que es además lo que la doctrina pide:
+     `--ease-out` es para lo que responde a un dedo sobre el propio objeto, y esto
+     no responde a nada, se revela. La curva estándar entra y sale despacio, que es
+     exactamente lo que se lee como "suave"; la exponencial se come el 62% del
+     recorrido en el 20% del tiempo y por eso aparecían de golpe.
+
+     EL RETARDO LO DECLARA CADA ESTADO, no la clase base, así que solo se aplica al
+     LLEGAR: una transición coge sus tiempos del estado de DESTINO. Al irse salen en
+     el acto, porque un retardo de salida se lee como que el control no responde.
+     Es la misma asimetría que ya tiene el raíl del lateral al contraerse. */
+  .hero-movil,
+  .hero-tablon {
+    opacity: 0;
+    transition:
+      opacity var(--duration-hero) var(--ease-standard),
+      translate var(--duration-hero) var(--ease-standard);
+  }
+  .hero-movil { translate: -28px 0; }
+  .hero-tablon { translate: 28px 0; }
+
+  [data-hero='movido'] .hero-texto {
+    opacity: 0;
+    filter: blur(8px);
+  }
   [data-hero='movido'] .hero-ventana {
     translate: 0 calc(var(--hero-sube) * -1);
     scale: var(--hero-escala);
   }
+  [data-hero='movido'] .hero-movil,
+  [data-hero='movido'] .hero-tablon {
+    opacity: 1;
+    translate: 0 0;
+    transition:
+      opacity var(--duration-hero) var(--ease-standard) calc(var(--duration-hero) * 0.3),
+      translate var(--duration-hero) var(--ease-standard) calc(var(--duration-hero) * 0.3);
+  }
 }
+
+/* EL PASO ENTRE LAS CUATRO PANTALLAS DEL HERO: ENCADENADO, NO CRUZADO.
+   (Mario, ago 2026: "se ve de baja calidad... que la parte del contenido cambie
+   antes al color de fondo y luego el contenido".)
+
+   Empezó siendo un fundido cruzado y se veía barato, y la causa tiene nombre:
+   durante el cruce las dos capturas están a la vez a media opacidad, así que se
+   superponen DOS interfaces distintas, texto sobre texto y filo sobre filo. Eso es
+   un fantasma, y el ojo lo lee como una transición de presentación de diapositivas
+   justamente porque nada real se comporta así.
+
+   La salida no es afinar la curva, es que no lleguen a coincidir: la que sale se
+   apaga ENTERA, se ve un respiro del fondo de trabajo de la app, y solo entonces
+   entra la siguiente. Tiene nombre en el oficio, `fade through`, y es lo que se usa
+   para pasar entre contenidos que NO son el mismo objeto en dos estados: aquí no
+   se transforma una pantalla en otra, se cambia de pantalla. Contado así se lee
+   como la app navegando, que es lo que se está enseñando.
+
+   IRSE ES MÁS RÁPIDO QUE LLEGAR, y es la misma asimetría que ya tiene el raíl del
+   lateral al contraerse: lo que se va tiene fecha límite (tiene que estar apagado
+   antes de que empiece lo siguiente) y lo que llega no. Vaciar es instantáneo en
+   cualquier app; pintar cuesta.
+
+   Los tres tramos SE ALARGARON para calmar el gesto (Mario, ago 2026: "smoothear y
+   tranquilizar"). Con 180 + 60 + 240 el cambio era correcto pero seco: el contenido
+   desaparecía de un tirón y el respiro del fondo no llegaba a leerse. Ahora sale en
+   `--duration-max` (240), el fondo se ve **100ms** —que sí son un tiempo, unos seis
+   fotogramas— y la nueva entra en el DOBLE de `--duration-max` (480), que es lo que
+   convierte el aterrizaje en algo que se posa en vez de aparecer. Total 820ms, y el
+   retardo de entrada sigue siendo la SUMA de los dos primeros tramos: una cuenta,
+   no un número inventado.
+
+   Y el gesto se calma también por fuera: cada pantalla se queda más tiempo puesta
+   (ver `PASO_MS`). Un cambio suave cada tres segundos sigue siendo un cambio cada
+   tres segundos.
+
+   Y ya no hace falta `linear`: aquel `linear` estaba ahí porque en un cruce las
+   dos opacidades tienen que sumar 1 exactamente o se ve el fondo a media
+   transición. Sin cruce, el fondo se ve A PROPÓSITO y mandan las curvas de la
+   casa. */
+/* LA FICHA SE ABRE SOBRE LA TABLA, no sustituye a nada. Por eso no usa el paso
+   encadenado del contenido: debajo no cambia nada, así que no hay que vaciar nada.
+   Entra como entra un modal de verdad en esta app (`ui/Modal`: opacidad y un pelo
+   de escala desde el centro), y se va con el MISMO tiempo (240ms). Al cerrar estuvo
+   en 180 y Mario lo subió: con la salida corta se leía como que la ficha se apagaba
+   de golpe, y lo que tiene que parecer es que se cierra.
+
+   Aquí no aplica la asimetría de "irse tiene fecha límite" que sí gobierna al
+   contenido de debajo: allí lo que sale TIENE que estar apagado antes de que entre
+   lo siguiente. Esta capa no le deja el sitio a nadie, así que puede tomarse el
+   mismo tiempo en las dos direcciones. */
+.hero-ficha {
+  opacity: 0;
+  scale: 0.985;
+  transition:
+    opacity var(--duration-max) var(--ease-standard),
+    scale var(--duration-max) var(--ease-standard);
+}
+
+.hero-ficha[data-activa='true'] {
+  opacity: 1;
+  scale: 1;
+  transition:
+    opacity var(--duration-max) var(--ease-standard),
+    scale var(--duration-max) var(--ease-standard);
+}
+
+/* EL LATERAL CAMBIA DE GOLPE, SIN FUNDIDO (Mario, ago 2026).
+   Llegó a fundirse cruzado, con el argumento de que entre dos pantallas el menú es
+   casi la misma imagen y superponerlas daba continuidad. El argumento se cae
+   justamente por eso: al mezclar dos menús CASI iguales, cada palabra se solapa
+   consigo misma un pelo desplazada, engorda a mitad del cruce y adelgaza otra vez.
+   Eso se lee como un parpadeo del texto, que es peor que no animar nada.
+
+   Sin transición no hay mezcla: en un fotograma está una y en el siguiente la otra,
+   y como solo cambia la fila activa, lo que se ve es exactamente lo que se quería,
+   que el menú se quede quieto y se le encienda otra fila.
+
+   Y como no hay cruce, se va con ello el `linear` que hacía falta para que las dos
+   opacidades sumaran 1. Pasa en el mismo instante en que arranca el apagado del
+   contenido, o sea que cuando la pantalla nueva llega, el menú ya la está
+   señalando: el orden real de un clic. */
+.hero-lateral {
+  opacity: 0;
+}
+
+.hero-lateral[data-activa='true'] {
+  opacity: 1;
+}
+
+.hero-pantalla {
+  opacity: 0;
+  transition: opacity var(--duration-max) var(--ease-standard);
+}
+
+.hero-pantalla[data-activa='true'] {
+  opacity: 1;
+  transition: opacity calc(var(--duration-max) * 2) var(--ease-standard) calc(var(--duration-max) + 100ms);
+}
+
+/* EL TELÉFONO DEL HERO · un marco de dispositivo, no una foto de un teléfono.
+   Mismo argumento que el marco del navegador de al lado (components/AppShot.tsx):
+   dibujado queda nítido a cualquier tamaño, no arrastra el peso de un PNG y no se
+   queda viejo; la PANTALLA sí es una captura de la demo, la del anuncio en móvil
+   (scripts/captura-hero-movil.sh).
+
+   Vive aquí y no en clases sueltas porque son tres medidas ATADAS entre sí, y
+   escritas a mano en el JSX se descuadran en cuanto alguien toca una:
+
+     · el canto (el marco negro) es el 3% del ancho del cuerpo, uniforme en las
+       cuatro caras, que es lo que hace que se lea como un dispositivo y no como
+       un borde;
+     · el radio interior es el exterior MENOS el canto, o sea DOS CURVAS
+       CONCÉNTRICAS. Es la regla física y se nota al romperla: con el mismo radio
+       en las dos, el marco se estrecha justo en la esquina y el teléfono parece
+       de goma;
+     · la isla sale del mismo ancho, así que crece con él.
+
+   Un solo número manda (`--movil`, el ancho del CUERPO) y todo lo demás se deriva.
+   Dos tallas, porque a 1024px la ventana de al lado ya viene encogida y un
+   teléfono de 232 se le comería media pantalla. */
+.hero-movil {
+  --movil: 200px;
+  --movil-canto: calc(var(--movil) * 0.03);
+  --movil-radio: calc(var(--movil) * 0.164);
+  width: var(--movil);
+  padding: var(--movil-canto);
+  border-radius: var(--movil-radio);
+}
+
+.hero-movil-pantalla {
+  border-radius: calc(var(--movil-radio) - var(--movil-canto));
+}
+
+.hero-movil-isla {
+  top: calc(var(--movil) * 0.026);
+  width: calc(var(--movil) * 0.3);
+  height: calc(var(--movil) * 0.09);
+}
+
+@media (min-width: 80rem) {
+  .hero-movil { --movil: 232px; }
+}
+
+/* CUÁNTO SE ALEJAN DEL PANEL (Mario, ago 2026). Los dos cuelgan de la ventana,
+   así que su sitio se mide desde el filo de ELLA; pero lo que decide cuánto
+   pueden alejarse no es la ventana, es lo que sobra hasta el filo del NAVEGADOR,
+   y eso cambia con cada ancho: hasta ~1300px el panel ocupa el contenedor entero
+   y no sobra nada, y de ahí para arriba sobra cada vez más.
+   Escrito con escalones (`lg:`, `xl:`, `2xl:`) serían tres números inventados que
+   aciertan en tres anchos y fallan en los demás. Escrito como una cuenta, cada
+   ancho se lleva justo lo que tiene:
+
+     (100vw - 100%) / 2   es lo que sobra a UN lado (100% = el ancho de la
+                          ventana, que es su bloque contenedor);
+     --aire               lo que se le deja al filo del navegador;
+     min(...)             gana el más NEGATIVO, o sea el más lejos: el mínimo
+                          garantizado cuando no sobra nada, y el filo cuando sí;
+                          y ese mínimo es 1,5rem porque es EXACTAMENTE el relleno
+                          de la sección, o sea lo único que queda entre la ventana
+                          y el filo del navegador cuando el panel ocupa el
+                          contenedor entero. Con un mínimo mayor (estuvo en 3rem)
+                          los mocks se salen de la pantalla a anchos estrechos, y
+                          eso solo se ve con `prefers-reduced-motion`, que es donde
+                          se quedan quietos sin el 0,92 que los mete hacia dentro:
+                          medido, el tablón perdía sus 24px de la izquierda, o sea
+                          las caras;
+     max(--tope, ...)     y el techo, que no es estético: pasada la mitad de su
+                          ancho el mock deja de solapar el panel, y entonces ya no
+                          se lee como algo que sale de él sino como una pieza
+                          suelta flotando en el margen.
+
+   Ojo: esto es la posición SIN ESCALAR. En el estado movido todo va al 0,92, que
+   los mete un poco más adentro, así que el aire de verdad es mayor que `--aire`.
+   Y `100vw` cuenta la barra de scroll donde la haya, que empuja unos píxeles más
+   hacia fuera; por eso el aire se deja holgado y no al ras. */
+.hero-movil,
+.hero-tablon {
+  position: absolute;
+  --aire: 28px;
+  --fuera: max(var(--tope), min(-1.5rem, calc(var(--aire) - (100vw - 100%) / 2)));
+}
+
+.hero-movil {
+  --tope: -7rem;   /* 112px, la mitad de sus 232 */
+  right: var(--fuera);
+  bottom: -1.5rem;
+}
+
+.hero-tablon {
+  --tope: -8rem;   /* 128px, la mitad de sus 256 */
+  left: var(--fuera);
+  top: 42%;
+}
+
 
 /* Onboarding · la primera candidatura ha llegado: el hito del primer uso. Un
    único momento GANADO y sobrio (nada de confetti; el verde sigue reservado a

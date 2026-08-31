@@ -6,7 +6,7 @@ import type { Anuncio } from './anuncio'
 import { supabase, supabaseConfigured } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
-import { SEED, SEED_BRANDS, SEED_CANDIDATE_COMMENTS, SEED_CANDIDATE_EVENTS, SEED_MEMBERS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, demoInterviews, freshenDemoData } from './seed'
+import { SEED, SEED_BRANDS, SEED_CANDIDATE_COMMENTS, SEED_CANDIDATE_DOCUMENTS, SEED_CANDIDATE_EVENTS, SEED_MEMBERS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, demoInterviews, freshenDemoData } from './seed'
 import { interestEligibility, interestRecipient, type InterestSendResult } from './interest'
 import { WHATSAPP_LISTO, WHATSAPP_WIP } from './whatsapp'
 import { PRECIO_PROCESO } from './pricing'
@@ -634,7 +634,19 @@ const Ctx = createContext<Store | null>(null)
 // nivel y evidencia. Un estado v9 guardado los traería sin desglose en la ficha.
 // v11: el anuncio del puesto (ago 2026). Un estado v10 guardado traería los seis
 // puestos sin anuncio, o sea con la pantalla nueva vacía en toda la demo.
-const DEMO_KEY = 'apuntatefacil.demo.v18'
+// v19: la marca de logística pasó a llamarse "Tu empresa" y a usar el acento de
+// la casa (ago 2026). Las marcas y los puestos se GUARDAN, así que un estado v18
+// seguiría enseñando "Empresa de logística" en verde justo mientras el hero de la
+// landing enseña lo contrario, y el hero sale de esta misma demo.
+// v20: se acortó un mensaje del tablón, y los comentarios también se guardan. Es
+// la misma lección que la v19, cobrada dos veces en el mismo día: TODO lo que el
+// hero saca de la demo vive en este estado, así que tocar el seed sin subir la
+// clave deja la landing y la demo contando cosas distintas.
+// v21: los eventos y mensajes derivados dejaron de caer DESPUÉS del "ahora"
+// narrativo (ver `hastaAhora` en seed.ts). El reloj de la demo se ancla en el
+// registro más nuevo, así que un estado v20 guardado seguiría trayendo aquellos
+// eventos del futuro y con ellos los dos días vacíos al final de la gráfica.
+const DEMO_KEY = 'apuntatefacil.demo.v23'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
@@ -684,7 +696,34 @@ function readBoardSeen(): Record<string, string> {
   }
 }
 
+/**
+ * BORRA LAS DEMOS DE VERSIONES ANTERIORES.
+ *
+ * Cada demo guardada pesa **1,1 MB** (son ~680 candidatos), y la cuota de
+ * `localStorage` anda por los 5 MB. Subir la clave es lo correcto cuando cambia
+ * la forma del seed, pero sin barrer la vieja cada subida deja un huérfano de ese
+ * tamaño: con tres versiones ya se van 3,3 MB, y a la cuarta el `setItem` empieza
+ * a fallar. Ese fallo está capturado, así que no rompe nada a la vista: la demo
+ * sencillamente DEJA DE GUARDAR y no se entera nadie, que es peor.
+ *
+ * Se cazó en ago 2026 después de subir la clave dos veces el mismo día (v18 ->
+ * v19 -> v20) y encontrarse las tres guardadas a la vez en el navegador.
+ *
+ * Barre por PREFIJO y no por una lista de versiones viejas: una lista hay que
+ * acordarse de ampliarla, y este descuido nace justo de no acordarse.
+ */
+function limpiarDemosViejas() {
+  try {
+    const prefijo = 'apuntatefacil.demo.'
+    for (const clave of Object.keys(localStorage))
+      if (clave.startsWith(prefijo) && clave !== DEMO_KEY) localStorage.removeItem(clave)
+  } catch {
+    /* sin almacenamiento (modo privado, permisos): no hay nada que barrer */
+  }
+}
+
 function readDemoState(): { campaigns: Campaign[]; candidates: Candidate[]; savedViews: SavedView[]; sites: Site[]; brands: Brand[]; tags: Tag[]; teamRequests: TeamRequest[]; teamComments: TeamRequestComment[]; candidateComments: CandidateComment[] } | null {
+  limpiarDemosViejas()
   try {
     const raw = localStorage.getItem(DEMO_KEY)
     if (!raw) return null
@@ -766,7 +805,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<CompanyMember[]>([])
   // Hilos de candidato en DEMO (en real se cargan perezosos, sin estado global).
   const [demoCandidateComments, setDemoCandidateComments] = useState<CandidateComment[]>([])
-  const [demoCandidateDocuments, setDemoCandidateDocuments] = useState<CandidateDocument[]>([])
+  // Arranca con los del seed (hoy, el DNI de Joaquín) y no vacío: la ficha que
+  // enseña el hero necesita DOS documentos, y el CV no es una fila de éstas.
+  const [demoCandidateDocuments, setDemoCandidateDocuments] = useState<CandidateDocument[]>(
+    () => [...SEED_CANDIDATE_DOCUMENTS],
+  )
   // Los eventos de demo se derivan del seed, no se guardan: se recalculan al cargar.
   const [demoCandidateEvents, setDemoCandidateEvents] = useState<CandidateEvent[]>([])
   // Candidatos con una escritura optimista aún sin confirmar en el servidor. Un

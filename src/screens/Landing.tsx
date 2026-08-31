@@ -1,6 +1,7 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { useHayDosColumnas, useMenosMovimiento } from '../lib/media'
 import {
   ArrowRight, Check, ChevronRight, Database, FileSpreadsheet, Filter,
   Infinity as InfinityIcon, Link2, ListChecks, Megaphone, Menu, MessagesSquare,
@@ -10,7 +11,7 @@ import {
 import { initials, memberAvatarTone } from '../lib/format'
 import { STATUS_META, type CandidateStatus } from '../lib/types'
 import { BrowserMock } from '../components/BrowserMock'
-import { AppShot } from '../components/AppShot'
+import { AppShot, MovilShot, TablonShot } from '../components/AppShot'
 import { Logo } from '../components/Logo'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { SupportDialog } from '../components/SupportDialog'
@@ -229,29 +230,102 @@ function useHeroMovido() {
   return movido
 }
 
+/**
+ * EL MOCK SUBE MÁS QUE LA PÁGINA: PARALLAX (Mario, ago 2026).
+ *
+ * La sensación que se busca es que el mock se DESLICE hacia arriba por encima del
+ * hero, comiéndose el sitio del titular mientras este se funde. Eso no lo da una
+ * transición: una transición se dispara una vez y termina, así que después de sus
+ * 720ms el mock vuelve a moverse exactamente igual que el resto de la página. Lo
+ * que hace falta es que su desplazamiento dependa del RECORRIDO, no del tiempo.
+ *
+ * OJO, esto NO es volver al scroll clavado que Mario retiró: ahí el scroll se
+ * secuestraba y la página no avanzaba mientras la animación corría. Aquí el scroll
+ * es el de siempre y lo único que pasa es que una pieza se mueve un poco más
+ * deprisa que el papel. Se puede seguir bajando en cualquier momento.
+ *
+ * Va en un ELEMENTO PROPIO y sin transición, envolviendo al que sí la tiene. Si
+ * compartieran propiedad, cada píxel de scroll relanzaría una transición de 720ms
+ * y el mock iría persiguiendo al dedo con medio segundo de retraso. Separados, uno
+ * hace el gesto de entrada y el otro sigue al scroll al instante.
+ *
+ * Se escribe una variable en el nodo (no un `setState`), porque un render por
+ * fotograma repintaría el hero entero; y con `requestAnimationFrame` para no
+ * escribir más de una vez por fotograma aunque el navegador dispare más eventos.
+ */
+// El tope no es estético: cada píxel que el mock sube por su cuenta es un píxel
+// MÁS de hueco entre él y la sección de abajo, y ese hueco se ve entero al seguir
+// bajando. Con 140 se iban ~290px de blanco, que se lee como un agujero. A 96, y
+// devolviéndole a la sección el relleno que el propio gesto ya crea (`lg:pb-16` en
+// vez de `pb-24`), el hueco se queda en los ~200 de siempre.
+const PARALLAX_FACTOR = 0.35
+const PARALLAX_TOPE = 96
+
+function useHeroParallax(activo: boolean) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !activo) return
+    let pedido = 0
+    const pintar = () => {
+      pedido = 0
+      const subida = Math.min(window.scrollY * PARALLAX_FACTOR, PARALLAX_TOPE)
+      el.style.setProperty('--hero-parallax', `${subida}px`)
+    }
+    const alScroll = () => {
+      if (!pedido) pedido = requestAnimationFrame(pintar)
+    }
+    pintar()
+    window.addEventListener('scroll', alScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', alScroll)
+      if (pedido) cancelAnimationFrame(pedido)
+      el.style.removeProperty('--hero-parallax')
+    }
+  }, [activo])
+  return ref
+}
+
 function Hero() {
   const movido = useHeroMovido()
+  const hayDosColumnas = useHayDosColumnas()
+  const menosMovimiento = useMenosMovimiento()
+  const parallax = useHeroParallax(hayDosColumnas && !menosMovimiento)
   return (
     // `data-hero` es el interruptor de los dos estados; `hero-texto` y `hero-ventana`
     // son INERTES sin él y fuera de escritorio (el mecanismo y sus condiciones están
     // en index.css). Sin eso esto es el hero de siempre: una maquetación, no dos.
+    // EL RECORTE VA EN UN ENVOLTORIO A TODO EL ANCHO, no en la sección.
+    //
+    // Hace falta un guardarraíl porque los dos mocks ASOMAN por fuera de la
+    // ventana: en reposo todavía no están colocados y, sin nada que los recorte,
+    // empujan la página y sacan una barra horizontal.
+    //
+    // Pero ponerlo en la SECCIÓN estaba mal, y se vio en pantalla: la sección va
+    // acotada a `max-w-7xl`, así que recortaba en el filo de la COLUMNA y no en el
+    // de la ventana del navegador. Con el realce puesto no se notaba (el 0,92 los
+    // mete hacia dentro), pero con `prefers-reduced-motion` los mocks se ven
+    // quietos en su sitio final y ahí SÍ: a 1440 el teléfono se quedaba con 39px
+    // cortados. A todo el ancho, el recorte cae donde de verdad está el límite.
+    //
+    // `clip` y no `hidden` porque `hidden` haría de esto un contenedor de scroll.
+    // Recorta en la caja de RELLENO, así que lo que cuelga hacia abajo dentro del
+    // `pb-24` de la sección no se toca.
+    <div className="overflow-x-clip">
     <section
       data-hero={movido ? 'movido' : undefined}
-      className="mx-auto max-w-7xl px-4 pb-16 pt-14 text-center sm:px-6 lg:pb-24 lg:pt-20"
+      className="mx-auto max-w-7xl px-4 pb-16 pt-20 text-center sm:px-6 lg:pb-16 lg:pt-28"
     >
         <div className="hero-texto">
           <h1 className="mx-auto text-balance text-[2.75rem] font-semibold leading-[1.04] tracking-[-0.035em] text-slate-900 sm:text-5xl lg:text-[4rem] lg:leading-[0.95] lg:tracking-[-0.02em]">
-            Tu nuevo centro de contratación
+            Tu centro de contratación
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-xl leading-snug text-slate-600 sm:text-xl lg:mt-9 lg:text-lg">
             Más claro, más rápido y más fácil que nunca.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:mt-6">
-            <Link to="/login" className={`${BTN_PRIMARY_LG} group`}>
-              {/* En móvil el botón comparte fila con "Ver la demo": la etiqueta larga los partía en dos líneas. */}
-              <span className="sm:hidden">Empieza gratis</span>
-              <span className="hidden sm:inline">Crea tu primer puesto gratis</span>
-              <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
+            <Link to="/login" className={BTN_PRIMARY_LG}>
+              Empieza gratis
             </Link>
             <Link to="/demo" className={BTN_SECONDARY_LG}>
               Ver la demo
@@ -260,9 +334,37 @@ function Hero() {
           <p className="mt-4 text-sm text-slate-500">{TRIAL_REASSURANCE}</p>
         </div>
       {/* La ventana va ENTERA y quien la corta es el pliegue, no un alto inventado:
-          arriba se ve el arranque de la app y al desplazar aparece el resto. */}
-      <AppShot className="hero-ventana mx-auto mt-12 lg:mt-[5.1875rem] lg:max-w-[70.875rem]" />
+          arriba se ve el arranque de la app y al desplazar aparece el resto.
+
+          El teléfono va DENTRO de `hero-ventana`, no al lado: el realce del scroll
+          sube y encoge un OBJETO, y dos piezas que se mueven por separado se leerían
+          como dos cosas sueltas justo cuando la composición dice que son una.
+
+          Se MONTA, no se esconde con `hidden lg:block`: es una imagen de 380 KB que
+          nadie ve en un móvil, y ahí el hero además ya se sale de pantalla. Es el
+          mismo umbral que usa la propia página del anuncio para montar su raíl. */}
+      <div ref={parallax} className="hero-parallax">
+      <div className="hero-ventana relative mx-auto mt-12 lg:mt-[5.1875rem] lg:max-w-[70.875rem]">
+        <AppShot />
+        {hayDosColumnas && (
+          // Cuánto ASOMA por fuera del filo derecho: un cuarto de su ancho en los
+          // dos anchos (48 de 200, 56 de 232), no una medida suelta por talla. El
+          // techo no es estético: en el estado movido todo va al 0,92, así que el
+          // teléfono acaba más adentro de lo que dice su `right`, y aun así a
+          // 1024px se queda a 19px del filo de la ventana del navegador. Por
+          // encima de eso empieza a leerse como que se cae de la pantalla.
+          // Dónde se colocan y cuánto se alejan lo declara `index.css`: no es un
+          // par de offsets sueltos sino una cuenta contra el filo del navegador,
+          // con su mínimo y su techo, y ahí está explicada.
+          <>
+            <TablonShot />
+            <MovilShot />
+          </>
+        )}
+      </div>
+      </div>
     </section>
+    </div>
   )
 }
 

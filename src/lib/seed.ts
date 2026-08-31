@@ -6,6 +6,7 @@ import type {
   Candidate,
   CandidateAI,
   CandidateComment,
+  CandidateDocument,
   CandidateEvent,
   CandidateSource,
   CandidateStatus,
@@ -53,6 +54,19 @@ const NOMBRES = [
   'Adrián', 'Rubén', 'Óscar', 'Vanesa', 'Tamara', 'Sonia', 'Noelia', 'Alba',
   'Hassan', 'Karim', 'Ionut', 'Andrei', 'Cristian', 'Florin', 'Said', 'Bilal',
 ]
+/**
+ * LOS DOS PUESTOS DE ALBAÑILERÍA SOLO REPARTEN NOMBRES ESPAÑOLES (Mario, ago
+ * 2026), porque son los que salen en el hero de la landing y ahí se está
+ * enseñando el producto, no la plantilla de nadie.
+ *
+ * El resto de la demo sigue con la lista entera, y eso NO es un descuido: en
+ * construcción y logística trabaja quien trabaja, y una demo que enseña seis
+ * puestos con cuarenta apellidos todos de la misma procedencia no se parece a
+ * ninguna ETT de este país. La acotación es de la CAPTURA, no de la demo, así
+ * que se acota lo mínimo que la captura toca.
+ */
+const PUESTOS_SOLO_ESPANOLES = new Set(['cmp_peon', 'cmp_oficial'])
+
 const APELLIDOS = [
   'García', 'Martínez', 'López', 'Sánchez', 'González', 'Pérez', 'Rodríguez',
   'Fernández', 'Gómez', 'Ruiz', 'Díaz', 'Moreno', 'Muñoz', 'Romero', 'Navarro',
@@ -60,6 +74,16 @@ const APELLIDOS = [
   'El Amrani', 'Benítez', 'Ferrer', 'Soler', 'Vidal', 'Marí', 'Aguilar',
   'Popescu', 'Ben Ali', 'Cabrera', 'Herrera', 'Santos', 'Iglesias', 'Cano',
 ]
+
+// Los que no son españoles, para poder quitarlos donde toca. Se listan por su
+// nombre y no por una regla automática: "de dónde es un nombre" no se deduce de
+// sus letras, y una heurística acabaría dejando fuera a Iván o a Óscar.
+const NO_ESPANOLES = new Set([
+  'Mohamed', 'Youssef', 'Hassan', 'Karim', 'Ionut', 'Andrei', 'Florin', 'Said', 'Bilal',
+  'El Amrani', 'Ben Ali', 'Popescu',
+])
+const NOMBRES_ES = NOMBRES.filter((x) => !NO_ESPANOLES.has(x))
+const APELLIDOS_ES = APELLIDOS.filter((x) => !NO_ESPANOLES.has(x))
 
 function phone() {
   const a = 600 + Math.floor(rnd() * 99)
@@ -72,10 +96,61 @@ function phone() {
 // hasta Date.now() (ver freshenDemoData) para que no envejezca.
 export const DEMO_SEED_NOW_MS = Date.parse('2026-07-17T12:00:00.000Z')
 
-// Fechas repartidas hacia atrás desde el "ahora" narrativo del seed.
+/**
+ * NADA DE LA DEMO PASA DESPUÉS DEL "AHORA" NARRATIVO.
+ *
+ * Los eventos y los mensajes se derivan de la llegada del candidato sumándole
+ * horas (el recorrido por los estados llega a +78h), así que el registro MÁS
+ * NUEVO del seed no era una candidatura sino un evento de dos o tres días
+ * después. Y como `freshenDemoData` ancla el reloj en el registro más nuevo de
+ * todos, ese evento se plantaba en `now` y arrastraba las candidaturas hacia
+ * atrás: **los dos últimos días del gráfico salían vacíos**, con una caída a cero
+ * justo en el borde derecho. Medido antes de arreglarlo, el reparto por día
+ * acababa en `... 49, 54, 37, 21, 0`.
+ *
+ * No era solo feo: la demo decía "252 candidaturas nuevas" y a la vez que hoy no
+ * había entrado ninguna. Con el tope, el registro más nuevo vuelve a ser una
+ * candidatura y la curva llega hasta hoy.
+ *
+ * Se paga que a los candidatos MÁS recientes se les junten un par de eventos en
+ * el mismo instante, y es el lado bueno del error: antes la alternativa era que
+ * su historial ocurriera en el futuro.
+ */
+const hastaAhora = (ms: number) => Math.min(ms, DEMO_SEED_NOW_MS)
+
+/**
+ * Fechas repartidas hacia atrás desde el "ahora" narrativo, SESGADAS HACIA LO
+ * RECIENTE (`rnd()` elevado a `SESGO_RECIENTE`).
+ *
+ * Con un reparto plano, la gráfica de "por dónde entra la gente" sube porque los
+ * seis puestos se van abriendo escalonados, pero los últimos días quedan a merced
+ * del azar: con ~40 candidaturas diarias, un día suelto se va arriba o abajo sin
+ * significar nada, y bastaba que el último cayera para que la pantalla de entrada
+ * del producto acabara en una bajada. Eso no es un dato, es ruido de muestreo, y
+ * decía justo lo contrario de lo que la demo cuenta.
+ *
+ * El exponente es SUAVE a propósito, y está atado a TRES cosas que hay que volver
+ * a mirar si alguien lo toca:
+ *
+ *  1. Las dos cifras que la demo enseña justo encima de la gráfica y que salen de
+ *     esta misma distribución: cuántas hay sin revisar y cuántas llevan más de 7
+ *     días esperando. Con un sesgo fuerte la curva sube precioso y esas dos se
+ *     hunden, porque casi todo el mundo pasa a ser de antes de ayer.
+ *
+ *  2. EL TECHO DEL EJE (Mario, ago 2026). `escalaBonita` da pasos de 10 hasta 40 y
+ *     salta a 20 en cuanto el máximo pasa de 40: con un pico de 43 la rejilla se
+ *     iba a 60 y la curva se quedaba pequeña, ocupando dos tercios de su caja. El
+ *     pico de la serie más alta (Milanuncios) tiene que quedarse EN 40 O POR
+ *     DEBAJO, y cuanto más cerca de 40, más llena se ve.
+ *
+ *  3. Que el último día siga siendo el más alto, que es de lo que iba todo esto.
+ */
+const SESGO_RECIENTE = 1.18
+
 function dateAgo(maxDaysAgo: number) {
   const end = DEMO_SEED_NOW_MS
-  const ms = end - Math.floor(rnd() * maxDaysAgo) * 86400000 - Math.floor(rnd() * 86400000)
+  const dias = Math.floor(Math.pow(rnd(), SESGO_RECIENTE) * maxDaysAgo)
+  const ms = end - dias * 86400000 - Math.floor(rnd() * 86400000)
   return new Date(ms).toISOString()
 }
 
@@ -152,8 +227,8 @@ export const SEED_BRANDS: Brand[] = [
   },
   {
     id: 'brand_logistica',
-    name: 'Empresa de logística',
-    accent: '#0f766e',
+    name: 'Tu empresa',
+    accent: ACENTO_MARCA,
     welcome: 'Gracias por tu interés. Cuéntanos un poco sobre ti y te llamamos pronto.',
     thanks: 'Recibido. Revisamos tu candidatura y te contactamos. Gracias por escribirnos.',
     showLogo: true,
@@ -303,7 +378,7 @@ const campaigns: Campaign[] = [
     branding: {
       welcome: 'Centro logístico en Madrid, turnos rotativos. Cuéntanos tu disponibilidad.',
       thanks: 'Candidatura recibida. Te llamamos para una entrevista breve.',
-      accent: '#0f766e',
+      accent: ACENTO_MARCA,
       showLogo: true,
     },
     anuncio: anunciar({
@@ -340,7 +415,7 @@ const campaigns: Campaign[] = [
     branding: {
       welcome: 'Manejo de carretilla en centro logístico. Turnos rotativos y contrato estable.',
       thanks: 'Gracias por escribirnos. Revisamos tu perfil y te llamamos.',
-      accent: '#0f766e',
+      accent: ACENTO_MARCA,
       showLogo: true,
     },
     anuncio: anunciar({
@@ -378,7 +453,7 @@ const campaigns: Campaign[] = [
     branding: {
       welcome: 'Picking con PDA en almacén. Turnos de mañana, tarde o noche.',
       thanks: 'Gracias. Revisamos tu candidatura y te contactamos.',
-      accent: '#0f766e',
+      accent: ACENTO_MARCA,
       showLogo: true,
     },
     anuncio: anunciar({
@@ -950,7 +1025,8 @@ let n = 0
 for (const cmp of campaigns) {
   const total = COUNTS[cmp.id] ?? 8
   for (let i = 0; i < total; i++) {
-    const name = `${pick(NOMBRES)} ${pick(APELLIDOS)}`
+    const soloEs = PUESTOS_SOLO_ESPANOLES.has(cmp.id)
+    const name = `${pick(soloEs ? NOMBRES_ES : NOMBRES)} ${pick(soloEs ? APELLIDOS_ES : APELLIDOS)}`
     const candidateNumber = n + 1
     const answers: Candidate['answers'] = {}
     for (const field of cmp.fields) {
@@ -1419,7 +1495,7 @@ export const SEED_CANDIDATE_COMMENTS: CandidateComment[] = (() => {
       mentions: [],
       isNote: false,
       editedAt: null,
-      createdAt: new Date(base + between(2, 20) * 3_600_000).toISOString(),
+      createdAt: new Date(hastaAhora(base + between(2, 20) * 3_600_000)).toISOString(),
     })
     const replies = CHAT_REPLIES[c.status]
     if (replies && chance(0.45)) {
@@ -1437,7 +1513,7 @@ export const SEED_CANDIDATE_COMMENTS: CandidateComment[] = (() => {
         mentions: teMenciona ? ['demo-user'] : [],
         isNote: false,
         editedAt: null,
-        createdAt: new Date(base + between(22, 40) * 3_600_000).toISOString(),
+        createdAt: new Date(hastaAhora(base + between(22, 40) * 3_600_000)).toISOString(),
       })
     }
   }
@@ -1451,6 +1527,17 @@ export const SEED_CANDIDATE_COMMENTS: CandidateComment[] = (() => {
 // demo, que es justo donde hay que enseñar que existe.
 // ---------------------------------------------------------------------------
 
+/**
+ * DOCUMENTOS EXTRA DE LA DEMO (además del CV, que vive en `cvPath`).
+ *
+ * Vacío HOY, y se queda declarado a propósito: llegó a traer un DNI para que la
+ * ficha del hero enseñara dos documentos, y Mario lo retiró al dejar esa captura
+ * sin desplazar (con un solo documento la fila se lee de un vistazo). El array y
+ * su cableado en el store se quedan porque son lo que hace que la demo sepa
+ * enseñar más de un documento; volver a poner uno es una entrada aquí.
+ */
+export const SEED_CANDIDATE_DOCUMENTS: CandidateDocument[] = []
+
 export const SEED_CANDIDATE_EVENTS: CandidateEvent[] = (() => {
   const out: CandidateEvent[] = []
   let n = 0
@@ -1461,7 +1548,7 @@ export const SEED_CANDIDATE_EVENTS: CandidateEvent[] = (() => {
     details: Record<string, unknown> = {},
     actorEmail = '',
   ) => {
-    out.push({ id: `ce_seed_${++n}`, candidateId, actorEmail, kind, details, createdAt: new Date(at).toISOString() })
+    out.push({ id: `ce_seed_${++n}`, candidateId, actorEmail, kind, details, createdAt: new Date(hastaAhora(at)).toISOString() })
   }
 
   for (const c of SEED.candidates) {
@@ -1635,7 +1722,7 @@ const TEAM_COMMENTS: (Omit<TeamRequestComment, 'mentions'> & { mentions?: string
     requestId: 'req_carretilleros',
     authorUserId: 'demo-sergio',
     authorEmail: 'sergio@apuntatefacil.com',
-    body: 'Te propongo estos dos. Los llamé el mes pasado: carnet en vigor y el primero ya trabajó con retráctil.',
+    body: 'Te propongo estos dos. Los llamé el mes pasado.',
     createdAt: '2026-07-13T16:45:00.000Z',
   },
   {
