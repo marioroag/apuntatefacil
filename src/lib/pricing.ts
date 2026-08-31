@@ -7,10 +7,15 @@
 //    SIEMPRE al lado del precio ("+ IVA"): somos B2B.
 //  - Sin tiers y sin features de pago: TODO el producto está incluido. Se cobra
 //    por escala real (nº de procesos abiertos), nunca por capacidades.
-//  - Prueba: el PRIMER proceso es gratis 15 días o hasta 25 candidaturas, lo que
-//    llegue antes (el límite doble evita que un proceso lento no demuestre valor
-//    y que uno muy activo agote la prueba en 48 h). Sin tarjeta al empezar: se
-//    pide al final de la prueba. Una sola prueba por empresa.
+//  - Prueba: el PRIMER proceso es gratis 15 días, SIN tope de candidaturas
+//    (Mario, ago 2026; antes eran "15 días o 25 candidaturas, lo que llegue
+//    antes"). El cupo se retiró porque castigaba justo al puesto que mejor
+//    funcionaba: un anuncio de peón se come 25 candidaturas en una tarde, así
+//    que a quien más valor estaba viendo era a quien antes se le apagaba la
+//    demo, y encima el día 2 de una prueba de 15. Con un solo freno, lo que se
+//    prueba es el producto durante dos semanas. La prueba sigue cubriendo UN
+//    solo proceso abierto: abrir un segundo pasa por pagarlo. Sin tarjeta al
+//    empezar: se pide al final. Una sola prueba por empresa.
 //  - Cerrar un proceso es un clic y deja de cobrarse; el proceso cerrado no
 //    acepta candidaturas pero se conserva entero y exportable ("tus candidatos
 //    siguen siendo tuyos"). Mes empezado, mes cobrado: al cerrar no hay
@@ -31,11 +36,6 @@ export const PRECIO_PROCESO = 49
 /** Días de prueba del primer proceso. Espejo del trigger start_trial_clock. */
 export const PRUEBA_DIAS = 15
 
-/** Candidaturas visibles durante la prueba. A partir de ahí se siguen
- *  recopilando pero entran bloqueadas hasta añadir el método de pago.
- *  Espejo de plan_candidate_limit('trial') en servidor. Mantener sincronizados. */
-export const PRUEBA_CANDIDATOS = 25
-
 /** Un proceso ABIERTO (el que se cobra) es el que no está cerrado: activo o
  *  pausado. Pausar detiene el enlace pero el proceso sigue abierto y contando;
  *  cerrar es lo que detiene el cobro. */
@@ -43,8 +43,10 @@ export const procesoAbierto = (c: Pick<Campaign, 'status'>): boolean => c.status
 export const procesosAbiertos = (campaigns: Pick<Campaign, 'status'>[]): number =>
   campaigns.filter(procesoAbierto).length
 
-/** Reassurance de la prueba en hero y CTAs. Derivada de los topes reales. */
-export const TRIAL_REASSURANCE = `Tu primer proceso gratis: ${PRUEBA_DIAS} días o ${PRUEBA_CANDIDATOS} candidaturas. Sin tarjeta.`
+/** Reassurance de la prueba en hero y CTAs. Derivada del tope real, que ya es
+ *  uno solo: los días. "Sin límite de candidaturas" se dice a propósito, porque
+ *  es la duda que traía el modelo viejo y la diferencia con un portal. */
+export const TRIAL_REASSURANCE = `Tu primer proceso gratis ${PRUEBA_DIAS} días. Sin límite de candidaturas y sin tarjeta.`
 
 /** La frase completa del modelo, para la landing y el formulario de precios. */
 export const PRECIO_FRASE = `${PRECIO_PROCESO} €/mes + IVA por proceso abierto. Primer proceso gratis. Sin permanencia: ciérralo cuando quieras y tus candidatos siguen siendo tuyos.`

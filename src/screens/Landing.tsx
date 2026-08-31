@@ -10,10 +10,11 @@ import {
 import { initials, memberAvatarTone } from '../lib/format'
 import { STATUS_META, type CandidateStatus } from '../lib/types'
 import { BrowserMock } from '../components/BrowserMock'
+import { AppShot } from '../components/AppShot'
 import { Logo } from '../components/Logo'
 import { BRAND, TAGLINE } from '../lib/brand'
 import { SupportDialog } from '../components/SupportDialog'
-import { PRECIO_PROCESO, PRUEBA_CANDIDATOS, PRUEBA_DIAS, TRIAL_REASSURANCE } from '../lib/pricing'
+import { PRECIO_PROCESO, PRUEBA_DIAS, TRIAL_REASSURANCE } from '../lib/pricing'
 import { PrecioProceso } from '../components/PrecioProceso'
 import { BTN_INVERTED_LG, BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
 
@@ -204,36 +205,63 @@ function TopNav() {
   )
 }
 
+// El hero de la landing tiene DOS estados y el scroll solo dice en cuál estás: no
+// es un scrub. Medido en attio.com, que es la referencia: con 4px sigue en reposo,
+// con 8px ya está en el estado final, y a 16/32/64 el valor es idéntico.
+//
+// Histéresis (enciende a 8, apaga a 3) porque el temblor de un trackpad justo en
+// la frontera encendería y apagaría una transición de más de medio segundo. Y el
+// valor inicial se lee en el propio `useState` en vez de en un efecto: si alguien
+// recarga con la página ya desplazada, el estado tiene que nacer correcto, y un
+// `setState` dentro del efecto es además lo que el linter de la casa prohíbe.
+const HERO_ENCIENDE = 8
+const HERO_APAGA = 3
+
+function useHeroMovido() {
+  const [movido, setMovido] = useState(() => window.scrollY > HERO_ENCIENDE)
+  useEffect(() => {
+    const alScroll = () => setMovido((v) => (v ? window.scrollY > HERO_APAGA : window.scrollY > HERO_ENCIENDE))
+    // Pasivo: esto no cancela el scroll, solo lo mira. Y devolver el MISMO valor
+    // hace que React no re-renderice, así que en la práctica esto cambia dos veces.
+    window.addEventListener('scroll', alScroll, { passive: true })
+    return () => window.removeEventListener('scroll', alScroll)
+  }, [])
+  return movido
+}
+
 function Hero() {
+  const movido = useHeroMovido()
   return (
-    <section className="mx-auto grid grid-cols-1 max-w-6xl items-center gap-10 px-4 pb-12 pt-14 sm:px-6 lg:grid-cols-[1.04fr_1fr] lg:pb-20 lg:pt-24">
-      <div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-label font-semibold text-slate-600 ring-1 ring-inset ring-slate-200">
-          Para contratar desde anuncios y mensajes
-        </span>
-        <h1 className="mt-4 text-balance text-hero font-[680] text-slate-900 sm:text-hero-lg">
-          Todas las respuestas a tu anuncio, en un solo lugar
-        </h1>
-        <p className="mt-5 max-w-xl text-pretty text-lg leading-relaxed text-slate-600">
-          Sigue publicando en Milanuncios, WhatsApp, Instagram o donde quieras. Envía un enlace y recibe cada candidatura completa, ordenada y filtrable en un solo sitio.
-        </p>
-        <div className="mt-7 flex flex-wrap items-center gap-3">
-          <Link to="/login" className={`${BTN_PRIMARY_LG} group`}>
-            {/* En móvil el botón comparte fila con "Ver la demo": la etiqueta larga los partía en dos líneas. */}
-            <span className="sm:hidden">Empieza gratis</span>
-            <span className="hidden sm:inline">Crea tu primer puesto gratis</span>
-            <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
-          </Link>
-          <Link to="/demo" className={BTN_SECONDARY_LG}>
-            Ver la demo
-          </Link>
+    // `data-hero` es el interruptor de los dos estados; `hero-texto` y `hero-ventana`
+    // son INERTES sin él y fuera de escritorio (el mecanismo y sus condiciones están
+    // en index.css). Sin eso esto es el hero de siempre: una maquetación, no dos.
+    <section
+      data-hero={movido ? 'movido' : undefined}
+      className="mx-auto max-w-7xl px-4 pb-16 pt-14 text-center sm:px-6 lg:pb-24 lg:pt-20"
+    >
+        <div className="hero-texto">
+          <h1 className="mx-auto text-balance text-[2.75rem] font-semibold leading-[1.04] tracking-[-0.035em] text-slate-900 sm:text-5xl lg:text-[4rem] lg:leading-[0.95] lg:tracking-[-0.02em]">
+            Tu nuevo centro de contratación
+          </h1>
+          <p className="mx-auto mt-5 max-w-2xl text-pretty text-xl leading-snug text-slate-600 sm:text-xl lg:mt-9 lg:text-lg">
+            Más claro, más rápido y más fácil que nunca.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:mt-6">
+            <Link to="/login" className={`${BTN_PRIMARY_LG} group`}>
+              {/* En móvil el botón comparte fila con "Ver la demo": la etiqueta larga los partía en dos líneas. */}
+              <span className="sm:hidden">Empieza gratis</span>
+              <span className="hidden sm:inline">Crea tu primer puesto gratis</span>
+              <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
+            </Link>
+            <Link to="/demo" className={BTN_SECONDARY_LG}>
+              Ver la demo
+            </Link>
+          </div>
+          <p className="mt-4 text-sm text-slate-500">{TRIAL_REASSURANCE}</p>
         </div>
-        <p className="mt-4 text-sm text-slate-500">{TRIAL_REASSURANCE}</p>
-      </div>
-      <div className="relative">
-        <div className="absolute -inset-4 -z-10 rounded-2xl bg-slate-50" aria-hidden />
-        <BrowserMock dropIn />
-      </div>
+      {/* La ventana va ENTERA y quien la corta es el pliegue, no un alto inventado:
+          arriba se ve el arranque de la app y al desplazar aparece el resto. */}
+      <AppShot className="hero-ventana mx-auto mt-12 lg:mt-[5.1875rem] lg:max-w-[70.875rem]" />
     </section>
   )
 }
@@ -945,7 +973,7 @@ function Faq() {
     ['¿Hay permanencia?', 'No. Cierras un proceso con un clic y deja de cobrarse en ese momento. Sin llamadas de retención ni trámites adicionales.'],
     ['¿Los candidatos son míos si cierro un proceso?', 'Sí. El proceso cerrado se conserva entero: puedes consultarlo y exportarlo a Excel en cualquier momento, aunque ya no pagues por él.'],
     ['¿Hay costes ocultos o precios “desde”?', `No. Son ${PRECIO_PROCESO} € al mes + IVA por cada proceso de selección que tengas abierto, con candidaturas sin límite y todo el producto incluido. Lo que ves aquí es lo que pagas.`],
-    ['¿Puedo probarlo sin registrarme ni tarjeta?', `Sí. La demo funciona con datos de ejemplo, sin cuenta ni tarjeta. Y al crear tu cuenta, tu primer proceso es gratis durante ${PRUEBA_DIAS} días o hasta ${PRUEBA_CANDIDATOS} candidaturas, también sin tarjeta: se pide al final de la prueba.`],
+    ['¿Puedo probarlo sin registrarme ni tarjeta?', `Sí. La demo funciona con datos de ejemplo, sin cuenta ni tarjeta. Y al crear tu cuenta, tu primer proceso es gratis durante ${PRUEBA_DIAS} días, con todas las candidaturas que lleguen y también sin tarjeta: se pide al final de la prueba.`],
   ]
   return (
     <section id="faq" className="bg-white">
@@ -977,7 +1005,7 @@ function FinalCta() {
         <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-slate-300">
           Filtra, revisa estados y exporta a Excel como en un puesto real. La demo no pide registro ni tarjeta.
         </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:mt-6">
           <Link to="/demo" className={`${BTN_INVERTED_LG} group`}>
             Ver la demo <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
           </Link>

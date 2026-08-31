@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CreditCard, Loader2, Receipt } from 'lucide-react'
 import {
-  PLAN_LABEL, PRECIO_PROCESO, PRUEBA_CANDIDATOS, PRUEBA_DIAS, diasDePruebaRestantes, procesoAbierto,
+  PLAN_LABEL, PRECIO_PROCESO, PRUEBA_DIAS, diasDePruebaRestantes, procesoAbierto, procesosAbiertos,
 } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { useAuth } from '../lib/auth'
@@ -23,7 +23,7 @@ import { pollPlanAndReload } from '../lib/planSync'
 
 export function Plan() {
   const { company, refreshCompany, role, companyLoading } = useAuth()
-  const { campaigns, lockedInfo, candidates } = useStore()
+  const { campaigns, lockedInfo } = useStore()
   const toast = useToast()
   const [params, setParams] = useSearchParams()
   const [busy, setBusy] = useState<string | null>(null)
@@ -149,9 +149,8 @@ export function Plan() {
         <div className="mt-6 rounded-xl filo bg-white p-6 shadow-card">
           <h2 className="text-lg font-semibold text-slate-900">Tu prueba</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Tu primer proceso es gratis {company?.trial_ends_at
-              ? <>hasta agotar los días o las candidaturas, lo que llegue antes.</>
-              : <>durante {PRUEBA_DIAS} días o {PRUEBA_CANDIDATOS} candidaturas: el reloj arranca al abrir tu primer puesto.</>}
+            Tu primer proceso es gratis durante {PRUEBA_DIAS} días, con todas las candidaturas que lleguen
+            {company?.trial_ends_at ? '.' : <>: el reloj arranca al abrir tu primer puesto.</>}
           </p>
           {company?.trial_ends_at && (
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -162,9 +161,9 @@ export function Plan() {
                 </dd>
               </div>
               <div className="rounded-xl bg-slate-50 p-3.5">
-                <dt className="text-[13px] text-slate-500">Candidaturas visibles</dt>
+                <dt className="text-[13px] text-slate-500">Procesos abiertos</dt>
                 <dd className="num mt-0.5 font-semibold text-slate-900">
-                  {candidates.length} de {PRUEBA_CANDIDATOS}
+                  {procesosAbiertos(campaigns)} de 1
                 </dd>
               </div>
             </dl>

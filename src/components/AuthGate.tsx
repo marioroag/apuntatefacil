@@ -85,8 +85,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (companyError && !company)
     return <ErrorDeCarga mensaje={companyError} onReintentar={retryCompanies} onSalir={signOut} />
   if (!company) return <Onboarding />
-  // La prueba SÍ da acceso al panel, con topes (1 proceso, 25 candidaturas o
-  // 15 días). Al agotarse se sigue recopilando: las candidaturas nuevas entran
-  // bloqueadas hasta añadir el método de pago.
+  // La prueba SÍ da acceso al panel: 1 proceso abierto y 15 días, sin tope de
+  // candidaturas. Al caducar se sigue recopilando: las nuevas entran bloqueadas
+  // hasta añadir el método de pago.
   return <>{children}</>
 }

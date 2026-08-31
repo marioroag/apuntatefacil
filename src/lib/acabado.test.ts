@@ -387,8 +387,15 @@ describe('el vocabulario se mantiene coherente', () => {
   })
 
   it('ningún token de duración se queda muerto', () => {
-    const codigo = fuentes().map((f) => f.codigo).join('\n')
-    const muertos = DURACIONES.filter((d) => !codigo.includes(`--duration-${d}`))
+    // Se busca quién LO LEE (`var(--duration-x)`), no quién lo menciona, y se mira
+    // también el CSS: un token puede consumirlo una clase con nombre de index.css
+    // (es el caso de `--duration-hero`, que gobierna el hero de la landing), y
+    // mirando solo los .tsx el detector lo daba por muerto estando vivo. Pedir el
+    // `var(...)` es además MÁS estricto que antes: la declaración del propio token
+    // ya no cuenta como uso, que es lo que volvería vacua la comprobación al pasar
+    // a mirar también el fichero donde se declaran.
+    const codigo = fuentes().map((f) => f.codigo).join('\n') + '\n' + css
+    const muertos = DURACIONES.filter((d) => !codigo.includes(`var(--duration-${d})`))
 
     expect(
       muertos,

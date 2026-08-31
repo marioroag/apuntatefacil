@@ -240,6 +240,10 @@
   --duration-enter: 180ms;    /* algo aparece o desaparece */
   --duration-max: 240ms;      /* el TECHO: overlays grandes y barras que recorren
                                  distancia. Nada de la app dura más que esto. */
+  /* Excepción declarada al techo, y SOLO para el hero de la landing (ver su
+     bloque más abajo): un control no puede durar esto, pero una superficie de
+     marketing que se transforma entera, sí. Nada del producto la usa. */
+  --duration-hero: 560ms;
   --default-transition-duration: var(--duration-control);
 
   /* --- Iconografía --------------------------------------------------------------
@@ -428,6 +432,66 @@
       animation-timeline: --pp-resolved;
       animation-range: entry 10% entry 42%;
     }
+  }
+}
+
+/* HERO DE LA LANDING · dos estados, no un scrub (ago 2026).
+   Copiado de attio.com MIDIÉNDOLO, después de construirlo dos veces mal: primero
+   clavando el hero y luego enganchando la animación al recorrido del scroll. Ni
+   una cosa ni la otra. Lo que hace Attio es BINARIO, y estos son los números:
+     · con 4px de scroll aún está en reposo y con 8px ya está en el estado final;
+     · a 16, 32 y 64px la escala es EXACTAMENTE la misma (0,8847), o sea que no
+       avanza con el recorrido: es un 0 y un 1;
+     · y el cambio corre en el TIEMPO (muestreado fotograma a fotograma: 1 -> 0,945
+       en 200ms, con ~45ms planos al principio), o sea una transición de verdad.
+   Por eso aquí no hay `animation-timeline`: hay dos estados y una transición. El
+   umbral lo marca un atributo que pone la pantalla (`data-hero`).
+
+   La duración se sale del techo de 240ms a propósito, y se declara como token en
+   vez de escribirse suelta. Los tres tiempos de la casa son para CONTROLES, que
+   responden a un dedo sobre el propio objeto; esto transforma el hero entero de
+   una superficie de marketing, y a 240ms el gesto se lee como un corte. Es la
+   misma excepción declarada que ya tienen el barrido de Meridian (620ms) y el
+   trazo del check de onboarding: recorren distancia. `--ease-standard` y no una
+   muelle: la doctrina no quiere rebotes, y la curva estándar ya da el arranque y
+   la llegada blandos que hacen que esto se lea "smooth".
+
+   Tres condiciones, y ninguna es decorativa:
+     · `min-width: 64rem`: es el realce de escritorio que pidió Mario. En un móvil
+       el hero se sale de pantalla en cuanto empiezas, y no hay nada que ver.
+     · `reduced-motion`: quien pide menos movimiento no quiere que la página se le
+       transforme debajo.
+     · el atributo: sin él, todo esto son clases inertes y el hero es el de
+       siempre. No hay dos maquetaciones que mantener, hay una con un realce. */
+@media (min-width: 64rem) and (prefers-reduced-motion: no-preference) {
+  /* Cuánto sube y cuánto tarda el encogido en arrancar detrás. El retardo es un
+     tercio de la duración: lo justo para que la subida se lea como un movimiento
+     propio y no tanto como para que parezcan dos animaciones sueltas. */
+  .hero-texto, .hero-ventana { --hero-sube: 18px; --hero-retardo: 190ms; }
+  .hero-texto {
+    transition: opacity var(--duration-hero) var(--ease-standard);
+  }
+  /* El mock PRIMERO sube unos píxeles y DESPUÉS encoge, no las dos cosas a la vez:
+     así el gesto se lee como que la ventana se despega y se asienta, en vez de
+     como un cambio de tamaño a secas. Para escalonarlos hacen falta dos
+     transiciones con tiempos distintos, y eso NO se puede con un solo `transform`
+     (es una propiedad, tiene una transición). Van como propiedades individuales,
+     `translate` y `scale`, que son justo lo que existe para esto. Ojo si alguien
+     añade luego un `transform` a esta pieza: se compondría con estas dos en vez de
+     sustituirlas, y el resultado sería la suma de ambas.
+
+     Origen en el CENTRO, como el de Attio (`origin-center`): encoge hacia dentro
+     por los cuatro lados en vez de descolgarse desde un borde. */
+  .hero-ventana {
+    transform-origin: center;
+    transition:
+      translate var(--duration-hero) var(--ease-standard),
+      scale var(--duration-hero) var(--ease-standard) var(--hero-retardo);
+  }
+  [data-hero='movido'] .hero-texto { opacity: 0; }
+  [data-hero='movido'] .hero-ventana {
+    translate: 0 calc(var(--hero-sube) * -1);
+    scale: 0.885;
   }
 }
 

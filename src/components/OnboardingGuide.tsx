@@ -9,7 +9,6 @@ import { useToast } from './ui/Toast'
 import { TemplateGrid, useCreateFromTemplate } from './NewCampaignWizard'
 import { AnuncioEditor, usePasoAnuncio } from './AnuncioEditor'
 import type { SectorTemplate } from '../lib/templates'
-import { PRUEBA_CANDIDATOS } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 import type { Campaign } from '../lib/types'
 
@@ -207,8 +206,7 @@ export function OnboardingGuide() {
               </p>
               {testCandidate && company?.plan === 'trial' && (
                 <p className="mt-2 text-[12px] leading-relaxed text-slate-500">
-                  La candidatura de prueba cuenta para las {PRUEBA_CANDIDATOS} de tu prueba.
-                  Bórrala cuando ya no la necesites.
+                  Es una candidatura de prueba, no de una persona real: bórrala cuando ya no la necesites.
                 </p>
               )}
               <div className="mt-3 flex flex-wrap gap-2">

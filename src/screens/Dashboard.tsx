@@ -87,7 +87,7 @@ import { candidateFit, hasMeridian } from '../lib/meridian'
 import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
 import { TIPOS_ORDENABLES } from '../lib/types'
 import type { Campaign, Candidate, CandidateInterestState, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
-import { PRECIO_PROCESO, PRUEBA_CANDIDATOS, PRUEBA_DIAS, TAGS_ENABLED } from '../lib/pricing'
+import { PRECIO_PROCESO, PRUEBA_DIAS, TAGS_ENABLED } from '../lib/pricing'
 import { TagCell, BulkTagMenu, ManageTagsModal, campoEtiquetaId } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { OnboardingTestCard } from '../components/OnboardingGuide'
@@ -779,9 +779,6 @@ export function Dashboard() {
   // bloquean). Las filas difuminadas, solo en la vista sin filtrar.
   const lockedFor = campaign && company?.plan === 'trial' ? lockedInfo[campaign.id] : undefined
   const lockedCount = lockedFor?.count ?? 0
-  // La prueba se agota por días o por cupo; el aviso dice de cuál de las dos va.
-  const pruebaCaducada = company?.plan === 'trial'
-    && !!company.trial_ends_at && new Date(company.trial_ends_at).getTime() < Date.now()
   // Sin bloqueadas, SIN_FECHAS (constante del módulo) en vez de un `[]` recién
   // hecho: es una prop de la tabla memoizada y un array nuevo por render la
   // repintaría entera.
@@ -1399,9 +1396,9 @@ export function Dashboard() {
                 {lockedCount === 1 ? 'Tienes 1 candidatura esperando' : `Tienes ${lockedCount} candidaturas esperando`}
               </p>
               <p className="mt-0.5 text-[13px] leading-relaxed text-slate-500">
-                {pruebaCaducada
-                  ? `Tu prueba de ${PRUEBA_DIAS} días terminó, pero las seguimos recibiendo. Añade tu método de pago y las ves todas al momento.`
-                  : `Las seguimos recibiendo, pero la prueba te deja ver ${PRUEBA_CANDIDATOS}. Añade tu método de pago y las ves todas al momento.`}
+                {/* Sin cupo de candidaturas, caducar es el ÚNICO motivo por el que
+                    algo puede entrar bloqueado, así que ya no hay dos mensajes. */}
+                {`Tu prueba de ${PRUEBA_DIAS} días terminó, pero las seguimos recibiendo. Añade tu método de pago y las ves todas al momento.`}
               </p>
             </div>
             <button onClick={() => navigate(`${base}/plan`)} className={`${BTN_PRIMARY} shrink-0 max-sm:w-full max-sm:justify-center`}>
