@@ -95,7 +95,18 @@ function Agenda({ demo }: { demo: boolean }) {
 
   // Filtro por anfitrión. Solo existe cuando hay más de una agenda: en una
   // empresa de una persona no hay nada que separar y sería un control vacío.
-  const [soloDe, setSoloDe] = useState<string | null>(null)
+  //
+  // EN MÓVIL NO SE PINTA, Y POR LO TANTO NO FILTRA (Mario, ago 2026). La segunda
+  // mitad de la frase es la que importa: **un recorte invisible que no se puede
+  // deshacer no es un filtro, es una lista mutilada**, y es exactamente lo que
+  // pasaría al estrechar la ventana con "solo las de Laura" puesto. Es la misma
+  // regla que ya gobierna el conmutador Activos/Rechazados del panel de un
+  // puesto, que tampoco se pinta ni filtra en un teléfono.
+  //
+  // El estado se conserva a propósito: al volver a un ancho grande, el filtro que
+  // habías puesto sigue ahí. Lo que se apaga es su EFECTO, no tu elección.
+  const [soloDeCrudo, setSoloDe] = useState<string | null>(null)
+  const soloDe = compacto ? null : soloDeCrudo
   const anfitriones = useMemo(() => {
     const ids = [...new Set(interviews.map((i) => i.hostUserId))]
     return ids.map((id) => {
@@ -138,24 +149,26 @@ function Agenda({ demo }: { demo: boolean }) {
   // "Día", irse a la lista y volver te devuelva al día: con un solo valor, el
   // tramo se pierde al pasar por la lista.
   const rawModo = params.get('v')
-  // SIN PARÁMETRO NO ES "calendario", ES "no lo has dicho", y cada ancho tiene su
-  // respuesta: en escritorio manda el calendario y en un móvil la lista, porque
-  // quien mira el teléfono pregunta "qué tengo ahora" y no "cómo tengo el
-  // jueves". Por eso el modo elegido se escribe SIEMPRE, también cuando es el de
+  // SIN PARÁMETRO NO ES "calendario", ES "no lo has dicho". En escritorio manda
+  // el calendario, y el modo elegido se escribe SIEMPRE, también cuando es el de
   // fábrica: si "calendario" fuera la ausencia del parámetro, un enlace
   // compartido significaría una cosa en un portátil y otra en un móvil.
   // (`?v=dia` es de la versión anterior, cuando el parámetro llevaba los tres
   // valores; se sigue leyendo para no romper un enlace ya compartido.)
   const modoGuardado: Modo =
-    rawModo === 'lista' ? 'lista'
-      : rawModo === 'calendario' || rawModo === 'dia' ? 'calendario'
-        : compacto ? 'lista' : 'calendario'
+    rawModo === 'lista' ? 'lista' : 'calendario'
   const intervaloGuardado: Intervalo = params.get('i') === 'dia' || rawModo === 'dia' ? 'dia' : 'semana'
-  // Siete columnas no caben en 375px, así que en un móvil el calendario solo
-  // puede enseñar un día. El selector de tramo tampoco se ofrece allí: no hay
-  // nada que elegir, y un control con una sola salida es un control que miente.
+  // EN MÓVIL HAY UNA SOLA VISTA: el mes con el día debajo (Mario, ago 2026: "el
+  // nuevo layout es el único en móvil"). El conmutador no se pinta, así que
+  // tampoco se ofrece la lista: un enlace con `?v=lista` abierto en un teléfono
+  // aterriza en el calendario, y el parámetro se conserva intacto para cuando se
+  // abra en una pantalla ancha.
+  //
+  // Siete columnas no caben en 375px, así que allí el calendario solo puede
+  // enseñar un día; el selector de tramo tampoco se ofrece, porque no hay nada
+  // que elegir y un control con una sola salida es un control que miente.
   const intervalo: Intervalo = compacto ? 'dia' : intervaloGuardado
-  const modo: Modo = modoGuardado
+  const modo: Modo = compacto ? 'calendario' : modoGuardado
   const vista: Vista = modo === 'lista' ? 'lista' : intervalo
 
   const cambiar = (next: { modo?: Modo; intervalo?: Intervalo }) =>
@@ -262,7 +275,11 @@ function Agenda({ demo }: { demo: boolean }) {
       <PageHeader
         titulo="Entrevistas"
         sub="Todas tus citas con candidatos, del puesto que sean."
-        acciones={anfitriones.length > 1 ? <FiltroAnfitrion lista={anfitriones} valor={soloDe} onChange={setSoloDe} /> : undefined}
+        acciones={
+          !compacto && anfitriones.length > 1 ? (
+            <FiltroAnfitrion lista={anfitriones} valor={soloDe} onChange={setSoloDe} />
+          ) : undefined
+        }
       />
 
       {/* AQUÍ HUBO TRES PESTAÑAS: Agenda, En marcha y Pasadas (Mario las retiró,
@@ -297,79 +314,103 @@ function Agenda({ demo }: { demo: boolean }) {
                 controles), que es lo mismo que da la franja de filtros del panel
                 de un puesto y de Candidatos: al ir de una pantalla a otra, la
                 fila de herramientas no puede cambiar de sitio. */}
-            <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
-              {vista === 'lista' ? (
-                <p className="text-[13px] text-slate-500">
-                  {buckets.proximas.length > 0
-                    ? `${plural(buckets.proximas.length, 'entrevista', 'entrevistas')} por delante`
-                    : 'Nada por delante'}
-                </p>
-              ) : (
-                <div className="flex items-center gap-2">
-                  {/* Grupo segmentado: no es un botón, es la CARCASA de dos. Lleva la
-                      misma pintura de hairline que el secundario (y su `ring-inset`,
-                      o el grupo se vería 2px más ancho que el botón "Hoy" de al lado).
-                      Llevaba `shadow-control` y `ring-slate-300/80`, que es la pintura
-                      del secundario de ANTES del botón plano (ago 2026): el anillo subió
-                      a `slate-200` y la sombra de contacto se retiró entera. Aquí se
-                      notaba porque en esta misma fila hay un `BTN_SECONDARY_SM` de
-                      verdad, o sea dos lenguajes en pareja.
-                      `overflow-clip` y no `hidden`: recorta igual con el radio (los dos
-                      hijos son cajas cuadradas que llegan al filo) pero no convierte la
-                      carcasa en contenedor de scroll. */}
-                  {/* `filo` y no `ring-1 ring-inset`: es la misma superficie con radio que el
-                      conmutador que tiene 8px a la derecha, y con dos vocabularios en la misma
-                      fila una corregía el antialias de la esquina y la otra no. `filo` es
-                      `border`, ocupa hacia dentro con `border-box`, así que la carcasa sigue
-                      midiendo sus 32px contra el botón de al lado. */}
-                  <div className={`flex items-center overflow-clip rounded-lg filo bg-white ${ALTO_FRANJA}`}>
-                    <button
-                      type="button"
-                      onClick={() => setCursor((c) => sumarDias(c, -salto))}
-                      aria-label={vista === 'dia' ? 'Día anterior' : 'Semana anterior'}
-                      className="grid h-full w-10 place-items-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 pointer-coarse:w-11"
-                    >
-                      <ChevronLeft className="size-4" aria-hidden />
-                    </button>
-                    <span className="h-4 w-px bg-slate-200" aria-hidden />
-                    <button
-                      type="button"
-                      onClick={() => setCursor((c) => sumarDias(c, salto))}
-                      aria-label={vista === 'dia' ? 'Día siguiente' : 'Semana siguiente'}
-                      className="grid h-full w-10 place-items-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 pointer-coarse:w-11"
-                    >
-                      <ChevronRight className="size-4" aria-hidden />
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setCursor(hoy)}
-                    disabled={dias.includes(hoy)}
-                    className={`${BTN_SECONDARY_FRANJA} disabled:pointer-events-none disabled:opacity-40`}
-                  >
-                    Hoy
-                  </button>
-                  <h2 className="ml-1 truncate text-[15px] font-semibold text-slate-900">
-                    {rotuloRango(dias, hoy)}
-                  </h2>
-                </div>
-              )}
+            {/* LA FRANJA DE HERRAMIENTAS NO EXISTE EN MÓVIL (Mario, ago 2026).
+                Allí no le queda nada dentro: el conmutador se fue (una sola
+                vista), el selector de tramo también (un solo tramo), el rótulo
+                del rango lo escribe la cabecera de la lista y las flechas de día
+                las sustituye tocar un día en el mes. Lo único que quedaba era
+                "Hoy", y una franja de 40px con un botón suelto y un hueco es
+                chrome que se paga en la pantalla más apretada.
 
-              <div className="flex items-center gap-2">
-                {/* EL TRAMO SOLO EXISTE EN CALENDARIO (Mario, ago 2026): en la
-                    lista no encuadra nada, y un control que no gobierna nada es
-                    la misma promesa falsa que un ajuste que no apaga nada. Va a
-                    la IZQUIERDA del conmutador porque es lo que refina lo que el
-                    conmutador acaba de elegir, y el conmutador cierra la fila
-                    como en el panel de un puesto.
-                    En móvil no se ofrece: allí la semana no cabe (siete columnas
-                    en 375px) y el único tramo posible es el día. */}
-                {modo === 'calendario' && !compacto && (
-                  <SelectorIntervalo valor={intervaloGuardado} onChange={(i) => cambiar({ intervalo: i })} />
+                "Hoy" NO se pierde, se muda a la cabecera del mes, que es donde
+                cualquier calendario lo pone: pegado a las flechas que pasan
+                páginas. El filtro de anfitrión se queda donde siempre estuvo, en
+                la cabecera de la pantalla. */}
+            {!compacto && (
+              <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
+                {vista === 'lista' ? (
+                  <p className="text-[13px] text-slate-500">
+                    {buckets.proximas.length > 0
+                      ? `${plural(buckets.proximas.length, 'entrevista', 'entrevistas')} por delante`
+                      : 'Nada por delante'}
+                  </p>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    {/* Grupo segmentado: no es un botón, es la CARCASA de dos. Lleva la
+                        misma pintura de hairline que el secundario (y su `ring-inset`,
+                        o el grupo se vería 2px más ancho que el botón "Hoy" de al lado).
+                        Llevaba `shadow-control` y `ring-slate-300/80`, que es la pintura
+                        del secundario de ANTES del botón plano (ago 2026): el anillo subió
+                        a `slate-200` y la sombra de contacto se retiró entera. Aquí se
+                        notaba porque en esta misma fila hay un `BTN_SECONDARY_SM` de
+                        verdad, o sea dos lenguajes en pareja.
+                        `overflow-clip` y no `hidden`: recorta igual con el radio (los dos
+                        hijos son cajas cuadradas que llegan al filo) pero no convierte la
+                        carcasa en contenedor de scroll. */}
+                    {/* `filo` y no `ring-1 ring-inset`: es la misma superficie con radio que el
+                        conmutador que tiene 8px a la derecha, y con dos vocabularios en la misma
+                        fila una corregía el antialias de la esquina y la otra no. `filo` es
+                        `border`, ocupa hacia dentro con `border-box`, así que la carcasa sigue
+                        midiendo sus 32px contra el botón de al lado. */}
+                    <div className={`flex items-center overflow-clip rounded-lg filo bg-white ${ALTO_FRANJA}`}>
+                      <button
+                        type="button"
+                        onClick={() => setCursor((c) => sumarDias(c, -salto))}
+                        aria-label={vista === 'dia' ? 'Día anterior' : 'Semana anterior'}
+                        className="grid h-full w-10 place-items-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 pointer-coarse:w-11"
+                      >
+                        <ChevronLeft className="size-4" aria-hidden />
+                      </button>
+                      <span className="h-4 w-px bg-slate-200" aria-hidden />
+                      <button
+                        type="button"
+                        onClick={() => setCursor((c) => sumarDias(c, salto))}
+                        aria-label={vista === 'dia' ? 'Día siguiente' : 'Semana siguiente'}
+                        className="grid h-full w-10 place-items-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 pointer-coarse:w-11"
+                      >
+                        <ChevronRight className="size-4" aria-hidden />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCursor(hoy)}
+                      disabled={dias.includes(hoy)}
+                      className={`${BTN_SECONDARY_FRANJA} disabled:pointer-events-none disabled:opacity-40`}
+                    >
+                      Hoy
+                    </button>
+                    <h2 className="ml-1 truncate text-[15px] font-semibold text-slate-900">
+                      {rotuloRango(dias, hoy)}
+                    </h2>
+                  </div>
                 )}
-                <ConmutadorVista modo={modo} onChange={(m) => cambiar({ modo: m })} />
+
+                <div className="flex items-center gap-2">
+                  {/* EL TRAMO SOLO EXISTE EN CALENDARIO (Mario, ago 2026): en la
+                      lista no encuadra nada, y un control que no gobierna nada es
+                      la misma promesa falsa que un ajuste que no apaga nada. Va a
+                      la IZQUIERDA del conmutador porque es lo que refina lo que el
+                      conmutador acaba de elegir, y el conmutador cierra la fila
+                      como en el panel de un puesto.
+                      En móvil no se ofrece: allí la semana no cabe (siete columnas
+                      en 375px) y el único tramo posible es el día. */}
+                  {modo === 'calendario' && !compacto && (
+                    <SelectorIntervalo valor={intervaloGuardado} onChange={(i) => cambiar({ intervalo: i })} />
+                  )}
+                  {/* EL CONMUTADOR NO EXISTE EN MÓVIL, y por eso esta franja
+                      entera es de escritorio: allí hay una sola vista, así que un
+                      control de dos posiciones con una sola posible es el mismo
+                      botón que miente que el selector de tramo.
+
+                      LO QUE SE PAGA: en un teléfono se pierde la lista de "qué
+                      tengo por delante", que recorre semanas de una tirada. Lo
+                      sustituye el mes con sus puntos, que dice DÓNDE hay algo y
+                      lleva allí de un toque; lo que ya no se hace de un vistazo es
+                      leer diez citas seguidas de tres semanas distintas. */}
+                  <ConmutadorVista modo={modo} onChange={(m) => cambiar({ modo: m })} />
+                </div>
               </div>
-            </div>
+            )}
 
             {vista === 'lista' ? (
               buckets.proximas.length === 0 ? (
@@ -407,17 +448,56 @@ function Agenda({ demo }: { demo: boolean }) {
                     clase compuesta desde una variable no la genera nunca. La
                     constante existe para la CUENTA de `RAIL_MINIMO`; si cambia
                     una, cambia la otra. */}
+                {/* EN MÓVIL EL CALENDARIO ES EL MES Y EL DÍA DEBAJO (referencia
+                    de Mario, ago 2026), no la rejilla de horas de un día.
+                    La rejilla vertical en un teléfono enseña unas pocas horas y
+                    obliga a desplazarse para ver una jornada; el mes contesta de
+                    un vistazo en qué días hay algo, lleva a cualquiera de ellos
+                    con un toque y la lista de debajo cuenta ese día entero.
+                    Lo que se paga, y se dice: se pierde la FORMA del día (los
+                    huecos, dos citas pegadas, la línea de "ahora"), que es lo que
+                    la rejilla hace bien. En escritorio no cambia nada.
+                    No hay pieza nueva: es el mismo `MiniMes` del raíl a otra
+                    talla y la misma `Fila` de la lista de "por delante". */}
+                {/* DÓNDE SE CUADRA LA PRIMERA: fuera de las dos ramas, porque
+                    es la misma frase en las dos. Metido solo en la de escritorio,
+                    un móvil sin ninguna cita se quedaba con "hoy no tienes
+                    ninguna" y sin decir dónde se crea, que es justo lo único que
+                    hace falta saber cuando no hay nada. */}
+                {visibles.length === 0 && (
+                  <div className="mb-3 rounded-xl filo bg-white px-3.5 py-2.5 text-[13px] text-slate-500 shadow-card">
+                    {soloDe
+                      ? `${nombreDelFiltro} todavía no tiene ninguna entrevista.`
+                      : WHATSAPP_LISTO
+                        ? 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Invitar a entrevista".'
+                        : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Agendar entrevista".'}
+                  </div>
+                )}
+                {compacto ? (
+                  <div className="space-y-4">
+                    <MiniMes
+                      cursor={cursor}
+                      dias={dias}
+                      hoy={hoy}
+                      porDia={porDia}
+                      onDia={setCursor}
+                      onHoy={{ alPulsar: () => setCursor(hoy), apagado: dias.includes(hoy) }}
+                      grande
+                    />
+                    <DiaDelRail
+                      ancho
+                      dia={cursor}
+                      hoy={hoy}
+                      lista={delDia}
+                      nombreDe={nombreDe}
+                      puestoDe={puestoDe}
+                      atencionDe={atencionDe}
+                      onAbrir={setAbierto}
+                    />
+                  </div>
+                ) : (
                 <div className={hayRail ? 'grid grid-cols-[minmax(0,1fr)_256px] items-start gap-4' : ''}>
                   <div className="min-w-0">
-                    {visibles.length === 0 && (
-                      <div className="mb-3 rounded-xl filo bg-white px-3.5 py-2.5 text-[13px] text-slate-500 shadow-card">
-                        {soloDe
-                          ? `${nombreDelFiltro} todavía no tiene ninguna entrevista.`
-                          : WHATSAPP_LISTO
-                            ? 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Invitar a entrevista".'
-                            : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Agendar entrevista".'}
-                      </div>
-                    )}
                     <AgendaGrid
                       dias={dias}
                       interviews={visibles}
@@ -455,6 +535,7 @@ function Agenda({ demo }: { demo: boolean }) {
                     </aside>
                   )}
                 </div>
+                )}
               </>
             )}
           </>
@@ -498,6 +579,7 @@ function DiaDelRail({
   puestoDe,
   atencionDe,
   onAbrir,
+  ancho = false,
 }: {
   dia: string
   hoy: string
@@ -506,18 +588,26 @@ function DiaDelRail({
   puestoDe: (i: Interview) => string
   atencionDe: (candidateId: string) => string | null
   onAbrir: (candidateId: string) => void
+  /**
+   * A ANCHO DE PANTALLA (el móvil, ago 2026). Ahí esto no acompaña a una rejilla:
+   * ES el contenido, así que el título sube de cuerpo y cada cita se pinta con la
+   * `Fila` de siempre en vez de con la tarjeta apretada del raíl. La tarjeta
+   * existe porque en 296px la hora no cabe en su columna; con 343 sí cabe, y una
+   * cita tiene que leerse igual aquí que en la lista de "por delante".
+   */
+  ancho?: boolean
 }) {
   const p = partesClave(dia)
   const esHoy = dia === hoy
   return (
     <section aria-label={`Citas del ${p.diaLargo} ${p.dia}`}>
-      <header className="mb-2 flex items-baseline justify-between gap-2 px-0.5">
-        <h3 className="truncate text-[13px] font-semibold text-slate-900">
+      <header className={`flex items-baseline justify-between gap-2 px-0.5 ${ancho ? 'mb-2.5' : 'mb-2'}`}>
+        <h3 className={`truncate font-semibold text-slate-900 ${ancho ? 'text-[15px]' : 'text-[13px]'}`}>
           {esHoy ? 'Hoy' : `${p.diaLargo.charAt(0).toUpperCase()}${p.diaLargo.slice(1)} ${p.dia}`}
         </h3>
         {/* La cifra pelada, sin chapa, como los contadores del lateral. */}
         {lista.length > 0 && (
-          <span className="num shrink-0 text-[13px] text-slate-500">
+          <span className={`num shrink-0 text-slate-500 ${ancho ? 'text-sm' : 'text-[13px]'}`}>
             {lista.length}
             <span className="sr-only"> {lista.length === 1 ? 'entrevista' : 'entrevistas'}</span>
           </span>
@@ -526,22 +616,34 @@ function DiaDelRail({
       {lista.length === 0 ? (
         // El vacío se dice, no se esconde: un raíl que aparece y desaparece según
         // el día obliga a releer la pantalla entera cada vez que mueves el cursor.
-        <p className="rounded-xl filo bg-white px-3.5 py-3 text-[13px] text-slate-500">
+        <p className={`rounded-xl filo bg-white px-3.5 text-slate-500 ${ancho ? 'py-4 text-sm' : 'py-3 text-[13px]'}`}>
           {esHoy ? 'Hoy no tienes ninguna cita.' : 'Ese día no tienes ninguna cita.'}
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {lista.map((i) => (
-            <li key={i.id}>
-              <TarjetaRail
-                entrevista={i}
-                nombre={nombreDe(i)}
-                puesto={puestoDe(i)}
-                atencion={atencionDe(i.candidateId)}
-                onAbrir={onAbrir}
-              />
-            </li>
-          ))}
+          {lista.map((i) =>
+            ancho ? (
+              <li key={i.id}>
+                <Fila
+                  entrevista={i}
+                  nombre={nombreDe(i)}
+                  puesto={puestoDe(i)}
+                  atencion={atencionDe(i.candidateId)}
+                  onAbrir={onAbrir}
+                />
+              </li>
+            ) : (
+              <li key={i.id}>
+                <TarjetaRail
+                  entrevista={i}
+                  nombre={nombreDe(i)}
+                  puesto={puestoDe(i)}
+                  atencion={atencionDe(i.candidateId)}
+                  onAbrir={onAbrir}
+                />
+              </li>
+            ),
+          )}
         </ul>
       )}
     </section>

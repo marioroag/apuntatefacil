@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { lunesDe, partesClave, sumarDias } from '../lib/agenda'
 import { MESES } from '../lib/format'
+import { botonClase } from '../lib/buttons'
 
 /**
  * EL MES EN PEQUEÑO, para saltar a cualquier día y ver dónde está la carga
@@ -44,6 +45,8 @@ export function MiniMes({
   hoy,
   porDia,
   onDia,
+  onHoy,
+  grande = false,
 }: {
   /** El día de referencia de la rejilla (aaaa-mm-dd). */
   cursor: string
@@ -53,6 +56,28 @@ export function MiniMes({
   /** Cuántas citas tiene cada día. Se calcula fuera: aquí solo se pinta. */
   porDia: Map<string, number>
   onDia: (clave: string) => void
+  /**
+   * "Hoy", DENTRO de la cabecera del mes. Opcional a propósito: en escritorio ese
+   * botón ya vive en la fila de herramientas, y dos "Hoy" en la misma pantalla
+   * serían dos puertas para lo mismo. En móvil esa fila no existe (el mes con su
+   * día ES la pantalla), así que el botón se muda aquí, que es donde cualquier
+   * calendario lo pone: al lado de las flechas que pasan páginas.
+   *
+   * Sin él no se pierde la función del todo (hoy siempre lleva su disco de tinta
+   * y basta con tocarlo), pero sí desde otro mes: hay que volver pasando páginas,
+   * y "qué tengo hoy" es la pregunta que más se hace aquí.
+   */
+  onHoy?: { alPulsar: () => void; apagado: boolean }
+  /**
+   * A ANCHO DE PANTALLA, para el móvil (Mario, ago 2026).
+   *
+   * En el raíl el mes es un mapa que se mira de reojo con la semana al lado, y
+   * 36px de celda son de sobra para un ratón. En un teléfono es el CONTROL con
+   * el que se navega la agenda entera y se pulsa con el dedo, así que la celda
+   * sube al objetivo de toque y el número con ella. No es un tamaño: es otro
+   * papel, y por eso se declara aquí en vez de pegarle clases desde fuera.
+   */
+  grande?: boolean
 }) {
   const mesDelCursor = cursor.slice(0, 7)
   const [mes, setMes] = useState(mesDelCursor)
@@ -80,17 +105,31 @@ export function MiniMes({
   const moverMes = (n: number) => setMes(sumarDias(`${mes}-15`, n * 30).slice(0, 7))
 
   return (
-    <section aria-label="Mes" className="rounded-xl filo bg-white p-3.5">
-      <header className="mb-2 flex items-center justify-between">
-        <h3 className="text-[13px] font-semibold capitalize text-slate-900">
+    <section aria-label="Mes" className={`rounded-xl filo bg-white ${grande ? 'p-4' : 'p-3.5'}`}>
+      <header className={`flex items-center justify-between ${grande ? 'mb-3' : 'mb-2'}`}>
+        <h3 className={`font-semibold capitalize text-slate-900 ${grande ? 'text-[15px]' : 'text-[13px]'}`}>
           {MESES[p.mes]} {p.anio}
         </h3>
         <div className="flex items-center gap-0.5">
+          {onHoy && (
+            <button
+              type="button"
+              onClick={onHoy.alPulsar}
+              disabled={onHoy.apagado}
+              // FANTASMA, como los dos chevrones con los que comparte fila: un
+              // botón de línea entre dos fantasmas se lee como si fuera de otro
+              // grupo, que es lo que ya obligó a quitarle la caja al `···` de la
+              // cabecera de una ficha.
+              className={botonClase('ghost', 'sm', 'mr-1 shrink-0 px-2.5 pointer-coarse:min-h-11 disabled:pointer-events-none disabled:opacity-40')}
+            >
+              Hoy
+            </button>
+          )}
           <button
             type="button"
             onClick={() => moverMes(-1)}
             aria-label="Mes anterior"
-            className="grid size-7 place-items-center rounded-md text-slate-500 outline-none transition-colors duration-[var(--duration-control)] hover:bg-slate-100 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40"
+            className={`grid place-items-center rounded-md text-slate-500 outline-none transition-colors duration-[var(--duration-control)] hover:bg-slate-100 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${grande ? 'size-11' : 'size-7'}`}
           >
             <ChevronLeft className="size-4" aria-hidden />
           </button>
@@ -98,7 +137,7 @@ export function MiniMes({
             type="button"
             onClick={() => moverMes(1)}
             aria-label="Mes siguiente"
-            className="grid size-7 place-items-center rounded-md text-slate-500 outline-none transition-colors duration-[var(--duration-control)] hover:bg-slate-100 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40"
+            className={`grid place-items-center rounded-md text-slate-500 outline-none transition-colors duration-[var(--duration-control)] hover:bg-slate-100 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${grande ? 'size-11' : 'size-7'}`}
           >
             <ChevronRight className="size-4" aria-hidden />
           </button>
@@ -108,7 +147,7 @@ export function MiniMes({
       {/* La semana empieza en LUNES, como la rejilla y como España. */}
       <div aria-hidden className="grid grid-cols-7 text-center">
         {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
-          <span key={i} className="py-1 text-[11px] font-medium text-slate-400">
+          <span key={i} className={`font-medium text-slate-400 ${grande ? 'py-1.5 text-[12px]' : 'py-1 text-[11px]'}`}>
             {d}
           </span>
         ))}
@@ -130,14 +169,18 @@ export function MiniMes({
               onClick={() => onDia(clave)}
               aria-current={esHoy ? 'date' : undefined}
               aria-label={`${c.diaLargo} ${c.dia} ${MESES[c.mes]}${n > 0 ? `, ${n === 1 ? '1 entrevista' : `${n} entrevistas`}` : ', sin entrevistas'}`}
-              className={`relative grid h-9 place-items-center outline-none transition-colors duration-[var(--duration-control)] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+              className={`relative grid place-items-center outline-none transition-colors duration-[var(--duration-control)] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+                grande ? 'h-11' : 'h-9'
+              } ${
                 mirando ? 'bg-slate-100' : 'hover:bg-slate-50'
               } ${enVista.has(sumarDias(clave, -1)) ? '' : 'rounded-l-lg'} ${
                 enVista.has(sumarDias(clave, 1)) ? '' : 'rounded-r-lg'
               }`}
             >
               <span
-                className={`num grid size-7 place-items-center rounded-full text-[13px] leading-none ${
+                className={`num grid place-items-center rounded-full leading-none ${
+                  grande ? 'size-9 text-[15px]' : 'size-7 text-[13px]'
+                } ${
                   esHoy
                     ? 'bg-slate-900 font-semibold text-white'
                     : delMes
@@ -154,7 +197,9 @@ export function MiniMes({
               {n > 0 && (
                 <span
                   aria-hidden
-                  className={`absolute bottom-[3px] size-1 rounded-full ${esHoy ? 'bg-white' : 'bg-slate-900'}`}
+                  className={`absolute rounded-full ${grande ? 'bottom-1 size-1.5' : 'bottom-[3px] size-1'} ${
+                    esHoy ? 'bg-white' : 'bg-slate-900'
+                  }`}
                 />
               )}
             </button>
