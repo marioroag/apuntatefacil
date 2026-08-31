@@ -46,16 +46,23 @@ export const WHATSAPP_WIP = {
   /** Para chapas y pestañas. Dos palabras, sentence case. */
   etiqueta: 'En preparación',
   titulo: 'Todavía no escribimos por WhatsApp',
-  /** El párrafo del panel: qué falta y qué puedes hacer hoy. */
+  /**
+   * El párrafo del panel: qué significa para quien lo lee, no cómo lo hacemos.
+   *
+   * NO SE CUENTA LA COCINA (Mario, ago 2026). Decía que estábamos "dando de alta
+   * nuestro número de WhatsApp": eso es nuestro trámite con Meta, y quien lee
+   * esto es un empresario que quiere hablar con un candidato. Lo que le importa
+   * es que hoy desde aquí no sale nada y que lo estamos preparando; el resto es
+   * nuestro tablero, y enseñarlo no le ahorra un solo paso.
+   */
   cuerpo:
-    'Estamos dando de alta nuestro número de WhatsApp para poder hablar con tus candidatos. ' +
-    'Hasta que esté, esto no manda ningún mensaje.',
+    'Lo estamos preparando. Hasta que esté, desde aquí no sale ningún mensaje al candidato.',
   /**
    * Una línea, para donde el WhatsApp era una opción y no el asunto. Se queda en
-   * el qué y se calla el porqué: que estamos dando de alta el número es del
-   * `cuerpo`, donde el WhatsApp SÍ es la pantalla. Aquí, metido entre las otras
-   * opciones que sí funcionan, era una explicación que nadie ha pedido delante de
-   * lo único que hace falta leer para elegir otro canal.
+   * el qué y se calla hasta el "lo estamos preparando", que es del `cuerpo`,
+   * donde el WhatsApp SÍ es la pantalla. Aquí, metido entre las otras opciones
+   * que sí funcionan, cualquier explicación se lee delante de lo único que hace
+   * falta saber para elegir otro canal.
    */
   linea: 'Funcionalidades de WhatsApp disponibles próximamente.',
 } as const
