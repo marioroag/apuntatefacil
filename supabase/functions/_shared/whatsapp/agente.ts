@@ -23,9 +23,10 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 import { whatsappMeta } from '../channels/whatsappMeta.ts'
 import type { MensajeSaliente, Sender } from '../channels/types.ts'
 import {
-  generarAgenda, recortarAgenda, repartir,
-  type DiaHuecos, type Hueco, type ReglaDisponibilidad,
+  fundirOcupado, generarAgenda, recortarAgenda, repartir,
+  type DiaHuecos, type Hueco, type Ocupado, type ReglaDisponibilidad,
 } from '../schedule/slots.ts'
+import { accessTokenDe, freeBusy } from '../google/calendar.ts'
 import * as R from './render.ts'
 import { conversar } from '../interviews/conversar.ts'
 import {
@@ -239,6 +240,33 @@ interface Agenda {
 
 const VACIA: Agenda = { todos: [], dias: [], ficha: [], tz: 'Europe/Madrid', porDia: 4 }
 
+/**
+ * Lo que el anfitrión ya tiene ocupado en su Google Calendar. Vacío si no lo ha
+ * conectado (que es el caso normal) y vacío también si Google falla, por lo
+ * dicho arriba.
+ */
+async function ocupadoDeGoogle(
+  companyId: string, hostUserId: string, desde: Date, hasta: Date,
+): Promise<Ocupado[]> {
+  try {
+    const { data } = await admin.rpc('calendar_connection_secret', {
+      p_company: companyId, p_user: hostUserId,
+    })
+    const conexion = data as { refreshToken?: string; calendarId?: string } | null
+    if (!conexion?.refreshToken) return []
+
+    const token = await accessTokenDe(conexion.refreshToken)
+    return await freeBusy(token, conexion.calendarId || 'primary', desde, hasta)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error(`[agenda] calendario de Google: ${msg}`)
+    await admin.rpc('calendar_connection_error', {
+      p_company: companyId, p_user: hostUserId, p_error: msg,
+    }).catch(() => undefined)
+    return []
+  }
+}
+
 async function calcularAgenda(ctx: Contexto): Promise<Agenda> {
   if (!ctx.host_user_id) return VACIA
 
@@ -259,8 +287,21 @@ async function calcularAgenda(ctx: Contexto): Promise<Agenda> {
     p_host: ctx.host_user_id, p_desde: ahora.toISOString(), p_hasta: hasta.toISOString(),
   })
   if (e2) throw new Error(`interview_busy: ${e2.message}`)
-  const ocupado = ((busyRaw ?? []) as Array<{ start_at: string; end_at: string }>)
+  const nuestro = ((busyRaw ?? []) as Array<{ start_at: string; end_at: string }>)
     .map((o) => ({ start: new Date(o.start_at), end: new Date(o.end_at) }))
+
+  // El calendario de Google RESTA, no manda: la disponibilidad sigue siendo la
+  // que el anfitrión configuró, y esto solo quita lo que ya tiene cogido.
+  //
+  // FALLA HACIA ABIERTO A PROPÓSITO. Si Google no contesta, se sigue con lo
+  // nuestro en vez de quedarnos sin agenda: la alternativa es dejar a un
+  // candidato sin horarios por un problema que no es suyo, y la disponibilidad
+  // es NUESTRA por diseño (así funciona el producto entero sin conectar nada).
+  // Lo que se paga es un hueco ofrecido que quizá choque con su comida, y por
+  // eso el fallo se anota en la conexión: Ajustes lo dice, y quien mira su
+  // calendario se entera de que hay que reconectarlo.
+  const deGoogle = await ocupadoDeGoogle(ctx.company_id, ctx.host_user_id, ahora, hasta)
+  const ocupado = fundirOcupado([...nuestro, ...deGoogle])
 
   const config = {
     ahora, tz: cfg.timezone, reglas: cfg.reglas,

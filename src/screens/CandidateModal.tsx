@@ -41,8 +41,9 @@ import { MaskedPhone } from '../components/MaskedPhone'
 import { TagSection } from '../components/Tags'
 import { InfoTooltip } from '../components/ui/Tooltip'
 import { TAGS_ENABLED } from '../lib/pricing'
-import { AgendarManualDialog } from '../components/InterviewAction'
+import { AgendarManualDialog, CambiarCitaDialog } from '../components/InterviewAction'
 import { currentInterview } from '../lib/interviews'
+import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import { useEsMovil } from '../lib/media'
 import { colocarFlotante } from '../lib/flotante'
 import { InterviewConversation } from '../components/InterviewConversation'
@@ -171,7 +172,7 @@ export function CandidateModal({
    *  Lo usa el tablero para abrir la ficha con el cursor ya en la nota. */
   focoInicial?: string
 }) {
-  const { setFavorito, setStatus, deleteCandidate, loadCandidateComments, addCandidateComment, editCandidateComment, deleteCandidateComment, loadCandidateEvents, members, chatVersion } =
+  const { setFavorito, setStatus, deleteCandidate, loadCandidateComments, addCandidateComment, editCandidateComment, deleteCandidateComment, loadCandidateEvents, members, chatVersion, interviewsFor } =
     useStore()
   const { role, user } = useAuth()
   const toast = useToast()
@@ -179,6 +180,17 @@ export function CandidateModal({
   // documentos están a un toque.
   const [vista, setVista] = useState<Vista>('respuestas')
   const [agendarManual, setAgendarManual] = useState(false)
+  const [cambiarCita, setCambiarCita] = useState(false)
+  // La cita que se puede tocar: la viva de esta persona, y solo si tiene hora.
+  // Sale de la misma fuente que la línea que la enseña (`currentInterview`), no
+  // de una segunda consulta: dos formas de decidir cuál es "su" entrevista se
+  // separan a la primera reprogramación.
+  const citaDeAhora = candidate ? currentInterview(interviewsFor(candidate.id), candidate.id) : null
+  const citaViva =
+    citaDeAhora && citaDeAhora.startsAt &&
+    (citaDeAhora.status === 'confirmada' || citaDeAhora.status === 'reprogramando')
+      ? citaDeAhora
+      : null
   const [confirmarBorrado, setConfirmarBorrado] = useState(false)
   // La cita del análisis a la que viajar en el visor del CV (subrayado + scroll
   // + destello). Lleva un contador para que pedir la misma cita dos veces
@@ -348,7 +360,7 @@ export function CandidateModal({
     <AccionesCandidato
       candidate={candidate}
       onAgendar={() => setAgendarManual(true)}
-      onVerEntrevista={abrirConversacion}
+      onVerEntrevista={WHATSAPP_LISTO ? abrirConversacion : () => setCambiarCita(true)}
       onEstado={cambiarEstado}
     />
   )
@@ -744,6 +756,17 @@ export function CandidateModal({
         candidate={candidate}
         onClose={() => setAgendarManual(false)}
       />
+
+      {/* Solo se monta si hay cita: el diálogo va SOBRE una entrevista, y sin
+          ella no tiene ni hora que enseñar ni id al que llamar. */}
+      {citaViva && (
+        <CambiarCitaDialog
+          open={cambiarCita}
+          entrevista={citaViva}
+          candidate={candidate}
+          onClose={() => setCambiarCita(false)}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmarBorrado}

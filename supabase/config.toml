@@ -450,6 +450,16 @@ verify_jwt = false
 [functions.meridian-chat]
 verify_jwt = true
 
+# Conectar y desconectar el calendario de quien llama: exige sesión.
+[functions.google-calendar]
+verify_jwt = true
+
+# La vuelta de Google tras el consentimiento. NO puede exigir JWT: la llamada la
+# hace el navegador redirigido por Google, sin nuestra cabecera. Toda la
+# autorización la carga el `state`, que es de un solo uso y caduca.
+[functions.google-calendar-callback]
+verify_jwt = false
+
 # Convierte el enlace de Google Maps que pega el cliente en un punto. Exige JWT:
 # pide una URL de fuera desde nuestro servidor, así que no puede quedar abierta.
 [functions.resolver-lugar]

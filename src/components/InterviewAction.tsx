@@ -1,16 +1,17 @@
-import { useEffect, useRef, useState } from 'react'
-import { CalendarDays, CalendarPlus, Loader2, MessageCircle, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertCircle, Loader2, X } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { useStore } from '../lib/store'
 import { useToast } from './ui/Toast'
 import { SelectorFechaHora } from './ui/DateTimePicker'
 import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
-import { currentInterview } from '../lib/interviews'
 import { useAnfitrion } from '../lib/anfitrion'
+import { useOcupado } from '../lib/ocupado'
 import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import { ModoEntrevista } from './ModoEntrevista'
-import { formatPhone, shortWhenInZone } from '../lib/format'
-import type { Candidate, InterviewMode } from '../lib/types'
+import { candidateName, clockTimeInZone, dayKeyInZone, formatPhone } from '../lib/format'
+import { paredAUtc } from '../../supabase/functions/_shared/schedule/zone'
+import type { Candidate, Interview, InterviewMode } from '../lib/types'
 
 /**
  * Botón de entrevista de la cabecera del candidato. Enseña la ACCIÓN o el
@@ -23,71 +24,12 @@ import type { Candidate, InterviewMode } from '../lib/types'
  * En los tres casos abre la pestaña Conversación. El botón no decide nada por
  * su cuenta: lleva al sitio donde se decide.
  */
-export function InterviewHeaderButton({
-  candidate,
-  onOpen,
-  onScheduleManually,
-}: {
-  candidate: Candidate
-  /** Abre la pestaña Conversación. El botón NUNCA abre un modal: la
-   *  conversación ES la superficie, y un modal encima la taparía. */
-  onOpen: () => void
-  /** Abre el diálogo de agendar a mano. Solo se usa mientras WhatsApp no esté
-   *  de alta: sin conversación que abrir, la superficie es el diálogo. */
-  onScheduleManually: () => void
-}) {
-  const { interviewsFor } = useStore()
-  const entrevista = currentInterview(interviewsFor(candidate.id), candidate.id)
-  const negociando = entrevista?.status === 'invitada' || entrevista?.status === 'proponiendo'
-  const confirmada =
-    (entrevista?.status === 'confirmada' || entrevista?.status === 'reprogramando') && entrevista.startsAt
-
-  if (confirmada) {
-    const cuando = shortWhenInZone(entrevista.startsAt!, entrevista.timezone)
-    return (
-      // En móvil se cae el verbo y queda "Entrevista · lun 3, 09:30". La fila
-      // mide 343px ahí dentro y la pareja pill de estado + botón sumaba 342:
-      // cabía por un pixel, así que en cualquier teléfono más estrecho (o con
-      // una fecha un poco más larga) el botón se montaba con el estado. El
-      // verbo sigue en el nombre accesible: quien no ve la fila necesita saber
-      // que esto se pulsa, y "Entrevista" a secas suena a estado.
-      <button type="button" onClick={onOpen} aria-label={`Ver entrevista · ${cuando}`} className={BTN_SECONDARY_SM}>
-        <CalendarDays className="size-3.5 text-amber-500" aria-hidden />
-        {/* Entero en cada variante, no el verbo suelto en su propio hijo: el
-            botón es un flex con `gap-1.5` y ese hueco se metería antes del "·",
-            que dejaría de estar centrado entre sus dos espacios. */}
-        <span className="num hidden sm:inline">Ver entrevista · {cuando}</span>
-        <span className="num sm:hidden">Entrevista · {cuando}</span>
-      </button>
-    )
-  }
-  if (negociando) {
-    return (
-      <button type="button" onClick={onOpen} className={BTN_SECONDARY_SM}>
-        <Loader2 className="size-3.5 animate-spin text-slate-400" aria-hidden />
-        Agendando...
-      </button>
-    )
-  }
-  // Mientras no podamos escribirle nosotros, la acción que ofrece la cabecera es
-  // la que funciona entera: apuntar la cita. Sigue siendo LA acción de esta
-  // persona, así que conserva el acento; lo que cambia es a dónde lleva, porque
-  // detrás de "Invitar" no hay nadie escribiendo (ver `lib/whatsapp.ts`).
-  if (!WHATSAPP_LISTO) {
-    return (
-      <button type="button" onClick={onScheduleManually} className={BTN_PRIMARY_SM}>
-        <CalendarPlus className="size-3.5 text-indigo-200" aria-hidden />
-        Agendar entrevista
-      </button>
-    )
-  }
-  return (
-    <button type="button" onClick={onOpen} className={BTN_PRIMARY_SM}>
-      <MessageCircle className="size-3.5 text-indigo-200" aria-hidden />
-      Invitar a entrevista
-    </button>
-  )
-}
+// El botón de cabecera que vivía aquí se borra (ago 2026): no lo montaba NADIE
+// desde que las acciones bajaron al raíl de la ficha, y repetía esta misma
+// decisión (confirmada / negociando / WhatsApp apagado) en una copia que nadie
+// miraba. Dos formas de decidir lo mismo se separan a la primera, y la que no
+// se ve es la que se queda mintiendo. Lo que se pinta hoy es la línea
+// "Entrevista · <cuándo>" de `AccionesCandidato`, que abre `CambiarCitaDialog`.
 
 // Redondea al siguiente cuarto de hora del día siguiente: agendar "para dentro
 // de un rato" casi nunca es lo que se quiere, y proponer una hora en punto
@@ -133,6 +75,11 @@ export function AgendarManualDialog({
   useEffect(() => {
     if (!modoTocado.current) setModo(modoPorDefecto)
   }, [modoPorDefecto])
+
+  // Lo que ese anfitrión ya tiene cogido: sus otras entrevistas y, si lo ha
+  // conectado, su Google Calendar. Avisa antes de guardar, no bloquea.
+  const { choca } = useOcupado(anfitrion || null)
+  const solapa = choca(cuando, duracion)
 
   const telefono = typeof candidate.answers['telefono'] === 'string' ? candidate.answers['telefono'] : ''
 
@@ -234,6 +181,15 @@ export function AgendarManualDialog({
             Día y hora
           </label>
           <SelectorFechaHora id="ent-cuando" value={cuando} onChange={setCuando} />
+          {solapa && (
+            // Ámbar y no rojo: esto no es un error ni impide nada. Solaparse a
+            // propósito es legítimo, y lo que de verdad no se puede hacer ya lo
+            // para la base al guardar.
+            <p className="mt-1.5 flex items-start gap-1.5 text-[13px] text-amber-700">
+              <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              A esa hora ya tienes algo. Puedes seguir, pero míralo.
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -354,6 +310,254 @@ export function AgendarManualDialog({
         <button type="button" onClick={() => void guardar()} disabled={guardando} className={BTN_PRIMARY}>
           {guardando ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
           {guardando ? 'Agendando' : 'Agendar'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
+/**
+ * CAMBIAR LA CITA: mover la hora o cancelarla.
+ *
+ * Faltaba entera. El backend sabe reprogramar y cancelar desde agosto
+ * (`reschedule_interview`, `cancel_interview`) y no lo llamaba ni una pantalla:
+ * la única puerta hacia una cita confirmada era el botón "Ver entrevista", que
+ * lleva a la Conversación, y con WhatsApp apagado esa conversación está vacía.
+ * O sea que una vez agendada, la cita no se podía tocar desde la aplicación.
+ *
+ * SOLO SE OFRECE LO QUE EL SERVIDOR SABE MOVER: el día, la hora y la duración.
+ * `reschedule_interview` no toca la modalidad, ni el sitio, ni el anfitrión, así
+ * que pintar esos campos aquí sería enseñar controles que no guardan nada. Para
+ * cambiar eso hay que cancelar y volver a citar, y así se dice.
+ *
+ * Y LA HORA VIAJA COMO INSTANTE, no como hora de pared. Es la diferencia con
+ * `AgendarManualDialog`, que le pasa el texto del selector a un RPC que lo
+ * convierte con la zona de la empresa (`p_starts_local`); este RPC recibe un
+ * `timestamptz`, así que la conversión la hace el cliente con la zona de LA
+ * ENTREVISTA. Mandar el texto tal cual lo interpretaría Postgres en UTC y la
+ * cita se movería sola un par de horas.
+ */
+export function CambiarCitaDialog({
+  open,
+  entrevista,
+  candidate,
+  onClose,
+}: {
+  open: boolean
+  entrevista: Interview
+  candidate: Candidate
+  onClose: () => void
+}) {
+  const { rescheduleInterview, cancelInterview } = useStore()
+  const toast = useToast()
+
+  // La duración sale del propio rango: el tipo del cliente no la lleva aparte,
+  // y derivarla evita que dos números digan cosas distintas.
+  const duracionActual = useMemo(() => {
+    if (!entrevista.startsAt || !entrevista.endsAt) return 30
+    const min = Math.round((Date.parse(entrevista.endsAt) - Date.parse(entrevista.startsAt)) / 60_000)
+    return Number.isFinite(min) && min > 0 ? min : 30
+  }, [entrevista.startsAt, entrevista.endsAt])
+
+  const cuandoActual = useMemo(
+    () =>
+      entrevista.startsAt
+        ? `${dayKeyInZone(entrevista.startsAt, entrevista.timezone)}T${clockTimeInZone(entrevista.startsAt, entrevista.timezone)}`
+        : '',
+    [entrevista.startsAt, entrevista.timezone],
+  )
+
+  const [cuando, setCuando] = useState(cuandoActual)
+  const [duracion, setDuracion] = useState(duracionActual)
+  const [guardando, setGuardando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
+
+  // Al abrir sobre otra cita, los campos son los de ESA. Sin esto, abrir la de
+  // otro candidato enseñaría la hora del anterior.
+  const [citaPintada, setCitaPintada] = useState(entrevista.id)
+  if (citaPintada !== entrevista.id) {
+    setCitaPintada(entrevista.id)
+    setCuando(cuandoActual)
+    setDuracion(duracionActual)
+    setError(null)
+    setConfirmandoCancelar(false)
+  }
+
+  const { choca } = useOcupado(entrevista.hostUserId, entrevista.id)
+  const solapa = choca(cuando, duracion)
+  const sinCambios = cuando === cuandoActual && duracion === duracionActual
+
+  const guardar = async () => {
+    setError(null)
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(cuando)
+    if (!m) {
+      setError('Dinos qué día y a qué hora.')
+      return
+    }
+    const inicio = paredAUtc(
+      { y: Number(m[1]), m: Number(m[2]), d: Number(m[3]) },
+      Number(m[4]), Number(m[5]), entrevista.timezone,
+    )
+    // La hora que no existe en el salto de primavera. Guardarla dejaría la cita
+    // en un instante que ese día no ocurre.
+    if (!inicio) {
+      setError('Esa hora no existe ese día por el cambio de hora. Elige otra.')
+      return
+    }
+
+    setGuardando(true)
+    const res = await rescheduleInterview(entrevista.id, inicio.toISOString(), duracion)
+    setGuardando(false)
+
+    if (res.status === 'ok') {
+      toast.success('Cita cambiada.')
+      onClose()
+      return
+    }
+    if (res.status === 'demo') {
+      toast.show('En la demo solo puedes mirar. Crea tu cuenta para gestionar entrevistas de verdad.')
+      onClose()
+      return
+    }
+    if (res.status === 'ocupado') {
+      setError('Ya tienes otra entrevista a esa hora. Prueba con otro hueco.')
+      return
+    }
+    if (res.status === 'estado_no_valido') {
+      setError('Esta entrevista ya no está en pie, así que no se puede mover.')
+      return
+    }
+    setError('No se ha podido cambiar. Inténtalo otra vez.')
+  }
+
+  const cancelar = async () => {
+    setGuardando(true)
+    const res = await cancelInterview(entrevista.id)
+    setGuardando(false)
+    if (res.status === 'ok') {
+      toast.success('Entrevista cancelada.')
+      onClose()
+      return
+    }
+    if (res.status === 'demo') {
+      toast.show('En la demo solo puedes mirar.')
+      onClose()
+      return
+    }
+    if (res.status === 'ya_cerrada') {
+      setError('Esta entrevista ya estaba cerrada.')
+      return
+    }
+    setError('No se ha podido cancelar. Inténtalo otra vez.')
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} label="Cambiar la cita" maxWidthClass="sm:max-w-[460px]">
+      <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+        <div>
+          <h2 className="text-[17px] font-semibold text-slate-900">Cambiar la cita</h2>
+          <p className="mt-0.5 text-[13px] text-slate-500">
+            {candidateName(candidate)} · la hora es la del puesto.
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          onClick={onClose}
+          className="grid size-9 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+        >
+          <X className="size-5" aria-hidden />
+        </button>
+      </div>
+
+      <div className="space-y-4 overflow-y-auto px-5 py-4">
+        <div>
+          <label htmlFor="cita-cuando" className="mb-1 block text-[13px] font-semibold text-slate-700">
+            Día y hora
+          </label>
+          <SelectorFechaHora id="cita-cuando" value={cuando} onChange={setCuando} />
+          {solapa && (
+            <p className="mt-1.5 flex items-start gap-1.5 text-[13px] text-amber-700">
+              <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              A esa hora ya tienes algo. Puedes seguir, pero míralo.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="cita-duracion" className="mb-1 block text-[13px] font-semibold text-slate-700">
+            Duración
+          </label>
+          <select
+            id="cita-duracion"
+            value={duracion}
+            onChange={(e) => setDuracion(Number(e.target.value))}
+            className="h-11 w-full rounded-xl border border-slate-300 px-3 text-[15px] text-slate-900"
+          >
+            {[15, 20, 30, 45, 60, 90].map((m) => (
+              <option key={m} value={m}>{m} min</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Lo que NO pasa al cambiar la hora. Con el canal apagado no sale ni un
+            mensaje, y quien mueve una cita da por hecho que se avisa: es la
+            regla de siempre, una nota se gana el sitio cuando avisa de que lo
+            que ves no es lo que el control dice. */}
+        <p className="text-[13px] text-slate-500">
+          {WHATSAPP_LISTO
+            ? 'Al guardar se lo decimos al candidato.'
+            : 'Al candidato no le avisamos nosotros: díselo tú por teléfono o por WhatsApp.'}
+        </p>
+
+        {error && (
+          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700 ring-1 ring-inset ring-red-200">
+            {error}
+          </p>
+        )}
+
+        {/* Cancelar vive aquí y no como un tercer botón de la ficha: es una
+            acción sobre LA CITA, no sobre la persona, y este diálogo ES la
+            cita. Se confirma en el sitio y no en un diálogo encima, porque dos
+            capas apiladas se pelean por el Escape. */}
+        <div className="border-t border-slate-100 pt-4">
+          {confirmandoCancelar ? (
+            <div className="rounded-xl filo bg-slate-50 p-3">
+              <p className="text-[13px] text-slate-700">
+                La cita se anula y el hueco queda libre. El candidato se queda en el estado
+                que tenga: eso lo decides tú.
+              </p>
+              <div className="mt-2.5 flex gap-2">
+                <button type="button" onClick={() => void cancelar()} disabled={guardando} className={BTN_PRIMARY_SM}>
+                  {guardando ? 'Cancelando...' : 'Cancelar la entrevista'}
+                </button>
+                <button type="button" onClick={() => setConfirmandoCancelar(false)} className={BTN_SECONDARY_SM}>
+                  Volver
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmandoCancelar(true)}
+              className="text-[13px] font-medium text-slate-600 underline-offset-2 hover:text-slate-900 hover:underline"
+            >
+              Cancelar la entrevista
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
+        <button type="button" onClick={onClose} className={BTN_SECONDARY}>Cerrar</button>
+        <button
+          type="button"
+          onClick={() => void guardar()}
+          disabled={guardando || sinCambios}
+          className={`${BTN_PRIMARY} disabled:opacity-50`}
+        >
+          {guardando ? 'Guardando...' : 'Guardar el cambio'}
         </button>
       </div>
     </Modal>

@@ -25,6 +25,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { ejecutarTrabajoDeCanal, TRABAJOS_DE_CANAL, type Job as JobCanal } from '../_shared/whatsapp/agente.ts'
+import { sincronizarCalendario } from '../_shared/google/sync.ts'
 
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -67,6 +68,11 @@ async function ejecutar(job: Job): Promise<void> {
       return
     }
 
+    // El calendario del anfitrión. Devuelve el mismo vocabulario que los
+    // trabajos de canal (hecho / obsoleto / fallo), así que se resuelve arriba
+    // igual que ellos y no aquí: este `switch` es para lo que solo sabe decir
+    // "va" o "no va".
+
     // Los avisos por correo se retiraron. Los que quedaran en cola de antes del
     // despliegue no son un fallo: ya no proceden, y la conversación que los
     // originó lleva su marca desde el momento en que se escaló.
@@ -98,6 +104,26 @@ Deno.serve(async (req) => {
   // de un minuto.
   for (const job of jobs) {
     try {
+      if (job.kind === 'sincronizar_calendario') {
+        if (!job.interview_id) {
+          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: null, p_error: 'sin entrevista' })
+          cancelados++
+          continue
+        }
+        const r = await sincronizarCalendario(admin, job.interview_id)
+        if (r.tipo === 'hecho') {
+          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: true })
+          ok++
+        } else if (r.tipo === 'obsoleto') {
+          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: null, p_error: r.motivo })
+          cancelados++
+        } else {
+          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: false, p_error: r.motivo })
+          fallidos++
+        }
+        continue
+      }
+
       if (TRABAJOS_DE_CANAL.has(job.kind)) {
         // El agente decide él si procede, porque solo él tiene el contexto
         // (epoch, ventana de 24 h, baja, estado del puesto).
