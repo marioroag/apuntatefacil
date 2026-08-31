@@ -464,34 +464,44 @@
      · el atributo: sin él, todo esto son clases inertes y el hero es el de
        siempre. No hay dos maquetaciones que mantener, hay una con un realce. */
 @media (min-width: 64rem) and (prefers-reduced-motion: no-preference) {
-  /* Cuánto sube y cuánto tarda el encogido en arrancar detrás. El retardo es un
-     tercio de la duración: lo justo para que la subida se lea como un movimiento
-     propio y no tanto como para que parezcan dos animaciones sueltas. */
-  .hero-texto, .hero-ventana { --hero-sube: 18px; --hero-retardo: 190ms; }
+  /* SUBIR Y ENCOGER VAN A LA VEZ PERO A DISTINTO RITMO: al principio sube mucho y
+     encoge poco, y al final al revés. Tiene nombre, es `overlapping action` (una
+     de las doce reglas clásicas de animación): las partes de un gesto no arrancan
+     y paran juntas, una lidera y la otra la sigue. Es lo que separa un movimiento
+     vivo de dos propiedades cambiando en bloque.
+
+     No hace falta escalonarlas con retardos (eso las partiría en dos tiempos, que
+     es de lo que veníamos): misma duración, retardo cero y UNA CURVA DISTINTA POR
+     PROPIEDAD. Y no hay que inventar curvas, porque las dos de la casa ya están
+     medidas para esto: `--ease-out` llega al 62% del recorrido en el 20% del
+     tiempo y `--ease-standard` solo al 13%. Así que a un quinto del gesto la
+     subida va por el 62% y el encogido por el 13%; en la segunda mitad se invierte
+     (la subida le queda un 12% y al encogido un 50%). Las dos aterrizan blandas.
+
+     Por eso van como propiedades individuales `translate` y `scale`: un solo
+     `transform` es UNA propiedad y solo admite una curva. Ojo si alguien añade
+     luego un `transform` a esta pieza: se compondría con estas dos en vez de
+     sustituirlas.
+
+     El origen ARRIBA es lo que deja que convivan: encoger desde el centro tiraría
+     del filo superior hacia abajo mientras la subida lo empuja hacia arriba, y se
+     frenarían la una a la otra. Attio puede usar el centro porque su mock no se
+     desplaza; el nuestro sí. */
   .hero-texto {
     transition: opacity var(--duration-hero) var(--ease-standard);
   }
-  /* El mock PRIMERO sube unos píxeles y DESPUÉS encoge, no las dos cosas a la vez:
-     así el gesto se lee como que la ventana se despega y se asienta, en vez de
-     como un cambio de tamaño a secas. Para escalonarlos hacen falta dos
-     transiciones con tiempos distintos, y eso NO se puede con un solo `transform`
-     (es una propiedad, tiene una transición). Van como propiedades individuales,
-     `translate` y `scale`, que son justo lo que existe para esto. Ojo si alguien
-     añade luego un `transform` a esta pieza: se compondría con estas dos en vez de
-     sustituirlas, y el resultado sería la suma de ambas.
-
-     Origen en el CENTRO, como el de Attio (`origin-center`): encoge hacia dentro
-     por los cuatro lados en vez de descolgarse desde un borde. */
   .hero-ventana {
-    transform-origin: center;
+    --hero-sube: 44px;
+    --hero-escala: 0.92;
+    transform-origin: top center;
     transition:
-      translate var(--duration-hero) var(--ease-standard),
-      scale var(--duration-hero) var(--ease-standard) var(--hero-retardo);
+      translate var(--duration-hero) var(--ease-out),
+      scale var(--duration-hero) var(--ease-standard);
   }
   [data-hero='movido'] .hero-texto { opacity: 0; }
   [data-hero='movido'] .hero-ventana {
     translate: 0 calc(var(--hero-sube) * -1);
-    scale: 0.885;
+    scale: var(--hero-escala);
   }
 }
 
