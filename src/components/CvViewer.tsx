@@ -11,6 +11,14 @@ import { MERIDIAN_NAME, type CitaCv } from '../lib/meridian'
  * obligado a citar literal y el CÓDIGO localiza la cita en el documento
  * (lib/citas), cada marca es la prueba física de que Meridian no se lo inventa.
  *
+ * EL DOCUMENTO SE MUESTRA ENTERO, no en una caja con su propio scroll (Mario,
+ * ago 2026): las páginas se apilan a su alto natural y quien se desplaza es la
+ * columna de la ficha, que es la regla de la casa ("una superficie, un
+ * scroll"). Con la caja de 520px había dos barras anidadas, y de regalo se va
+ * la pereza por posición de scroll: todas las páginas se renderizan al abrir
+ * (un CV son 1-3; el tope de 12 acota el resto), que es menos piezas que
+ * pueden fallar y por eso también más difícil que el visor se quede a medias.
+ *
  * Decisiones que no son opcionales:
  *  - pdf.js entra por import() dinámico (lib/pdf): pesa ~1MB y solo lo paga
  *    quien abre un CV. El iframe sigue existiendo como plan B (prop onFallo):
@@ -19,15 +27,16 @@ import { MERIDIAN_NAME, type CitaCv } from '../lib/meridian'
  *    tamaño de página; el canvas se renderiza aparte a la resolución del
  *    contenedor. Así un resize no recoloca marcas (los % no cambian) y el
  *    bitmap puede regenerarse sin tocar la capa de subrayado.
- *  - El render de páginas es PEREZOSO POR POSICIÓN DE SCROLL, no por
- *    IntersectionObserver: IO no dispara en el preview embebido (gotcha
- *    documentado del proyecto), y un CV son 2 o 3 páginas.
+ *  - El viaje a una cita es un scrollIntoView SOBRE LA PROPIA MARCA: el
+ *    navegador desplaza el contenedor que toque (la columna de la ficha), y
+ *    desaparece la aritmética de offsetTop contra un contenedor propio que ya
+ *    costó un bug de 1400px.
  *  - Las marcas son ámbar de marcador (ver .cita-cv en index.css, excepción
  *    declarada) y NO son botones: un control que no hace nada es una puerta
- *    pintada. El índice interactivo de las citas es el INFORME de Meridian
- *    (cada juicio enlaza aquí); la marca lleva `title` para el hover y el
- *    recuento de la línea de estado dice cuántas hay. El canal accesible de
- *    las citas es el informe, que las tiene todas en texto.
+ *    pintada. El índice interactivo de las citas es el INFORME de Meridian;
+ *    la marca lleva `title` para el hover y el recuento de la línea de estado
+ *    dice cuántas hay. El canal accesible de las citas es el informe, que las
+ *    tiene todas en texto.
  */
 
 export interface CitaActiva {
@@ -81,13 +90,8 @@ export function CvViewer({
 }) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const [paginas, setPaginas] = useState<Pagina[] | null>(null)
-  // Hasta qué página (índice excluido) se pinta el bitmap. Las capas de marcas
-  // y el alto de la página existen desde el principio (aspect-ratio), así que
-  // la barra de scroll mide bien aunque el bitmap llegue después.
-  const [pintadas, setPintadas] = useState(2)
   const [flash, setFlash] = useState<CitaActiva | null>(null)
-  const contRef = useRef<HTMLDivElement>(null)
-  const wrapperRefs = useRef<(HTMLDivElement | null)[]>([])
+  const rootRef = useRef<HTMLDivElement>(null)
 
   // Un ArrayBuffer TRANSFERIDO al worker queda inservible para un segundo
   // getDocument (React 18+ remonta efectos en dev): se le pasa una copia. El
@@ -146,41 +150,28 @@ export function CvViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
-  // Pereza por scroll: una página empieza a renderizarse cuando su caja entra
-  // en el horizonte (pantalla y media por delante).
-  const alScroll = () => {
-    const cont = contRef.current
-    if (!cont || !paginas) return
-    const horizonte = cont.scrollTop + cont.clientHeight * 1.5
-    let necesarias = pintadas
-    for (let i = pintadas; i < paginas.length; i++) {
-      const wrapper = wrapperRefs.current[i]
-      if (wrapper && wrapper.offsetTop < horizonte) necesarias = i + 1
-    }
-    if (necesarias > pintadas) setPintadas(necesarias)
-  }
-
-  // El viaje hasta una cita: se asegura su página, se hace scroll y destella.
-  // Si la cita no se pudo localizar, el visor LO DICE en su línea de estado en
-  // vez de quedarse quieto: un toque que no hace nada visible es un toque roto.
+  // El viaje hasta una cita: scroll suave HASTA LA MARCA y destello. El
+  // scrollIntoView va sobre el span de la marca, así que desplaza el scroll
+  // que corresponda (la columna de la ficha): el visor no necesita saber en
+  // qué contenedor vive. Si la cita no se pudo localizar, el visor LO DICE en
+  // su línea de estado: un toque que no hace nada visible es un toque roto.
   const [noEncontrada, setNoEncontrada] = useState(false)
   useEffect(() => {
     if (!citaActiva || !paginas) return
-    const idx = paginas.findIndex((p) => p.marcas.some((m) => m.citaId === citaActiva.id))
-    if (idx < 0) {
+    const hay = paginas.some((p) => p.marcas.some((m) => m.citaId === citaActiva.id))
+    if (!hay) {
       setNoEncontrada(true)
       return
     }
     setNoEncontrada(false)
-    setPintadas((n) => Math.max(n, idx + 1))
-    const cont = contRef.current
-    const wrapper = wrapperRefs.current[idx]
-    if (cont && wrapper) {
-      const marca = paginas[idx].marcas.find((m) => m.citaId === citaActiva.id)!
-      const y = wrapper.offsetTop + (marca.top / 100) * wrapper.clientHeight
-      cont.scrollTo({ top: Math.max(0, y - 80), behavior: 'smooth' })
-    }
     setFlash(citaActiva)
+    // Al fotograma siguiente: el destello remonta el span (cambia su clave) y
+    // hay que desplazarse al nodo que queda en el DOM, no al que se va.
+    requestAnimationFrame(() => {
+      rootRef.current
+        ?.querySelector(`[data-cita="${CSS.escape(citaActiva.id)}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
   }, [citaActiva, paginas])
 
   const localizadas = useMemo(() => {
@@ -197,7 +188,7 @@ export function CvViewer({
 
   if (!paginas) {
     return (
-      <div className="grid min-h-[360px] flex-1 place-items-center bg-slate-50 px-6 text-center">
+      <div className="grid min-h-[240px] place-items-center bg-slate-50 px-6 text-center">
         <p className="text-sm text-slate-500" role="status">
           Abriendo el CV…
         </p>
@@ -206,33 +197,21 @@ export function CvViewer({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div ref={rootRef}>
       {linea && (
         <p className="border-b border-slate-100 px-4 py-2 text-[12px] leading-4 text-slate-500 sm:px-3.5">
           {linea}
         </p>
       )}
-      <div
-        ref={contRef}
-        onScroll={alScroll}
-        // `relative` NO es decorativo: los offsetTop de las páginas (el viaje a
-        // una cita y la pereza por scroll) se miden contra el offsetParent, y
-        // sin posicionar esta caja el pariente era el MODAL: el scroll a una
-        // cita apuntaba 1400px más abajo y aterrizaba clavado al fondo (medido).
-        className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-100 p-3"
-        aria-label={titulo}
-      >
+      <div className="bg-slate-100 p-3" aria-label={titulo}>
         <div className="mx-auto max-w-[720px] space-y-3">
-          {paginas.map((p, i) => (
+          {paginas.map((p) => (
             <div
               key={p.num}
-              ref={(el) => {
-                wrapperRefs.current[i] = el
-              }}
               className="relative w-full overflow-hidden rounded-sm bg-white shadow-card"
               style={{ aspectRatio: `${p.w} / ${p.h}` }}
             >
-              <PaginaCanvas doc={doc} num={p.num} baseW={p.w} pintar={i < pintadas} />
+              <PaginaCanvas doc={doc} num={p.num} baseW={p.w} />
               {p.marcas.map((m, k) => {
                 const activa = flash?.id === m.citaId
                 return (
@@ -241,6 +220,7 @@ export function CvViewer({
                     // es lo que re-lanza la animación al pedir la misma cita otra vez.
                     key={activa ? `${k}-${flash!.n}` : k}
                     aria-hidden
+                    data-cita={m.citaId}
                     title={`Evidencia de ${MERIDIAN_NAME}: ${m.etiqueta}`}
                     className={`cita-cv absolute ${activa ? 'cita-flash' : ''}`}
                     style={{
@@ -301,24 +281,22 @@ function aMarca(
 }
 
 // El bitmap de una página, renderizado a la resolución real del contenedor
-// (nítido en retina) cuando le llega el turno. La caja la pone el padre con
-// aspect-ratio, así que antes de renderizar ya ocupa su sitio.
+// (nítido en retina). La caja la pone el padre con aspect-ratio, así que antes
+// de renderizar ya ocupa su sitio y la página no salta.
 function PaginaCanvas({
   doc,
   num,
   baseW,
-  pintar,
 }: {
   doc: PDFDocumentProxy | null
   num: number
   baseW: number
-  pintar: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const hecho = useRef(false)
 
   useEffect(() => {
-    if (!pintar || !doc || hecho.current) return
+    if (!doc || hecho.current) return
     const canvas = canvasRef.current
     if (!canvas) return
     let vivo = true
@@ -344,7 +322,7 @@ function PaginaCanvas({
       vivo = false
       tarea?.cancel()
     }
-  }, [pintar, doc, num, baseW])
+  }, [doc, num, baseW])
 
   return <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-hidden />
 }

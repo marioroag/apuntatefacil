@@ -309,22 +309,21 @@ export function CandidateModal({
   const contenidoTrayectoria = (
     <TrayectoriaTab pideCv={!!cvField} tieneCv={!!candidate.cvPath} ai={candidate.ai} trayectoria={trayectoria} />
   )
-  // Alto declarado: el visor es un `flex-1` y dentro de una columna que scrollea
-  // no tiene contra qué medirse, así que sin esto se quedaría en su `min-h`. El
-  // techo en vh es para que en una pantalla baja no empuje el resto fuera.
+  // El documento se enseña ENTERO, sin caja con scroll propio (Mario, ago
+  // 2026): las páginas se apilan a su alto y se desplaza la columna de la
+  // ficha, que es la regla de la casa ("una superficie, un scroll"). La caja
+  // de 520px metía una segunda barra dentro de la columna.
   const contenidoDocumentos = candidate.cvPath ? (
     <div ref={documentosRef} className="scroll-mt-4">
-      <div className="flex h-[520px] max-h-[68vh] flex-col">
-        <Cv
-          key={candidate.id}
-          candidate={candidate}
-          cvName={cvName}
-          citas={citasCv}
-          citaActiva={citaActiva}
-          cvLeido={candidate.ai && !candidate.ai.error ? candidate.ai.cvLeido : undefined}
-          onLocalizadas={(ids) => setCitasLocalizadas(new Set(ids))}
-        />
-      </div>
+      <Cv
+        key={candidate.id}
+        candidate={candidate}
+        cvName={cvName}
+        citas={citasCv}
+        citaActiva={citaActiva}
+        cvLeido={candidate.ai && !candidate.ai.error ? candidate.ai.cvLeido : undefined}
+        onLocalizadas={(ids) => setCitasLocalizadas(new Set(ids))}
+      />
     </div>
   ) : (
     <p className="pb-3.5 text-[13px] leading-5 text-slate-500 sm:px-3.5">
@@ -1455,9 +1454,9 @@ function Cv({
   // separadas por un filo de interior (`slate-100`, el que guía) igual que las
   // filas de Respuestas. Con su propio `rounded-xl filo` había un borde dentro
   // de otro a 12px de distancia.
-  const banda = 'grid flex-1 place-items-center bg-slate-50 px-6 text-center'
+  const banda = 'grid place-items-center bg-slate-50 px-6 text-center'
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-slate-100 py-2.5 sm:px-3.5">
         {/* Decorativo: en móvil no hay sitio y el nombre del archivo manda. */}
         <FileText className="hidden size-4 shrink-0 text-slate-500 sm:block" aria-hidden />
@@ -1510,7 +1509,7 @@ function Cv({
       ) : visorFallo && url ? (
         // Plan B: el iframe de siempre. Enseña el documento sin subrayados; las
         // citas siguen enteras, en texto, en el informe de Meridian.
-        <iframe src={url} title={`CV de ${candidateName(candidate) || 'el candidato'}`} className="min-h-[360px] flex-1 bg-slate-50" />
+        <iframe src={url} title={`CV de ${candidateName(candidate) || 'el candidato'}`} className="h-[560px] w-full bg-slate-50" />
       ) : bytes ? (
         <CvViewer
           data={bytes}
