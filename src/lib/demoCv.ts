@@ -81,8 +81,8 @@ export const CV_JOAQUIN: DemoCv = {
   titular: 'Oficial de primera (albañilería)',
   contacto: 'Valencia · 655 902 314 · joaquin.soler@example.org',
   perfil:
-    'Oficial de primera con tajo propio en obra nueva y rehabilitación. Fábrica, ' +
-    'enfoscados y remates finos, acostumbrado a trabajar con peón de apoyo.',
+    'Oficial de primera en obra nueva y rehabilitación. Fábrica, enfoscados y ' +
+    'remates finos, acostumbrado a trabajar con peón de apoyo.',
   experiencia: [
     {
       titulo: 'Oficial de 1ª · Construcciones Turia Levante · sep 2019 - actualidad',

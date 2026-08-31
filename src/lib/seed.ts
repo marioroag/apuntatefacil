@@ -193,7 +193,7 @@ const campaigns: Campaign[] = [
       showLogo: true,
     },
     anuncio: anunciar({
-      descripcion: 'Obra nueva y reforma en Valencia y alrededores, con cuadrillas de tres o cuatro personas.\nEntras ayudando a oficial: encofrado, limpieza de tajo, mezcla y acopio de material.\nJornada completa de lunes a viernes, de 7 a 15, con la tarde libre.',
+      descripcion: 'Obra nueva y reforma en Valencia y alrededores, con cuadrillas de tres o cuatro personas.\nEntras ayudando a oficial: encofrado, limpieza, mezcla y acopio de material.\nJornada completa de lunes a viernes, de 7 a 15, con la tarde libre.',
       modalidad: 'presencial',
       salarioMin: 18000, salarioMax: 21000, salarioPeriodo: 'año',
       contrato: 'Indefinido', jornada: 'Completa',
@@ -231,7 +231,7 @@ const campaigns: Campaign[] = [
       showLogo: true,
     },
     anuncio: anunciar({
-      descripcion: 'Buscamos oficial de 1ª para llevar tajo propio en obras de Valencia ciudad y área metropolitana.\nTrabajo de fábrica, enfoscado y remates, con peón de apoyo.\nHay continuidad: llevamos tres promociones seguidas con el mismo cliente.',
+      descripcion: 'Buscamos oficial de 1ª para trabajar con autonomía en obras de Valencia ciudad y área metropolitana.\nTrabajo de fábrica, enfoscado y remates, con peón de apoyo.\nHay continuidad: llevamos tres promociones seguidas con el mismo cliente.',
       modalidad: 'presencial',
       salarioMin: 24000, salarioMax: 28000, salarioPeriodo: 'año',
       contrato: 'Indefinido', jornada: 'Completa',
@@ -770,7 +770,7 @@ function informeFor(
       : fit >= 45
         ? pick([
             'Se queda a medio camino de lo que pide el puesto.',
-            'Tiene base, con flecos que aclarar antes de moverla.',
+            'Tiene base, con puntos por aclarar antes de moverla.',
             'Podría encajar, con más de un detalle por confirmar.',
           ])
         : pick([
@@ -797,7 +797,7 @@ function informeFor(
     frases.push(
       ev.toLowerCase().includes(ultima)
         ? `Se queda corto: ${enFrase(ev)}.`
-        : `Cojea en ${enFrase(p.nombre)}: ${enFrase(ev)}.`,
+        : `Se queda a medias en ${enFrase(p.nombre)}: ${enFrase(ev)}.`,
     )
   }
   if (porSaber.length > 0) {
@@ -1029,7 +1029,7 @@ candidates.push({
       'El carnet en vigor y las carretillas que pide el puesto no los dice solo el ' +
       'formulario: están escritos en su CV, y los tres turnos los cubre. Lo que le ' +
       'pediría aclarar antes de nada es la experiencia, porque responde 5 años y las ' +
-      'etapas de su CV empiezan en 2021: no me salen las cuentas. Con eso resuelto, ' +
+      'etapas de su CV empiezan en 2021: las dos cifras no cuadran. Con eso resuelto, ' +
       'es de las candidaturas fuertes del proceso.',
     valores: {
       carnet_vigente: { valor: 'cumple', evidencia: CITAS_ANDREI.carnet, fuente: 'cv' },
@@ -1088,14 +1088,14 @@ candidates.push({
     campaignId: 'cmp_oficial',
     analyzedAt: entradaJoaquin,
     summary:
-      'Oficial asentado: la PRL de 60 horas y siete años en el mismo tajo están ' +
+      'Oficial con recorrido: la PRL de 60 horas y siete años en la misma empresa están ' +
       'confirmados en el CV. Solo la incorporación en 15 días se aleja de lo pedido.',
     informe:
-      'Oficial asentado: la PRL de 60 horas y siete años en la misma empresa están ' +
+      'Oficial con recorrido: la PRL de 60 horas y siete años en la misma empresa están ' +
       'escritos en su CV, con la tarjeta TPC en vigor, y domina las dos especialidades ' +
-      'que pide la obra. El único fleco es la incorporación, que responde en 15 días ' +
-      'cuando aquí se busca antes. Yo lo tendría en la terna final y cerraría fechas ' +
-      'en la primera llamada.',
+      'que pide la obra. Lo único que se aleja de lo pedido es la incorporación, que ' +
+      'responde en 15 días cuando aquí se busca antes. Yo lo tendría entre los finalistas ' +
+      'y cerraría fechas en la primera llamada.',
     valores: {
       prl: { valor: 'cumple', evidencia: CITAS_JOAQUIN.prl, fuente: 'cv' },
       // Lo declarado y lo acreditado, cada uno en su criterio: la respuesta

@@ -584,7 +584,7 @@ const Ctx = createContext<Store | null>(null)
 // nivel y evidencia. Un estado v9 guardado los traería sin desglose en la ficha.
 // v11: el anuncio del puesto (ago 2026). Un estado v10 guardado traería los seis
 // puestos sin anuncio, o sea con la pantalla nueva vacía en toda la demo.
-const DEMO_KEY = 'apuntatefacil.demo.v17'
+const DEMO_KEY = 'apuntatefacil.demo.v18'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
