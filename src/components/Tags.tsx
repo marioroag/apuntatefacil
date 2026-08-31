@@ -5,11 +5,12 @@ import type { Tag } from '../lib/types'
 import { useStore, normalizeTagName } from '../lib/store'
 import { tagTone } from '../lib/format'
 import { colocarFlotante } from '../lib/flotante'
-import { useEsTactil } from '../lib/media'
+import { useEsMovil, useEsTactil } from '../lib/media'
 import { useToast } from './ui/Toast'
 import { ConfirmDialog } from './ui/ConfirmDialog'
+import { BottomSheet } from './ui/BottomSheet'
 import { Checkbox } from './ui/Checkbox'
-import { BTN_PRIMARY_SM, BTN_SECONDARY } from '../lib/buttons'
+import { BTN_PRIMARY_SM, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 
 // ---------------------------------------------------------------------------
 // Etiquetas: clasificación libre del empresario. El candidato nunca las ve.
@@ -263,18 +264,46 @@ export function TagSection({
   )
 }
 
-// Modal "Gestionar etiquetas" (owner/member): renombrar y eliminar el vocabulario.
+/**
+ * GESTIONAR ETIQUETAS: renombrar y eliminar el vocabulario de la empresa.
+ *
+ * EN MÓVIL ES UNA HOJA QUE SUBE, no el diálogo centrado (Mario, ago 2026:
+ * "gestionar etiquetas en móvil se sale de la pantalla, hazlo con un slide").
+ * Y se salía de verdad: al renombrar, la fila pone un campo, "Guardar" y
+ * "Cancelar" en línea, y eso mide **377px en una ventana de 375** (medido), así
+ * que "Cancelar" acababa fuera. Un diálogo centrado, además, es la peor forma en
+ * un teléfono en cuanto hay un campo: al abrirse el teclado, el sistema encoge
+ * la ventana visible y lo que estaba centrado se va por arriba.
+ *
+ * La hoja lo arregla por su forma: nace pegada abajo, o sea justo encima del
+ * teclado, y ocupa el ancho entero. Es la misma pieza que ya usan Filtros, el
+ * `···` de un puesto y Cambiar estado, así que aquí no se inventa nada.
+ *
+ * Pero la hoja NO arregla la fila: 375px siguen sin dar para un campo y dos
+ * botones. En táctil la edición se parte en dos renglones (el campo entero
+ * arriba, los botones debajo). Y las dos acciones de cada etiqueta suben a
+ * objetivo de toque: medían 26px, poco más de la mitad del mínimo.
+ *
+ * `useEsMovil` DECIDE QUÉ SE MONTA, no qué se ve: la hoja atrapa el foco y
+ * escucha el Escape en `document`, así que montada y escondida con `sm:hidden`
+ * se tragaría el Escape del diálogo de confirmación. Es la misma regla que ya
+ * obliga a montar `BottomSheet` solo en móvil en el menú de un puesto.
+ */
 export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { tags, tagUsage, renameTag, deleteTag, restoreTag, candidates } = useStore()
   const toast = useToast()
+  const esMovil = useEsMovil()
   const [editId, setEditId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [confirm, setConfirm] = useState<Tag | null>(null)
 
   useEffect(() => {
     if (!open) return
-    // Captura el Escape ANTES que capas de debajo (p. ej. el SlideOver de la ficha):
-    // así cerrar el modal no cierra también la ficha. Cierra de dentro hacia fuera.
+    // Captura el Escape ANTES que capas de debajo (p. ej. la ficha del candidato):
+    // así cerrar esto no cierra también la ficha. Cierra de dentro hacia fuera.
+    // Y al cortar la propagación aquí, el Escape propio de `BottomSheet` (que
+    // escucha en el mismo nodo, en fase de burbuja) no llega a dispararse: no hay
+    // dos cierres, solo este.
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       e.stopPropagation()
@@ -313,6 +342,140 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
     })
   }
 
+  // El vocabulario, igual en las dos superficies: lo que cambia es el envoltorio,
+  // no la lista. Es lo mismo que hacen el submenú de Sede y el de Exportar, que
+  // son páginas en móvil y paneles al lado en escritorio con un solo contenido.
+  const lista =
+    sorted.length === 0 ? (
+      <p className="px-2 py-8 text-center text-sm text-slate-500">
+        Aún no tienes etiquetas. Créalas desde la ficha de un candidato.
+      </p>
+    ) : (
+      <ul className="space-y-0.5">
+        {sorted.map((t) => {
+          const usage = tagUsage(t.id)
+          const editing = editId === t.id
+          return (
+            <li
+              key={t.id}
+              // `flex-wrap` SOLO en la fila que se está editando, y esto se vio en
+              // pantalla: puesto en todas, la fila de "Documentación OK" mandaba su
+              // papelera a un segundo renglón en vez de encoger el chip. Sin envolver,
+              // el chip hace lo que sabe hacer (encoger y recortar, con el nombre
+              // entero en su `title`), que es lo correcto en una fila de alto fijo;
+              // envolviendo, una lista de siete etiquetas se lee a saltos.
+              className={`flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50 ${
+                editing ? 'flex-wrap' : ''
+              }`}
+            >
+              {editing ? (
+                <>
+                  <input
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveEdit()
+                      if (e.key === 'Escape') {
+                        e.stopPropagation()
+                        setEditId(null)
+                      }
+                    }}
+                    autoFocus
+                    maxLength={40}
+                    // 16px en táctil no es estética: por debajo de eso iOS hace
+                    // zoom al enfocar, y aquí el campo aparece justo encima del
+                    // teclado que acaba de abrirse.
+                    className="h-9 min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 pointer-coarse:h-11 pointer-coarse:basis-full pointer-coarse:text-base"
+                  />
+                  {/* `min-h-11` y no otra talla de botón: `BTN_PRIMARY_SM` fija
+                      un `h-8`, y en la misma fila "Cancelar" ya sube a 44 en
+                      táctil, así que sin esto la pareja quedaba en escalera (32
+                      contra 44, medido). El mínimo y el alto son propiedades
+                      distintas, así que componen en vez de pelearse. */}
+                  <button onClick={saveEdit} className={`${BTN_PRIMARY_SM} shrink-0 pointer-coarse:ml-auto pointer-coarse:min-h-11`}>
+                    Guardar
+                  </button>
+                  <button
+                    onClick={() => setEditId(null)}
+                    className="shrink-0 rounded-lg px-2 py-1.5 text-[13px] font-medium text-slate-500 hover:bg-slate-100 pointer-coarse:min-h-11"
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <TagChip id={t.id} name={t.name} vocabulario={tags} glyph />
+                  <span className="ml-auto shrink-0 text-[12px] num text-slate-500">
+                    {usage} {usage === 1 ? 'candidato' : 'candidatos'}
+                  </span>
+                  {/* Los dos verbos salen de `botonIcono`, no de una pintura
+                      escrita aquí: medían 26px, poco más de la mitad del objetivo
+                      de toque, y en una hoja de móvil eso es fallar el dedo. Son
+                      además los mismos dos que corrigen y borran una nota, así
+                      que se leen igual. */}
+                  <button
+                    onClick={() => startEdit(t)}
+                    aria-label={`${COPY.rename} ${t.name}`}
+                    title={COPY.rename}
+                    className={botonIcono('ghost', 'md')}
+                  >
+                    <Pencil className="size-3.5" aria-hidden />
+                  </button>
+                  <button
+                    onClick={() => setConfirm(t)}
+                    aria-label={`${COPY.remove} ${t.name}`}
+                    title={COPY.remove}
+                    className={botonIcono('ghost', 'md', 'hover:bg-red-50 hover:text-red-600')}
+                  >
+                    <Trash2 className="size-3.5" aria-hidden />
+                  </button>
+                </>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    )
+
+  // La nota del vocabulario común: en el diálogo cabe bajo el título; en la hoja,
+  // cuyo título es una sola línea, abre el cuerpo. Es la misma frase en el mismo
+  // sitio de lectura, no dos textos.
+  const nota = 'El vocabulario es común a toda tu empresa.'
+
+  const confirmar = (
+    <ConfirmDialog
+      open={!!confirm}
+      onClose={() => setConfirm(null)}
+      onConfirm={() => confirm && doDelete(confirm)}
+      title={`¿Eliminar «${confirm?.name}»?`}
+      confirmLabel="Eliminar"
+      confirmVariant="danger"
+    >
+      {confirm && (() => {
+        const n = tagUsage(confirm.id)
+        return n > 0 ? (
+          <>Se quitará de <strong className="font-semibold text-slate-800">{n} {n === 1 ? 'candidato' : 'candidatos'}</strong>. Podrás deshacerlo justo después.</>
+        ) : (
+          <>No la usa ningún candidato. Podrás deshacerlo justo después.</>
+        )
+      })()}
+    </ConfirmDialog>
+  )
+
+  if (esMovil)
+    return (
+      <>
+        {/* `z-[55]` y no el z-50 de fábrica: esto se abre DESDE la ficha del
+            candidato, que ya es un modal a 50. Y `inert` mientras el diálogo de
+            confirmación está encima, o la hoja le robaría el foco. */}
+        <BottomSheet open={open} onClose={onClose} title={COPY.manage} zClass="z-[55]" inert={!!confirm}>
+          <p className="px-4 pb-1 pt-3 text-[13px] text-slate-500">{nota}</p>
+          <div className="px-2 pb-3 pt-1">{lista}</div>
+        </BottomSheet>
+        {confirmar}
+      </>
+    )
+
   return (
     <div className="fixed inset-0 z-[55] grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="managetags-title">
       <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
@@ -320,7 +483,7 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
           <div>
             <h2 id="managetags-title" className="text-lg font-semibold text-slate-900">{COPY.manage}</h2>
-            <p className="mt-0.5 text-[13px] text-slate-500">El vocabulario es común a toda tu empresa.</p>
+            <p className="mt-0.5 text-[13px] text-slate-500">{nota}</p>
           </div>
           <button
             onClick={onClose}
@@ -331,90 +494,10 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-3 py-3">
-          {sorted.length === 0 ? (
-            <p className="px-2 py-8 text-center text-sm text-slate-500">
-              Aún no tienes etiquetas. Créalas desde la ficha de un candidato.
-            </p>
-          ) : (
-            <ul className="space-y-0.5">
-              {sorted.map((t) => {
-                const usage = tagUsage(t.id)
-                const editing = editId === t.id
-                return (
-                  <li key={t.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50">
-                    {editing ? (
-                      <>
-                        <input
-                          value={draft}
-                          onChange={(e) => setDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') saveEdit()
-                            if (e.key === 'Escape') {
-                              e.stopPropagation()
-                              setEditId(null)
-                            }
-                          }}
-                          autoFocus
-                          maxLength={40}
-                          className="h-9 min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
-                        />
-                        <button onClick={saveEdit} className={`${BTN_PRIMARY_SM} shrink-0`}>
-                          Guardar
-                        </button>
-                        <button onClick={() => setEditId(null)} className="shrink-0 rounded-lg px-2 py-1.5 text-[13px] font-medium text-slate-500 hover:bg-slate-100">
-                          Cancelar
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <TagChip id={t.id} name={t.name} vocabulario={tags} glyph />
-                        <span className="ml-auto shrink-0 text-[12px] num text-slate-500">
-                          {usage} {usage === 1 ? 'candidato' : 'candidatos'}
-                        </span>
-                        <button
-                          onClick={() => startEdit(t)}
-                          aria-label={`${COPY.rename} ${t.name}`}
-                          title={COPY.rename}
-                          className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
-                        >
-                          <Pencil className="size-3.5" aria-hidden />
-                        </button>
-                        <button
-                          onClick={() => setConfirm(t)}
-                          aria-label={`${COPY.remove} ${t.name}`}
-                          title={COPY.remove}
-                          className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600"
-                        >
-                          <Trash2 className="size-3.5" aria-hidden />
-                        </button>
-                      </>
-                    )}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </div>
+        <div className="flex-1 overflow-y-auto px-3 py-3">{lista}</div>
       </div>
 
-      <ConfirmDialog
-        open={!!confirm}
-        onClose={() => setConfirm(null)}
-        onConfirm={() => confirm && doDelete(confirm)}
-        title={`¿Eliminar «${confirm?.name}»?`}
-        confirmLabel="Eliminar"
-        confirmVariant="danger"
-      >
-        {confirm && (() => {
-          const n = tagUsage(confirm.id)
-          return n > 0 ? (
-            <>Se quitará de <strong className="font-semibold text-slate-800">{n} {n === 1 ? 'candidato' : 'candidatos'}</strong>. Podrás deshacerlo justo después.</>
-          ) : (
-            <>No la usa ningún candidato. Podrás deshacerlo justo después.</>
-          )
-        })()}
-      </ConfirmDialog>
+      {confirmar}
     </div>
   )
 }
