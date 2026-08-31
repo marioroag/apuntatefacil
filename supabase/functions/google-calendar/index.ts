@@ -91,8 +91,28 @@ Deno.serve(async (req) => {
       const { data: nuestroRaw } = await admin.rpc('interview_busy', {
         p_host: host, p_desde: desde.toISOString(), p_hasta: hasta.toISOString(),
       })
-      const nuestro: Ocupado[] = ((nuestroRaw ?? []) as Array<{ start_at: string; end_at: string }>)
+      let nuestro: Ocupado[] = ((nuestroRaw ?? []) as Array<{ start_at: string; end_at: string }>)
         .map((o) => ({ start: new Date(o.start_at), end: new Date(o.end_at) }))
+
+      // UNA CITA QUE SE ESTÁ MOVIENDO NO SE CHOCA CONSIGO MISMA. Sin esto, al
+      // abrir "Cambiar la cita" el aviso salta SIEMPRE, porque la hora que
+      // viene puesta es justo la que esa entrevista tiene ocupada. Un aviso que
+      // salta por construcción enseña a ignorarlo, y entonces deja de avisar el
+      // día que el choque es de verdad.
+      const excluir = body.excluirInterviewId as string | undefined
+      if (excluir) {
+        const { data: suya } = await admin
+          .from('interviews').select('starts_at,ends_at,buffer_minutes').eq('id', excluir).maybeSingle()
+        if (suya?.starts_at && suya?.ends_at) {
+          // El mismo rango que calcula el trigger `interviews_fill_range`:
+          // [inicio - buffer, fin + buffer]. Se compara exacto porque
+          // `interview_busy` devuelve ese rango tal cual, no uno derivado.
+          const ms = (suya.buffer_minutes ?? 0) * 60_000
+          const ini = new Date(suya.starts_at).getTime() - ms
+          const fin = new Date(suya.ends_at).getTime() + ms
+          nuestro = nuestro.filter((o) => o.start.getTime() !== ini || o.end.getTime() !== fin)
+        }
+      }
 
       let deGoogle: Ocupado[] = []
       let calendario = false

@@ -37,9 +37,11 @@ export interface Tramo {
  *  a mano se cita a quince días vista sin problema. */
 const DIAS = 60
 
-export function useOcupado(hostUserId: string | null): {
-  choca: (cuandoLocal: string, duracionMin: number) => boolean
-} {
+export function useOcupado(
+  hostUserId: string | null,
+  /** La cita que se está moviendo, que no puede chocar consigo misma. */
+  excluirInterviewId?: string,
+): { choca: (cuandoLocal: string, duracionMin: number) => boolean } {
   const { company } = useAuth()
   const [tramos, setTramos] = useState<Tramo[]>([])
   const [tz, setTz] = useState('Europe/Madrid')
@@ -56,6 +58,7 @@ export function useOcupado(hostUserId: string | null): {
             accion: 'ocupado',
             companyId: company.id,
             hostUserId: hostUserId || undefined,
+            excluirInterviewId,
             desde: desde.toISOString(),
             hasta: hasta.toISOString(),
           },
@@ -75,7 +78,7 @@ export function useOcupado(hostUserId: string | null): {
     }
     void leer()
     return () => { vivo = false }
-  }, [company?.id, hostUserId])
+  }, [company?.id, hostUserId, excluirInterviewId])
 
   const choca = useCallback(
     (cuandoLocal: string, duracionMin: number): boolean => {
