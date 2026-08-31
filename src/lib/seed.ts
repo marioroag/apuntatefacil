@@ -652,6 +652,14 @@ const CRIT_CONTINUIDAD: DemoCriterio = {
   ev: { cumple: 'Más de dos años en su último empleo', parcial: 'Etapas de un año con algún hueco', no_cumple: 'Cambios de empleo cada pocos meses' },
 }
 
+// El baremo v2 pondera lo ACREDITADO por encima de lo declarado: con campo de
+// CV, la experiencia que suman sus etapas es un criterio "importante" (espejo
+// del generador real). Solo lo llevan los dos puestos que piden CV.
+const CRIT_ACREDITADA: DemoCriterio = {
+  clave: 'exp_acreditada', nombre: 'Experiencia acreditada en el CV', nivel: 'importante', fuente: 'cv',
+  ev: { cumple: 'Las etapas del CV suman la experiencia pedida', parcial: 'Las etapas del CV suman menos de lo que responde', no_cumple: 'El CV no recoge experiencia en el oficio' },
+}
+
 const DEMO_CRITERIOS: Record<string, DemoCriterio[]> = {
   cmp_peon: [
     { clave: 'carnet_b', nombre: 'Carnet de conducir B', nivel: 'clave', ev: { cumple: 'Responde que sí al carnet B', parcial: 'Carnet en trámite', no_cumple: 'Responde que no tiene carnet B' } },
@@ -667,6 +675,7 @@ const DEMO_CRITERIOS: Record<string, DemoCriterio[]> = {
     { clave: 'especialidad', nombre: 'Especialidad', nivel: 'importante', ev: { cumple: 'Domina solados, alicatados y enfoscados', parcial: 'Una sola especialidad de las pedidas', no_cumple: 'Especialidad ajena a la obra del puesto' } },
     { clave: 'incorporacion', nombre: 'Incorporación', nivel: 'importante', ev: { cumple: 'Disponibilidad inmediata', parcial: 'Disponible en 15 días', no_cumple: 'No antes de un mes' } },
     { clave: 'carnet_b', nombre: 'Carnet de conducir B', nivel: 'deseable', ev: { cumple: 'Responde que sí al carnet B', parcial: 'Carnet en trámite', no_cumple: 'Sin carnet B' } },
+    CRIT_ACREDITADA,
     CRIT_CONTINUIDAD,
   ],
   cmp_electricista: [
@@ -688,6 +697,7 @@ const DEMO_CRITERIOS: Record<string, DemoCriterio[]> = {
     { clave: 'tipos', nombre: 'Tipos de carretilla', nivel: 'importante', ev: { cumple: 'Frontal, retráctil y recogepedidos', parcial: 'Solo transpaleta eléctrica', no_cumple: 'Ninguna de las carretillas del puesto' } },
     { clave: 'exp', nombre: 'Años con carretilla', nivel: 'importante', ev: { cumple: '5 años con carretilla', parcial: '1 año con carretilla', no_cumple: 'Sin experiencia con carretilla' } },
     { clave: 'turnos', nombre: 'Cobertura de turnos', nivel: 'importante', ev: { cumple: 'Puede cubrir los tres turnos', parcial: 'Solo mañana y tarde', no_cumple: 'Ningún turno de los del puesto' } },
+    CRIT_ACREDITADA,
     CRIT_CONTINUIDAD,
   ],
   cmp_preparador: [
@@ -1025,6 +1035,10 @@ candidates.push({
       tipos: { valor: 'cumple', evidencia: CITAS_ANDREI.tipos, fuente: 'cv' },
       exp: { valor: 'parcial', evidencia: 'Años de experiencia con carretilla: 5', fuente: 'respuesta' },
       turnos: { valor: 'cumple', evidencia: 'Mañana, Tarde, Noche', fuente: 'respuesta' },
+      // El criterio v2 que pondera lo ACREDITADO: sus etapas suman año y medio
+      // de carretillero, no los 5 años que responde. Es la otra cara del
+      // contraste de abajo, dicha en el baremo.
+      exp_acreditada: { valor: 'parcial', evidencia: CITAS_ANDREI.acreditada, fuente: 'cv' },
       continuidad: { valor: 'cumple', evidencia: CITAS_ANDREI.continuidad, fuente: 'cv' },
     },
     contrastes: [
@@ -1083,7 +1097,11 @@ candidates.push({
       'en la primera llamada.',
     valores: {
       prl: { valor: 'cumple', evidencia: CITAS_JOAQUIN.prl, fuente: 'cv' },
-      exp_oficial: { valor: 'cumple', evidencia: CITAS_JOAQUIN.experiencia, fuente: 'cv' },
+      // Lo declarado y lo acreditado, cada uno en su criterio: la respuesta
+      // sostiene el suyo y la etapa larga del CV sostiene el de acreditación
+      // (dos citas distintas, para que sus marcas no se pisen en el visor).
+      exp_oficial: { valor: 'cumple', evidencia: 'Años de experiencia como oficial: 9', fuente: 'respuesta' },
+      exp_acreditada: { valor: 'cumple', evidencia: CITAS_JOAQUIN.acreditada, fuente: 'cv' },
       especialidad: { valor: 'cumple', evidencia: 'Enfoscados y revestimientos, Solados y alicatados', fuente: 'respuesta' },
       incorporacion: { valor: 'parcial', evidencia: 'En 15 días', fuente: 'respuesta' },
       carnet_b: { valor: 'cumple', evidencia: CITAS_JOAQUIN.carnet, fuente: 'cv' },

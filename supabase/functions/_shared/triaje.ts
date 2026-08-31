@@ -404,6 +404,18 @@ export interface CampoDePuesto {
   options?: string[]
 }
 
+/**
+ * Versión del GENERADOR dentro del hash: subirla regenera todos los baremos
+ * perezosamente (al siguiente análisis de cada puesto), porque un baremo
+ * persistido no se entera de que el generador aprendió algo nuevo. Es el mismo
+ * mecanismo que cambiar el formulario: la vara cambia a propósito, y los
+ * análisis viejos conservan su baremoHash como procedencia.
+ *   v2 (ago 2026): el CV pesa más. Con campo de CV, la experiencia ACREDITADA
+ *   es un criterio "importante" y no un deseable de regalo; sin la versión, el
+ *   Camarero/a real se quedaba con su baremo de un solo criterio de CV.
+ */
+export const VERSION_BAREMO = 2
+
 export async function hashPuesto(puesto: {
   title: string
   sector: string
@@ -411,6 +423,7 @@ export async function hashPuesto(puesto: {
   fields: CampoDePuesto[]
 }): Promise<string> {
   const relevante = JSON.stringify({
+    v: VERSION_BAREMO,
     t: puesto.title,
     s: puesto.sector,
     l: puesto.location,
@@ -504,13 +517,22 @@ export function promptGenerador(puesto: {
     'foto o cualquier otro dato personal protegido. El permiso de trabajo solo puede ser ' +
     'criterio si el formulario lo pregunta.' +
     (puesto.tieneCampoCv
-      ? '\n- Este puesto RECOGE CV: léelo como un experto en selección. Del CV sale lo que ' +
-        'el formulario no pregunta, así que genera 2 o 3 criterios con fuente "cv" de este ' +
-        'tipo: duración REAL de la experiencia relevante (lo que suman las etapas del CV, ' +
-        'no los años que uno se atribuye), estabilidad (muchas etapas de pocos meses ' +
-        'encadenadas cuentan otra historia que dos etapas largas), vigencia de carnets o ' +
-        'certificados con fecha, y huecos largos sin actividad. Con anclas concretas para ' +
-        'este puesto, como los demás.'
+      ? '\n- Este puesto RECOGE CV: léelo como un experto en selección, y dale al CV el ' +
+        'peso que tiene, porque es la única fuente VERIFICADA de la candidatura (el ' +
+        'formulario es lo que uno dice de sí mismo; el CV, lo que puede acreditar). ' +
+        'Genera AL MENOS 2 y hasta 3 criterios con fuente "cv":\n' +
+        '  1. Experiencia ACREDITADA en el oficio del puesto (lo que suman las etapas ' +
+        'del CV, no los años que uno se atribuye): nivel "importante" SIEMPRE, aunque el ' +
+        'formulario ya pregunte por años de experiencia, porque verifica lo que aquella ' +
+        'respuesta solo declara.\n' +
+        '  2. Estabilidad (muchas etapas de pocos meses encadenadas cuentan otra ' +
+        'historia que dos etapas largas): "importante" si en este puesto la rotación ' +
+        'cuesta cara, "deseable" si no.\n' +
+        '  3. Si el puesto exige carnet, titulación o certificado: su VIGENCIA o fecha ' +
+        'acreditada en el CV, al nivel del requisito al que verifica.\n' +
+        'Los criterios de fuente "cv" no son deseables por defecto: pondera lo acreditado ' +
+        'por encima de lo declarado. Con anclas concretas para este puesto, como los demás. ' +
+        '(Quien no adjunte CV no queda penalizado: esos criterios salen del cálculo.)'
       : '')
   const preguntas = puesto.fields
     .map((f) => {

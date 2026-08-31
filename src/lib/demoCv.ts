@@ -65,6 +65,9 @@ export const CV_ANDREI: DemoCv = {
 export const CITAS_ANDREI = {
   carnet: 'renovado en 2025 y en vigor hasta 2030',
   tipos: 'carretilla frontal y retráctil',
+  /** Lo que el CV ACREDITA de experiencia en el oficio: su etapa de
+   *  carretillero, año y medio. Es la mitad "importante" del baremo v2. */
+  acreditada: 'Carretillero · Logística Arganzuela S.L. · feb 2023 - jun 2024',
   continuidad: 'mar 2021 - dic 2022',
   /** La mitad CV del contraste: su historial arranca en 2021, así que los
    *  "5 años" que responde no salen de las etapas del documento. */
@@ -103,7 +106,9 @@ export const CV_JOAQUIN: DemoCv = {
 /** Citas literales del CV de Joaquín que usa su análisis artesanal del seed. */
 export const CITAS_JOAQUIN = {
   prl: 'Formación PRL de albañilería de 60 horas',
-  experiencia: 'Oficial de 1ª · Construcciones Turia Levante · sep 2019',
+  /** La experiencia ACREDITADA: su etapa larga de oficial, siete años y
+   *  siguiendo. La línea entera, para que la marca cubra el hecho completo. */
+  acreditada: 'Oficial de 1ª · Construcciones Turia Levante · sep 2019 - actualidad',
   carnet: 'Carnet de conducir B con vehículo propio',
   continuidad: 'jun 2016 - jul 2019',
 } as const
