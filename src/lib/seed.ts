@@ -720,6 +720,82 @@ function valorPara(nivel: DemoCriterio['nivel'], fit: number): ValorCriterio {
   return chance(0.4) ? 'no_cumple' : chance(0.6) ? 'parcial' : 'no_consta'
 }
 
+// Para citar un nombre o una evidencia a media frase: la mayúscula inicial se
+// baja solo si no es una sigla ("Responde que sí" -> "responde...", "PRL" queda).
+function enFrase(s: string): string {
+  if (s.length > 1 && s[1] !== s[1].toLowerCase()) return s
+  return s.charAt(0).toLowerCase() + s.slice(1)
+}
+
+// 'a', 'a y b', 'a, b y c' (con la 'e' delante de un "i-": español, no plantilla).
+function listaY(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? ''
+  const ultimo = items[items.length - 1]
+  const conj = /^h?i/i.test(ultimo) ? ' e ' : ' y '
+  return items.slice(0, -1).join(', ') + conj + ultimo
+}
+
+// EL INFORME EN PROSA de la demo (ago 2026): la misma pieza que en producción
+// escribe el redactor de la edge function, aquí compuesta de los juicios del
+// propio candidato para que nunca los contradiga. Es lo que un profesional de
+// selección le diría a su jefe: veredicto, lo que convence, lo que frena y qué
+// preguntar. Con variación por el PRNG del seed para que dos fichas seguidas
+// no suenen a plantilla.
+function informeFor(
+  criterios: { nombre: string; nivel: DemoCriterio['nivel']; valor: ValorCriterio; evidencia?: string }[],
+  fit: number,
+): string {
+  const cumplen = criterios.filter((c) => c.valor === 'cumple' && c.evidencia)
+  const fallos = criterios.filter((c) => c.valor === 'no_cumple' && c.evidencia)
+  const parciales = criterios.filter((c) => c.valor === 'parcial' && c.evidencia)
+  const porSaber = criterios.filter((c) => c.valor === 'no_consta' && c.nivel !== 'deseable')
+  const frases: string[] = []
+  frases.push(
+    fit >= 70
+      ? pick([
+          'De lo más sólido que ha entrado para este puesto.',
+          'Esta candidatura está entre las fuertes del proceso.',
+          'Sobre el papel, encaja con lo que pide el puesto.',
+        ])
+      : fit >= 45
+        ? pick([
+            'Se queda a medio camino de lo que pide el puesto.',
+            'Tiene base, con flecos que aclarar antes de moverla.',
+            'Podría encajar, con más de un detalle por confirmar.',
+          ])
+        : pick([
+            'Tal cual está, se aleja de lo que pide el puesto.',
+            'Cubre poco de lo que más pesa en este puesto.',
+          ]),
+  )
+  if (cumplen.length > 0) {
+    const evs = cumplen.slice(0, 2).map((c) => enFrase(c.evidencia as string))
+    // Si una evidencia lleva su propia lista dentro ("frontal, retráctil y
+    // recogepedidos"), la 'y' exterior fabricaría una frase ilegible: ahí las
+    // separa el punto y coma, que es como se apuntan dos hechos en una nota.
+    const union = evs.some((e) => e.includes(',')) ? evs.join('; ') : listaY(evs)
+    frases.push(`${pick(['Lo que me convence', 'A su favor', 'Lo mejor que trae'])}: ${union}.`)
+  }
+  if (fallos.length > 0) {
+    frases.push(`Lo que me frena: ${enFrase(fallos[0].evidencia as string)}.`)
+  } else if (parciales.length > 0) {
+    const p = parciales[0]
+    const ev = p.evidencia as string
+    // Si la evidencia ya nombra al criterio ("1 año con carretilla" para "Años
+    // con carretilla"), decir los dos es decirlo dos veces.
+    const ultima = p.nombre.toLowerCase().split(' ').pop() ?? ''
+    frases.push(
+      ev.toLowerCase().includes(ultima)
+        ? `Se queda corto: ${enFrase(ev)}.`
+        : `Cojea en ${enFrase(p.nombre)}: ${enFrase(ev)}.`,
+    )
+  }
+  if (porSaber.length > 0) {
+    frases.push(`Antes de decidir, le preguntaría por ${listaY(porSaber.slice(0, 2).map((c) => enFrase(c.nombre)))}.`)
+  }
+  return frases.join(' ')
+}
+
 export function aiFor(
   campaignId: string,
   status: CandidateStatus,
@@ -768,6 +844,7 @@ export function aiFor(
     .slice(0, 3)
   return {
     summary,
+    informe: informeFor(criterios, fit),
     highlights,
     concerns,
     fit,
@@ -793,6 +870,9 @@ function aiConCv(args: {
   campaignId: string
   analyzedAt: string
   summary: string
+  /** El informe en prosa, escrito a mano como el resto del análisis artesanal:
+   *  aquí es donde se enseña que Meridian cruza formulario y CV. */
+  informe: string
   valores: Record<string, JuicioDemo>
   contrastes?: { respuesta: string; cv: string }[]
   trayectoria: NonNullable<CandidateAI['trayectoria']>
@@ -821,6 +901,7 @@ function aiConCv(args: {
     .slice(0, 3)
   return {
     summary: args.summary,
+    informe: args.informe,
     highlights,
     concerns: [],
     fit,
@@ -933,6 +1014,12 @@ candidates.push({
     summary:
       'Carnet en vigor y las carretillas del puesto, confirmado en el CV. Ojo a la ' +
       'experiencia: responde 5 años y las etapas de su CV empiezan en 2021.',
+    informe:
+      'El carnet en vigor y las carretillas que pide el puesto no los dice solo el ' +
+      'formulario: están escritos en su CV, y los tres turnos los cubre. Lo que le ' +
+      'pediría aclarar antes de nada es la experiencia, porque responde 5 años y las ' +
+      'etapas de su CV empiezan en 2021: no me salen las cuentas. Con eso resuelto, ' +
+      'es de las candidaturas fuertes del proceso.',
     valores: {
       carnet_vigente: { valor: 'cumple', evidencia: CITAS_ANDREI.carnet, fuente: 'cv' },
       tipos: { valor: 'cumple', evidencia: CITAS_ANDREI.tipos, fuente: 'cv' },
@@ -988,6 +1075,12 @@ candidates.push({
     summary:
       'Oficial asentado: la PRL de 60 horas y siete años en el mismo tajo están ' +
       'confirmados en el CV. Solo la incorporación en 15 días se aleja de lo pedido.',
+    informe:
+      'Oficial asentado: la PRL de 60 horas y siete años en la misma empresa están ' +
+      'escritos en su CV, con la tarjeta TPC en vigor, y domina las dos especialidades ' +
+      'que pide la obra. El único fleco es la incorporación, que responde en 15 días ' +
+      'cuando aquí se busca antes. Yo lo tendría en la terna final y cerraría fechas ' +
+      'en la primera llamada.',
     valores: {
       prl: { valor: 'cumple', evidencia: CITAS_JOAQUIN.prl, fuente: 'cv' },
       exp_oficial: { valor: 'cumple', evidencia: CITAS_JOAQUIN.experiencia, fuente: 'cv' },

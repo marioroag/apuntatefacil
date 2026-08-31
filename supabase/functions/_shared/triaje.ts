@@ -805,3 +805,116 @@ export const ESQUEMA_TRAYECTORIA = {
     required: ['empleos', 'carnets', 'formacion'],
   },
 } as const
+
+// ---------------------------------------------------------------------------
+// EL REDACTOR: el informe en prosa (Mario, ago 2026). Sustituye en la ficha al
+// desglose criterio a criterio, que era "la información de las respuestas en
+// peor" (feedback real de un cliente): repetía lo que el usuario ya tiene
+// delante, en formato lista. El informe es lo que un profesional de selección
+// le diría a su jefe al preguntarle por este candidato: un párrafo que se
+// sostiene solo.
+//
+// Corre DESPUÉS del juez y solo recibe material VERIFICADO (juicios finales
+// con su evidencia, contrastes conservados, trayectoria saneada): no puede
+// apoyarse en nada que el juez haya tirado. Es la misma arquitectura de
+// siempre: el modelo redacta, el código decide qué material le llega.
+// ---------------------------------------------------------------------------
+
+export const MAX_INFORME = 900
+
+/**
+ * Sanea el informe: UN párrafo (los saltos de línea colapsan), sin guion largo
+ * (regla de copy de toda la app) y con techo duro. Si al recortar hay un final
+ * de frase razonable, se corta ahí: un informe a media palabra es peor que uno
+ * una frase más corto. Vacío o inservible -> null (el análisis sale sin él).
+ */
+export function sanearInforme(bruto: unknown): string | null {
+  if (typeof bruto !== 'string') return null
+  let s = bruto
+    .replace(/\s*—\s*/g, ', ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (s.length < 20) return null
+  if (s.length > MAX_INFORME) {
+    const recorte = s.slice(0, MAX_INFORME)
+    const fin = recorte.lastIndexOf('. ')
+    s = fin > MAX_INFORME * 0.5 ? recorte.slice(0, fin + 1) : recorte.trimEnd()
+  }
+  return s
+}
+
+export function promptRedactor(args: {
+  puesto: string
+  criterios: BaremoCriterio[]
+  juicios: Juicio[]
+  contrastes: Contraste[]
+  trayectoria: TrayectoriaCv | null
+  cvUsado: boolean
+}): { system: string; user: string } {
+  const system =
+    'Eres Meridian, el asistente de selección. El triaje de una candidatura ya está ' +
+    'hecho y verificado; tu trabajo es REDACTAR EL INFORME: lo que un profesional de ' +
+    'selección con años de oficio le diría a su jefe cuando le pregunta por este ' +
+    'candidato. Un solo párrafo hablado, de 3 a 5 frases, en primera persona.\n\n' +
+    'Reglas:\n' +
+    '- Solo puedes afirmar lo que está en el material de abajo. Nada supuesto, nada de ' +
+    'fuera. Lo que no consta se dice como pendiente: "le preguntaría por...".\n' +
+    '- No enumeres los criterios uno a uno ni repitas las respuestas del formulario: ' +
+    'eso el jefe ya lo tiene delante. Cuenta lo que se aprende al cruzarlas: qué ' +
+    'convence, qué chirría y qué falta por saber.\n' +
+    '- Empieza por lo que más pesa para decidir, sea bueno o malo. Sin cortesías ni ' +
+    'fórmulas vacías ("perfil interesante", "buen encaje general").\n' +
+    '- Si hay una contradicción entre una respuesta y el CV, dila claramente y con sus ' +
+    'dos mitades: es de lo más valioso del informe.\n' +
+    '- Si no hay CV, menciónalo solo si condiciona la lectura.\n' +
+    '- NO recomiendas contratar ni descartar: orientas, la persona decide. Nada de ' +
+    'notas ni puntuaciones.\n' +
+    '- Prohibido: listas, encabezados, guion largo, negritas. Español claro y directo. ' +
+    'El informe tiene que sostenerse solo: quien lo lea sin ver nada más se queda con ' +
+    'una foto útil de esta persona para este puesto.'
+  const valorDe = new Map(args.juicios.map((j) => [j.clave, j]))
+  const material = args.criterios
+    .map((c) => {
+      const j = valorDe.get(c.clave)
+      const valor = j?.valor ?? 'no_consta'
+      const ev = j?.evidencia ? ` (evidencia: "${j.evidencia}")` : ''
+      return `- ${c.nombre} [${c.nivel}]: ${valor}${ev}`
+    })
+    .join('\n')
+  const trayectoriaTxt = args.trayectoria
+    ? 'Trayectoria del CV:\n' +
+      args.trayectoria.empleos
+        .map((e) => `- ${[e.puesto, e.empresa].filter(Boolean).join(' en ')}${e.desde || e.hasta ? ` (${[e.desde, e.hasta].filter(Boolean).join(' - ')})` : ''}`)
+        .join('\n') +
+      (args.trayectoria.carnets.length
+        ? '\nCarnets: ' + args.trayectoria.carnets.map((c) => c.nombre + (c.vigencia ? ` (${c.vigencia})` : '')).join(', ')
+        : '') +
+      (args.trayectoria.formacion.length ? '\nFormación: ' + args.trayectoria.formacion.join(', ') : '')
+    : args.cvUsado
+      ? ''
+      : 'No adjuntó CV: el triaje es solo con sus respuestas.'
+  const user =
+    `Puesto: ${args.puesto}.\n\n` +
+    `Juicios verificados del baremo:\n${material || '(ninguno)'}\n\n` +
+    (args.contrastes.length
+      ? `Contradicciones respuesta-vs-CV confirmadas:\n${args.contrastes.map((c) => `- ${serializarContraste(c)}`).join('\n')}\n\n`
+      : '') +
+    trayectoriaTxt
+  return { system, user }
+}
+
+export const ESQUEMA_INFORME = {
+  name: 'informe_triaje',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      informe: {
+        type: 'string',
+        description: 'El informe: un solo párrafo de 3 a 5 frases, en español.',
+      },
+    },
+    required: ['informe'],
+  },
+} as const

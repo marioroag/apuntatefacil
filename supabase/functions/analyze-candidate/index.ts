@@ -14,6 +14,11 @@
 // categoría eliminatoria, y no_consta fuera del denominador) vive en
 // _shared/triaje.ts y la calcula el código. Resultado en candidates.ai.
 //
+// Tras el juez corre el REDACTOR (ago 2026): escribe `informe`, el párrafo en
+// prosa que la ficha enseña en vez del desglose criterio a criterio (lo que un
+// profesional de selección le diría a su jefe). Solo recibe material ya
+// verificado, y si falla el análisis sale sin él.
+//
 // El CV se lee COMO UN EXPERTO (ago 2026): además de servir de evidencia a los
 // criterios, produce TRAYECTORIA (ficha estructurada: empleos, carnets,
 // formación; llamada aparte en paralelo con el evaluador, y si falla el
@@ -45,10 +50,11 @@ import { corsHeaders, json } from '../_shared/cors.ts'
 import { planHasMeridian } from '../_shared/plans.ts'
 import { OPENAI_API_KEY, OPENAI_BASE, OPENAI_MODEL, openaiError, tuning } from '../_shared/openai.ts'
 import {
-  ESQUEMA_GENERADOR, ESQUEMA_TRAYECTORIA, agregarJuicios, criteriosEfectivos, esCvIlegible,
-  esquemaEvaluador, esquemaJuez, filtrarTextoVisible, fusionarJuicio, hashPuesto,
-  normalizarJuicios, promptEvaluador, promptGenerador, promptJuez, promptTrayectoria,
-  sanearContrastes, sanearCriterios, sanearTrayectoria, serializarContraste, soloConservados,
+  ESQUEMA_GENERADOR, ESQUEMA_INFORME, ESQUEMA_TRAYECTORIA, agregarJuicios, criteriosEfectivos,
+  esCvIlegible, esquemaEvaluador, esquemaJuez, filtrarTextoVisible, fusionarJuicio, hashPuesto,
+  normalizarJuicios, promptEvaluador, promptGenerador, promptJuez, promptRedactor,
+  promptTrayectoria, sanearContrastes, sanearCriterios, sanearInforme, sanearTrayectoria,
+  serializarContraste, soloConservados,
   type Baremo, type FuenteJuicio, type ItemTexto, type Juicio, type Valor,
 } from '../_shared/triaje.ts'
 
@@ -468,6 +474,19 @@ Deno.serve(async (req) => {
         contrastes = contrastes.filter((c) => conservados.has(serializarContraste(c)))
       }
 
+      // --- Pieza 4: el REDACTOR. Escribe el informe en prosa (lo que un
+      // profesional le diría a su jefe) DESPUÉS del juez y solo con material
+      // verificado: juicios finales, contrastes conservados y trayectoria
+      // saneada. Con su propio catch: un análisis sin informe sigue valiendo
+      // (la ficha lo dice y ofrece re-analizar). ---
+      const pr = promptRedactor({
+        puesto, criterios: efectivos, juicios, contrastes,
+        trayectoria, cvUsado: !!cv,
+      })
+      const informe = await chatJSON(pr.system, pr.user, ESQUEMA_INFORME)
+        .then((out) => sanearInforme(out.informe))
+        .catch(() => null)
+
       // --- El número lo pone el código: pesos por nivel y cobertura. ---
       const { fit } = agregarJuicios(efectivos, juicios)
       const valorDe = new Map(juicios.map((j) => [j.clave, j]))
@@ -486,6 +505,7 @@ Deno.serve(async (req) => {
       })
       const writeError = await store({
         summary, highlights, concerns, fit,
+        ...(informe ? { informe } : {}),
         criterios: criteriosOut,
         ...(contrastes.length > 0 ? { contrastes } : {}),
         ...(trayectoria ? { trayectoria } : {}),

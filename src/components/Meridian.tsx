@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Briefcase, Check, ChevronDown, ChevronRight, HelpCircle, Minus, RefreshCw, Sparkles, X } from 'lucide-react'
-import type { AiCriterion, Candidate } from '../lib/types'
+import { Briefcase, ChevronRight, RefreshCw, Sparkles } from 'lucide-react'
+import type { Candidate } from '../lib/types'
 import { initials, candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
 import { BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
-import {
-  ANILLO_AJUSTE, CRITERIO_VALOR_LABEL, MERIDIAN_NAME, candidateFit, criterioNombre, fitTier,
-  idCitaContraste, idCitaCriterio,
-} from '../lib/meridian'
+import { ANILLO_AJUSTE, MERIDIAN_NAME, candidateFit, fitTier } from '../lib/meridian'
 import { Avatar } from './ui/Avatar'
 
 /**
@@ -122,161 +119,13 @@ export function FitLabel({ fit, className = '' }: { fit: number; className?: str
 }
 
 // Etiqueta de sección del bloque (marca del asistente). El icono es decorativo:
-// grafito neutro, nunca el acento. Va en `span`, no en `p`: en la ficha esta
-// etiqueta vive DENTRO del botón que pliega el informe, y un párrafo dentro de
-// un botón es marcado inválido (el botón solo admite contenido de frase).
+// grafito neutro, nunca el acento.
 function MeridianLabel() {
   return (
     <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
       <Sparkles className="size-4 text-slate-500" aria-hidden />
       {MERIDIAN_NAME}
     </span>
-  )
-}
-
-// Glifo del juicio de un criterio. Todo grafito: los juicios NO son estados y no
-// comparten su paleta (ni verde de contratado ni rojo, que aquí no es un error
-// del sistema). Se distinguen por FORMA, y la palabra de al lado siempre lo dice.
-// Los dos extremos van medio paso más oscuros que lo intermedio: son lo que
-// decide, y el ojo tiene que encontrarlos al bajar por la columna.
-function CriterioGlifo({ valor }: { valor: AiCriterion['valor'] }) {
-  const cls = `mt-[3px] size-3.5 shrink-0 ${valor === 'cumple' || valor === 'no_cumple' ? 'text-slate-600' : 'text-slate-400'}`
-  if (valor === 'cumple') return <Check className={cls} aria-hidden />
-  if (valor === 'parcial') return <Minus className={cls} aria-hidden />
-  if (valor === 'no_cumple') return <X className={cls} aria-hidden />
-  return <HelpCircle className={cls} aria-hidden />
-}
-
-// Los dos extremos llevan el peso (son lo que decide); lo intermedio y lo que no
-// se sabe, tinta de apoyo. Énfasis por peso y oscuridad, nunca por color.
-const VALOR_TONE: Record<AiCriterion['valor'], string> = {
-  cumple: 'font-medium text-slate-800',
-  parcial: 'text-slate-600',
-  no_consta: 'text-slate-500',
-  no_cumple: 'font-medium text-slate-800',
-}
-
-const NIVEL_RANGO: Record<string, number> = { clave: 0, importante: 1, deseable: 2 }
-
-// Para citar un nombre de criterio a media frase: la mayúscula inicial se baja
-// solo si no es una sigla ("Cobertura de turnos" -> "cobertura...", "PRL" queda).
-function enFrase(nombre: string): string {
-  if (nombre.length > 1 && nombre[1] !== nombre[1].toLowerCase()) return nombre
-  return nombre.charAt(0).toLowerCase() + nombre.slice(1)
-}
-
-// El desglose del ajuste: un criterio del baremo por fila, los que más pesan
-// primero, con el juicio en palabras a la derecha (lectura en columna). El
-// nivel SOLO ordena: no se etiqueta ninguna fila (Mario vetó "imprescindible"
-// por subjetivo; la importancia se dice con peso en el número y con el orden).
-// La evidencia se ve EN la fila, en tinta de apoyo tras el nombre: es el hecho
-// que sostiene el juicio y estaba escondida en un `title` (invisible en táctil,
-// indescubrible en escritorio); enseñarla es lo que hace el informe de fiar.
-// Las filas llevan el filo interior de la rejilla (slate-100): mismo vocabulario
-// que la tabla, un informe medido y no una lista de bullets.
-// Los análisis anteriores a la triada (ago 2026) traen las 5 claves genéricas
-// sin nombre ni nivel: criterioNombre les pone el nombre y el orden se respeta.
-function CriteriosList({
-  criterios,
-  print,
-  onVerEnCv,
-  citasLocalizables,
-}: {
-  criterios: AiCriterion[]
-  print?: boolean
-  /** Con esto puesto, el hecho de un juicio con fuente 'cv' se vuelve un botón
-   *  que lleva a su cita subrayada en el visor del CV. Sin la prop (Parte
-   *  diario, análisis sin CV localizable), todo se pinta como siempre. */
-  onVerEnCv?: (citaId: string) => void
-  /** Qué citas tienen marca de verdad en el documento (lo dice el visor).
-   *  `null` = aún no se sabe: se enlaza con optimismo y el visor avisa si no.
-   *  Con el conjunto en la mano, una cita sin marca se pinta como texto. */
-  citasLocalizables?: Set<string> | null
-}) {
-  if (criterios.length === 0) return null
-  const ordenados = [...criterios].sort(
-    (a, b) => (NIVEL_RANGO[a.nivel ?? ''] ?? 1) - (NIVEL_RANGO[b.nivel ?? ''] ?? 1),
-  )
-  return (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Lo que pide el puesto</p>
-      <ul className="mt-0.5 divide-y divide-slate-100">
-        {ordenados.map((c, i) => {
-          const nombre = criterioNombre(c)
-          // Un hecho que solo repite el nombre del criterio no añade nada (el
-          // evaluador a veces hace eco de la pregunta): no se pinta.
-          const hecho =
-            c.evidencia && c.evidencia.trim().toLowerCase() !== nombre.trim().toLowerCase()
-              ? c.evidencia
-              : undefined
-          const enlazable =
-            !!hecho &&
-            !!onVerEnCv &&
-            c.fuente === 'cv' &&
-            (citasLocalizables == null || citasLocalizables.has(idCitaCriterio(c.clave)))
-          return (
-            <li
-              key={c.clave}
-              className={`flex items-start gap-1.5 py-[7px] text-[13px] leading-5 ${print ? 'meridian-in' : ''}`}
-              style={print ? { animationDelay: `${80 + i * 45}ms` } : undefined}
-            >
-              <CriterioGlifo valor={c.valor} />
-              <p className="min-w-0 flex-1 text-slate-700">
-                {nombre}
-                {hecho && (
-                  <span className="text-slate-500">
-                    {/* El middot va pegado al hecho (nbsp): si la fila envuelve,
-                        el separador abre la cita en vez de colgar a final de línea. */}
-                    {' '}
-                    <span aria-hidden>{'· '}</span>
-                    <span className="sr-only">, se apoya en: </span>
-                    {enlazable ? (
-                      // El subrayado punteado dice "esto lleva a su cita". No
-                      // choca con "el nombre de la fila no se subraya": aquí el
-                      // botón ES exactamente el hecho, no promete más objetivo
-                      // del que hay. El color no es el portador (lo dice el
-                      // sr-only) y el foco lleva el anillo global.
-                      <button
-                        type="button"
-                        onClick={() => onVerEnCv!(idCitaCriterio(c.clave))}
-                        className="rounded-sm text-left underline decoration-slate-300 decoration-dotted underline-offset-2 transition-colors duration-[var(--duration-control)] hover:text-slate-700 hover:decoration-slate-500"
-                      >
-                        {hecho}
-                        <span className="sr-only"> (ver esta cita subrayada en el CV)</span>
-                      </button>
-                    ) : (
-                      hecho
-                    )}
-                  </span>
-                )}
-              </p>
-              <span className={`shrink-0 ${VALOR_TONE[c.valor]}`}>{CRITERIO_VALOR_LABEL[c.valor]}</span>
-            </li>
-          )
-        })}
-      </ul>
-    </div>
-  )
-}
-
-function ItemList({ label, items, marker }: { label: string; items: string[]; marker: 'check' | 'dot' }) {
-  if (items.length === 0) return null
-  return (
-    <div>
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-      <ul className="space-y-1">
-        {items.map((t, i) => (
-          <li key={i} className="flex items-start gap-1.5 text-[13px] leading-5 text-slate-700">
-            {marker === 'check' ? (
-              <Check className="mt-0.5 size-3.5 shrink-0 text-slate-400" aria-hidden />
-            ) : (
-              <span className="mt-[7px] size-1 shrink-0 rounded-full bg-slate-400" aria-hidden />
-            )}
-            <span className="break-words">{t}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
   )
 }
 
@@ -320,46 +169,42 @@ export function MeridianCandidateRow({
   )
 }
 
-// Bloque de triaje de Meridian dentro del detalle del candidato (SlideOver).
+// Bloque de triaje de Meridian dentro del detalle del candidato.
+//
+// EL INFORME ES UN PÁRRAFO, NO UNA LISTA (Mario, ago 2026, con feedback real de
+// un cliente delante: "pone la información de las respuestas peor y aporta poco
+// al espacio que consume"). El desglose criterio a criterio repetía en formato
+// lista lo que el usuario ya tiene delante en Respuestas; ahora el bloque pinta
+// `ai.informe`, la prosa que un profesional de selección le diría a su jefe al
+// preguntarle por este candidato. La redacta el REDACTOR de la edge function
+// DESPUÉS del juez, solo con material verificado, así que sigue sin poder
+// afirmar nada sin evidencia; lo que cambia es la forma: un insight que se
+// sostiene solo en vez de una tabla que había que interpretar.
+//
+// Con el párrafo se fueron el plegado (un insight de 3-5 frases no se come la
+// columna, y esconderlo detrás de un clic contradecía su razón de ser), las
+// listas "A favor" / "A confirmar" (los mismos juicios contados otra vez) y los
+// enlaces cita a cita: el viaje al documento queda en UN enlace, "Ver las citas
+// subrayadas en el CV", que salta al visor con el subrayado y el destello de
+// siempre. Los criterios se siguen guardando (son el número y las citas), solo
+// dejó de pintarse su tabla.
 export function MeridianPanelBlock({
   candidate,
-  plegable = true,
-  onVerEnCv,
-  citasLocalizables,
+  verCitas,
 }: {
   candidate: Candidate
-  /** Lleva una cita del análisis a su subrayado en el visor del CV. La pasa la
-   *  ficha del candidato solo cuando hay citas localizables (cvLeido 'texto');
-   *  sin ella, el informe se pinta como siempre. */
-  onVerEnCv?: (citaId: string) => void
-  /** Qué citas tienen marca en el documento, cuando el visor ya lo sabe. */
-  citasLocalizables?: Set<string> | null
-  /**
-   * En la ficha de móvil, Meridian es una de las cinco vistas del selector: has
-   * TOCADO su pastilla para leerlo, así que entra abierto y sin control de
-   * plegar (Mario, ago 2026). Plegado ahí pedía dos toques para lo mismo, y el
-   * chevron prometía una segunda cosa que hacer donde ya solo hay una: para
-   * salir se cambia de pastilla.
-   *
-   * Donde el bloque comparte columna con las respuestas y los documentos
-   * (escritorio), sigue plegado: allí el veredicto se lee siempre y la prueba se
-   * pide, que es lo que impide que el informe se coma la columna.
-   */
-  plegable?: boolean
+  /** El viaje al documento: cuántas citas hay subrayadas en el visor del CV y
+   *  cómo ir a la primera. Lo pasa la ficha solo cuando hay citas localizables
+   *  (cvLeido 'texto'); sin él, el informe no promete ningún salto. */
+  verCitas?: { n: number; abrir: () => void }
 }) {
   const { analyzeCandidate } = useStore()
   const [busy, setBusy] = useState(false)
-  // La ficha del candidato que ACABA de analizarse imprime su informe fila a
-  // fila (ver .meridian-in). Guardamos el id, no un booleano: al pasar con las
-  // flechas a otro candidato ya analizado, su bloque entra quieto, porque el
+  // La ficha del candidato que ACABA de analizarse imprime su informe con la
+  // entrada suave (.meridian-in). Guardamos el id, no un booleano: al pasar con
+  // las flechas a otro candidato ya analizado, su bloque entra quieto, porque el
   // producto carga en la tarea y la coreografía es solo del momento de analizar.
   const [recienId, setRecienId] = useState<string | null>(null)
-  // El informe entra PLEGADO: de una ficha ya analizada se lee primero la frase,
-  // que es el veredicto, y el desglose se pide. Guardamos el id del candidato
-  // abierto (no un booleano) para que pasar al siguiente con las flechas vuelva
-  // a plegar: cada persona se abre a propósito. Lo que acabas de analizar sí
-  // entra abierto, porque acabas de pedirlo.
-  const [abiertoId, setAbiertoId] = useState<string | null>(null)
   const ai = candidate.ai
   const failed = !!ai?.error
 
@@ -368,10 +213,7 @@ export function MeridianPanelBlock({
     setBusy(true)
     const ok = await analyzeCandidate(candidate.id, force ? { force: true } : undefined)
     setBusy(false)
-    if (ok) {
-      setRecienId(candidate.id)
-      setAbiertoId(candidate.id)
-    }
+    if (ok) setRecienId(candidate.id)
   }
 
   // El skeleton se decide ANTES que el informe: al VOLVER a analizar ya hay un
@@ -384,21 +226,13 @@ export function MeridianPanelBlock({
         <p className="mt-1.5 text-[13px] leading-5 text-slate-500" role="status">
           Leyendo la candidatura y midiéndola contra lo que pide el puesto…
         </p>
-        {/* La silueta es la del informe que viene, fila a fila (glifo, criterio y
-            su hecho, juicio a la derecha): el resultado aterriza en su propio
-            hueco en vez de empujar la ficha. Los anchos bajan de fila en fila
-            porque así se leen las de verdad, no por decorar. */}
-        <div className="mt-3 border-t border-slate-100 pt-2.5" aria-hidden>
-          <div className="skeleton h-2 w-28 rounded-full" />
-          <div className="mt-2 divide-y divide-slate-100">
-            {[['w-3/5', 'w-14'], ['w-4/6', 'w-16'], ['w-1/2', 'w-12']].map(([texto, juicio], i) => (
-              <div key={i} className="flex items-center gap-1.5 py-[9px]">
-                <div className="skeleton size-3 shrink-0 rounded-full" />
-                <div className={`skeleton h-2.5 rounded-full ${texto}`} />
-                <div className={`skeleton ml-auto h-2.5 rounded-full ${juicio}`} />
-              </div>
-            ))}
-          </div>
+        {/* La silueta es la del informe que viene: un párrafo, con la última
+            línea corta como una línea final de verdad. */}
+        <div className="mt-3 space-y-2" aria-hidden>
+          <div className="skeleton h-2.5 w-full rounded-full" />
+          <div className="skeleton h-2.5 w-11/12 rounded-full" />
+          <div className="skeleton h-2.5 w-full rounded-full" />
+          <div className="skeleton h-2.5 w-2/5 rounded-full" />
         </div>
       </div>
     )
@@ -409,157 +243,53 @@ export function MeridianPanelBlock({
   // tope de candidaturas). El fail-closed de un plan desconocido lo aplica el
   // servidor, que responde sin analizar y aquí se traduce en el toast del store.
 
-  // Analizado con éxito. El veredicto (etiqueta y anillo) vive en la CABECERA del
-  // panel, así que aquí queda solo la lectura: sin repetir la etiqueta ni la barra.
+  // Analizado con éxito. El veredicto (etiqueta y anillo) vive en la CABECERA
+  // del panel, así que aquí queda solo la lectura.
   //
   // "Volver a analizar" EXISTE desde ago 2026 (lo pidió Mario) y vive al FONDO
-  // del desglose, no en la cabecera: los análisis envejecen cuando Meridian
-  // mejora (citas localizables, trayectoria, contrastes) y tiene que haber
-  // forma de refrescarlos. La cautela vieja (re-tirar cambia el número y eso
-  // come confianza) no desaparece, decide el SITIO: se repite abriendo la
-  // prueba y bajando hasta el final, no desde un botón a un clic del veredicto.
+  // del bloque, tras el filo: los análisis envejecen cuando Meridian mejora
+  // (el informe en prosa, la trayectoria, las citas) y tiene que haber forma de
+  // refrescarlos. La cautela vieja (re-tirar cambia el número y eso come
+  // confianza) no desaparece, decide el SITIO: al final, no a un clic del
+  // veredicto.
   if (ai && !failed) {
-    const criterios = ai.criterios ?? []
-    // Con la triada, cada juicio lleva su hecho citado y el desglose lo enseña
-    // en la fila: "A favor" y "A confirmar" serían los MISMOS juicios contados
-    // otra vez con otras palabras (se veía la misma cita dos veces en la misma
-    // tarjeta). Solo se pintan en análisis viejos, que no traen evidencia.
-    const conHechos = criterios.some((c) => !!c.evidencia)
-    // "Falta por saber" = los criterios sin dato que sí pesan (los deseables no
-    // reclaman una llamada). Es la conversión del no_consta en siguiente paso.
-    const porSaber = criterios.filter((c) => c.valor === 'no_consta' && c.nivel !== 'deseable')
+    const informe = ai.informe
     const print = recienId === candidate.id
-    const delayPie = 80 + criterios.length * 45
-    // Contradicciones respuesta-vs-CV que el juez conservó: el hallazgo experto
-    // de la lectura del CV, con su cita subrayable.
-    const contrastes = ai.contrastes ?? []
-    const hayPie = porSaber.length > 0 || ai.cvUsed === false
-    const hayListas = !conHechos && (ai.highlights.length > 0 || ai.concerns.length > 0)
-    const hayDetalle = criterios.length > 0 || hayListas || hayPie || contrastes.length > 0
-    // Sin plegable, siempre abierto: ver la explicación de arriba.
-    const abierto = !plegable || abiertoId === candidate.id
-    const conControl = plegable && hayDetalle
-    const detalleId = `meridian-detalle-${candidate.id}`
-    // La frase es el veredicto y se lee siempre; el desglose es la prueba y se
-    // pide. Lo que se despliega cuelga del MISMO control (aria-controls), así
-    // que quien no ve la pantalla oye "expandido / contraído" en vez de tener
-    // que descubrir que ha aparecido algo más abajo.
-    const cabecera = (
-      <>
-        <div className="flex items-center gap-2">
-          <MeridianLabel />
-          {conControl && (
-            <ChevronDown
-              className={`ml-auto size-4 shrink-0 text-slate-400 transition-transform duration-[var(--duration-control)] group-hover:text-slate-600 ${abierto ? 'rotate-180' : ''}`}
-              aria-hidden
-            />
-          )}
-        </div>
-        {ai.summary && <span className="mt-1.5 block text-sm leading-6 text-slate-800">{ai.summary}</span>}
-      </>
-    )
     return (
       <div className={TARJETA_INFORME}>
-        {conControl ? (
-          <button
-            type="button"
-            onClick={() => setAbiertoId(abierto ? null : candidate.id)}
-            aria-expanded={abierto}
-            aria-controls={detalleId}
-            className={`group block w-full rounded-lg text-left ${print ? 'meridian-in' : ''}`}
-          >
-            {cabecera}
-            <span className="sr-only">{abierto ? 'Ocultar el desglose' : 'Ver el desglose del ajuste'}</span>
+        <MeridianLabel />
+        <div className={print ? 'meridian-in' : ''}>
+          {/* El informe (o, en análisis anteriores a él, la frase de veredicto
+              de entonces). Tinta de lectura: aquí el texto ES la cosa. */}
+          <p className="mt-1.5 text-sm leading-6 text-slate-800">{informe ?? ai.summary}</p>
+          {!informe && (
+            <p className="mt-1.5 text-[12px] leading-4 text-slate-500">
+              Este análisis es anterior al informe: vuelve a analizar la candidatura para tenerlo.
+            </p>
+          )}
+          {ai.cvUsed === false && (
+            <p className="mt-1.5 text-[12px] leading-4 text-slate-500">Sin CV: la he mirado solo por sus respuestas.</p>
+          )}
+          {verCitas && (
+            <p className="mt-1.5 text-[13px] leading-5">
+              {/* El subrayado punteado dice "esto lleva a su cita", el mismo
+                  lenguaje que tenían los hechos enlazados. El destello lo
+                  remata el visor. */}
+              <button
+                type="button"
+                onClick={verCitas.abrir}
+                className="rounded-sm text-left text-slate-600 underline decoration-slate-300 decoration-dotted underline-offset-2 transition-colors duration-[var(--duration-control)] hover:text-slate-800 hover:decoration-slate-500"
+              >
+                {verCitas.n === 1 ? 'Ver la cita subrayada en el CV' : `Ver las ${verCitas.n} citas subrayadas en el CV`}
+              </button>
+            </p>
+          )}
+        </div>
+        <div className="mt-3 border-t border-slate-100 pt-2.5">
+          <button type="button" onClick={() => void run(true)} className={BTN_SECONDARY_SM}>
+            <RefreshCw className="size-3.5 text-slate-500" aria-hidden /> Volver a analizar
           </button>
-        ) : (
-          <div className={print ? 'meridian-in' : ''}>{cabecera}</div>
-        )}
-        {hayDetalle && (
-          // El detalle NO se monta y desmonta: se pliega. Tiene que estar en el
-          // DOM para que la altura tenga de dónde y adónde ir (ver .meridian-fold),
-          // así que plegado va `inert`: fuera del tabulador y fuera del lector de
-          // pantalla, que es lo que un desplegable cerrado significa.
-          //
-          // Al desplegar a mano el detalle entra de una pieza; el escalonado fila
-          // a fila se reserva al momento de analizar, que es el único que se
-          // celebra (si se repitiera en cada apertura dejaría de ser un momento
-          // y se volvería una espera).
-          <div id={detalleId} inert={!abierto} className={`meridian-fold ${abierto ? 'meridian-fold-open' : ''}`}>
-            <div>
-              {criterios.length > 0 && (
-                <div className={`mt-3 border-t border-slate-100 pt-2.5 ${print ? 'meridian-in' : ''}`} style={print ? { animationDelay: '40ms' } : undefined}>
-                  <CriteriosList criterios={criterios} print={print} onVerEnCv={onVerEnCv} citasLocalizables={citasLocalizables} />
-                </div>
-              )}
-              {/* Las contradicciones respuesta-vs-CV van en bloque propio, no
-                  dentro de "A confirmar": son el hallazgo que solo da cruzar las
-                  dos fuentes, y su cita del CV se puede ir a ver subrayada. */}
-              {contrastes.length > 0 && (
-                <div
-                  className={`mt-3 border-t border-slate-100 pt-2.5 ${print ? 'meridian-in' : ''}`}
-                  style={print ? { animationDelay: `${delayPie}ms` } : undefined}
-                >
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">A contrastar</p>
-                  <ul className="mt-1 space-y-1">
-                    {contrastes.map((c, i) => (
-                      <li key={i} className="text-[13px] leading-5 text-slate-600">
-                        Responde <span className="font-medium text-slate-700">"{c.respuesta}"</span>, pero el CV dice{' '}
-                        {onVerEnCv && (citasLocalizables == null || citasLocalizables.has(idCitaContraste(i))) ? (
-                          <button
-                            type="button"
-                            onClick={() => onVerEnCv(idCitaContraste(i))}
-                            className="rounded-sm text-left underline decoration-slate-300 decoration-dotted underline-offset-2 transition-colors duration-[var(--duration-control)] hover:text-slate-700 hover:decoration-slate-500"
-                          >
-                            "{c.cv}"
-                            <span className="sr-only"> (ver esta cita subrayada en el CV)</span>
-                          </button>
-                        ) : (
-                          <>"{c.cv}"</>
-                        )}
-                        .
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {hayListas && (
-                <div className="mt-3 space-y-3">
-                  <ItemList label="A favor" items={ai.highlights} marker="check" />
-                  <ItemList label="A confirmar" items={ai.concerns} marker="dot" />
-                </div>
-              )}
-              {/* Sin línea de procedencia (modelo · fecha): cuándo se analizó ya está
-                  en Historial. Aquí solo vive lo que sigue siendo AVISO o siguiente
-                  paso: qué preguntar para decidir mejor, y que no había CV (eso
-                  cambia cuánto te puedes fiar de la lectura). */}
-              {hayPie && (
-                <div
-                  className={`mt-3 space-y-1 border-t border-slate-100 pt-2.5 ${print ? 'meridian-in' : ''}`}
-                  style={print ? { animationDelay: `${delayPie}ms` } : undefined}
-                >
-                  {porSaber.length > 0 && (
-                    <p className="text-[13px] leading-5 text-slate-600">
-                      Para decidir mejor, pregúntale por:{' '}
-                      {porSaber.map((c, i) => (
-                        <span key={c.clave}>
-                          {i > 0 && ', '}
-                          <span className="font-medium text-slate-700">{enFrase(criterioNombre(c))}</span>
-                        </span>
-                      ))}
-                      .
-                    </p>
-                  )}
-                  {ai.cvUsed === false && <p className="text-[12px] leading-4 text-slate-500">Sin CV: lo he mirado solo por sus respuestas.</p>}
-                </div>
-              )}
-              <div className="mt-3 border-t border-slate-100 pt-2.5">
-                <button type="button" onClick={() => void run(true)} className={BTN_SECONDARY_SM}>
-                  <RefreshCw className="size-3.5 text-slate-500" aria-hidden /> Volver a analizar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
     )
   }

@@ -23,10 +23,10 @@ import { describe, expect, it } from 'vitest'
 // Cada detector se probó rompiéndolo a propósito (invirtiendo la regla que
 // vigila) antes de darlo por bueno.
 import {
-  FIT_BIEN, MAX_CONTRASTES, MAX_CRITERIOS,
+  FIT_BIEN, MAX_CONTRASTES, MAX_CRITERIOS, MAX_INFORME,
   agregarJuicios, criteriosEfectivos, esCvIlegible, filtrarTextoVisible, fusionarJuicio,
-  hashPuesto, normalizarJuicios, sanearContrastes, sanearCriterios, sanearTrayectoria,
-  serializarContraste, soloConservados,
+  hashPuesto, normalizarJuicios, sanearContrastes, sanearCriterios, sanearInforme,
+  sanearTrayectoria, serializarContraste, soloConservados,
   type BaremoCriterio, type Juicio, type Nivel, type Valor,
 } from '../../supabase/functions/_shared/triaje'
 
@@ -330,6 +330,37 @@ describe('trayectoria: transcripción con techos', () => {
       formacion: Array.from({ length: 6 }, () => 'f'.repeat(200)),
     })
     expect(JSON.stringify(lleno).length).toBeLessThan(6000)
+  })
+})
+
+describe('sanearInforme: un párrafo, sin guion largo y con techo', () => {
+  it('colapsa saltos de línea y espacios en un solo párrafo', () => {
+    expect(sanearInforme('Primera frase.\n\nSegunda   frase\ncon salto.')).toBe(
+      'Primera frase. Segunda frase con salto.',
+    )
+  })
+
+  it('sustituye el guion largo (regla de copy de toda la app)', () => {
+    const out = sanearInforme('Encaja bien — con un fleco por confirmar en la llamada.')
+    expect(out).not.toContain('—')
+    expect(out).toBe('Encaja bien, con un fleco por confirmar en la llamada.')
+  })
+
+  it('recorta por encima del techo, y en un final de frase si lo hay', () => {
+    const frase = 'Una frase de relleno que ocupa bastante para llegar al techo. '
+    const largo = frase.repeat(30)
+    const out = sanearInforme(largo)!
+    expect(out.length).toBeLessThanOrEqual(MAX_INFORME)
+    // El recorte cae en un punto: un informe a media palabra es peor que uno
+    // una frase más corto.
+    expect(out.endsWith('.')).toBe(true)
+  })
+
+  it('lo inservible cae en null, nunca en cadena vacía', () => {
+    expect(sanearInforme(undefined)).toBeNull()
+    expect(sanearInforme(42)).toBeNull()
+    expect(sanearInforme('   ')).toBeNull()
+    expect(sanearInforme('Corto.')).toBeNull()
   })
 })
 

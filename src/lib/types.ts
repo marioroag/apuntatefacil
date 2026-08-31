@@ -162,6 +162,11 @@ export interface AiTrayectoria {
 
 export interface CandidateAI {
   summary: string
+  /** El INFORME en prosa (ago 2026): lo que un profesional de selección le
+   *  diría a su jefe al preguntarle por este candidato. Un solo párrafo que se
+   *  sostiene solo; sustituye en la ficha al desglose criterio a criterio, que
+   *  repetía las respuestas en peor. Ausente en análisis anteriores. */
+  informe?: string
   highlights: string[]
   concerns: string[]
   fit: number // 0..100, ajuste al puesto (orientativo, nunca gate)

@@ -332,39 +332,12 @@
   .testimonio-in { animation: entrada-suave var(--duration-enter) var(--ease-out) both; }
 }
 
-/* El informe de Meridian se PLIEGA deslizándose. La altura se anima con
-   `grid-template-rows: 0fr -> 1fr` y no con `max-height`: el truco de max-height
-   obliga a inventarse un techo (si te quedas corto, corta el contenido; si te
-   pasas, la última parte del recorrido va vacía y el cierre arranca tarde), y
-   aquí el alto depende de cuántos criterios tenga el puesto. Con el grid, el
-   recorrido es SIEMPRE el alto real, así que abrir y cerrar duran lo mismo con
-   4 criterios que con 8. El hijo lleva `min-h-0` + `overflow-hidden` porque un
-   ítem de rejilla no encoge por debajo de su contenido si no se le dice.
-
-   ABRIR y CERRAR no duran lo mismo, y esto se midió frame a frame antes de
-   decidirlo. La altura usa el techo de 240ms, que es la categoría declarada
-   "recorre distancia". El contenido, en cambio: al ABRIR arranca a la vez que el
-   hueco y sin retardo (se probó con 60ms de espera y durante los primeros frames
-   se veía una rendija vacía que luego se rellenaba, dos movimientos en vez de
-   uno); al CERRAR se va más rápido que el hueco (`--duration-control`), para que
-   el texto no se quede a medio leer mientras el borde ya le pasa por encima.
-   Con reduced-motion no hay recorrido: abre y cierra en seco. */
-.meridian-fold {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows var(--duration-max) var(--ease-out);
-}
-.meridian-fold > * {
-  min-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition: opacity var(--duration-control) var(--ease-out);
-}
-.meridian-fold-open { grid-template-rows: 1fr; }
-.meridian-fold-open > * { opacity: 1; transition-duration: var(--duration-enter); }
-@media (prefers-reduced-motion: reduce) {
-  .meridian-fold, .meridian-fold > * { transition: none; }
-}
+/* (El pliegue del informe de Meridian, `.meridian-fold`, se retiró en ago 2026
+   con el informe en prosa: un párrafo de 3-5 frases no se come la columna, y
+   esconder el insight detrás de un clic contradecía su razón de ser. Si algún
+   día vuelve a hacer falta un desplegable que deslice, la técnica correcta
+   sigue siendo `grid-template-rows: 0fr -> 1fr`, nunca `max-height`: la usa
+   `Pliegue` en el lateral, que es donde queda viva.) */
 
 /* El anillo de ajuste BARRE hasta su medida la primera vez que hay medida. Solo
    declara el `from` (arco vacío): el final es el valor que lleve el elemento, así

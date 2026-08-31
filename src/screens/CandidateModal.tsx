@@ -3,12 +3,14 @@ import { createPortal } from 'react-dom'
 import {
   ArrowLeft,
   ArrowRight,
+  BadgeCheck,
   CalendarDays,
   Copy,
   Check,
   Download,
   ExternalLink,
   FileText,
+  GraduationCap,
   Loader2,
   MessageCircle,
   MoreHorizontal,
@@ -100,22 +102,29 @@ import { CvViewer, type CitaActiva } from '../components/CvViewer'
  * teléfono y "ver la entrevista" acertaba en un tamaño y fallaba en el otro, que
  * es exactamente el fallo que ya tuvo la versión de pestañas anidadas.
  */
-type Vista = 'respuestas' | 'meridian' | 'documentos' | 'conversacion' | 'historial'
+type Vista = 'respuestas' | 'meridian' | 'documentos' | 'trayectoria' | 'conversacion' | 'historial'
 
 /** Las tres que en escritorio se leen seguidas en la columna. */
 const ES_FICHA = ['respuestas', 'meridian', 'documentos'] as const
 const esFicha = (v: Vista) => (ES_FICHA as readonly string[]).includes(v)
 
+/** Las vistas que se LEEN (columna con scroll y relleno), frente a las dos
+ *  superficies de conversación, que mandan su propio alto. La Trayectoria es
+ *  lectura: una ficha del CV, no un hilo. */
+const esLectura = (v: Vista) => esFicha(v) || v === 'trayectoria'
+
 /**
  * El registro del grupo de pastillas de móvil. Respuestas la primera y por
  * defecto (es lo que se mira siempre); Documentos detrás de Meridian porque
- * muchas veces está vacío; y al final las dos superficies largas, que son a
- * donde se entra a propósito.
+ * muchas veces está vacío, y la Trayectoria (la línea de tiempo del CV) con él,
+ * que es su hermano; y al final las dos superficies largas, que son a donde se
+ * entra a propósito.
  */
 const VISTAS: TabItem<Vista>[] = [
   { value: 'respuestas', label: 'Respuestas' },
   { value: 'meridian', label: MERIDIAN_NAME },
   { value: 'documentos', label: 'Documentos' },
+  { value: 'trayectoria', label: 'Trayectoria' },
   { value: 'conversacion', label: 'Conversación' },
   { value: 'historial', label: 'Historial' },
 ]
@@ -240,8 +249,13 @@ export function CandidateModal({
   // barras puestas, un teléfono tenía DOS niveles de navegación para una sola
   // ficha, que es el fallo que ya se corrigió una vez este mes. Ahora en móvil
   // manda un único control, el de las pastillas, con las cinco vistas dentro.
-  const tabsIzq: TabItem<'info' | 'conversacion' | 'historial'>[] = [
+  // La TRAYECTORIA es pestaña propia (Mario, ago 2026: "el timeline del
+  // trabajador"): es la lectura del CV, no un apartado de Información, y junto
+  // a Conversación e Historial porque también es una superficie a la que se
+  // entra a propósito.
+  const tabsIzq: TabItem<'info' | 'trayectoria' | 'conversacion' | 'historial'>[] = [
     { value: 'info', label: 'Información' },
+    { value: 'trayectoria', label: 'Trayectoria' },
     { value: 'conversacion', label: 'Conversación' },
     { value: 'historial', label: 'Historial' },
   ]
@@ -266,43 +280,40 @@ export function CandidateModal({
   // y no entre tú y lo que el candidato ha contestado.
   const cambiarEstado = (s: CandidateStatus) => void setStatus(candidate.id, s)
 
-  // Las citas del CV que el visor puede subrayar. Solo cuando las hay, el
-  // informe de Meridian recibe `onVerEnCv` y sus hechos se vuelven enlaces al
-  // documento; sin citas (sin CV, escaneo, análisis viejo) todo pinta como
-  // siempre. El viaje: en móvil se cambia a la pastilla Documentos; en columna,
-  // scroll hasta la sección. El destello lo remata el propio visor.
+  // Las citas del CV que el visor puede subrayar. El informe en prosa ya no
+  // enlaza cita a cita: ofrece UNA puerta ("Ver las citas subrayadas en el
+  // CV") que salta a la primera con marca. Antes de que el visor cargue
+  // (citasLocalizadas null) se enlaza con optimismo, y el visor avisa si una
+  // cita no está; con el conjunto en la mano, sin marcas no hay puerta.
   const citasCv: CitaCv[] = candidate.cvPath ? citasDelAnalisis(candidate.ai) : []
   const verEnCv = (id: string) => {
     setCitaActiva((prev) => ({ id, n: (prev?.n ?? 0) + 1 }))
     if (esMovil) setVista('documentos')
     else documentosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+  const citasConMarca = citasLocalizadas == null ? citasCv : citasCv.filter((c) => citasLocalizadas.has(c.id))
+  const verCitas =
+    citasConMarca.length > 0
+      ? { n: citasConMarca.length, abrir: () => verEnCv(citasConMarca[0].id) }
+      : undefined
 
-  // En el selector de móvil entra abierto y sin chevron: has tocado su
-  // pastilla para leerlo (ver `plegable` en `MeridianPanelBlock`).
-  const contenidoMeridian = (
-    <MeridianPanelBlock
-      candidate={candidate}
-      plegable={!esMovil}
-      onVerEnCv={citasCv.length > 0 ? verEnCv : undefined}
-      citasLocalizables={citasLocalizadas}
-    />
-  )
+  const contenidoMeridian = <MeridianPanelBlock candidate={candidate} verCitas={verCitas} />
   const contenidoRespuestas = (
     <Respuestas campaign={campaign} candidate={candidate} maskPhone={maskPhone} conDocumentos={!!candidate.cvPath} />
   )
-  // La TRAYECTORIA (la ficha del CV que extrajo Meridian) vive DENTRO de
-  // Documentos y encima del visor: es lo que Meridian leyó DE ese documento, y
-  // juntos cuentan la historia completa ("esto pone, esto he entendido"). Sin
-  // `trayectoria` (sin CV leído, análisis viejo) no se pinta nada: los vacíos
-  // de este bloque ya dicen lo suyo y un tercer vacío sería ruido.
+  // La TRAYECTORIA (la línea de tiempo que Meridian extrajo del CV) tiene
+  // pestaña propia desde ago 2026 (Mario): metida encima del visor era una
+  // lista apretada dentro de Documentos, y lo que es (la lectura ordenada de la
+  // vida laboral de esa persona) se merece su superficie.
   const trayectoria = candidate.ai && !candidate.ai.error ? candidate.ai.trayectoria : undefined
+  const contenidoTrayectoria = (
+    <TrayectoriaTab pideCv={!!cvField} tieneCv={!!candidate.cvPath} ai={candidate.ai} trayectoria={trayectoria} />
+  )
   // Alto declarado: el visor es un `flex-1` y dentro de una columna que scrollea
   // no tiene contra qué medirse, así que sin esto se quedaría en su `min-h`. El
   // techo en vh es para que en una pantalla baja no empuje el resto fuera.
   const contenidoDocumentos = candidate.cvPath ? (
     <div ref={documentosRef} className="scroll-mt-4">
-      {trayectoria && <Trayectoria t={trayectoria} />}
       <div className="flex h-[520px] max-h-[68vh] flex-col">
         <Cv
           key={candidate.id}
@@ -489,7 +500,7 @@ export function CandidateModal({
             {!esMovil && (
               <Tabs
                 items={tabsIzq}
-                value={esFicha(vista) ? 'info' : (vista as 'conversacion' | 'historial')}
+                value={esFicha(vista) ? 'info' : (vista as 'trayectoria' | 'conversacion' | 'historial')}
                 onChange={(v) => setVista(v === 'info' ? 'respuestas' : v)}
                 idPrefix="cand"
                 label="Secciones del candidato"
@@ -505,7 +516,7 @@ export function CandidateModal({
               idPrefix="cand"
               value={esFicha(vista) ? 'info' : vista}
               className={`min-h-0 flex-1 ${
-                esMovil || esFicha(vista)
+                esMovil || esLectura(vista)
                   ? 'overflow-y-auto overscroll-contain px-4 py-5 sm:px-5'
                   : 'flex flex-col overflow-hidden bg-slate-50/60'
               }`}
@@ -558,6 +569,7 @@ export function CandidateModal({
                         {vista === 'respuestas' ? contenidoRespuestas
                           : vista === 'meridian' ? contenidoMeridian
                           : vista === 'documentos' ? contenidoDocumentos
+                          : vista === 'trayectoria' ? contenidoTrayectoria
                           // La conversación y el historial mandan su propio alto
                           // (son columnas flex con scroll), así que dentro de una
                           // columna que ya scrollea hay que dárselo declarado o se
@@ -596,6 +608,7 @@ export function CandidateModal({
                   {!dosColumnas && <Seccion>{notas}</Seccion>}
                 </div>
               )}
+              {!esMovil && vista === 'trayectoria' && contenidoTrayectoria}
               {!esMovil && vista === 'conversacion' && panelConversacion}
               {!esMovil && vista === 'historial' && contenidoHistorial}
             </Envoltorio>
@@ -1213,56 +1226,107 @@ function Respuestas({
 }
 
 /**
- * La ficha del CV que Meridian extrajo (empleos, carnets, formación): lo que el
- * documento DICE, ordenado para no tener que bucearlo. Transcripción, no
- * interpretación: las fechas se pintan tal cual las escribe el CV. Vive encima
- * del visor, separada por el filo interior, y su rótulo dice de dónde sale.
+ * LA PESTAÑA TRAYECTORIA: la línea de tiempo del trabajador (Mario, ago 2026).
+ * Lo que Meridian transcribió del CV, pintado como se lee una vida laboral: un
+ * raíl vertical con una parada por empleo, y debajo los carnets y la formación.
+ * Vivía como lista apretada encima del visor de Documentos; con pestaña propia
+ * la lectura tiene aire y las fechas caen en una sola vertical.
+ *
+ * Transcripción, no interpretación: las fechas se pintan tal cual las escribe
+ * el CV (por eso no se calculan duraciones ni se ordena nada: el orden es el
+ * del documento, que casi siempre es el cronológico inverso).
+ *
+ * SE PINTA SIEMPRE, con su vacío, como Documentos: una ficha que cambia de
+ * pestañas según lo que traiga cada persona obliga a releerla entera cada vez.
+ * Y el vacío dice CUÁL de los vacíos es, que no significan lo mismo.
  */
-function Trayectoria({ t }: { t: AiTrayectoria }) {
-  const fila = 'flex items-baseline gap-2 text-[13px] leading-5'
+function TrayectoriaTab({
+  pideCv,
+  tieneCv,
+  ai,
+  trayectoria,
+}: {
+  pideCv: boolean
+  tieneCv: boolean
+  ai: Candidate['ai']
+  trayectoria: AiTrayectoria | undefined
+}) {
+  // En escritorio la pestaña ocupa la columna entera: la tarjeta acota la
+  // lectura, como los bloques de Información. En móvil, franja plana.
+  const caja = 'sm:max-w-[640px] sm:rounded-xl sm:filo sm:p-5'
+  if (!trayectoria) {
+    const vacio = !pideCv
+      ? 'Este formulario no pide CV, así que no hay trayectoria que leer.'
+      : !tieneCv
+        ? 'No ha subido su CV: no hay trayectoria que leer.'
+        : !ai || ai.error
+          ? `Analiza la candidatura con ${MERIDIAN_NAME} y la trayectoria se extrae sola del CV.`
+          : `Este análisis no trae la trayectoria. Vuelve a analizar la candidatura desde el informe de ${MERIDIAN_NAME}.`
+    return <p className="max-w-[46ch] text-[13px] leading-5 text-slate-500">{vacio}</p>
+  }
+  const t = trayectoria
+  const rotulo = 'text-[11px] font-semibold uppercase tracking-wider text-slate-500'
   return (
-    <div className="border-b border-slate-100 pb-3 sm:px-3.5">
-      <div className="flex items-baseline justify-between gap-2 pt-2.5">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Trayectoria</p>
-        <p className="text-[11px] text-slate-500">Extraída del CV por {MERIDIAN_NAME}</p>
-      </div>
+    <div className={caja}>
       {t.empleos.length > 0 && (
-        <ul className="mt-1.5 space-y-1">
-          {t.empleos.map((e, i) => (
-            <li key={i} className={fila}>
-              <span className="min-w-0 flex-1 text-slate-700">
-                {[e.puesto, e.empresa].filter(Boolean).map((parte, k) => (
-                  <span key={k}>
-                    {k > 0 && <span className="text-slate-400"> · </span>}
-                    <span className={k === 0 ? 'font-medium' : undefined}>{parte}</span>
-                  </span>
-                ))}
-              </span>
-              {(e.desde || e.hasta) && (
-                <span className="num shrink-0 text-slate-500">{[e.desde, e.hasta].filter(Boolean).join(' - ')}</span>
-              )}
-            </li>
-          ))}
-        </ul>
+        <section>
+          <h3 className={rotulo}>Experiencia</h3>
+          {/* El raíl: una línea continua con una parada por empleo. El punto
+              lleva un aro del color de la superficie para separarse de la
+              línea (un halo, la excepción declarada al ring-inset). */}
+          <ol className="mt-3 space-y-5 border-l border-slate-200 pl-5 [margin-left:5px]">
+            {t.empleos.map((e, i) => (
+              <li key={i} className="relative">
+                <span
+                  className="absolute top-[5px] size-2.5 rounded-full bg-slate-400 ring-2 ring-white [left:-26px]"
+                  aria-hidden
+                />
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <p className="min-w-0 text-sm font-semibold leading-5 text-slate-900">{e.puesto || e.empresa}</p>
+                  {(e.desde || e.hasta) && (
+                    <p className="num shrink-0 text-[13px] leading-5 text-slate-500">
+                      {[e.desde, e.hasta].filter(Boolean).join(' - ')}
+                    </p>
+                  )}
+                </div>
+                {e.puesto && e.empresa && <p className="text-[13px] leading-5 text-slate-600">{e.empresa}</p>}
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
       {t.carnets.length > 0 && (
-        <p className="mt-2 text-[13px] leading-5 text-slate-700">
-          <span className="text-slate-500">Carnets y certificados: </span>
-          {t.carnets.map((c, i) => (
-            <span key={i}>
-              {i > 0 && ', '}
-              {c.nombre}
-              {c.vigencia && <span className="text-slate-500"> ({c.vigencia})</span>}
-            </span>
-          ))}
-        </p>
+        <section className={t.empleos.length > 0 ? 'mt-6' : ''}>
+          <h3 className={rotulo}>Carnets y certificados</h3>
+          <ul className="mt-2 space-y-1.5">
+            {t.carnets.map((c, i) => (
+              <li key={i} className="flex items-baseline gap-2 text-[13px] leading-5">
+                <BadgeCheck className="size-3.5 shrink-0 translate-y-0.5 text-slate-500" aria-hidden />
+                <span className="min-w-0 text-slate-700">
+                  {c.nombre}
+                  {c.vigencia && <span className="text-slate-500"> · {c.vigencia}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {t.formacion.length > 0 && (
-        <p className="mt-1 text-[13px] leading-5 text-slate-700">
-          <span className="text-slate-500">Formación: </span>
-          {t.formacion.join(', ')}
-        </p>
+        <section className={t.empleos.length > 0 || t.carnets.length > 0 ? 'mt-6' : ''}>
+          <h3 className={rotulo}>Formación</h3>
+          <ul className="mt-2 space-y-1.5">
+            {t.formacion.map((f, i) => (
+              <li key={i} className="flex items-baseline gap-2 text-[13px] leading-5 text-slate-700">
+                <GraduationCap className="size-3.5 shrink-0 translate-y-0.5 text-slate-500" aria-hidden />
+                <span className="min-w-0">{f}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
+      <p className="mt-6 border-t border-slate-100 pt-2.5 text-[12px] leading-4 text-slate-500">
+        Extraída del CV por {MERIDIAN_NAME}: transcripción literal, con las fechas tal cual las escribe el documento.
+      </p>
     </div>
   )
 }
@@ -1301,6 +1365,17 @@ function Cv({
   const [peso, setPeso] = useState<string | null>(null)
   const [bytes, setBytes] = useState<ArrayBuffer | null>(null)
   const [visorFallo, setVisorFallo] = useState(false)
+  // "Reintentar" tras un fallo ocasional (la red, una firma caducada, un chunk
+  // que no cargó a la primera): vuelve a empezar el camino ENTERO, con firma
+  // nueva incluida, en vez de obligar a cerrar la ficha y reabrirla.
+  const [intento, setIntento] = useState(0)
+  const reintentar = () => {
+    setUrl(null)
+    setError(false)
+    setBytes(null)
+    setVisorFallo(false)
+    setIntento((n) => n + 1)
+  }
   const toast = useToast()
   const path = candidate.cvPath ?? ''
   const esPdf = path.toLowerCase().endsWith('.pdf')
@@ -1309,7 +1384,8 @@ function Cv({
   useEffect(() => {
     let vivo = true
     // Sin reiniciar url/error aquí: el visor se remonta por `key` al cambiar de
-    // candidato, así que el estado inicial ya es el correcto.
+    // candidato (y `reintentar` deja el estado limpio), así que el estado
+    // inicial ya es el correcto.
     if (esAssetDemo) {
       setUrl(path)
       return () => {
@@ -1339,7 +1415,7 @@ function Cv({
     return () => {
       vivo = false
     }
-  }, [path, esAssetDemo])
+  }, [path, esAssetDemo, intento])
 
   // Los BYTES del PDF, para el visor con subrayados: una sola descarga sirve
   // para renderizar y para buscar las citas. Si la descarga falla se cae al
@@ -1409,7 +1485,27 @@ function Cv({
         </div>
       ) : error ? (
         <div className={`min-h-[240px] ${banda}`}>
-          <p className="max-w-[42ch] text-sm leading-6 text-slate-500">No se pudo abrir el CV. Prueba a descargarlo.</p>
+          <div>
+            <p className="max-w-[42ch] text-sm leading-6 text-slate-500">No se pudo abrir el CV. Prueba a descargarlo.</p>
+            <button type="button" onClick={reintentar} className={`mt-3 ${BTN_SECONDARY_SM}`}>
+              Reintentar
+            </button>
+          </div>
+        </div>
+      ) : visorFallo && url && navigator.pdfViewerEnabled === false ? (
+        // El plan B de abajo es un iframe con el visor de PDF DEL NAVEGADOR, y
+        // hay navegadores sin él (lo dicen ellos mismos): ahí el iframe pinta
+        // un rectángulo gris mudo, que es exactamente el "sale en gris" que no
+        // se podía diagnosticar. Mejor decirlo y ofrecer la salida.
+        <div className={`min-h-[240px] ${banda}`}>
+          <div>
+            <p className="max-w-[42ch] text-sm leading-6 text-slate-500">
+              Este navegador no puede enseñar el CV aquí dentro. Descárgalo o ábrelo aparte.
+            </p>
+            <button type="button" onClick={reintentar} className={`mt-3 ${BTN_SECONDARY_SM}`}>
+              Reintentar
+            </button>
+          </div>
         </div>
       ) : visorFallo && url ? (
         // Plan B: el iframe de siempre. Enseña el documento sin subrayados; las

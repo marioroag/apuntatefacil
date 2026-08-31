@@ -11,16 +11,27 @@ export type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
 
 let promesa: Promise<Pdfjs> | null = null
 
+async function importar(): Promise<Pdfjs> {
+  const [pdfjs, worker] = await Promise.all([
+    import('pdfjs-dist'),
+    import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
+  ])
+  pdfjs.GlobalWorkerOptions.workerSrc = worker.default
+  return pdfjs
+}
+
 export function cargarPdfjs(): Promise<Pdfjs> {
   if (!promesa) {
-    promesa = Promise.all([
-      import('pdfjs-dist'),
-      import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
-    ]).then(([pdfjs, worker]) => {
-      pdfjs.GlobalWorkerOptions.workerSrc = worker.default
-      return pdfjs
+    // Un import dinámico también falla por un tropiezo PUNTUAL (un corte de
+    // red, el dev server recargando): un único reintento corto cubre el caso
+    // ocasional ("a veces el visor sale gris") sin esconder el permanente (el
+    // chunk desaparecido tras un deploy vuelve a fallar y se cae al plan B).
+    promesa = importar().catch(async (e) => {
+      console.error('[apuntatefacil] pdf.js no cargó a la primera, reintento:', e)
+      await new Promise((r) => setTimeout(r, 400))
+      return importar()
     })
-    // Si la carga falla (sin red al pedir el chunk), el siguiente intento
+    // Si aun así falla (sin red al pedir el chunk), el siguiente intento
     // vuelve a empezar en vez de quedarse con una promesa rota para siempre.
     promesa.catch(() => {
       promesa = null
