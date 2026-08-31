@@ -91,11 +91,38 @@ describe('agregación: el número lo pone el código', () => {
     expect(cumpleLoChico.fit).toBe(33)
   })
 
-  it('un juicio que falta cuenta como no_consta: fuera del denominador', () => {
+  it('un juicio que falta cuenta como no_consta, y si era CLAVE arrastra', () => {
     const baremo = [crit('a', 'clave'), crit('b', 'importante')]
     const { fit, evaluados } = agregarJuicios(baremo, [j('b', 'cumple')])
-    expect(fit).toBe(100)
+    // 2 de (3 + 2): el clave sin dato entra a 0. Antes daba 100, que era
+    // afirmar que encaja sin saber lo que más importa.
+    expect(fit).toBe(40)
     expect(evaluados).toBe(1)
+  })
+
+  // La excepción de Mario (ago 2026): con lo CLAVE a oscuras no se puede
+  // afirmar que alguien encaja. Salió de un candidato real que puntuaba 90
+  // "solo por el PRL" con la experiencia (clave) en no_consta.
+  it('un CLAVE en no_consta cuenta como una negativa; importante y deseable no', () => {
+    const baremo = [crit('a', 'clave'), crit('b', 'clave'), crit('c', 'importante'), crit('d', 'deseable')]
+    const out = agregarJuicios(baremo, [
+      j('a', 'no_consta'), j('b', 'cumple'), j('c', 'no_consta'), j('d', 'no_consta'),
+    ])
+    // 3 de (3 + 3): el clave sin dato pesa a 0; el importante y el deseable
+    // sin dato siguen fuera (no saber algo menor no hunde a nadie).
+    expect(out.fit).toBe(50)
+    expect(out.fit).toBeLessThan(FIT_BIEN)
+  })
+
+  it('un CLAVE de CV en no_consta solo arrastra si hubo CV legible', () => {
+    const baremo = [crit('vigencia', 'clave', 'cv'), crit('b', 'importante')]
+    const juicios = [j('vigencia', 'no_consta'), j('b', 'cumple')]
+    // Con CV leído y el dato sin aparecer, arrastra: lo clave no acreditado
+    // no puede salir gratis.
+    expect(agregarJuicios(baremo, juicios, true).fit).toBe(40)
+    // Sin CV legible (no lo mandó, o no se pudo leer), no: castigar ahí sería
+    // castigar nuestra propia ceguera, no su candidatura.
+    expect(agregarJuicios(baremo, juicios, false).fit).toBe(100)
   })
 })
 

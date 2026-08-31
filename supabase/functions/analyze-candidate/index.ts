@@ -490,8 +490,9 @@ Deno.serve(async (req) => {
         .then((out) => sanearInforme(out.informe))
         .catch(() => null)
 
-      // --- El número lo pone el código: pesos por nivel y cobertura. ---
-      const { fit } = agregarJuicios(efectivos, juicios)
+      // --- El número lo pone el código: pesos por nivel y cobertura. Un clave
+      // sin dato arrastra, salvo los de CV cuando no hubo CV legible. ---
+      const { fit } = agregarJuicios(efectivos, juicios, !!cv)
       const valorDe = new Map(juicios.map((j) => [j.clave, j]))
       const criteriosOut = efectivos.map((c) => {
         const j = valorDe.get(c.clave)

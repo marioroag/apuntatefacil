@@ -840,6 +840,7 @@ export function aiFor(
       fuente: c.fuente ?? 'formulario' as const, anclas: { cumple: '', parcial: '', no_cumple: '' },
     })),
     criterios.map((c) => ({ clave: c.clave, valor: c.valor, evidencia: c.evidencia })),
+    cvUsed,
   )
   const summary = fit >= 70 ? pick(AI_SUMMARY_HIGH) : fit >= 50 ? pick(AI_SUMMARY_MID) : pick(AI_SUMMARY_LOW)
   // A favor y a confirmar DERIVAN de los criterios, como garantiza el juez en el

@@ -131,15 +131,33 @@ export function criteriosEfectivos(criterios: BaremoCriterio[], cvPosible: boole
  * mezclarlas era lo que producía el suelo de 30 y el techo de 86 de la v1.
  * Sin ningún criterio evidenciado, el fit es 0 (candidatura vacía = "A valorar"
  * por falta de información, y la ficha lo dice con palabras, no con un 30).
+ *
+ * EXCEPCIÓN (Mario, ago 2026, con un caso real delante): un criterio CLAVE en
+ * "no_consta" SÍ entra en el denominador, a 0. Salió de un candidato al que la
+ * experiencia (clave) no le constaba y aun así puntuaba 90 "solo por el PRL":
+ * con lo clave a oscuras no se puede afirmar que alguien encaja, y sacarlo del
+ * cálculo era exactamente esa afirmación. Lo importante y lo deseable siguen
+ * fuera cuando no constan (no saber algo menor no hunde a nadie), y los
+ * criterios de fuente "cv" solo arrastran si hubo CV LEGIBLE: si no lo mandó o
+ * no se pudo leer, castigar sería castigar nuestra propia ceguera, no su
+ * candidatura (`cvLegible`).
  */
-export function agregarJuicios(efectivos: BaremoCriterio[], juicios: Juicio[]): Agregado {
+export function agregarJuicios(
+  efectivos: BaremoCriterio[],
+  juicios: Juicio[],
+  cvLegible = true,
+): Agregado {
   const valorDe = new Map(juicios.map((j) => [j.clave, j.valor]))
   let suma = 0
   let pesoTotal = 0
   let evaluados = 0
   for (const c of efectivos) {
     const valor = valorDe.get(c.clave) ?? 'no_consta'
-    if (valor === 'no_consta') continue
+    if (valor === 'no_consta') {
+      const arrastra = c.nivel === 'clave' && (c.fuente !== 'cv' || cvLegible)
+      if (arrastra) pesoTotal += PESO_NIVEL.clave
+      continue
+    }
     evaluados += 1
     const w = PESO_NIVEL[c.nivel]
     suma += (PESO_VALOR[valor] ?? 0) * w
@@ -413,8 +431,11 @@ export interface CampoDePuesto {
  *   v2 (ago 2026): el CV pesa más. Con campo de CV, la experiencia ACREDITADA
  *   es un criterio "importante" y no un deseable de regalo; sin la versión, el
  *   Camarero/a real se quedaba con su baremo de un solo criterio de CV.
+ *   v3 (ago 2026): el baremo CUBRE el formulario. Un puesto real con 7
+ *   preguntas de fondo salió con 3 criterios: disponibilidad, zonas y carnet
+ *   no pesaban nada, y el número se decidía con dos datos.
  */
-export const VERSION_BAREMO = 2
+export const VERSION_BAREMO = 3
 
 export async function hashPuesto(puesto: {
   title: string
@@ -501,6 +522,12 @@ export function promptGenerador(puesto: {
     'evidenciar un criterio, no existe. La "fuente" dice de dónde saldrá la evidencia: ' +
     '"formulario" si lo responde una pregunta, "cv" solo para lo que el formulario no ' +
     'pregunta (continuidad laboral, detalle de la trayectoria).\n' +
+    '- El baremo CUBRE el formulario: si la empresa se molestó en preguntar algo de ' +
+    'fondo, es porque le importa, así que cada pregunta con una dirección favorable ' +
+    'clara tiende a su criterio (varias preguntas del mismo asunto pueden compartir ' +
+    'uno: dos casillas de cursos son UN criterio de cursos; carnet y vehículo, UNO de ' +
+    'desplazamiento). Un formulario de 7 preguntas de fondo no cabe en 3 criterios: eso ' +
+    'deja la mitad de lo que la empresa pregunta sin pesar en el número.\n' +
     '- NO conviertas en criterio una preferencia sin dirección conocida. "¿Qué turno ' +
     'prefieres?" sin saber el turno del puesto no se puede puntuar: puntuar lo imposible ' +
     'mete ruido. Solo puntúa lo que tenga una respuesta claramente favorable para el puesto.\n' +
