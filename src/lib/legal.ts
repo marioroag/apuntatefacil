@@ -24,7 +24,7 @@
 // imperativa del art. 100 TRLPI, y un Anexo de Encargo del Tratamiento (art. 28).
 //
 // PENDIENTE antes de publicar (esto NO es asesoramiento legal; revisar con abogado):
-//  - Rellenar [RAZÓN SOCIAL], [NIF/DNI], [DIRECCIÓN POSTAL], [REGIÓN DE ALOJAMIENTO].
+//  - Rellenar SOLERA CANARIAS TÉCNICA, S.L., B-13789649, calle Quiquirá Bajo, 1, 38300 La Orotava, Santa Cruz de Tenerife (España), eu-west-3 (París, Francia).
 //  - Validar con abogado colegiado: tope de responsabilidad, indemnidad y
 //    repercusión de sanciones AEPD (solo parte imputable al cliente), jurisdicción,
 //    y la suficiencia del Anexo de Encargo (art. 28) frente a clientes con DPO.
@@ -53,7 +53,7 @@ export const PRIVACY_DOC: LegalDoc = {
       "blocks": [
         {
           "type": "p",
-          "text": "El responsable del tratamiento de los datos de las cuentas de empresa cliente es Apúntate Fácil, titularidad de [RAZÓN SOCIAL], con NIF [NIF/DNI] y domicilio en [DIRECCIÓN POSTAL]. Apúntate Fácil presta un servicio en la nube (SaaS) que permite a empresas y profesionales publicar ofertas de empleo, recibir candidaturas a través de un formulario corto y gestionarlas en un panel filtrable que pueden exportar a Excel."
+          "text": "El responsable del tratamiento de los datos de las cuentas de empresa cliente es Apúntate Fácil, titularidad de SOLERA CANARIAS TÉCNICA, S.L., con NIF B-13789649 y domicilio en calle Quiquirá Bajo, 1, 38300 La Orotava, Santa Cruz de Tenerife (España). Apúntate Fácil presta un servicio en la nube (SaaS) que permite a empresas y profesionales publicar ofertas de empleo, recibir candidaturas a través de un formulario corto y gestionarlas en un panel filtrable que pueden exportar a Excel."
         },
         {
           "type": "p",
@@ -224,9 +224,9 @@ export const PRIVACY_DOC: LegalDoc = {
           "items": [
             "Stripe (Stripe, Inc.): procesa los pagos. Gestiona el cobro de tu suscripción según tu plan (185, 237 o 533 EUR más IVA), emite facturas y trata los datos de pago y facturación.",
             "Resend (Resend, Inc.): envía los emails transaccionales y los de acceso. Manda el aviso al responsable de la empresa cuando entra una nueva candidatura (ese email incluye el nombre y el teléfono del candidato), las comprobaciones de interés que la empresa decide enviar a candidatos, los avisos de suscripción y los emails de confirmación de cuenta o restablecimiento de contraseña. Las comprobaciones de interés no incorporan seguimiento de aperturas ni de clics por parte de Apúntate Fácil.",
-            "Supabase (Supabase, Inc.): es la infraestructura. Aloja la base de datos con las tablas de empresas, candidatos, puestos y campañas, gestiona la autenticación y las sesiones, y almacena los CV y documentos adjuntos en un espacio de archivos privado. Los datos se alojan en la región [REGIÓN DE ALOJAMIENTO].",
+            "Supabase (Supabase, Inc.): es la infraestructura. Aloja la base de datos con las tablas de empresas, candidatos, puestos y campañas, gestiona la autenticación y las sesiones, y almacena los CV y documentos adjuntos en un espacio de archivos privado. Los datos se alojan en la región eu-west-3 (París, Francia).",
             "Vercel (Vercel, Inc.): aloja y sirve la aplicación web, es decir, las páginas que se cargan en el navegador, incluido el formulario público que rellenan los candidatos. Como cualquier servidor web, procesa datos técnicos de conexión (dirección IP, navegador) para entregar las páginas, y nos proporciona la medición de audiencia y rendimiento sin cookies descrita en el apartado 4, con datos agregados.",
-            "Google (Google LLC): solo si eliges entrar con tu cuenta de Google. En esa función Google interviene en la autenticación y trata tu email de Google conforme a sus propias políticas, como responsable independiente de ese dato de inicio de sesión. Si entras con tu email y contraseña, Google no interviene.",
+            "Google (Google LLC): interviene en dos funciones opcionales. Si eliges entrar con tu cuenta de Google, trata tu email conforme a sus propias políticas, como responsable independiente de ese dato de inicio de sesión. Y si conectas tu Google Calendar, tratamos los datos de tu calendario según se detalla en el apartado 15. Si entras con email y contraseña y no conectas ningún calendario, Google no interviene.",
             "Meta (Meta Platforms Ireland Limited): solo si tu empresa usa el asistente de WhatsApp para invitar a entrevistas. Es el canal por el que se escribe al candidato: le llega la invitación, la elección de horario, la confirmación y los recordatorios. Para poder enviarlos, Meta trata el teléfono del candidato, su nombre de pila, el nombre de tu empresa, el puesto al que se apuntó y, cuando hay cita cerrada, su fecha, hora y lugar, además del contenido de los mensajes que se intercambien en la conversación. El candidato acepta este contacto al enviar su candidatura, se le dice en el propio formulario antes de enviarlo, y puede cortarlo en cualquier momento respondiendo BAJA o STOP, lo que detiene todos los mensajes y queda registrado. A los candidatos que se apuntaron antes de que el formulario avisara de esto no se les escribe por WhatsApp.",
             "OpenAI (OpenAI Ireland Ltd.): solo en los planes Pro y Multi, y solo si tu empresa usa Meridian. Es el modelo de lenguaje que resume cada candidatura, calcula su ajuste al puesto y responde a lo que le preguntas en el panel. Le enviamos las respuestas del formulario y, cuando el candidato lo adjunta, el texto de su CV, que puede contener datos de contacto y trayectoria. NO le enviamos el correo ni el teléfono que el candidato escribe en el formulario, ni el archivo del CV en sí. Meridian nunca decide ni descarta por su cuenta: solo resume y ordena, y cualquier acción la confirmas tú. Estos datos no se usan para entrenar los modelos de OpenAI. OpenAI conserva las llamadas hasta 30 días en registros de detección de abusos y después las elimina, salvo que la ley le obligue a guardarlas más tiempo."
           ]
@@ -250,7 +250,7 @@ export const PRIVACY_DOC: LegalDoc = {
       "blocks": [
         {
           "type": "p",
-          "text": "Procuramos que los datos se alojen dentro del Espacio Económico Europeo. Nuestra infraestructura de base de datos y almacenamiento (Supabase) está configurada en la región [REGIÓN DE ALOJAMIENTO]."
+          "text": "Procuramos que los datos se alojen dentro del Espacio Económico Europeo. Nuestra infraestructura de base de datos y almacenamiento (Supabase) está configurada en la región eu-west-3 (París, Francia)."
         },
         {
           "type": "p",
@@ -428,7 +428,43 @@ export const PRIVACY_DOC: LegalDoc = {
       ]
     },
     {
-      "heading": "15. Cambios en esta política",
+      "heading": "15. Conexión con Google Calendar",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Conectar tu Google Calendar es opcional y no hace falta para usar el servicio. Si no lo conectas, nada de este apartado te aplica. Lo describimos con detalle porque son datos de tu cuenta de Google y creemos que tienes que saber exactamente qué tocamos."
+        },
+        {
+          "type": "p",
+          "text": "Al conectarlo te pedimos dos permisos y ninguno más, y son los más estrechos que permiten hacer el trabajo:"
+        },
+        {
+          "type": "ul",
+          "items": [
+            "Ver y editar eventos de tus calendarios (calendar.events): lo usamos para escribir en tu calendario las entrevistas que agendas en la aplicación, moverlas si las reprogramas y borrarlas si las cancelas. Solo creamos, modificamos y borramos los eventos que ha creado la propia aplicación, que identificamos por el identificador que guardamos al crearlos. No leemos, modificamos ni borramos ningún otro evento tuyo.",
+            "Ver tu disponibilidad (calendar.freebusy): lo usamos para no ofrecer horas de entrevista que ya tengas ocupadas. Este permiso devuelve únicamente los tramos en los que estás ocupado, es decir una hora de inicio y una de fin. No devuelve títulos, descripciones, ubicaciones ni asistentes, y lo elegimos precisamente por eso, en lugar del permiso de lectura del calendario."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Qué guardamos: la credencial que Google nos entrega para poder seguir actuando en tu nombre, cifrada en un almacén de secretos separado de la base de datos; la dirección de la cuenta de Google que has conectado, para poder enseñártela en Ajustes; y el identificador del evento que hemos creado para cada entrevista. NO guardamos el contenido de tu calendario: los tramos ocupados se consultan en el momento y no se almacenan."
+        },
+        {
+          "type": "p",
+          "text": "Con quién los compartimos: con nadie. Estos datos no se venden, no se ceden a terceros, no se usan para publicidad ni para elaborar perfiles, y no se emplean para entrenar modelos de inteligencia artificial, ni nuestros ni de nadie. Solo se usan para las dos funciones descritas arriba, que son las que tú has pedido al conectar el calendario."
+        },
+        {
+          "type": "p",
+          "text": "El uso que hacemos de la información recibida de las API de Google se ajusta a la Política de Datos de Usuario de los Servicios de las API de Google (Google API Services User Data Policy), incluidos sus requisitos de Uso Limitado (Limited Use)."
+        },
+        {
+          "type": "p",
+          "text": "Cómo se corta: desde Ajustes, en el bloque \"Tu calendario\", pulsando Desconectar. Al hacerlo retiramos el permiso en Google y borramos la credencial y la dirección de la cuenta. También puedes retirárnoslo tú desde la página de permisos de tu cuenta de Google. Los eventos que ya estén en tu calendario se quedan como están: son tuyos, y sin permiso no podríamos tocarlos aunque quisiéramos."
+        }
+      ]
+    },
+    {
+      "heading": "16. Cambios en esta política",
       "blocks": [
         {
           "type": "p",
@@ -457,7 +493,7 @@ export const TERMS_DOC: LegalDoc = {
       "blocks": [
         {
           "type": "p",
-          "text": "El servicio Apúntate Fácil lo presta [RAZÓN SOCIAL], con NIF [NIF/DNI] y domicilio en [DIRECCIÓN POSTAL] (en adelante, \"Apúntate Fácil\", \"nosotros\" o \"el prestador\"). Somos los titulares de la web apuntatefacil.com y de la plataforma que se ofrece a través de ella."
+          "text": "El servicio Apúntate Fácil lo presta SOLERA CANARIAS TÉCNICA, S.L., con NIF B-13789649 y domicilio en calle Quiquirá Bajo, 1, 38300 La Orotava, Santa Cruz de Tenerife (España) (en adelante, \"Apúntate Fácil\", \"nosotros\" o \"el prestador\"). Somos los titulares de la web apuntatefacil.com y de la plataforma que se ofrece a través de ella."
         },
         {
           "type": "p",
@@ -718,7 +754,7 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Toda la información detallada sobre qué datos tratamos, con qué fines, durante cuánto tiempo, dónde se alojan ([REGIÓN DE ALOJAMIENTO]) y cómo ejercer tus derechos está en la Política de Privacidad. Para los datos de candidatos, las condiciones específicas del encargo están en el Anexo de Encargo del Tratamiento que figura al final de estos términos. Estos términos deben leerse junto con esos documentos."
+          "text": "Toda la información detallada sobre qué datos tratamos, con qué fines, durante cuánto tiempo, dónde se alojan (eu-west-3 (París, Francia)) y cómo ejercer tus derechos está en la Política de Privacidad. Para los datos de candidatos, las condiciones específicas del encargo están en el Anexo de Encargo del Tratamiento que figura al final de estos términos. Estos términos deben leerse junto con esos documentos."
         }
       ]
     },
@@ -727,7 +763,7 @@ export const TERMS_DOC: LegalDoc = {
       "blocks": [
         {
           "type": "p",
-          "text": "El software, la plataforma, la marca Apúntate Fácil, el diseño, los textos y todos los elementos del servicio son de su titular, [RAZÓN SOCIAL], o de quienes nos han cedido los derechos. Están protegidos por la normativa de propiedad intelectual e industrial."
+          "text": "El software, la plataforma, la marca Apúntate Fácil, el diseño, los textos y todos los elementos del servicio son de su titular, SOLERA CANARIAS TÉCNICA, S.L., o de quienes nos han cedido los derechos. Están protegidos por la normativa de propiedad intelectual e industrial."
         },
         {
           "type": "p",
@@ -994,7 +1030,7 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Subencargados. Autorizas con carácter general que recurramos a los subencargados necesarios para prestar el servicio. A la fecha de estos términos son: Stripe (pagos), Resend (emails transaccionales), Supabase (alojamiento de base de datos, autenticación y almacenamiento de archivos, en la región [REGIÓN DE ALOJAMIENTO]), Vercel (servicio de la aplicación web) y Google (inicio de sesión opcional). Si vamos a sustituir o añadir un subencargado, te lo comunicaremos por un medio razonable (por email a tu cuenta o mediante un aviso en la plataforma) con antelación suficiente antes de que el cambio entre en vigor, y dispondrás de un plazo razonable para oponerte por motivos fundados de protección de datos. Si te opones y no podemos ofrecerte una alternativa, podrás resolver la parte del servicio afectada sin penalización. Exigimos a cada subencargado, por contrato, obligaciones de protección de datos equivalentes a las de este anexo."
+          "text": "Subencargados. Autorizas con carácter general que recurramos a los subencargados necesarios para prestar el servicio. A la fecha de estos términos son: Stripe (pagos), Resend (emails transaccionales), Supabase (alojamiento de base de datos, autenticación y almacenamiento de archivos, en la región eu-west-3 (París, Francia)), Vercel (servicio de la aplicación web) y Google (inicio de sesión opcional y conexión opcional con Google Calendar). Si vamos a sustituir o añadir un subencargado, te lo comunicaremos por un medio razonable (por email a tu cuenta o mediante un aviso en la plataforma) con antelación suficiente antes de que el cambio entre en vigor, y dispondrás de un plazo razonable para oponerte por motivos fundados de protección de datos. Si te opones y no podemos ofrecerte una alternativa, podrás resolver la parte del servicio afectada sin penalización. Exigimos a cada subencargado, por contrato, obligaciones de protección de datos equivalentes a las de este anexo."
         },
         {
           "type": "p",
