@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ArrowLeft,
@@ -8,7 +8,6 @@ import {
   Copy,
   Check,
   Download,
-  ExternalLink,
   FileText,
   GraduationCap,
   Loader2,
@@ -18,6 +17,7 @@ import {
   Star,
   Trash2,
   X,
+  Plus,
 } from 'lucide-react'
 import { Modal } from '../components/ui/Modal'
 import { Tabs, TabPanel, type TabItem } from '../components/ui/Tabs'
@@ -28,12 +28,12 @@ import {
 import { useChatThread } from '../lib/useChatThread'
 import { StatusSelect } from '../components/ui/StatusPill'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import type { AiTrayectoria, Campaign, Candidate, CandidateEvent, CandidateStatus } from '../lib/types'
+import type { AiTrayectoria, Campaign, Candidate, CandidateDocument, CandidateEvent, CandidateStatus, FormField } from '../lib/types'
 import { FAVORITO_STAR, SOURCE_META, STATUS_META } from '../lib/types'
 import { CAMPOS_YA_PINTADOS, answerText, candidateName, fechaCorta, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate, shortWhenInZone } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { BTN_PRIMARY, BTN_PRIMARY_BLOCK, BTN_SECONDARY, BTN_SECONDARY_BLOCK, BTN_SECONDARY_SM, botonIcono } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_PRIMARY_BLOCK, BTN_SECONDARY, BTN_SECONDARY_BLOCK, BTN_SECONDARY_SM, botonIcono, BTN_PRIMARY_SM } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { copyText } from '../lib/clipboard'
@@ -171,7 +171,7 @@ export function CandidateModal({
    *  Lo usa el tablero para abrir la ficha con el cursor ya en la nota. */
   focoInicial?: string
 }) {
-  const { setFavorito, setStatus, deleteCandidate, loadCandidateComments, addCandidateComment, loadCandidateEvents, members, chatVersion } =
+  const { setFavorito, setStatus, deleteCandidate, loadCandidateComments, addCandidateComment, editCandidateComment, deleteCandidateComment, loadCandidateEvents, members, chatVersion } =
     useStore()
   const { role, user } = useAuth()
   const toast = useToast()
@@ -192,6 +192,17 @@ export function CandidateModal({
   const documentosRef = useRef<HTMLDivElement>(null)
   const dosColumnas = useDosColumnas()
   const esMovil = useEsMovil()
+
+  /**
+   * La barra del pulgar: llamar, escribir y el `···`, flotando sobre la columna.
+   *
+   * Solo donde no hay raíl y solo en la ficha: en la Conversación y en el
+   * Historial la columna es lo único que hay y ahí manda lo que se lee. Se
+   * declara aquí y no en el JSX porque lo preguntan DOS sitios, la propia barra
+   * y el relleno que la columna le reserva al pie; escrito dos veces, el día
+   * que cambie la condición uno de los dos se queda mintiendo.
+   */
+  const barraFlotante = esMovil && esFicha(vista)
 
   const canManageTags = role !== 'encargado'
   // Con el pago por proceso todo el producto está incluido: las notas del equipo
@@ -314,22 +325,20 @@ export function CandidateModal({
   // 2026): las páginas se apilan a su alto y se desplaza la columna de la
   // ficha, que es la regla de la casa ("una superficie, un scroll"). La caja
   // de 520px metía una segunda barra dentro de la columna.
-  const contenidoDocumentos = candidate.cvPath ? (
+  const contenidoDocumentos = (
     <div ref={documentosRef} className="scroll-mt-4">
-      <Cv
+      <Documentos
         key={candidate.id}
+        campaign={campaign}
         candidate={candidate}
         cvName={cvName}
+        pideDocumentos={!!cvField}
         citas={citasCv}
         citaActiva={citaActiva}
         cvLeido={candidate.ai && !candidate.ai.error ? candidate.ai.cvLeido : undefined}
         onLocalizadas={(ids) => setCitasLocalizadas(new Set(ids))}
       />
     </div>
-  ) : (
-    <p className="pb-3.5 text-[13px] leading-5 text-slate-500 sm:px-3.5">
-      {cvField ? 'No ha subido ningún documento.' : 'Este formulario no pide documentos.'}
-    </p>
   )
   const contenidoHistorial = (
     <Historial key={candidate.id} candidateId={candidate.id} load={loadCandidateEvents} yoEmail={user?.email} />
@@ -359,6 +368,8 @@ export function CandidateModal({
       members={members}
       load={loadCandidateComments}
       onSend={addCandidateComment}
+      onEdit={editCandidateComment}
+      onDelete={deleteCandidateComment}
     />
   )
 
@@ -491,7 +502,7 @@ export function CandidateModal({
           <div className="shrink-0 px-4 pb-4 pt-1 max-sm:border-b max-sm:border-slate-200 sm:px-5">{acciones}</div>
         )}
 
-        <div className="flex min-h-0 flex-1">
+        <div className="relative flex min-h-0 flex-1">
           <section className="flex min-w-0 flex-1 flex-col">
             {/* La barra de pestañas NO se pinta en móvil: allí la navegación es el
                 grupo de pastillas de dentro de la columna. Se monta o no se monta,
@@ -517,7 +528,7 @@ export function CandidateModal({
               value={esFicha(vista) ? 'info' : vista}
               className={`min-h-0 flex-1 ${
                 esMovil || esLectura(vista)
-                  ? 'overflow-y-auto overscroll-contain px-4 py-5 sm:px-5'
+                  ? `overflow-y-auto overscroll-contain px-4 pt-5 sm:px-5 ${barraFlotante ? 'pb-[68px]' : 'pb-5'}`
                   : 'flex flex-col overflow-hidden bg-slate-50/60'
               }`}
             >
@@ -654,45 +665,78 @@ export function CandidateModal({
               {notas}
             </aside>
           )}
-        </div>
+          {/* LA BARRA DEL PULGAR FLOTA: SIN FONDO Y SIN FILO (Mario, ago 2026).
+              Era una superficie blanca de lado a lado, en el flujo, con su raya
+              arriba: o sea una cuarta franja de chrome en una ficha que ya tiene
+              cabecera, banda de acciones y pastillas. Lo que hay ahí son DOS
+              verbos y un menú, no una zona de la pantalla. Flotando, el
+              contenido pasa por debajo y se ve: son la misma pieza y el mismo
+              gesto que el "Apúntate ahora" del anuncio en móvil.
 
-        {/* Barra de acción de móvil: el pulgar llega y no roba sitio arriba.
-            Solo en Información: en la Conversación y en el Historial la columna
-            es lo único que hay y ahí manda lo que se lee. */}
-        {/* SE MONTA, no se esconde con `sm:hidden`. Dentro hay un `MenuAcciones`,
-            y su desplegable sale por un PORTAL a `document.body`: el `hidden` de
-            la barra no lo alcanza, así que al abrirlo en un móvil y ensanchar la
-            ventana el menú se quedaba flotando sobre el escritorio, encima de
-            una barra que ya no se veía. Es la misma regla que ya obliga a montar
-            `BottomSheet` solo en móvil y el raíl solo cuando existe. */}
-        {esMovil && esFicha(vista) && (
-          <div ref={barraRef} className="flex items-center gap-2 border-t border-slate-200 bg-white px-4 py-2.5">
-            {phone ? (
-              <>
-                <a
-                  href={maskPhone ? undefined : `tel:${phone.replace(/\s/g, '')}`}
-                  onClick={maskPhone ? avisoDemo : undefined}
-                  className={`${BTN_PRIMARY} flex-1`}
-                >
-                  <Phone className="size-4 text-indigo-200" aria-hidden /> Llamar
-                </a>
-                {waPhone &&
-                  (maskPhone ? (
-                    <button type="button" onClick={avisoDemo} className={`${BTN_SECONDARY} flex-1`}>
-                      <MessageCircle className="size-4 text-slate-400" aria-hidden /> WhatsApp
-                    </button>
-                  ) : (
-                    <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" className={`${BTN_SECONDARY} flex-1`}>
-                      <MessageCircle className="size-4 text-slate-400" aria-hidden /> WhatsApp
-                    </a>
-                  ))}
-              </>
-            ) : (
-              <span className="flex-1 text-[13px] text-slate-500">Sin teléfono en la candidatura.</span>
-            )}
-            <MenuAcciones candidate={candidate} cvName={cvName} onEliminar={() => setConfirmarBorrado(true)} banda={barraRef} />
-          </div>
-        )}
+              Eso obliga a dos cosas, y las dos son la parte que se olvida. UNA:
+              la caja que los coloca va `pointer-events-none` y cada botón
+              recupera el puntero, o una franja invisible de 68px se traga los
+              clics de todo lo que pase por detrás. DOS: la columna reserva ese
+              hueco al pie (`pb-[68px]`), porque si no el último apartado (las
+              notas, con su campo) se queda debajo de los botones para siempre.
+              Va como `pt-5` + `pb-*` y no como `py-5` con un `pb` detrás: son la
+              misma utilidad y no se resuelven por el orden en que se escriben.
+
+              Llevan `shadow-pop` porque es lo que de verdad son, una capa sobre
+              contenido; el sólido y los dos de línea son opacos, así que lo que
+              se desliza por debajo no se les transparenta.
+
+              SE MONTA, no se esconde con `sm:hidden`. Dentro hay un
+              `MenuAcciones`, y su desplegable sale por un PORTAL a
+              `document.body`: el `hidden` de la barra no lo alcanza, así que al
+              abrirlo en un móvil y ensanchar la ventana el menú se quedaba
+              flotando sobre el escritorio, encima de una barra que ya no se
+              veía. Es la misma regla que ya obliga a montar `BottomSheet` solo
+              en móvil y el raíl solo cuando existe. */}
+          {barraFlotante && (
+            <div
+              ref={barraRef}
+              className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-2 px-4 pb-3"
+            >
+              {phone && (
+                <>
+                  <a
+                    href={maskPhone ? undefined : `tel:${phone.replace(/\s/g, '')}`}
+                    onClick={maskPhone ? avisoDemo : undefined}
+                    className={`${BTN_PRIMARY} pointer-events-auto flex-1 shadow-pop`}
+                  >
+                    <Phone className="size-4 text-indigo-200" aria-hidden /> Llamar
+                  </a>
+                  {waPhone &&
+                    (maskPhone ? (
+                      <button type="button" onClick={avisoDemo} className={`${BTN_SECONDARY} pointer-events-auto flex-1 shadow-pop`}>
+                        <MessageCircle className="size-4 text-slate-400" aria-hidden /> WhatsApp
+                      </button>
+                    ) : (
+                      <a
+                        href={`https://wa.me/${waPhone}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`${BTN_SECONDARY} pointer-events-auto flex-1 shadow-pop`}
+                      >
+                        <MessageCircle className="size-4 text-slate-400" aria-hidden /> WhatsApp
+                      </a>
+                    ))}
+                </>
+              )}
+              {/* SIN TELÉFONO NO SE ESCRIBE NADA AQUÍ, y no es una pérdida: sin
+                  fondo, una línea gris caería sobre el texto que se desliza por
+                  debajo y sería ilegible, que es lo mismo que ya obligó a mudar
+                  al flujo la señal de "9 preguntas" del anuncio. Y lo que decía
+                  ("Sin teléfono en la candidatura") está a dos dedos y mejor
+                  dicho, en DATOS, que es la primera franja de la columna:
+                  "Teléfono · No disponible". El menú se va solo a la derecha. */}
+              <span className="pointer-events-auto ml-auto">
+                <MenuAcciones candidate={candidate} cvName={cvName} onEliminar={() => setConfirmarBorrado(true)} banda={barraRef} />
+              </span>
+            </div>
+          )}
+        </div>
       </Modal>
 
       <AgendarManualDialog
@@ -1019,8 +1063,14 @@ function AccionesCandidato({
           caben de sobra en 165px cada uno. Es una REJILLA y no un `flex-row`:
           `BTN_*_BLOCK` ya trae `w-full`, y `w-full` con `flex-1` son el mismo eje
           y no se resuelven por el orden en que se escriben; en una celda de grid,
-          el `w-full` hace justo lo que dice. */}
-      <div className="grid gap-2 max-sm:grid-cols-2">
+          el `w-full` hace justo lo que dice.
+
+          PERO LA FILA DE DOS SOLO EXISTE SI HAY DOS. En "descartado" y en
+          "contratado" el proceso ya no tiene siguiente paso, así que no hay
+          acción principal y queda un botón solo: en la rejilla se sentaba en la
+          primera columna, o sea a media pantalla y con un hueco al lado que no
+          era de nadie. Un botón de bloque ocupa el ancho de su bloque. */}
+      <div className={`grid gap-2 ${principal ? 'max-sm:grid-cols-2' : ''}`}>
         {principal}
         {s === 'descartado' ? (
           // Descartar es reversible y se dice con un botón, no con una
@@ -1345,8 +1395,292 @@ function TrayectoriaTab({
  * objeto del bucket: se usa tal cual, sin firmar y sin pedir su peso, el mismo
  * criterio que `brandAssetUrl` con las imágenes de marca de la demo.
  */
+/**
+ * LOS DOCUMENTOS DE UNA CANDIDATURA (Mario, ago 2026). Antes era UNO y punto:
+ * el formulario subía el primer fichero y la ficha lo pintaba. Ahora un puesto
+ * puede pedir varios (CV y carnet), y el equipo puede AÑADIR los que recopila
+ * después (la documentación, el contrato firmado) para tener constancia de por
+ * dónde va cada candidatura sin salir de aquí.
+ *
+ * LA LISTA SE COMPONE, NO SE GUARDA: es [el CV] + [las filas de
+ * `candidate_documents`]. El CV sigue viviendo en `candidate.cvPath`, que es lo
+ * que lee Meridian y lo que exporta el ZIP, así que cada documento tiene UNA
+ * sola fuente y no hay dos sitios que puedan decir cosas distintas.
+ *
+ * EL SELECTOR ES EL GRUPO DE PASTILLAS de la ficha en móvil (variante `pastilla`
+ * de `ui/Tabs`), no un control nuevo: son destinos excluyentes dentro de un
+ * apartado, que es exactamente lo que aquel resuelve, con sus roles y sus
+ * flechas. **Solo se pinta con dos o más**: con uno sería el título del
+ * documento repetido, que es el mismo argumento que retiró el `tablist` de una
+ * sola pestaña del panel de un puesto.
+ *
+ * Y las CITAS de Meridian solo viajan con el CV: es el único que analiza, así
+ * que subrayar en otro documento sería prometer una evidencia que no existe.
+ */
+/**
+ * CÓMO SE LLAMA UN DOCUMENTO EN SU PASTILLA (Mario, ago 2026: "lo que no sé es
+ * cómo resolveremos lo de saber qué tipo de documento es para darle el nombre").
+ *
+ * El nombre del fichero no sirve: `6727ffc8bad0d.jpg` no dice nada y
+ * `cv-andrei-vasile.pdf` dice lo que ya sabes (de quién es la ficha). Y
+ * ADIVINARLO por el nombre ("si pone dni es un DNI") es exactamente lo que esta
+ * casa no hace: acierta casi siempre y el casi es una etiqueta falsa.
+ *
+ * Así que el tipo se DECLARA, y cada documento tiene quien lo declare:
+ *  · El CV es el CV: es el que lee Meridian, ése es su papel.
+ *  · Los del FORMULARIO los nombró la empresa al escribir la pregunta ("Carnet
+ *    de carretillero"). Por eso se guarda `campo_id`: la etiqueta sale de ahí.
+ *  · Los que añade el equipo los nombra quien los sube, con el nombre del
+ *    fichero pre-rellenado. Sin lista cerrada de tipos: la documentación real
+ *    varía por sector (contrato, alta en la Seguridad Social, un certificado, una
+ *    tarjeta profesional) y una lista siempre acaba en "Otro", que no dice nada.
+ */
+function etiquetaDoc(nombre: string, campoId: string | undefined, campos: FormField[]): string {
+  const campo = campoId ? campos.find((f) => f.id === campoId) : undefined
+  const texto = campo?.label?.trim() || nombre.replace(/\.[a-z0-9]+$/i, '')
+  // Una pastilla larga empuja a las demás fuera de la tira. El nombre entero
+  // sigue a la vista en la fila del documento, justo debajo.
+  return texto.length > 34 ? `${texto.slice(0, 33)}…` : texto
+}
+
+function Documentos({
+  campaign,
+  candidate,
+  cvName,
+  pideDocumentos,
+  citas,
+  citaActiva,
+  cvLeido,
+  onLocalizadas,
+}: {
+  campaign: Campaign
+  candidate: Candidate
+  cvName: string
+  /** El formulario pedía algún fichero. Cambia lo que dice el vacío. */
+  pideDocumentos: boolean
+  citas: CitaCv[]
+  citaActiva: CitaActiva | null
+  cvLeido: 'texto' | 'vision' | 'no' | undefined
+  onLocalizadas?: (ids: string[]) => void
+}) {
+  const { loadCandidateDocuments, addCandidateDocument } = useStore()
+  const { company } = useAuth()
+  const esDemo = company?.id === 'demo'
+  const toast = useToast()
+  const [extra, setExtra] = useState<CandidateDocument[]>([])
+  const [sel, setSel] = useState('cv')
+  const [subiendo, setSubiendo] = useState(false)
+  // EL DOCUMENTO SE NOMBRA ANTES DE SUBIRLO. Es un paso más, y se paga a
+  // propósito: sin él la pastilla diría `scan_20260831_0001.pdf`, que no es un
+  // tipo de documento, y no habría dónde corregirlo después. Va pre-rellenado
+  // con el nombre del fichero sin extensión, así que muchas veces es un Intro.
+  const [pendiente, setPendiente] = useState<{ file: File; nombre: string } | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const nombreRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    let vivo = true
+    void loadCandidateDocuments(candidate.id).then((ds) => {
+      if (vivo) setExtra(ds)
+    })
+    return () => {
+      vivo = false
+    }
+    // `loadCandidateDocuments` viene del store y se recrea en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidate.id])
+
+  const lista = useMemo(
+    () => [
+      ...(candidate.cvPath
+        ? [{ id: 'cv', path: candidate.cvPath, nombre: cvName || 'CV', etiqueta: 'CV', esCv: true }]
+        : []),
+      ...extra.map((d) => ({
+        id: d.id,
+        path: d.path,
+        nombre: d.nombre,
+        etiqueta: etiquetaDoc(d.nombre, d.campoId, campaign.fields),
+        esCv: false,
+      })),
+    ],
+    [candidate.cvPath, cvName, extra, campaign.fields],
+  )
+  const actual = lista.find((d) => d.id === sel) ?? lista[0]
+
+  const anadir = async (file: File, nombre: string) => {
+    // El mismo tope que el formulario público y que el bucket (8 MiB): si el
+    // cliente no lo dice, el fallo llega al final de una subida larga.
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('El documento no puede pasar de 8 MB.')
+      return
+    }
+    setSubiendo(true)
+    // EN LA DEMO EL FICHERO NO SALE DEL NAVEGADOR, como el envío del formulario
+    // de un puesto de demostración: se previsualiza con un object URL y no se
+    // guarda en ninguna parte. Por eso los documentos de la demo tampoco se
+    // persisten (ver el store): una entrada que sobreviviera a la recarga
+    // apuntaría a un blob muerto, que es peor que no tenerla.
+    if (esDemo) {
+      const fila = await addCandidateDocument(candidate.id, {
+        path: URL.createObjectURL(file),
+        nombre,
+        bytes: file.size,
+      })
+      setSubiendo(false)
+      if (!fila) return
+      setExtra((ds) => [...ds, fila])
+      setSel(fila.id)
+      toast.show('Añadido. En la demostración no se guarda: al recargar no estará.')
+      return
+    }
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf'
+    // La MISMA forma de ruta que valida la política del bucket: <slug>/<uuid>.<ext>.
+    const path = `${campaign.slug}/${crypto.randomUUID()}.${ext}`
+    const up = await supabase.storage.from('cvs').upload(path, file, { upsert: false })
+    if (up.error) {
+      setSubiendo(false)
+      toast.error('No se pudo subir el documento.')
+      return
+    }
+    const fila = await addCandidateDocument(candidate.id, { path: up.data.path, nombre, bytes: file.size })
+    setSubiendo(false)
+    if (!fila) {
+      // El fichero ya está en el bucket pero nadie lo referencia: se retira.
+      await supabase.storage.from('cvs').remove([up.data.path]).catch(() => {})
+      toast.error('No se pudo guardar el documento.')
+      return
+    }
+    setExtra((ds) => [...ds, fila])
+    setSel(fila.id)
+    toast.success('Documento añadido')
+  }
+
+  return (
+    <div className="flex flex-col">
+      {/* La fila de arriba: entre qué documentos elegir, y el "+" para sumar uno
+          nuevo. El "+" está SIEMPRE, también sin ningún documento: es la puerta
+          para empezar a guardar la documentación de alguien que se apuntó sin
+          adjuntar nada. */}
+      {/* Mientras se nombra, la fila ES el paso de nombrar: el selector y el "+"
+          no hacen falta hasta que decidas, y dos cosas que hacer a la vez en la
+          misma fila es lo que convierte un paso en un formulario. */}
+      {pendiente ? (
+        <form
+          className="flex items-center gap-2 pb-3 sm:px-3.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            const nombre = pendiente.nombre.trim()
+            if (!nombre) return
+            const { file } = pendiente
+            setPendiente(null)
+            void anadir(file, nombre)
+          }}
+        >
+          <label htmlFor={`doc-nombre-${candidate.id}`} className="sr-only">
+            Nombre del documento
+          </label>
+          <input
+            id={`doc-nombre-${candidate.id}`}
+            ref={nombreRef}
+            value={pendiente.nombre}
+            onChange={(e) => setPendiente((p) => (p ? { ...p, nombre: e.target.value } : p))}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.stopPropagation()
+                setPendiente(null)
+              }
+            }}
+            maxLength={80}
+            placeholder="¿Qué documento es? (contrato, carnet…)"
+            className="h-9 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 text-[13px] text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 pointer-coarse:text-base"
+          />
+          <button type="submit" disabled={!pendiente.nombre.trim()} className={`${BTN_PRIMARY_SM} shrink-0 disabled:opacity-50`}>
+            Añadir
+          </button>
+          <button type="button" onClick={() => setPendiente(null)} className={`${BTN_SECONDARY_SM} shrink-0`}>
+            Cancelar
+          </button>
+        </form>
+      ) : (
+      <div className="flex items-center gap-2 pb-3 sm:px-3.5">
+        {/* EL SELECTOR SE PINTA AUNQUE HAYA UNO SOLO (Mario, ago 2026). Con dos
+            se justifica solo; con uno también, y no contradice al "un tablist de
+            una pestaña es el título repetido" del panel: allí la pestaña
+            repetía el nombre de la PANTALLA, y aquí la pastilla dice QUÉ
+            documento es (su tipo), que no está escrito en ningún otro sitio.
+            Además deja el sitio hecho: cuando entra el segundo, aparece donde ya
+            estabas mirando en vez de cambiar la forma del bloque. */}
+        {lista.length > 0 ? (
+          <div className="min-w-0 flex-1">
+            <Tabs
+              variante="pastilla"
+              items={lista.map((d) => ({ value: d.id, label: d.etiqueta }))}
+              value={actual?.id ?? 'cv'}
+              onChange={setSel}
+              idPrefix={`docs-${candidate.id}`}
+              label="Documentos de la candidatura"
+            />
+          </div>
+        ) : (
+          <span className="min-w-0 flex-1 text-[13px] text-slate-500">
+            {pideDocumentos ? 'No ha subido ningún documento.' : 'Este formulario no pide documentos.'}
+          </span>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            // El valor se limpia SIEMPRE: sin esto, volver a elegir el mismo
+            // fichero no dispara `change` y el botón parece muerto.
+            e.target.value = ''
+            if (!f) return
+            if (f.size > 8 * 1024 * 1024) {
+              toast.error('El documento no puede pasar de 8 MB.')
+              return
+            }
+            setPendiente({ file: f, nombre: f.name.replace(/\.[a-z0-9]+$/i, '') })
+            requestAnimationFrame(() => nombreRef.current?.select())
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={subiendo}
+          title="Añadir un documento"
+          aria-label="Añadir un documento"
+          className={`${BTN_SECONDARY_SM} shrink-0 disabled:opacity-60`}
+        >
+          {subiendo ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Plus className="size-3.5" aria-hidden />}
+          Añadir
+        </button>
+      </div>
+      )}
+
+      {actual && (
+        <Cv
+          // Al cambiar de documento se remonta: el visor descarga bytes, firma
+          // una URL y guarda su estado, y reusarlo enseñaría el anterior un
+          // instante antes de refrescarse.
+          key={actual.id}
+          candidate={candidate}
+          path={actual.path}
+          cvName={actual.nombre}
+          citas={actual.esCv ? citas : []}
+          citaActiva={actual.esCv ? citaActiva : null}
+          cvLeido={actual.esCv ? cvLeido : undefined}
+          onLocalizadas={actual.esCv ? onLocalizadas : undefined}
+        />
+      )}
+    </div>
+  )
+}
+
 function Cv({
   candidate,
+  path,
   cvName,
   citas,
   citaActiva,
@@ -1354,6 +1688,10 @@ function Cv({
   onLocalizadas,
 }: {
   candidate: Candidate
+  /** El documento a enseñar. Ya no se deduce de `candidate.cvPath`: desde que
+   *  una candidatura puede tener varios, quien elige cuál es la lista de
+   *  arriba, y este bloque solo sabe pintar el que le den. */
+  path: string
   cvName: string
   citas: CitaCv[]
   citaActiva: CitaActiva | null
@@ -1380,9 +1718,10 @@ function Cv({
     setIntento((n) => n + 1)
   }
   const toast = useToast()
-  const path = candidate.cvPath ?? ''
   const esPdf = path.toLowerCase().endsWith('.pdf')
-  const esAssetDemo = path.startsWith('/')
+  // Ruta que se usa TAL CUAL, sin firmar: los assets de la demo (`/demo/...`) y
+  // el object URL de un documento recién añadido en la demostración.
+  const esAssetDemo = path.startsWith('/') || path.startsWith('blob:')
 
   useEffect(() => {
     let vivo = true
@@ -1459,31 +1798,75 @@ function Cv({
   // filas de Respuestas. Con su propio `rounded-xl filo` había un borde dentro
   // de otro a 12px de distancia.
   const banda = 'grid place-items-center bg-slate-50 px-6 text-center'
+  // QUÉ HACE LA FILA, que es lo único que hace ahora (Mario, ago 2026: fuera
+  // "Descargar" y "Abrir aparte"). Los dos verbos viven en el visor grande, que
+  // es donde se trabaja con el documento; repetidos aquí eran dos controles en
+  // una fila que ya tiene su acción.
+  //
+  // Pero un Word NO abre el visor, así que quitarlos a secas lo habría dejado
+  // sin ninguna forma de bajarlo. Por eso la fila hace lo que se pueda hacer con
+  // ESE documento: un PDF lo AMPLÍA y lo demás lo DESCARGA. Sigue siendo una
+  // sola puerta, y nunca una que no lleve a ningún sitio.
+  const ampliable = esPdf && !!bytes
+  const accion: 'ampliar' | 'descargar' | null = ampliable ? 'ampliar' : path ? 'descargar' : null
   return (
     <div className="flex flex-col">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-slate-100 py-2.5 sm:px-3.5">
-        {/* Decorativo: en móvil no hay sitio y el nombre del archivo manda. */}
-        <FileText className="hidden size-4 shrink-0 text-slate-500 sm:block" aria-hidden />
-        <span className="min-w-0 max-w-full truncate text-sm font-medium text-slate-900" title={cvName || 'CV'}>
-          {cvName || 'CV'}
-        </span>
-        {peso && <span className="num shrink-0 text-[13px] text-slate-500">{peso}</span>}
-        <div className="ml-auto flex shrink-0 gap-2">
-          <button type="button" onClick={() => void descargar()} className={BTN_SECONDARY_SM}>
-            <Download className="size-3.5 text-slate-500" aria-hidden /> Descargar
+        {/* UN MÍNIMO PARA EL NOMBRE, y por eso la fila ENVUELVE (Mario, ago 2026:
+            "que salga con ... al final para que no se monte"). Recortarse ya se
+            recortaba (`truncate`), pero en 375px el nombre se estrujaba a 113px
+            entre el icono y los dos verbos: diez caracteres y puntos suspensivos,
+            que no es un nombre de fichero, es un acertijo. Con 10rem de suelo, si
+            los tres no caben en una línea son los BOTONES los que bajan, que es
+            el orden correcto: el nombre dice QUÉ documento es y los verbos se
+            encuentran igual una línea más abajo. */}
+        {/* EL DOCUMENTO ES EL BOTÓN que abre el visor grande (Mario, ago 2026).
+            Pinchar una página del incrustado ya lo abría, pero eso hay que
+            descubrirlo; el nombre del fichero es lo que la gente pulsa para ver
+            un documento, y estaba mudo. La fila entera hasta las acciones es la
+            diana, no solo las letras.
+
+            Es un `<button>` y no un `div` con `onClick`, y los dos verbos de la
+            derecha quedan FUERA de él: un botón dentro de otro es marcado
+            inválido, así que son hermanos en la misma fila.
+
+            Y solo se pinta como botón cuando de verdad puede abrir algo (hay
+            bytes de un PDF). Mientras carga, o si es un Word, es el mismo texto
+            sin más: un botón que no puede hacer nada es peor que ninguno. */}
+        {accion ? (
+          <button
+            type="button"
+            onClick={() => (accion === 'ampliar' ? setAmpliado(true) : void descargar())}
+            title={cvName || 'CV'}
+            aria-label={
+              accion === 'ampliar'
+                ? `Ver ${cvName || 'el CV'} a pantalla completa`
+                : `Descargar ${cvName || 'el CV'}`
+            }
+            className={`-mx-1.5 flex min-w-[10rem] flex-1 items-center gap-2 rounded-lg px-1.5 py-1 text-left outline-none transition-colors duration-[var(--duration-control)] hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+              accion === 'ampliar' ? 'cursor-zoom-in' : ''
+            }`}
+          >
+            <FileText className="hidden size-4 shrink-0 text-slate-500 sm:block" aria-hidden />
+            <span className="min-w-0 truncate text-sm font-medium text-slate-900">{cvName || 'CV'}</span>
+            {peso && <span className="num shrink-0 text-[13px] text-slate-500">{peso}</span>}
           </button>
-          {url && (
-            <a href={url} target="_blank" rel="noreferrer" className={BTN_SECONDARY_SM}>
-              <ExternalLink className="size-3.5 text-slate-500" aria-hidden /> Abrir aparte
-            </a>
-          )}
-        </div>
+        ) : (
+          <>
+            {/* Decorativo: en móvil no hay sitio y el nombre del archivo manda. */}
+            <FileText className="hidden size-4 shrink-0 text-slate-500 sm:block" aria-hidden />
+            <span className="min-w-[10rem] max-w-full flex-1 truncate text-sm font-medium text-slate-900" title={cvName || 'CV'}>
+              {cvName || 'CV'}
+            </span>
+            {peso && <span className="num shrink-0 text-[13px] text-slate-500">{peso}</span>}
+          </>
+        )}
       </div>
 
       {!esPdf ? (
         <div className={`min-h-[240px] ${banda}`}>
           <p className="max-w-[42ch] text-sm leading-6 text-slate-500">
-            Este CV está en Word y no se puede ver aquí dentro. Descárgalo para abrirlo.
+            Este CV está en Word y no se puede ver aquí dentro. Pulsa su nombre para descargarlo.
           </p>
         </div>
       ) : error ? (
@@ -1526,16 +1909,6 @@ function Cv({
             onLocalizadas={onLocalizadas}
             onAmpliar={() => setAmpliado(true)}
           />
-          {ampliado && (
-            <CvLightbox
-              nombre={cvName || 'CV'}
-              data={bytes}
-              citas={citas}
-              onClose={() => setAmpliado(false)}
-              onDescargar={() => void descargar()}
-              urlAparte={url}
-            />
-          )}
         </>
       ) : (
         <div className={`min-h-[360px] ${banda}`}>
@@ -1543,6 +1916,19 @@ function Cv({
             <Loader2 className="size-4 animate-spin text-slate-400" aria-hidden /> Abriendo el CV…
           </p>
         </div>
+      )}
+
+      {/* Vive FUERA de la rama del incrustado porque ya no lo abre solo él: lo
+          abren las páginas y el nombre del fichero, que es la fila de arriba. */}
+      {ampliado && bytes && (
+        <CvLightbox
+          nombre={cvName || 'CV'}
+          data={bytes}
+          citas={citas}
+          onClose={() => setAmpliado(false)}
+          onDescargar={() => void descargar()}
+          urlAparte={url}
+        />
       )}
     </div>
   )
@@ -1582,6 +1968,8 @@ function NotasEquipo({
   members,
   load,
   onSend,
+  onEdit,
+  onDelete,
 }: {
   candidateId: string
   chatVersion: number
@@ -1589,6 +1977,8 @@ function NotasEquipo({
   members: ReturnType<typeof useStore>['members']
   load: ReturnType<typeof useStore>['loadCandidateComments']
   onSend: ReturnType<typeof useStore>['addCandidateComment']
+  onEdit: ReturnType<typeof useStore>['editCandidateComment']
+  onDelete: ReturnType<typeof useStore>['deleteCandidateComment']
 }) {
   // chatVersion en las dependencias: cuando un compañero escribe, el ping de
   // realtime lo sube y el hilo abierto se recarga solo, sin sondear.
@@ -1609,6 +1999,10 @@ function NotasEquipo({
       body: c.body,
       createdAt: c.createdAt,
       isNote: c.isNote,
+      // A quién avisó de verdad, para que la chapa de una mención no mienta en
+      // una nota corregida (ver `ChatBody`).
+      mentions: c.mentions,
+      editedAt: c.editedAt,
     }))
     .reverse()
 
@@ -1647,6 +2041,21 @@ function NotasEquipo({
             messages={mensajes}
             currentUserId={currentUserId}
             members={members}
+            // La lista se corrige en el sitio: el servidor manda (RLS + trigger),
+            // aquí solo se refleja para no volver a pedir el hilo entero.
+            onEdit={async (id, body) => {
+              const ok = await onEdit(id, body)
+              if (ok)
+                setItems((cs) =>
+                  cs.map((c) => (c.id === id ? { ...c, body, editedAt: new Date().toISOString() } : c)),
+                )
+              return ok
+            }}
+            onDelete={async (id) => {
+              const ok = await onDelete(candidateId, id)
+              if (ok) setItems((cs) => cs.filter((c) => c.id !== id))
+              return ok
+            }}
           />
         )
       )}

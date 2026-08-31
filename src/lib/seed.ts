@@ -1418,6 +1418,7 @@ export const SEED_CANDIDATE_COMMENTS: CandidateComment[] = (() => {
       body: c.notes,
       mentions: [],
       isNote: false,
+      editedAt: null,
       createdAt: new Date(base + between(2, 20) * 3_600_000).toISOString(),
     })
     const replies = CHAT_REPLIES[c.status]
@@ -1435,6 +1436,7 @@ export const SEED_CANDIDATE_COMMENTS: CandidateComment[] = (() => {
         body: teMenciona ? `@demo ${pick(replies)}` : pick(replies),
         mentions: teMenciona ? ['demo-user'] : [],
         isNote: false,
+        editedAt: null,
         createdAt: new Date(base + between(22, 40) * 3_600_000).toISOString(),
       })
     }

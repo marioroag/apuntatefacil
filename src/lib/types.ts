@@ -191,6 +191,32 @@ export interface CandidateAI {
 }
 
 /** Última comprobación de interés visible para una candidatura. */
+/**
+ * UN DOCUMENTO DE LA CANDIDATURA (ago 2026). Vive en su propia tabla y no en un
+ * `jsonb` del candidato: son varios, los añaden personas distintas y lo que se
+ * quiere es un REGISTRO (quién y cuándo), no un campo. El motivo largo está en
+ * la migración `20260831120000_documentos_candidato.sql`.
+ *
+ * OJO: el CV (`candidate.cvPath`) NO es una fila de éstas. Sigue donde estaba,
+ * que es lo que lee Meridian y lo que exporta el ZIP; la ficha compone la lista
+ * como [el CV] + [estos]. Así cada documento tiene UNA sola fuente.
+ */
+export interface CandidateDocument {
+  id: string
+  candidateId: string
+  /** Ruta en el bucket privado `cvs`. */
+  path: string
+  /** Cómo se llama para quien lo mira: el del bucket es un uuid. */
+  nombre: string
+  bytes?: number
+  /** Quién lo puso: el candidato al apuntarse, o alguien del equipo después. */
+  origen: 'candidato' | 'equipo'
+  /** La pregunta del formulario que lo pidió, si vino de ahí. */
+  campoId?: string
+  subidoPor?: string
+  createdAt: string
+}
+
 export interface CandidateInterestSummary {
   checkId: string
   /** Lote de envío al que pertenece. Meridian agrupa la actividad por lote. */
@@ -222,6 +248,12 @@ export interface CandidateComment {
   /** Nota interna de la época anterior, migrada al hilo. Se pinta sin autor. */
   isNote: boolean
   createdAt: string // ISO
+  /**
+   * Cuándo se corrigió, si se corrigió. La pone el servidor (trigger) y el hilo
+   * escribe "editado" al lado de la hora: un hilo que el equipo usa para tener
+   * constancia no puede cambiar sin decirlo.
+   */
+  editedAt: string | null
 }
 
 /**

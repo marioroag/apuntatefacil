@@ -132,3 +132,49 @@ describe('las menciones de la demo son de verdad', () => {
     }
   })
 })
+
+/**
+ * Y LA CUARTA PARTE: QUE UNA EDICIÓN NO PUEDA REPARTIR AVISOS.
+ *
+ * Desde ago 2026 se puede corregir una nota propia, y lo único que sostiene que
+ * eso no toque `mentions` es que el UPDATE está concedido POR COLUMNAS. Un
+ * `grant update on ...` a secas (sin la lista) pasa desapercibido en una
+ * revisión, no rompe ninguna pantalla y deja al cliente reescribiendo a quién se
+ * avisó: el aviso ya salió por correo, así que la fila pasaría a decir una cosa
+ * distinta de lo que de verdad ocurrió.
+ *
+ * Se mira el SQL crudo porque esto no se puede comprobar desde la app: aquí no
+ * hay base de datos, y el fallo vive en una línea de migración.
+ */
+describe('editar una nota no puede tocar a quién se avisó', () => {
+  const migraciones = import.meta.glob('../../supabase/migrations/*.sql', {
+    eager: true,
+    query: '?raw',
+    import: 'default',
+  }) as Record<string, string>
+
+  it('el update de los hilos va acotado por columnas', () => {
+    const HILOS = ['candidate_comments', 'team_request_comments']
+    for (const [ruta, sql] of Object.entries(migraciones)) {
+      // `grant update on <tabla>` (sin lista de columnas) para cualquier rol que
+      // no sea service_role, que es quien reclama `notified_at` al mandar el
+      // correo y por eso sí necesita la fila entera.
+      for (const tabla of HILOS) {
+        const suelto = new RegExp(
+          `grant[^;]*\\bupdate\\b(?!\\s*\\()[^;]*\\bon\\s+(?:public\\.)?${tabla}\\b[^;]*to\\s+([^;]*);`,
+          'gi',
+        )
+        for (const m of sql.matchAll(suelto)) {
+          const roles = m[1].toLowerCase()
+          expect(
+            roles.replace(/service_role|,|\s/g, ''),
+            `${ruta.split('/').pop()}: \`grant update\` sin lista de columnas sobre ${tabla}. ` +
+            'Con eso, quien edita su nota puede reescribir `mentions` y hacer que la fila ' +
+            'diga que avisó a alguien a quien nunca le salió el correo. Concede solo ' +
+            '`grant update (body)`.',
+          ).toBe('')
+        }
+      }
+    }
+  })
+})

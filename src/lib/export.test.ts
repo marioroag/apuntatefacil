@@ -50,6 +50,7 @@ describe('buildSheet', () => {
           body: 'Nota vieja',
           mentions: [],
           isNote: true,
+          editedAt: null,
           createdAt: '2026-07-28T11:00:00.000Z',
         },
         {
@@ -60,6 +61,7 @@ describe('buildSheet', () => {
           body: 'Le llamo yo mañana.',
           mentions: [],
           isNote: false,
+          editedAt: null,
           createdAt: '2026-07-28T12:00:00.000Z',
         },
       ],

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Brand, Branding, Campaign, Candidate, CandidateAI, CandidateComment, CandidateConversation, CandidateEvent, CandidateInterestSummary, CandidateStatus, CompanyMember, ConversationMessage, FormField, InterestChannel, Interview, InterviewMode, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
+import type { Brand, Branding, Campaign, Candidate, CandidateAI, CandidateComment, CandidateConversation, CandidateDocument, CandidateEvent, CandidateInterestSummary, CandidateStatus, CompanyMember, ConversationMessage, FormField, InterestChannel, Interview, InterviewMode, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
 import { leerAnuncio } from './anuncio'
 import type { Anuncio } from './anuncio'
 import { supabase, supabaseConfigured } from './supabase'
@@ -208,6 +208,29 @@ const toTeamComment = (r: TeamCommentRow): TeamRequestComment => ({
   createdAt: r.created_at,
 })
 
+type CandidateDocumentRow = {
+  id: string
+  candidate_id: string
+  path: string
+  nombre: string
+  bytes: number | null
+  origen: string
+  campo_id: string | null
+  subido_por: string | null
+  created_at: string
+}
+const toCandidateDocument = (r: CandidateDocumentRow): CandidateDocument => ({
+  id: r.id,
+  candidateId: r.candidate_id,
+  path: r.path,
+  nombre: r.nombre,
+  bytes: r.bytes ?? undefined,
+  origen: r.origen === 'equipo' ? 'equipo' : 'candidato',
+  campoId: r.campo_id ?? undefined,
+  subidoPor: r.subido_por ?? undefined,
+  createdAt: r.created_at,
+})
+
 type CandidateCommentRow = {
   id: string
   candidate_id: string
@@ -217,6 +240,7 @@ type CandidateCommentRow = {
   mentions: string[] | null
   is_note: boolean
   created_at: string
+  edited_at: string | null
 }
 const toCandidateComment = (r: CandidateCommentRow): CandidateComment => ({
   id: r.id,
@@ -227,8 +251,10 @@ const toCandidateComment = (r: CandidateCommentRow): CandidateComment => ({
   mentions: r.mentions ?? [],
   isNote: r.is_note ?? false,
   createdAt: r.created_at,
+  editedAt: r.edited_at ?? null,
 })
-const CANDIDATE_COMMENT_SELECT = 'id,candidate_id,author_user_id,author_email,body,mentions,is_note,created_at'
+const CANDIDATE_COMMENT_SELECT =
+  'id,candidate_id,author_user_id,author_email,body,mentions,is_note,created_at,edited_at'
 
 type CandidateEventRow = {
   id: string
@@ -562,10 +588,34 @@ interface Store {
   // llamen en una ficha o en una petición es la misma llamada.
   loadBoardMentions: () => Promise<TeamRequestComment[]>
   addCandidateComment: (candidateId: string, body: string, mentions: string[]) => Promise<CandidateComment | null>
+  /**
+   * Corregir y borrar lo que TÚ escribiste en la ficha de un candidato.
+   *
+   * Solo el cuerpo: a quién se avisó ya está decidido y el correo ya salió, así
+   * que una edición no reparte avisos nuevos (lo impide el grant por columnas,
+   * no solo esta firma). La marca de "editado" la pone el servidor.
+   *
+   * El autor lo comprueba la RLS; aquí se pide para no ofrecer el control a
+   * quien no puede usarlo, que es distinto de fiarse de ello.
+   */
+  editCandidateComment: (id: string, body: string) => Promise<boolean>
+  deleteCandidateComment: (candidateId: string, id: string) => Promise<boolean>
   // Nº de mensajes por candidato, para el indicador de la lista. Se llena en la
   // carga general: saber DÓNDE hay conversación no debe costar abrir el detalle.
   commentCounts: Record<string, number>
   loadCandidateEvents: (candidateId: string) => Promise<CandidateEvent[]>
+  /** Los documentos de una candidatura, SIN el CV (que vive en `cvPath`). Se
+   *  piden al abrir la ficha, como el hilo y el historial. */
+  loadCandidateDocuments: (candidateId: string) => Promise<CandidateDocument[]>
+  /** Añade un documento ya subido al bucket. Lo usa el "+" de la ficha. */
+  addCandidateDocument: (
+    candidateId: string,
+    doc: { path: string; nombre: string; bytes?: number },
+  ) => Promise<CandidateDocument | null>
+  /** Lo quita de la lista. NO borra el fichero del bucket: eso lo hace la
+   *  edge function de limpieza, y un borrado de storage desde el cliente es
+   *  irreversible desde una pantalla que no lo puede confirmar. */
+  removeCandidateDocument: (id: string) => Promise<boolean>
   // Sube con cada ping realtime del chat de candidatos: un detalle abierto lo usa
   // para refrescar su hilo sin sondear.
   chatVersion: number
@@ -716,6 +766,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<CompanyMember[]>([])
   // Hilos de candidato en DEMO (en real se cargan perezosos, sin estado global).
   const [demoCandidateComments, setDemoCandidateComments] = useState<CandidateComment[]>([])
+  const [demoCandidateDocuments, setDemoCandidateDocuments] = useState<CandidateDocument[]>([])
   // Los eventos de demo se derivan del seed, no se guardan: se recalculan al cargar.
   const [demoCandidateEvents, setDemoCandidateEvents] = useState<CandidateEvent[]>([])
   // Candidatos con una escritura optimista aún sin confirmar en el servidor. Un
@@ -2498,6 +2549,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           body,
           mentions,
           isNote: false,
+          editedAt: null,
           createdAt: new Date().toISOString(),
         }
         setDemoCandidateComments((cs) => [...cs, comment])
@@ -2527,6 +2579,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return comment
     },
 
+    editCandidateComment: async (id, body) => {
+      const texto = body.trim()
+      if (!texto) return false
+      if (companyId === 'demo') {
+        setDemoCandidateComments((cs) =>
+          cs.map((c) => (c.id === id ? { ...c, body: texto, editedAt: new Date().toISOString() } : c)),
+        )
+        return true
+      }
+      // Solo `body`: es lo único que el grant deja tocar, y `edited_at` lo pone
+      // el trigger. Se devuelve la fila para que la ficha pinte la marca sin
+      // inventarse la hora.
+      const { error } = await supabase.from('candidate_comments').update({ body: texto }).eq('id', id)
+      if (error) {
+        toast.error('No se pudo guardar el cambio. Inténtalo de nuevo.')
+        return false
+      }
+      return true
+    },
+
+    deleteCandidateComment: async (candidateId, id) => {
+      const bajar = () =>
+        setCommentCounts((prev) => ({ ...prev, [candidateId]: Math.max(0, (prev[candidateId] ?? 1) - 1) }))
+      if (companyId === 'demo') {
+        setDemoCandidateComments((cs) => cs.filter((c) => c.id !== id))
+        bajar()
+        return true
+      }
+      const { error } = await supabase.from('candidate_comments').delete().eq('id', id)
+      if (error) {
+        toast.error('No se pudo borrar la nota. Inténtalo de nuevo.')
+        return false
+      }
+      bajar()
+      return true
+    },
+
     loadCandidateEvents: async (candidateId) => {
       if (companyId === 'demo')
         return demoCandidateEvents.filter((e) => e.candidateId === candidateId)
@@ -2537,6 +2626,60 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .order('created_at', { ascending: true })
       if (error || !data) return []
       return (data as CandidateEventRow[]).map(toCandidateEvent)
+    },
+
+    loadCandidateDocuments: async (candidateId) => {
+      if (companyId === 'demo')
+        return demoCandidateDocuments.filter((d) => d.candidateId === candidateId)
+      const { data, error } = await supabase
+        .from('candidate_documents')
+        .select('id,candidate_id,path,nombre,bytes,origen,campo_id,subido_por,created_at')
+        .eq('candidate_id', candidateId)
+        .order('created_at', { ascending: true })
+      if (error || !data) return []
+      return (data as CandidateDocumentRow[]).map(toCandidateDocument)
+    },
+
+    addCandidateDocument: async (candidateId, doc) => {
+      const cand = candidates.find((c) => c.id === candidateId)
+      if (!cand) return null
+      if (companyId === 'demo') {
+        const fila: CandidateDocument = {
+          id: `doc_${Math.random().toString(36).slice(2, 10)}`,
+          candidateId,
+          path: doc.path,
+          nombre: doc.nombre,
+          bytes: doc.bytes,
+          origen: 'equipo',
+          createdAt: new Date().toISOString(),
+        }
+        setDemoCandidateDocuments((ds) => [...ds, fila])
+        return fila
+      }
+      const { data, error } = await supabase
+        .from('candidate_documents')
+        .insert({
+          candidate_id: candidateId,
+          company_id: companyId,
+          path: doc.path,
+          nombre: doc.nombre.slice(0, 200),
+          bytes: doc.bytes ?? null,
+          origen: 'equipo',
+          subido_por: userId,
+        })
+        .select('id,candidate_id,path,nombre,bytes,origen,campo_id,subido_por,created_at')
+        .single()
+      if (error || !data) return null
+      return toCandidateDocument(data as CandidateDocumentRow)
+    },
+
+    removeCandidateDocument: async (id) => {
+      if (companyId === 'demo') {
+        setDemoCandidateDocuments((ds) => ds.filter((d) => d.id !== id))
+        return true
+      }
+      const { error } = await supabase.from('candidate_documents').delete().eq('id', id)
+      return !error
     },
 
     resetDemo: () => {

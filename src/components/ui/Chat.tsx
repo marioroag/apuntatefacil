@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from 'react'
-import { ArrowDown, ArrowUp, FileText, Loader2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, FileText, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { fullDateTime, memberAvatarTone, plural, relativeDate } from '../../lib/format'
 import { BTN_MOTION, BTN_SUPERFICIE, botonIcono } from '../../lib/buttons'
 import type { CompanyMember } from '../../lib/types'
@@ -34,6 +34,21 @@ export type ChatMessage = {
   createdAt: string
   /** Nota interna de la época anterior al chat: sin autor, con icono de documento. */
   isNote?: boolean
+  /**
+   * A QUIÉN AVISÓ DE VERDAD este mensaje (ids de usuario), tal y como lo dejó el
+   * servidor. Con esto puesto, la chapa azul de una mención se pinta solo si esa
+   * persona recibió el aviso; sin esto, se pinta cualquier `@` que resuelva a
+   * alguien del equipo.
+   *
+   * Hace falta desde que un mensaje SE PUEDE EDITAR: la edición solo cambia el
+   * cuerpo (a quién se avisó ya está decidido y el correo ya salió), así que un
+   * `@` escrito al corregir no avisa a nadie. Sin este dato saldría con chapa y
+   * quien lo escribe se quedaría creyendo que ha avisado, que es exactamente el
+   * fallo que esta casa ya corrigió una vez con los identificadores mal escritos.
+   */
+  mentions?: string[]
+  /** Cuándo se corrigió. Se dice al lado de la hora: editar no puede ser mudo. */
+  editedAt?: string | null
   /** Contenido extra bajo el cuerpo (los candidatos propuestos, en el tablón). */
   slot?: ReactNode
   /** Destaca al autor (p. ej. quien abrió la petición del tablón). */
@@ -59,10 +74,13 @@ export type ChatMessage = {
 function ChatBody({
   body,
   porHandle,
+  avisados,
   compacto = false,
 }: {
   body: string
   porHandle: Map<string, CompanyMember>
+  /** Ids de quien recibió el aviso. Sin esto, se destaca cualquier `@` válido. */
+  avisados?: Set<string>
   compacto?: boolean
 }) {
   const profiles = useProfiles()
@@ -78,7 +96,10 @@ function ChatBody({
     >
       {partes.map((p, i) => {
         const quien = ES_MENCION.test(p) ? porHandle.get(p.slice(1).toLowerCase()) : undefined
-        if (!quien) return p
+        // Lo que no avisó a nadie se lee como texto normal, aunque el nombre
+        // exista: es la misma regla que ya deja en plano un identificador mal
+        // escrito, ahora también para un `@` añadido al corregir el mensaje.
+        if (!quien || (avisados && !avisados.has(quien.userId))) return p
         // Un mensaje suele EMPEZAR mencionando a alguien. Si ahí la chapa
         // empuja el texto sus 4px de relleno, la primera letra del mensaje se
         // sale de la columna que forman el nombre y los demás mensajes, y toda
@@ -254,12 +275,29 @@ export function ChatThread({
   members = [],
   className = '',
   compacto = false,
+  onEdit,
+  onDelete,
 }: {
   messages: ChatMessage[]
   currentUserId: string | null | undefined
   /** El equipo, para resolver las menciones a la persona a la que avisan. */
   members?: CompanyMember[]
   className?: string
+  /**
+   * CORREGIR Y BORRAR LO TUYO. Los dos son opcionales, y el hilo que no los pasa
+   * no enseña ningún control: hoy los usan las notas de una ficha y NO el tablón,
+   * donde una respuesta puede llevar candidatos propuestos colgando y borrarla
+   * sería retirar propuestas, que es otra decisión.
+   *
+   * Solo se ofrecen sobre lo que has escrito TÚ. Quién puede de verdad lo dice la
+   * RLS; esto es para no enseñar un botón que iba a fallar.
+   *
+   * Devuelven si salió bien: mientras se guarda, el editor se queda puesto y
+   * apagado, así que un fallo de red no se lleva por delante lo que acabas de
+   * escribir.
+   */
+  onEdit?: (id: string, body: string) => Promise<boolean>
+  onDelete?: (id: string) => Promise<boolean>
   /**
    * RITMO DE LISTA, no de conversación (las Notas de la ficha, ago 2026).
    *
@@ -281,6 +319,36 @@ export function ChatThread({
     () => new Map(members.map((m) => [mentionHandle(m.email), m])),
     [members],
   )
+  // Qué mensaje se está corrigiendo y cuál se está confirmando para borrar. Uno
+  // de cada, y son EXCLUYENTES: abrir el editor cierra la confirmación y al
+  // revés. Con dos estados sueltos se puede acabar preguntando "¿borrar?" debajo
+  // de un texto que estás reescribiendo.
+  const [editando, setEditando] = useState<{ id: string; texto: string } | null>(null)
+  const [borrando, setBorrando] = useState<string | null>(null)
+  const [ocupado, setOcupado] = useState(false)
+
+  const abrirEditor = (m: ChatMessage) => {
+    setBorrando(null)
+    setEditando({ id: m.id, texto: m.body })
+  }
+  const guardar = async () => {
+    if (!editando || !onEdit) return
+    const texto = editando.texto.trim()
+    // Vacío no se guarda: un mensaje sin cuerpo es un borrado disfrazado, y
+    // borrar tiene su propio verbo con su confirmación.
+    if (!texto) return
+    setOcupado(true)
+    const ok = await onEdit(editando.id, texto)
+    setOcupado(false)
+    if (ok) setEditando(null)
+  }
+  const borrar = async (id: string) => {
+    if (!onDelete) return
+    setOcupado(true)
+    const ok = await onDelete(id)
+    setOcupado(false)
+    if (ok) setBorrando(null)
+  }
   // Aquí NO se hace scroll. Lo lleva `useSeguirAlFondo` en quien monta el hilo,
   // porque el scrollIntoView que había aquí bajaba siempre, también mientras
   // releías diez mensajes más arriba, y eso es peor que no seguir al mensaje.
@@ -298,8 +366,15 @@ export function ChatThread({
         const real = profiles.nameFor(m.authorUserId, m.authorEmail)
         const nombre = m.isNote ? 'Nota anterior' : yo ? 'Tú' : real
         const tone = memberAvatarTone(m.authorEmail)
+        const suyo = yo && !m.isNote
+        const editable = suyo && !!onEdit
+        const borrable = suyo && !!onDelete
+        const enEdicion = editando?.id === m.id
         return (
-          <li key={m.id} className={`flex ${compacto ? 'gap-2.5' : 'gap-3'}`}>
+          // `group/msg` es lo que revela los dos verbos al pasar por encima. Va
+          // nombrado porque dentro puede haber otros grupos (el `slot` del
+          // tablón) y un `group` anónimo se los llevaría por delante.
+          <li key={m.id} className={`group/msg flex ${compacto ? 'gap-2.5' : 'gap-3'}`}>
             {/* LA CARA BAJA 2px, y no es una corrección a ojo: el nombre va en
                 14px dentro de una línea de 20, así que sus letras empiezan 3px
                 por debajo del techo de su caja. Con la cara pegada a ese techo,
@@ -324,19 +399,216 @@ export function ChatThread({
               />
             )}
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <span className={`text-sm font-semibold ${m.authority ? tone.name : 'text-slate-900'}`}>{nombre}</span>
-                <time dateTime={m.createdAt} title={fullDateTime(m.createdAt)} className="num text-[12px] text-slate-500">
-                  {relativeDate(m.createdAt)}
-                </time>
+              {/* La cabecera son DOS bloques y no una sola fila que envuelve: el
+                  nombre y la hora se alinean por su LÍNEA BASE (que es lo que
+                  cuadra dos textos de distinto cuerpo) y los verbos no pueden
+                  entrar en esa alineación, porque una caja de 32px apoyada en
+                  una base de texto estira la línea y descuadra la cara. */}
+              <div className="flex items-start gap-2">
+                <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className={`text-sm font-semibold ${m.authority ? tone.name : 'text-slate-900'}`}>{nombre}</span>
+                  <time dateTime={m.createdAt} title={fullDateTime(m.createdAt)} className="num text-[12px] text-slate-500">
+                    {relativeDate(m.createdAt)}
+                  </time>
+                  {/* EDITAR NO PUEDE SER MUDO. Una palabra al lado de la hora, en
+                      su mismo gris: no es un aviso, es una precisión sobre cuándo
+                      se dijo lo que estás leyendo. La hora del cambio va al
+                      `title`, que es donde esta casa manda siempre lo exacto. */}
+                  {m.editedAt && (
+                    <span title={`Editado el ${fullDateTime(m.editedAt)}`} className="text-[12px] text-slate-500">
+                      editado
+                    </span>
+                  )}
+                </div>
+              {/* LOS DOS VERBOS, AL FINAL DE LA LÍNEA DEL NOMBRE. Aparecen al
+                  pasar por encima y al llegar con el teclado; en táctil no hay
+                  hover, así que ahí se quedan puestos.
+
+                  Dos iconos y no un `···` con desplegable: esto vive en una
+                  columna que scrollea, así que un menú flotante pediría portal y
+                  colocación contra la ventana para dos verbos que caben. */}
+              {(editable || borrable) && !enEdicion && (
+                // `-mt-1.5` los centra contra la línea de 20px del nombre sin
+                // que sus 32 la estiren. Se ocultan con `opacity` y no
+                // desmontándolos: así el hueco está reservado siempre y la hora
+                // no da un salto de ancho al pasar el ratón.
+                <span className="-mt-1.5 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-[var(--duration-control)] group-focus-within/msg:opacity-100 group-hover/msg:opacity-100 pointer-coarse:opacity-100">
+                  {editable && (
+                    <button
+                      type="button"
+                      onClick={() => abrirEditor(m)}
+                      aria-label="Editar tu nota"
+                      title="Editar"
+                      className={botonIcono('ghost', 'sm')}
+                    >
+                      <Pencil className="size-3.5" aria-hidden />
+                    </button>
+                  )}
+                  {borrable && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditando(null)
+                        setBorrando(m.id)
+                      }}
+                      aria-label="Borrar tu nota"
+                      title="Borrar"
+                      className={botonIcono('ghost', 'sm')}
+                    >
+                      <Trash2 className="size-3.5" aria-hidden />
+                    </button>
+                  )}
+                </span>
+              )}
               </div>
-              {m.body && <ChatBody body={m.body} porHandle={porHandle} compacto={compacto} />}
+              {enEdicion ? (
+                <EditorNota
+                  valor={editando.texto}
+                  ocupado={ocupado}
+                  compacto={compacto}
+                  onChange={(texto) => setEditando({ id: m.id, texto })}
+                  onGuardar={guardar}
+                  onCancelar={() => setEditando(null)}
+                />
+              ) : (
+                m.body && (
+                  <ChatBody
+                    body={m.body}
+                    porHandle={porHandle}
+                    avisados={m.mentions ? new Set(m.mentions) : undefined}
+                    compacto={compacto}
+                  />
+                )
+              )}
+              {/* BORRAR SE CONFIRMA EN LA PROPIA NOTA, no en un diálogo encima:
+                  esto vive dentro de la ficha, que ya es un modal, y dos capas
+                  apiladas se pelean por el Escape (es lo que ya decidió el
+                  diálogo de sedes). Y el texto se queda a la vista mientras
+                  decides: se confirma lo que se está mirando. */}
+              {borrando === m.id && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+                  <span className="text-slate-600">¿Borrar esta nota?</span>
+                  <button
+                    type="button"
+                    disabled={ocupado}
+                    onClick={() => void borrar(m.id)}
+                    className="font-medium text-red-600 hover:underline disabled:opacity-60"
+                  >
+                    Borrar
+                  </button>
+                  <button type="button" onClick={() => setBorrando(null)} className="text-slate-600 hover:underline">
+                    Cancelar
+                  </button>
+                </div>
+              )}
               {m.slot}
             </div>
           </li>
         )
       })}
     </ol>
+  )
+}
+
+/**
+ * CORREGIR UNA NOTA EN SU SITIO, no en un diálogo aparte.
+ *
+ * La nota se queda donde estaba y su cuerpo se convierte en una caja de
+ * escribir: así se corrige leyendo lo que hay alrededor, que es de lo que va una
+ * conversación de equipo. Usa el MISMO canto y el mismo relleno que el composer
+ * de su hilo (`CHAT_SURFACE*`), porque es la misma acción con otro destino.
+ *
+ * Intro guarda y Escape cancela, igual que el composer. Y el Escape se corta EN
+ * FASE DE CAPTURA: `ui/Modal` escucha ese mismo evento en `document`, en la misma
+ * fase y registrado ANTES (al montarse la ficha), y dos oyentes del mismo nodo y
+ * la misma fase corren en ORDEN DE REGISTRO. Sin capturar, cancelar una
+ * corrección cerraría la ficha entera del candidato.
+ *
+ * NO se ofrecen menciones al corregir, y no es un olvido: la edición solo cambia
+ * el cuerpo, así que un `@` nuevo no avisaría a nadie. Una lista de sugerencias
+ * ahí prometería justo lo que no va a pasar. Para llamar a alguien se escribe
+ * una nota nueva, que es lo que sí avisa.
+ */
+function EditorNota({
+  valor,
+  ocupado,
+  compacto,
+  onChange,
+  onGuardar,
+  onCancelar,
+}: {
+  valor: string
+  ocupado: boolean
+  compacto: boolean
+  onChange: (texto: string) => void
+  onGuardar: () => void
+  onCancelar: () => void
+}) {
+  const areaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Al abrir, el foco va al final del texto: se viene a corregir lo que hay, no
+  // a reescribirlo desde el principio (seleccionarlo todo dejaría una tecla de
+  // más entre tú y borrar la nota sin querer).
+  useLayoutEffect(() => {
+    const el = areaRef.current
+    if (!el) return
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, CHAT_ALTO_MAX)}px`
+  }, [])
+
+  const alTeclear = (e: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      onGuardar()
+    }
+  }
+
+  return (
+    <div
+      className={compacto ? 'mt-1.5' : 'mt-2'}
+      onKeyDownCapture={(e) => {
+        if (e.key !== 'Escape') return
+        e.stopPropagation()
+        onCancelar()
+      }}
+    >
+      <div className={compacto ? CHAT_SURFACE_CAMPO : CHAT_SURFACE}>
+        <textarea
+          ref={areaRef}
+          value={valor}
+          disabled={ocupado}
+          rows={1}
+          aria-label="Corregir tu nota"
+          onChange={(e) => {
+            onChange(e.target.value)
+            const el = e.target
+            el.style.height = 'auto'
+            el.style.height = `${Math.min(el.scrollHeight, CHAT_ALTO_MAX)}px`
+          }}
+          onKeyDown={alTeclear}
+          className={compacto ? CHAT_TEXTAREA_CAMPO : `${CHAT_TEXTAREA} w-full`}
+        />
+      </div>
+      {/* Dos enlaces y no dos botones: están dentro de una nota, y un par de
+          botones de verdad ahí pesa más que la propia nota. El de guardar va en
+          tinta y con peso, que es la jerarquía que esta casa pide antes que el
+          color. */}
+      <div className="mt-1.5 flex items-center gap-3 text-[13px]">
+        <button
+          type="button"
+          disabled={ocupado || !valor.trim()}
+          onClick={onGuardar}
+          className="font-medium text-slate-900 hover:underline disabled:opacity-60 disabled:hover:no-underline"
+        >
+          Guardar
+        </button>
+        <button type="button" onClick={onCancelar} className="text-slate-600 hover:underline">
+          Cancelar
+        </button>
+      </div>
+    </div>
   )
 }
 

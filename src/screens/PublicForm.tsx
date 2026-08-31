@@ -271,21 +271,39 @@ export function PublicForm() {
       return
     }
 
-    // Sube el primer CV adjunto (si hay) al bucket cvs.
+    // SE SUBEN TODOS LOS FICHEROS, no solo el primero (Mario, ago 2026). Antes
+    // era `Object.values(files)[0]` y punto: un puesto que pide CV **y** carnet
+    // se quedaba con el CV, y lo demás lo tiraba sin decirlo. El PRIMERO sigue
+    // viajando aparte en `cv_path` porque es el que lee Meridian y el que ya
+    // exporta el ZIP; los demás van a `candidate_documents` por el mismo RPC.
     let cvPath: string | null = null
-    const fileEntry = Object.values(files)[0]
-    if (fileEntry) {
+    const docs: { path: string; nombre: string; bytes: number; campo_id: string }[] = []
+    // En el ORDEN DE LOS CAMPOS del formulario, no en el que se rellenaron: el
+    // primero tiene que ser el que la empresa puso primero (normalmente el CV),
+    // y `Object.values` de un objeto de estado no garantiza ese orden.
+    const adjuntos = campaign.fields
+      .map((f) => ({ campo: f, file: files[f.id] }))
+      .filter((x): x is { campo: typeof x.campo; file: File } => !!x.file)
+    if (adjuntos.length > 0) {
       setSubmitPhase('uploading')
-      const ext = fileEntry.name.split('.').pop()?.toLowerCase() || 'pdf'
-      const path = `${campaign.slug}/${crypto.randomUUID()}.${ext}`
-      const up = await supabase.storage.from('cvs').upload(path, fileEntry, { upsert: false })
-      if (up.error) {
-        setSubmitPhase('idle')
-        setSubmitError('No pudimos subir tu CV. Inténtalo de nuevo o quítalo para continuar.')
-        formTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        return
+      const subidos: string[] = []
+      for (const { campo, file } of adjuntos) {
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf'
+        const path = `${campaign.slug}/${crypto.randomUUID()}.${ext}`
+        const up = await supabase.storage.from('cvs').upload(path, file, { upsert: false })
+        if (up.error) {
+          // Lo ya subido se retira: media candidatura de ficheros huérfanos (con
+          // datos personales) sin candidato que los referencie es peor que nada.
+          if (subidos.length) await supabase.storage.from('cvs').remove(subidos).catch(() => {})
+          setSubmitPhase('idle')
+          setSubmitError('No pudimos subir tu documento. Inténtalo de nuevo o quítalo para continuar.')
+          formTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          return
+        }
+        subidos.push(up.data.path)
+        if (cvPath === null) cvPath = up.data.path
+        else docs.push({ path: up.data.path, nombre: file.name, bytes: file.size, campo_id: campo.id })
       }
-      cvPath = up.data.path
     }
 
     setSubmitPhase('submitting')
@@ -297,12 +315,16 @@ export function PublicForm() {
       // Qué texto aceptó. La FECHA la pone el servidor: es la prueba, y una
       // prueba que manda el cliente no prueba nada.
       p_consent_version: CONSENT_VERSION,
+      // Los documentos de MÁS. Vacío se manda como null: es lo mismo para la
+      // función y evita insertar un array que no dice nada.
+      p_docs: docs.length ? docs : null,
     })
     setSubmitPhase('idle')
     if (error) {
       // El CV ya se subió antes del RPC: si la candidatura se rechaza, lo borramos
       // para no dejar ficheros huérfanos (con PII) sin candidato que los referencie.
-      if (cvPath) supabase.storage.from('cvs').remove([cvPath]).catch(() => {})
+      const huerfanos = [cvPath, ...docs.map((d) => d.path)].filter((p): p is string => !!p)
+      if (huerfanos.length) supabase.storage.from('cvs').remove(huerfanos).catch(() => {})
       // El puesto puede haberse llenado o pausado entre que se cargó y se envió.
       const msg = error.message ?? ''
       const full = msg.includes('CANDIDATE_LIMIT_REACHED') || msg.includes('no acepta candidaturas')

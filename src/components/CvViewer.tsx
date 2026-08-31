@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { cargarPdfjs, type PDFDocumentProxy } from '../lib/pdf'
 import { ajustarAPalabras, fraccionAvance, localizarCita, type TramoCita } from '../lib/citas'
 import { MERIDIAN_NAME, type CitaCv } from '../lib/meridian'
@@ -34,9 +34,8 @@ import { MERIDIAN_NAME, type CitaCv } from '../lib/meridian'
  *  - Las marcas son ámbar de marcador (ver .cita-cv en index.css, excepción
  *    declarada) y NO son botones: un control que no hace nada es una puerta
  *    pintada. El índice interactivo de las citas es el INFORME de Meridian;
- *    la marca lleva `title` para el hover y el recuento de la línea de estado
- *    dice cuántas hay. El canal accesible de las citas es el informe, que las
- *    tiene todas en texto.
+ *    la marca lleva `title` para el hover. El canal accesible de las citas es
+ *    el informe, que las tiene todas en texto y con su recuento.
  */
 
 export interface CitaActiva {
@@ -183,17 +182,16 @@ export function CvViewer({
     })
   }, [citaActiva, paginas])
 
-  const localizadas = useMemo(() => {
-    if (!paginas) return 0
-    return new Set(paginas.flatMap((p) => p.marcas.map((m) => m.citaId))).size
-  }, [paginas])
-
-  const linea = noEncontrada
-    ? 'Esa cita no se ha podido localizar en el documento.'
-    : nota ??
-      (localizadas > 0
-        ? `${localizadas === 1 ? '1 cita' : `${localizadas} citas`} de ${MERIDIAN_NAME} subrayada${localizadas === 1 ? '' : 's'} en el documento`
-        : null)
+  // LA LÍNEA SOLO HABLA CUANDO TIENE ALGO QUE AVISAR (Mario, ago 2026: "esto no
+  // hace falta"). Contaba las citas subrayadas ("5 citas de Meridian subrayadas
+  // en el documento"), y eso es la misma información dos veces: los subrayados
+  // se ven, y el informe ya tiene su puerta con el recuento ("Ver las N citas").
+  // Es la regla de la casa: un contador se dice, no se enseña.
+  //
+  // Lo que SÍ se queda son los dos avisos, porque avisan de que lo que ves no es
+  // lo que esperabas: una cita que no se pudo localizar (un toque que no haría
+  // nada visible) y el CV escaneado, que se leyó pero no se puede subrayar.
+  const linea = noEncontrada ? 'Esa cita no se ha podido localizar en el documento.' : nota ?? null
 
   const lienzo = aspecto === 'lienzo'
 
@@ -217,13 +215,22 @@ export function CvViewer({
       <div className={lienzo ? 'p-4 sm:p-6' : 'bg-slate-100 p-3'} aria-label={titulo}>
         <div className={`mx-auto ${lienzo ? 'max-w-[880px] space-y-4' : 'max-w-[720px] space-y-3'}`}>
           {paginas.map((p) => (
+            // LA ALTURA DE LA PÁGINA LA DA EL LIENZO, EN FLUJO, no un
+            // `aspect-ratio` con todo dentro en `absolute`. Con aquello, la caja
+            // no tenía más altura que la que le calculara la ratio, y el lienzo,
+            // el botón de ampliar y las marcas colgaban de ella: si un navegador
+            // no la resuelve, se caen las TRES cosas a la vez (Mario, ago 2026:
+            // en Safari "no se adapta al tamaño" y "no se puede clickear para
+            // agrandar", que son exactamente esos dos síntomas). Un `<canvas>`
+            // con sus atributos puestos trae su proporción intrínseca y da la
+            // altura en cualquier motor desde hace veinte años; el `relative`
+            // sigue siendo el marco de referencia de lo que va encima.
             <div
               key={p.num}
               data-doc-pagina
               className="relative w-full overflow-hidden rounded-sm bg-white shadow-card"
-              style={{ aspectRatio: `${p.w} / ${p.h}` }}
             >
-              <PaginaCanvas doc={doc} num={p.num} baseW={p.w} />
+              <PaginaCanvas doc={doc} num={p.num} baseW={p.w} baseH={p.h} />
               {/* El botón de ampliar cubre la página entera, DEBAJO de las
                   marcas: así el hover de una marca sigue contando su cita, y
                   el resto de la página es la diana. */}
@@ -310,10 +317,12 @@ function PaginaCanvas({
   doc,
   num,
   baseW,
+  baseH,
 }: {
   doc: PDFDocumentProxy | null
   num: number
   baseW: number
+  baseH: number
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const hecho = useRef(false)
@@ -328,7 +337,7 @@ function PaginaCanvas({
       try {
         const page = await doc.getPage(num)
         if (!vivo || !canvas.parentElement) return
-        const cssW = canvas.parentElement.clientWidth || baseW
+        const cssW = canvas.clientWidth || canvas.parentElement.clientWidth || baseW
         const scale = (cssW * Math.min(2, window.devicePixelRatio || 1)) / baseW
         const viewport = page.getViewport({ scale })
         canvas.width = Math.floor(viewport.width)
@@ -347,5 +356,18 @@ function PaginaCanvas({
     }
   }, [doc, num, baseW])
 
-  return <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-hidden />
+  // `width`/`height` puestos desde el primer render, con el tamaño real de la
+  // página: son ATRIBUTOS, así que dan la proporción intrínseca del lienzo antes
+  // de que pdf.js pinte nada. Sin ellos, un canvas sin dimensionar vale 300x150 y
+  // la página daría un salto de alto al llegar el dibujo. El efecto los reescribe
+  // con la escala del dispositivo, que conserva la proporción: no hay salto.
+  return (
+    <canvas
+      ref={canvasRef}
+      width={baseW}
+      height={baseH}
+      className="block h-auto w-full"
+      aria-hidden
+    />
+  )
 }

@@ -16,7 +16,16 @@ async function importar(): Promise<Pdfjs> {
     import('pdfjs-dist'),
     import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
   ])
-  pdfjs.GlobalWorkerOptions.workerSrc = worker.default
+  // Solo si de verdad es una URL. `?url` devuelve una cadena en cualquier build y
+  // en un `npm run dev` normal, pero NO cuando el paquete se resuelve fuera del
+  // root de Vite (pasa al levantar el dev server desde un git worktree sin
+  // `node_modules` propio: `pdfjs-dist` sube al del checkout principal, Vite lo
+  // sirve por `/@fs` sin aplicar la transformación y aquí llega el módulo, no su
+  // ruta). Asignarlo igualmente hace que pdf.js tire `Invalid workerSrc type` y
+  // el visor se caiga a su plan B, que enseña el PDF pero sin subrayados ni clic
+  // para ampliar: el síntoma era "pincho el CV y no se abre nada" solo en local.
+  // Sin `workerSrc`, pdf.js usa su worker de reserva: más lento, pero pinta.
+  if (typeof worker.default === 'string') pdfjs.GlobalWorkerOptions.workerSrc = worker.default
   return pdfjs
 }
 
