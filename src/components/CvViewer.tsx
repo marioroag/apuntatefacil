@@ -74,6 +74,8 @@ export function CvViewer({
   nota,
   onFallo,
   onLocalizadas,
+  onAmpliar,
+  aspecto = 'ficha',
 }: {
   data: ArrayBuffer
   titulo: string
@@ -87,6 +89,13 @@ export function CvViewer({
    *  para que el informe solo enlace citas con marca: un botón que salta a
    *  ninguna parte es una puerta pintada. */
   onLocalizadas?: (ids: string[]) => void
+  /** Pinchar sobre una página abre el documento a pantalla completa
+   *  (CvLightbox). Sin la prop, las páginas no prometen ningún clic. */
+  onAmpliar?: () => void
+  /** 'ficha' es el incrustado (línea de estado + banda gris); 'lienzo' es el
+   *  interior del visor a pantalla completa: sin línea, fondo del telón y
+   *  páginas más anchas. */
+  aspecto?: 'ficha' | 'lienzo'
 }) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
   const [paginas, setPaginas] = useState<Pagina[] | null>(null)
@@ -186,10 +195,12 @@ export function CvViewer({
         ? `${localizadas === 1 ? '1 cita' : `${localizadas} citas`} de ${MERIDIAN_NAME} subrayada${localizadas === 1 ? '' : 's'} en el documento`
         : null)
 
+  const lienzo = aspecto === 'lienzo'
+
   if (!paginas) {
     return (
-      <div className="grid min-h-[240px] place-items-center bg-slate-50 px-6 text-center">
-        <p className="text-sm text-slate-500" role="status">
+      <div className={`grid min-h-[240px] place-items-center px-6 text-center ${lienzo ? '' : 'bg-slate-50'}`}>
+        <p className={`text-sm ${lienzo ? 'text-slate-300' : 'text-slate-500'}`} role="status">
           Abriendo el CV…
         </p>
       </div>
@@ -198,20 +209,32 @@ export function CvViewer({
 
   return (
     <div ref={rootRef}>
-      {linea && (
+      {!lienzo && linea && (
         <p className="border-b border-slate-100 px-4 py-2 text-[12px] leading-4 text-slate-500 sm:px-3.5">
           {linea}
         </p>
       )}
-      <div className="bg-slate-100 p-3" aria-label={titulo}>
-        <div className="mx-auto max-w-[720px] space-y-3">
+      <div className={lienzo ? 'p-4 sm:p-6' : 'bg-slate-100 p-3'} aria-label={titulo}>
+        <div className={`mx-auto ${lienzo ? 'max-w-[880px] space-y-4' : 'max-w-[720px] space-y-3'}`}>
           {paginas.map((p) => (
             <div
               key={p.num}
+              data-doc-pagina
               className="relative w-full overflow-hidden rounded-sm bg-white shadow-card"
               style={{ aspectRatio: `${p.w} / ${p.h}` }}
             >
               <PaginaCanvas doc={doc} num={p.num} baseW={p.w} />
+              {/* El botón de ampliar cubre la página entera, DEBAJO de las
+                  marcas: así el hover de una marca sigue contando su cita, y
+                  el resto de la página es la diana. */}
+              {onAmpliar && (
+                <button
+                  type="button"
+                  onClick={onAmpliar}
+                  aria-label="Ver el documento a pantalla completa"
+                  className="absolute inset-0 cursor-zoom-in"
+                />
+              )}
               {p.marcas.map((m, k) => {
                 const activa = flash?.id === m.citaId
                 return (
@@ -235,7 +258,7 @@ export function CvViewer({
             </div>
           ))}
           {doc && doc.numPages > paginas.length && (
-            <p className="pb-1 text-center text-[12px] text-slate-500">
+            <p className={`pb-1 text-center text-[12px] ${lienzo ? 'text-slate-300' : 'text-slate-500'}`}>
               El documento sigue: se enseñan las primeras {paginas.length} páginas. Descárgalo para verlo entero.
             </p>
           )}

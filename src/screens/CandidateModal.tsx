@@ -49,6 +49,7 @@ import { InterviewConversation } from '../components/InterviewConversation'
 import { MeridianAvatar, MeridianPanelBlock } from '../components/Meridian'
 import { MERIDIAN_NAME, candidateFit, citasDelAnalisis, type CitaCv } from '../lib/meridian'
 import { CvViewer, type CitaActiva } from '../components/CvViewer'
+import { CvLightbox } from '../components/CvLightbox'
 
 /**
  * Detalle del candidato: pop-up con pestañas.
@@ -1364,6 +1365,9 @@ function Cv({
   const [peso, setPeso] = useState<string | null>(null)
   const [bytes, setBytes] = useState<ArrayBuffer | null>(null)
   const [visorFallo, setVisorFallo] = useState(false)
+  // El documento a pantalla completa (CvLightbox): se abre pinchando sobre
+  // cualquier página del incrustado.
+  const [ampliado, setAmpliado] = useState(false)
   // "Reintentar" tras un fallo ocasional (la red, una firma caducada, un chunk
   // que no cargó a la primera): vuelve a empezar el camino ENTERO, con firma
   // nueva incluida, en vez de obligar a cerrar la ficha y reabrirla.
@@ -1511,15 +1515,28 @@ function Cv({
         // citas siguen enteras, en texto, en el informe de Meridian.
         <iframe src={url} title={`CV de ${candidateName(candidate) || 'el candidato'}`} className="h-[560px] w-full bg-slate-50" />
       ) : bytes ? (
-        <CvViewer
-          data={bytes}
-          titulo={`CV de ${candidateName(candidate) || 'el candidato'}`}
-          citas={citas}
-          citaActiva={citaActiva}
-          nota={cvLeido === 'vision' ? `CV escaneado: ${MERIDIAN_NAME} lo leyó transcribiéndolo, sin citas que subrayar.` : undefined}
-          onFallo={() => setVisorFallo(true)}
-          onLocalizadas={onLocalizadas}
-        />
+        <>
+          <CvViewer
+            data={bytes}
+            titulo={`CV de ${candidateName(candidate) || 'el candidato'}`}
+            citas={citas}
+            citaActiva={citaActiva}
+            nota={cvLeido === 'vision' ? `CV escaneado: ${MERIDIAN_NAME} lo leyó transcribiéndolo, sin citas que subrayar.` : undefined}
+            onFallo={() => setVisorFallo(true)}
+            onLocalizadas={onLocalizadas}
+            onAmpliar={() => setAmpliado(true)}
+          />
+          {ampliado && (
+            <CvLightbox
+              nombre={cvName || 'CV'}
+              data={bytes}
+              citas={citas}
+              onClose={() => setAmpliado(false)}
+              onDescargar={() => void descargar()}
+              urlAparte={url}
+            />
+          )}
+        </>
       ) : (
         <div className={`min-h-[360px] ${banda}`}>
           <p className="flex items-center gap-2 text-sm text-slate-500" role="status">
