@@ -601,6 +601,9 @@ export function promptEvaluador(args: {
   criterios: BaremoCriterio[]
   respuestas: string
   cvNota: string
+  /** La fecha de hoy (YYYY-MM-DD). Sin ella el modelo no puede convertir un
+   *  "desde 2008" en años ni saber si una vigencia sigue viva. */
+  hoy: string
 }): { system: string; user: string } {
   const system =
     'Eres Meridian, un asistente de selección de personal. Ayudas a un responsable de ' +
@@ -623,6 +626,14 @@ export function promptEvaluador(args: {
     'di de dónde sale: "respuesta" si viene del formulario, "cv" si viene del CV. Sin ' +
     'evidencia, el valor es "no_consta". No confundas "no_consta" con "no_cumple". ' +
     'Juzga solo lo que veas escrito.\n\n' +
+    'LECTURA DE RESPUESTAS: las escriben personas reales con prisa, y a veces contestan ' +
+    'de lado: a "años de experiencia" alguien responde el AÑO en que empezó ("2008" ' +
+    'significa que trabaja en ello desde 2008, no que no conste), a un sí o no responde ' +
+    '"claro", a una cantidad, "más de 10". Si la respuesta tiene UNA lectura razonable, ' +
+    'JÚZGALA con esa lectura, citando tal cual lo que escribió; "no_consta" es para ' +
+    'cuando falta el dato, nunca para castigar la forma de contestar. Si la respuesta es ' +
+    'de verdad ambigua (dos lecturas plausibles que cambian el juicio), entonces sí: ' +
+    '"no_consta".\n\n' +
     'CONTRASTE: si el CV contradice una respuesta del formulario (por ejemplo, responde ' +
     '5 años de experiencia y las etapas del CV suman 2), el criterio afectado es ' +
     '"parcial" como máximo y lo apuntas en "contrastes": en "respuesta" resumes lo que ' +
@@ -637,6 +648,7 @@ export function promptEvaluador(args: {
     'dato. Nunca un veredicto negativo ni un motivo de descarte, y nunca repiten la ' +
     'conclusión: siempre un hecho concreto.'
   const user =
+    `Hoy es ${args.hoy}.\n` +
     `Puesto: ${args.puesto}.\n\n` +
     `Lo que pide el formulario y lo que ha respondido el candidato:\n${args.respuestas || '(sin respuestas)'}\n\n` +
     args.cvNota
@@ -702,6 +714,8 @@ export function promptJuez(args: {
   criterios: BaremoCriterio[]
   respuestas: string
   cvNota: string
+  /** La fecha de hoy (YYYY-MM-DD), la misma que vio el evaluador. */
+  hoy: string
   evaluacion: {
     summary: string
     highlights: string[]
@@ -727,11 +741,15 @@ export function promptJuez(args: {
     '4. Que cada contraste señala una contradicción REAL entre la respuesta y el CV, con ' +
     'su cita presente en el CV. En "contrastes_conservados" devuelve SOLO los que se ' +
     'conservan, copiados tal cual: no añadas ni reescribas ninguno.\n\n' +
+    'Una respuesta contestada "de lado" con lectura razonable SOSTIENE su juicio: si a ' +
+    '"años de experiencia" respondieron el año en que empezaron ("2008" es trabajar en ' +
+    'ello desde 2008), esa lectura vale y no se rebaja por la forma de contestar.\n\n' +
     'Baremo del puesto:\n' + listaCriterios(args.criterios)
   const criteriosTxt = args.evaluacion.criterios
     .map((j) => `- ${j.clave}: ${j.valor}${j.evidencia ? ` (evidencia: "${j.evidencia}")` : ''}`)
     .join('\n')
   const user =
+    `Hoy es ${args.hoy}.\n` +
     `Puesto: ${args.puesto}.\n\n` +
     `Candidatura:\n${args.respuestas || '(sin respuestas)'}\n\n` +
     args.cvNota + '\n\n' +

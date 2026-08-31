@@ -409,7 +409,10 @@ Deno.serve(async (req) => {
       // depende del baremo, y con su propio catch, porque es un extra y un
       // análisis sin ficha de trayectoria sigue siendo un análisis. ---
       const claves = efectivos.map((c) => c.clave)
-      const pe = promptEvaluador({ puesto, criterios: efectivos, respuestas, cvNota })
+      // La fecha de hoy viaja a evaluador y juez: sin ella no se puede leer
+      // "desde 2008" como años de experiencia ni saber si una vigencia vive.
+      const hoy = new Date().toISOString().slice(0, 10)
+      const pe = promptEvaluador({ puesto, criterios: efectivos, respuestas, cvNota, hoy })
       const pt = cv ? promptTrayectoria(cv) : null
       const [ev, trayectoriaBruta] = await Promise.all([
         chatJSON(pe.system, pe.user, esquemaEvaluador(claves)),
@@ -447,7 +450,7 @@ Deno.serve(async (req) => {
       // --- Pieza 3: el juez. Solo si hay algo que verificar. ---
       const hayJuicios = juicios.some((j) => j.valor !== 'no_consta')
       if (hayJuicios || highlights.length > 0 || concerns.length > 0 || contrastes.length > 0) {
-        const pj = promptJuez({ puesto, criterios: efectivos, respuestas, cvNota, evaluacion: { summary, highlights, concerns, criterios: juicios, contrastes } })
+        const pj = promptJuez({ puesto, criterios: efectivos, respuestas, cvNota, hoy, evaluacion: { summary, highlights, concerns, criterios: juicios, contrastes } })
         const jz = await chatJSON(pj.system, pj.user, esquemaJuez(claves))
         const veredictos = new Map(
           (Array.isArray(jz.criterios) ? jz.criterios : []).map((c) => {
