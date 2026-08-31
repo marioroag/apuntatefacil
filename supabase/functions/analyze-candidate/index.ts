@@ -434,13 +434,18 @@ Deno.serve(async (req) => {
       // devolvía un contraste sin CV y el código se lo guardaba.
       let contrastes = cv ? sanearContrastes(ev.contrastes) : []
       const brutos: Juicio[] = (Array.isArray(ev.criterios) ? ev.criterios : []).map((c) => {
-        const j = c as { clave?: unknown; valor?: unknown; evidencia?: unknown; fuente?: unknown }
+        const j = c as {
+          clave?: unknown; valor?: unknown; evidencia?: unknown; fuente?: unknown
+          respuesta_incoherente?: unknown
+        }
         return {
           clave: String(j?.clave ?? ''),
           valor: (['cumple', 'parcial', 'no_consta', 'no_cumple'].includes(String(j?.valor)) ? String(j?.valor) : 'no_consta') as Valor,
           evidencia: String(j?.evidencia ?? ''),
           // normalizarJuicios valida el vocabulario y la ata a su evidencia.
           fuente: String(j?.fuente ?? '') as FuenteJuicio,
+          // normalizarJuicios la acota a los no_consta del evaluador.
+          incoherente: j?.respuesta_incoherente === true,
         }
       })
       // Mitad mecánica del juez: un juicio sin evidencia se queda en no_consta,
@@ -462,7 +467,11 @@ Deno.serve(async (req) => {
           const veredicto = veredictos.get(j.clave)
           const valor = veredicto ? fusionarJuicio(j.valor, veredicto as Valor) : j.valor
           // Si el juez lo bajó a no_consta, la evidencia rechazada no se enseña.
-          return valor === 'no_consta' ? { clave: j.clave, valor } : { ...j, valor }
+          // La marca de incoherencia sobrevive solo si YA era del evaluador (un
+          // no_consta se queda no_consta): una rebaja del juez no la inventa.
+          return valor === 'no_consta'
+            ? { clave: j.clave, valor, ...(j.incoherente ? { incoherente: true } : {}) }
+            : { ...j, valor }
         })
         highlights = soloConservados(highlights, (Array.isArray(jz.a_favor) ? jz.a_favor : []).map(String))
         concerns = soloConservados(concerns, (Array.isArray(jz.a_confirmar) ? jz.a_confirmar : []).map(String))
@@ -505,6 +514,8 @@ Deno.serve(async (req) => {
           // La fuente viaja pegada a su evidencia: es lo que le dice al visor
           // qué citas buscar en el PDF.
           ...(j?.evidencia && j?.fuente ? { fuente: j.fuente } : {}),
+          // Procedencia del castigo a medias de la agregación (descuido).
+          ...(j?.incoherente ? { incoherente: true } : {}),
         }
       })
       const writeError = await store({

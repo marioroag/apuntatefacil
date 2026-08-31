@@ -114,6 +114,26 @@ describe('agregación: el número lo pone el código', () => {
     expect(out.fit).toBeLessThan(FIT_BIEN)
   })
 
+  // Mario, ago 2026: "poner el teléfono en años de experiencia demuestra falta
+  // de atención como mínimo". Una respuesta incoherente no es dejar en blanco:
+  // pesa a MEDIAS (medio peso a 0), sin llegar al castigo de un no_cumple.
+  it('una respuesta incoherente pesa medio peso a 0; en blanco no pesa nada', () => {
+    const baremo = [crit('a', 'importante'), crit('b', 'importante')]
+    const enBlanco = agregarJuicios(baremo, [j('a', 'no_consta'), j('b', 'cumple')])
+    const conBasura = agregarJuicios(baremo, [{ clave: 'a', valor: 'no_consta', incoherente: true }, j('b', 'cumple')])
+    expect(enBlanco.fit).toBe(100)
+    expect(conBasura.fit).toBe(67) // 2 de (2 + 1): medio peso del importante
+    const noCumple = agregarJuicios(baremo, [j('a', 'no_cumple'), j('b', 'cumple')])
+    expect(conBasura.fit).toBeGreaterThan(noCumple.fit) // menos que un no confirmado
+  })
+
+  it('en un CLAVE incoherente no se castiga dos veces: el arrastre entero ya lo cubre', () => {
+    const baremo = [crit('a', 'clave'), crit('b', 'importante')]
+    const sinMarca = agregarJuicios(baremo, [j('a', 'no_consta'), j('b', 'cumple')])
+    const conMarca = agregarJuicios(baremo, [{ clave: 'a', valor: 'no_consta', incoherente: true }, j('b', 'cumple')])
+    expect(conMarca.fit).toBe(sinMarca.fit)
+  })
+
   it('un CLAVE de CV en no_consta solo arrastra si hubo CV legible', () => {
     const baremo = [crit('vigencia', 'clave', 'cv'), crit('b', 'importante')]
     const juicios = [j('vigencia', 'no_consta'), j('b', 'cumple')]
@@ -193,6 +213,25 @@ describe('sin evidencia no hay juicio', () => {
     )
     expect(out).toHaveLength(1)
     expect(out[0].evidencia).toHaveLength(200)
+  })
+})
+
+describe('la marca de incoherencia se acota a los no_consta del evaluador', () => {
+  const claves = new Set(['a'])
+
+  it('sobre un no_consta del evaluador, se conserva', () => {
+    const out = normalizarJuicios([{ clave: 'a', valor: 'no_consta', incoherente: true }], claves)
+    expect(out[0]).toEqual({ clave: 'a', valor: 'no_consta', incoherente: true })
+  })
+
+  it('pegada a un juicio con valor, se tira: sería contradictoria', () => {
+    const out = normalizarJuicios([{ clave: 'a', valor: 'cumple', evidencia: 'lo dice', incoherente: true }], claves)
+    expect(out[0].incoherente).toBeUndefined()
+  })
+
+  it('la degradación mecánica (juicio sin evidencia) no inventa descuidos', () => {
+    const out = normalizarJuicios([{ clave: 'a', valor: 'cumple', incoherente: true }], claves)
+    expect(out[0]).toEqual({ clave: 'a', valor: 'no_consta' })
   })
 })
 

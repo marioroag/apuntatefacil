@@ -143,6 +143,9 @@ export interface AiCriterion {
   /** De dónde salió la evidencia. Con 'cv', el visor del CV puede localizarla
    *  y subrayarla. Ausente en análisis anteriores a ago 2026. */
   fuente?: 'respuesta' | 'cv'
+  /** La pregunta se contestó con algo que no la responde (un teléfono donde se
+   *  piden años): sin dato, pero el descuido pesa a medias en el número. */
+  incoherente?: boolean
 }
 
 /** Contradicción entre una respuesta del formulario y el CV ("dice 5 años, las

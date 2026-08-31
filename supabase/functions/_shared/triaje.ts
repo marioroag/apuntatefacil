@@ -76,6 +76,11 @@ export interface Juicio {
   evidencia?: string
   /** Solo viaja con evidencia: un no_consta no tiene cita que localizar. */
   fuente?: FuenteJuicio
+  /** La pregunta de este criterio se contestó con algo que NO la responde (un
+   *  teléfono donde se piden años). No hay dato, pero el descuido pesa un poco
+   *  (Mario, ago 2026): agregarJuicios lo mete al denominador a medio peso.
+   *  Solo tiene sentido sobre un no_consta; normalizarJuicios lo garantiza. */
+  incoherente?: boolean
 }
 
 /** Contradicción entre lo que respondió el formulario y lo que dice el CV
@@ -147,15 +152,22 @@ export function agregarJuicios(
   juicios: Juicio[],
   cvLegible = true,
 ): Agregado {
-  const valorDe = new Map(juicios.map((j) => [j.clave, j.valor]))
+  const valorDe = new Map(juicios.map((j) => [j.clave, j]))
   let suma = 0
   let pesoTotal = 0
   let evaluados = 0
   for (const c of efectivos) {
-    const valor = valorDe.get(c.clave) ?? 'no_consta'
+    const jj = valorDe.get(c.clave)
+    const valor = jj?.valor ?? 'no_consta'
     if (valor === 'no_consta') {
-      const arrastra = c.nivel === 'clave' && (c.fuente !== 'cv' || cvLegible)
-      if (arrastra) pesoTotal += PESO_NIVEL.clave
+      const arrastraClave = c.nivel === 'clave' && (c.fuente !== 'cv' || cvLegible)
+      if (arrastraClave) pesoTotal += PESO_NIVEL.clave
+      // Una respuesta INCOHERENTE (un teléfono donde se piden años) pesa MEDIO
+      // peso a 0 (Mario, ago 2026): contestar con basura no es dejar en blanco
+      // (es descuido y la pregunta se desperdició), pero tampoco es un
+      // no_cumple confirmado, así que castiga a medias. Si el criterio era
+      // clave ya arrastró entero: no se suma encima.
+      else if (jj?.incoherente) pesoTotal += PESO_NIVEL[c.nivel] * 0.5
       continue
     }
     evaluados += 1
@@ -193,8 +205,13 @@ export function normalizarJuicios(juicios: Juicio[], claves: Set<string>): Juici
     .filter((j) => claves.has(j.clave))
     .map((j) => {
       const evidencia = (j.evidencia ?? '').trim().slice(0, 200)
+      // La marca de incoherencia solo tiene sentido sobre un no_consta DEL
+      // EVALUADOR (dijo "esto no responde a la pregunta"): pegada a un juicio
+      // con valor sería contradictoria, y en la degradación mecánica de abajo
+      // (juicio sin evidencia) sería inventarle un descuido al candidato.
+      const incoherente = j.valor === 'no_consta' && j.incoherente === true
       if (j.valor !== 'no_consta' && !evidencia) return { clave: j.clave, valor: 'no_consta' as Valor }
-      if (!evidencia) return { clave: j.clave, valor: j.valor }
+      if (!evidencia) return { clave: j.clave, valor: j.valor, ...(incoherente ? { incoherente: true } : {}) }
       // La fuente solo viaja pegada a su evidencia: dice de dónde salió ESA
       // cita, y sin cita no señala nada. Un valor fuera del vocabulario se tira
       // (el structured output lo garantiza, esto cubre análisis re-procesados).
@@ -663,7 +680,12 @@ export function promptEvaluador(args: {
     'cuando falta el dato, nunca para castigar la forma de contestar. Pero razonable de ' +
     'verdad: un número sin sentido para la pregunta (un teléfono donde se piden años de ' +
     'experiencia) no tiene lectura, y una respuesta ambigua (dos lecturas plausibles que ' +
-    'cambian el juicio) tampoco: en esos casos, "no_consta".\n\n' +
+    'cambian el juicio) tampoco: en esos casos, "no_consta". Y si la respuesta EXISTE ' +
+    'pero no responde a su pregunta, marca además "respuesta_incoherente": contestar ' +
+    'con algo que no viene al caso no es lo mismo que dejar en blanco (como mínimo es ' +
+    'un descuido) y el número lo tiene en cuenta. Las respuestas ABIERTAS ("cuéntanos ' +
+    'más", comentarios) valen como evidencia igual que las cerradas: si ahí cuenta que ' +
+    'lleva diez años en el oficio o que vive al lado del centro, cítalo y júzgalo.\n\n' +
     'CONTRASTE: si el CV contradice una respuesta del formulario (por ejemplo, responde ' +
     '5 años de experiencia y las etapas del CV suman 2), el criterio afectado es ' +
     '"parcial" como máximo y lo apuntas en "contrastes": en "respuesta" resumes lo que ' +
@@ -714,8 +736,15 @@ export function esquemaEvaluador(claves: string[]) {
                 enum: ['respuesta', 'cv'],
                 description: 'De dónde sale la evidencia. Con no_consta, pon "respuesta".',
               },
+              respuesta_incoherente: {
+                type: 'boolean',
+                description:
+                  'true SOLO si la respuesta a la pregunta de este criterio existe pero NO ' +
+                  'la responde (un teléfono donde se piden años). Sin respuesta o con dato ' +
+                  'válido, false.',
+              },
             },
-            required: ['clave', 'valor', 'evidencia', 'fuente'],
+            required: ['clave', 'valor', 'evidencia', 'fuente', 'respuesta_incoherente'],
           },
         },
         contrastes: {
@@ -970,7 +999,11 @@ export function promptRedactor(args: {
     .map((c) => {
       const j = valorDe.get(c.clave)
       const valor = j?.valor ?? 'no_consta'
-      const ev = j?.evidencia ? ` (evidencia: "${j.evidencia}")` : ''
+      const ev = j?.evidencia
+        ? ` (evidencia: "${j.evidencia}")`
+        : j?.incoherente
+          ? ' (respondió a esta pregunta con algo que no la responde: como mínimo, un descuido)'
+          : ''
       return `- ${c.nombre} [${c.nivel}]: ${valor}${ev}`
     })
     .join('\n')
