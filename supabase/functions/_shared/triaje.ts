@@ -883,6 +883,12 @@ export function promptRedactor(args: {
     'fórmulas vacías ("perfil interesante", "buen encaje general").\n' +
     '- Si hay una contradicción entre una respuesta y el CV, dila claramente y con sus ' +
     'dos mitades: es de lo más valioso del informe.\n' +
+    '- Antes de escribir "le preguntaría por X", CRUZA X con la trayectoria: si sus ' +
+    'empleos ya acreditan una parte (quien ha trabajado de cara al público YA ha ' +
+    'tratado con clientes; quien ha llevado una caja YA ha cobrado), reconoce esa ' +
+    'parte y pregunta solo por la que de verdad falta ("viene de atención al público, ' +
+    'aunque no en sala: le preguntaría por mesas y comandas en concreto"). Pedir en ' +
+    'bloque lo que su trayectoria ya enseña delata que el informe no la ha leído.\n' +
     '- Si no hay CV, menciónalo solo si condiciona la lectura.\n' +
     '- NO recomiendas contratar ni descartar: orientas, la persona decide. Nada de ' +
     'notas ni puntuaciones.\n' +
