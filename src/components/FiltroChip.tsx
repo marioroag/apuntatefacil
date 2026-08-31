@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Checkbox } from './ui/Checkbox'
 import { colocarFlotante } from '../lib/flotante'
 import { useEsTactil } from '../lib/media'
-import { BTN_SUPERFICIE } from '../lib/buttons'
+import { BTN_SUPERFICIE, ALTO_FRANJA } from '../lib/buttons'
 import type { SavedView } from '../lib/types'
 
 /* ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ export function ValoresDimension({ dim, q }: { dim: DimensionFiltro; q: string }
  * pantalla y estaba a la misma talla que los botones de la cabecera, que se usan
  * mucho menos. Lo que se toca a menudo se hace más grande, no más pequeño.
  */
-export const CHIP_ALTO = 'h-10 pointer-coarse:h-11'
+export const CHIP_ALTO = ALTO_FRANJA
 
 export function ChipDimension({ dim }: { dim: DimensionFiltro }) {
   const [open, setOpen] = useState(false)

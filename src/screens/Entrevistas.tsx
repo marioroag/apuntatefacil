@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CalendarDays, CheckCheck, ChevronLeft, ChevronRight, MapPin, Phone, Video } from 'lucide-react'
+import { AlertCircle, CalendarDays, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, List, MapPin, Phone, Video } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { useProfiles } from '../lib/profiles'
-import { WHATSAPP_LISTO, WHATSAPP_WIP } from '../lib/whatsapp'
-import { BTN_SECONDARY_SM } from '../lib/buttons'
-import { Tabs, TabPanel } from '../components/ui/Tabs'
+import { WHATSAPP_LISTO } from '../lib/whatsapp'
+import { ALTO_FRANJA, BTN_SECONDARY_FRANJA } from '../lib/buttons'
 import { Avatar } from '../components/ui/Avatar'
 import { useToast } from '../components/ui/Toast'
 import { AgendaGrid } from '../components/AgendaGrid'
+import { MiniMes } from '../components/MiniMes'
 import { CandidateModal } from './CandidateModal'
 import { groupByDay, splitInterviews } from '../lib/interviews'
-import { claveDeHoy, rotuloRango, semanaDe, sumarDias } from '../lib/agenda'
+import { claveDeHoy, partesClave, rotuloRango, semanaDe, sumarDias } from '../lib/agenda'
 import { INTERVIEW_STATUS_META, type Interview } from '../lib/types'
 import { PageHeader } from '../components/ui/PageHeader'
 import {
@@ -30,8 +30,29 @@ import {
 // Seguimos sin ser un calendario completo: aquí no se arrastra, ni se crea una
 // cita desde un hueco, ni se ven los eventos ajenos del anfitrión. Eso es
 // competir con Google para hacerlo peor.
-type Vista = 'semana' | 'dia' | 'lista'
-type Seccion = 'agenda' | 'enMarcha' | 'pasadas'
+/* LO QUE MIDE EL RAÍL, Y CUÁNDO CABE. Escrito como CUENTA y no como número
+   redondo, para que el día que cambie una pieza se recalcule el resto en vez de
+   quedarse un umbral heredado que ya no significa nada. */
+const RAIL_ANCHO = 256 // gemelo del `_256px` escrito en la clase de la rejilla
+/** La regla de horas de la rejilla (`w-14`). */
+const REGLA_HORAS = 56
+/**
+ * El suelo de una columna de día. Por debajo de esto un nombre normal empieza a
+ * salir cortado: el bloque le da a la línea del nombre el ancho de la columna
+ * menos 16 de relleno, y un "Rafael Molina" a 12,5px semibold mide 85.
+ */
+const COLUMNA_MINIMA = 110
+/** Lo que tiene que medir la caja de CONTENIDO para que quepan los dos (con el
+ *  hueco de 16 que los separa, el `gap-4` de la rejilla). */
+const RAIL_MINIMO = COLUMNA_MINIMA * 7 + REGLA_HORAS + RAIL_ANCHO + 16
+
+/** Cómo se presenta la agenda: el calendario o la lista de lo que viene. */
+type Modo = 'calendario' | 'lista'
+/** Qué tramo enseña el calendario. Solo significa algo en modo calendario. */
+type Intervalo = 'semana' | 'dia'
+/** Lo que de verdad se pinta, derivado de los dos: una sola pieza, como en la
+ *  ficha del candidato, para que no puedan contradecirse. */
+type Vista = Intervalo | 'lista'
 
 // El envoltorio sin hooks se conserva aunque el corte por plan haya muerto con
 // el pago por proceso (todo incluido, ago 2026): la agenda vive en un
@@ -95,41 +116,56 @@ function Agenda({ demo }: { demo: boolean }) {
   const buckets = useMemo(() => splitInterviews(visibles), [visibles])
 
   // El agente se aparta cuando hay algo que solo puede decidir una persona (una
-  // pregunta sobre el puesto, un audio, un número que no recibe WhatsApp). Si
-  // eso no se ve aquí, la conversación se queda parada sin que nadie se entere:
-  // no mandamos un correo por cada duda a propósito, así que la pantalla es el
-  // único aviso. Y van las primeras: son las únicas que piden algo de ti.
+  // pregunta sobre el puesto, un audio, un número que no recibe WhatsApp). Se
+  // dice en la propia cita, en la rejilla y en el raíl: no mandamos un correo por
+  // cada duda a propósito, así que la pantalla es el único aviso.
   const atencionDe = (candidateId: string): string | null => {
     const c = conversationFor(candidateId)
     return c && c.agentState === 'necesita_intervencion'
       ? c.attentionReason ?? 'Hay algo que no podemos resolver solos.'
       : null
   }
-  const enMarcha = useMemo(() => {
-    const conAtencion = (i: Interview) => (atencionDe(i.candidateId) ? 0 : 1)
-    return [...buckets.enMarcha].sort((a, b) => conAtencion(a) - conAtencion(b))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [buckets.enMarcha, conversationFor])
 
-  const rawT = params.get('t')
-  const seccion: Seccion = rawT === 'enMarcha' || rawT === 'pasadas' ? rawT : 'agenda'
-  const rawV = params.get('v')
-  const vistaGuardada: Vista = rawV === 'dia' || rawV === 'lista' ? rawV : 'semana'
-  // Siete columnas no caben en un móvil, así que por debajo de 768px la semana
-  // no se ofrece siquiera. Y quien mira el teléfono pregunta "qué tengo ahora",
-  // no "cómo tengo el jueves": ahí manda la lista, con el día a un toque.
-  const vista: Vista = compacto && vistaGuardada === 'semana' ? 'lista' : vistaGuardada
+  // DOS EJES, DOS CONTROLES, DOS PARÁMETROS (Mario, ago 2026). Antes los tres
+  // valores compartían un grupo segmentado, y eso ponía en la misma fila una
+  // pregunta de PRESENTACIÓN ("calendario o lista") con una de ENCUADRE ("qué
+  // tramo del calendario"), que solo significa algo dentro de la primera. Ahora
+  // el modo es el conmutador de iconos de la casa (el mismo que Tabla/Tablero en
+  // el panel de un puesto) y el tramo es un desplegable que solo existe en
+  // calendario, porque en la lista no encuadra nada.
+  //
+  // Se quedan como dos parámetros y no como uno de tres valores para que elegir
+  // "Día", irse a la lista y volver te devuelva al día: con un solo valor, el
+  // tramo se pierde al pasar por la lista.
+  const rawModo = params.get('v')
+  // SIN PARÁMETRO NO ES "calendario", ES "no lo has dicho", y cada ancho tiene su
+  // respuesta: en escritorio manda el calendario y en un móvil la lista, porque
+  // quien mira el teléfono pregunta "qué tengo ahora" y no "cómo tengo el
+  // jueves". Por eso el modo elegido se escribe SIEMPRE, también cuando es el de
+  // fábrica: si "calendario" fuera la ausencia del parámetro, un enlace
+  // compartido significaría una cosa en un portátil y otra en un móvil.
+  // (`?v=dia` es de la versión anterior, cuando el parámetro llevaba los tres
+  // valores; se sigue leyendo para no romper un enlace ya compartido.)
+  const modoGuardado: Modo =
+    rawModo === 'lista' ? 'lista'
+      : rawModo === 'calendario' || rawModo === 'dia' ? 'calendario'
+        : compacto ? 'lista' : 'calendario'
+  const intervaloGuardado: Intervalo = params.get('i') === 'dia' || rawModo === 'dia' ? 'dia' : 'semana'
+  // Siete columnas no caben en 375px, así que en un móvil el calendario solo
+  // puede enseñar un día. El selector de tramo tampoco se ofrece allí: no hay
+  // nada que elegir, y un control con una sola salida es un control que miente.
+  const intervalo: Intervalo = compacto ? 'dia' : intervaloGuardado
+  const modo: Modo = modoGuardado
+  const vista: Vista = modo === 'lista' ? 'lista' : intervalo
 
-  const cambiar = (next: Partial<{ t: Seccion; v: Vista }>) =>
+  const cambiar = (next: { modo?: Modo; intervalo?: Intervalo }) =>
     setParams(
       (prev) => {
         const p = new URLSearchParams(prev)
-        const t = next.t ?? seccion
-        const v = next.v ?? vistaGuardada
-        if (t === 'agenda') p.delete('t')
-        else p.set('t', t)
-        if (v === 'semana') p.delete('v')
-        else p.set('v', v)
+        p.set('v', next.modo ?? modoGuardado)
+        const i = next.intervalo ?? intervaloGuardado
+        if (i === 'semana') p.delete('i')
+        else p.set('i', i)
         return p
       },
       { replace: true },
@@ -145,6 +181,61 @@ function Agenda({ demo }: { demo: boolean }) {
     return k >= dias[0] && k <= dias[dias.length - 1]
   }
   const enTramo = visibles.filter(dentro)
+
+  // CUÁNTAS CITAS TIENE CADA DÍA, para los puntos del mes en pequeño. Se calcula
+  // aquí y no dentro de la pieza porque el día civil es el de SU zona (igual que
+  // en la rejilla): una cita de Canarias a las 23:30 contaría en el día
+  // siguiente si se mirara desde Madrid.
+  const porDia = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const i of visibles) {
+      if (!i.startsAt) continue
+      const k = dayKeyInZone(i.startsAt, i.timezone)
+      m.set(k, (m.get(k) ?? 0) + 1)
+    }
+    return m
+  }, [visibles])
+
+  // EL RAÍL SOLO EXISTE DONDE NO LE CUESTA LA SEMANA A LA REJILLA, y eso se
+  // MIDE, no se supone con una media query.
+  //
+  // Se probó con `(min-width: 1280px)` y el precio se vio en pantalla: en una
+  // ventana de 1400 con el menú desplegado, la columna de un día caía de 129px a
+  // 101 y dos de los tres nombres de la semana pasaban a salir cortados. El raíl
+  // devuelve los nombres de UN día y se los quita a los siete: mal negocio.
+  //
+  // Por debajo de su suelo no sale a cuenta y no se monta (ver `RAIL_MINIMO`,
+  // que está escrito como la cuenta que es).
+  //
+  // OJO CON LO QUE SE MIDE: `contentRect` es la caja de CONTENIDO, o sea sin el
+  // relleno lateral de la página (64 en escritorio). Con el umbral puesto contra
+  // el ancho de fuera, el raíl no aparecía nunca ni en una ventana de 1560.
+  //
+  // Y se mide el CONTENEDOR, no la ventana, porque el ancho útil depende también
+  // de si el menú lateral está contraído: en una ventana de 1400, con el menú
+  // estrecho sobran los 1212 y con el menú ancho no. Preguntando por la ventana
+  // habría que adivinar el estado del lateral; preguntando por la caja, no hay
+  // nada que adivinar.
+  const contenedor = useRef<HTMLDivElement>(null)
+  const [anchoUtil, setAnchoUtil] = useState(0)
+  useLayoutEffect(() => {
+    const el = contenedor.current
+    if (!el) return
+    // En un `useLayoutEffect`: el `setState` se resuelve ANTES de pintar, así que
+    // el raíl no se ve aparecer un fotograma después de la rejilla.
+    const ro = new ResizeObserver(([e]) => setAnchoUtil(e.contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const hayRail = anchoUtil >= RAIL_MINIMO
+  // Las citas del día que estás señalando, que es lo que el raíl detalla.
+  const delDia = useMemo(
+    () =>
+      visibles
+        .filter((i) => i.startsAt && dayKeyInZone(i.startsAt, i.timezone) === cursor)
+        .sort((a, b) => (a.startsAt ?? '').localeCompare(b.startsAt ?? '')),
+    [visibles, cursor],
+  )
   const nombreDe = (i: Interview) => {
     const c = candidates.find((x) => x.id === i.candidateId)
     return c ? candidateName(c) : 'Candidato'
@@ -167,37 +258,46 @@ function Agenda({ demo }: { demo: boolean }) {
   }, [vista, buckets.proximas, enTramo, candidates])
 
   return (
-    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
+    <div ref={contenedor} className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
       <PageHeader
         titulo="Entrevistas"
         sub="Todas tus citas con candidatos, del puesto que sean."
         acciones={anfitriones.length > 1 ? <FiltroAnfitrion lista={anfitriones} valor={soloDe} onChange={setSoloDe} /> : undefined}
       />
 
-      <Tabs
-        items={[
-          { value: 'agenda', label: 'Agenda', count: buckets.proximas.length || undefined },
-          { value: 'enMarcha', label: 'En marcha', count: buckets.enMarcha.length || undefined },
-          { value: 'pasadas', label: 'Pasadas' },
-        ]}
-        value={seccion}
-        onChange={(t) => cambiar({ t })}
-        idPrefix="entrevistas"
-        label="Secciones de la agenda"
-        className="mb-4"
-      />
+      {/* AQUÍ HUBO TRES PESTAÑAS: Agenda, En marcha y Pasadas (Mario las retiró,
+          ago 2026). La pantalla es la AGENDA, y el calendario ya contesta lo que
+          contestaban las otras dos: las pasadas están donde siempre estuvieron,
+          en su semana, a un par de flechas o a un clic en el mes de al lado.
+          Con una sola sección, una fila de pestañas no navega a ninguna parte:
+          es el título repetido, que es el mismo motivo por el que se retiraron
+          las de Solicitudes / Tienda / Publicaciones en el panel de un puesto.
 
-      <TabPanel idPrefix="entrevistas" value={seccion}>
-        {loading ? (
-          <ListaSkeleton />
-        ) : seccion === 'agenda' ? (
+          LO QUE SE PAGA, Y HAY QUE SABERLO EL DÍA QUE SE ENCIENDA WHATSAPP: "En
+          marcha" eran las citas SIN FECHA todavía (se está negociando la hora
+          con el candidato), y ésas no pueden salir en una rejilla que coloca por
+          hora. Hoy no se pierde nada porque con `WHATSAPP_LISTO` en false no se
+          crea ninguna: la negociación es justo lo que ese canal hace. Cuando se
+          encienda, esa lista necesita casa otra vez, y su sitio natural es un
+          aviso DENTRO de esta pantalla (no una pestaña), porque lo que pide es
+          atención, no navegación. */}
+      {loading ? (
+        <ListaSkeleton />
+      ) : (
           // Sin ninguna cita NO se esconde el calendario. La semana vacía es la
           // respuesta a "cómo tengo la semana" y enseña dónde van a aparecer las
           // citas; una tarjeta de cartón en su sitio no dice ninguna de las dos.
           <>
             {/* Un solo ancho en toda la pantalla, el del calendario: al alternar
                 entre Semana y Lista no se puede mover el borde de sitio. */}
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            {/* EL AIRE, MEDIDO, y hubo que rehacerlo al quitar las pestañas: se
+                quedó en 25 por encima y 13 por debajo, o sea la barra colgando
+                del título en vez de centrada en su hueco. Con 28 abajo el blanco
+                sale 27 y 29 (la caja de la barra acaba 1px por debajo de sus
+                controles), que es lo mismo que da la franja de filtros del panel
+                de un puesto y de Candidatos: al ir de una pantalla a otra, la
+                fila de herramientas no puede cambiar de sitio. */}
+            <div className="mb-7 flex flex-wrap items-center justify-between gap-3">
               {vista === 'lista' ? (
                 <p className="text-[13px] text-slate-500">
                   {buckets.proximas.length > 0
@@ -222,12 +322,12 @@ function Agenda({ demo }: { demo: boolean }) {
                       fila una corregía el antialias de la esquina y la otra no. `filo` es
                       `border`, ocupa hacia dentro con `border-box`, así que la carcasa sigue
                       midiendo sus 32px contra el botón de al lado. */}
-                  <div className="flex items-center overflow-clip rounded-lg filo bg-white">
+                  <div className={`flex items-center overflow-clip rounded-lg filo bg-white ${ALTO_FRANJA}`}>
                     <button
                       type="button"
                       onClick={() => setCursor((c) => sumarDias(c, -salto))}
                       aria-label={vista === 'dia' ? 'Día anterior' : 'Semana anterior'}
-                      className="grid size-8 place-items-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800"
+                      className="grid h-full w-10 place-items-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 pointer-coarse:w-11"
                     >
                       <ChevronLeft className="size-4" aria-hidden />
                     </button>
@@ -236,7 +336,7 @@ function Agenda({ demo }: { demo: boolean }) {
                       type="button"
                       onClick={() => setCursor((c) => sumarDias(c, salto))}
                       aria-label={vista === 'dia' ? 'Día siguiente' : 'Semana siguiente'}
-                      className="grid size-8 place-items-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800"
+                      className="grid h-full w-10 place-items-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 pointer-coarse:w-11"
                     >
                       <ChevronRight className="size-4" aria-hidden />
                     </button>
@@ -245,37 +345,35 @@ function Agenda({ demo }: { demo: boolean }) {
                     type="button"
                     onClick={() => setCursor(hoy)}
                     disabled={dias.includes(hoy)}
-                    className={`${BTN_SECONDARY_SM} disabled:pointer-events-none disabled:opacity-40`}
+                    className={`${BTN_SECONDARY_FRANJA} disabled:pointer-events-none disabled:opacity-40`}
                   >
                     Hoy
                   </button>
-                  <h2 className="ml-0.5 truncate text-[15px] font-semibold text-slate-900">
+                  <h2 className="ml-1 truncate text-[15px] font-semibold text-slate-900">
                     {rotuloRango(dias, hoy)}
                   </h2>
                 </div>
               )}
 
-              <Segmentado
-                valor={vista}
-                onChange={(v) => cambiar({ v })}
-                opciones={
-                  compacto
-                    ? [
-                        { value: 'dia', label: 'Día' },
-                        { value: 'lista', label: 'Lista' },
-                      ]
-                    : [
-                        { value: 'semana', label: 'Semana' },
-                        { value: 'dia', label: 'Día' },
-                        { value: 'lista', label: 'Lista' },
-                      ]
-                }
-              />
+              <div className="flex items-center gap-2">
+                {/* EL TRAMO SOLO EXISTE EN CALENDARIO (Mario, ago 2026): en la
+                    lista no encuadra nada, y un control que no gobierna nada es
+                    la misma promesa falsa que un ajuste que no apaga nada. Va a
+                    la IZQUIERDA del conmutador porque es lo que refina lo que el
+                    conmutador acaba de elegir, y el conmutador cierra la fila
+                    como en el panel de un puesto.
+                    En móvil no se ofrece: allí la semana no cabe (siete columnas
+                    en 375px) y el único tramo posible es el día. */}
+                {modo === 'calendario' && !compacto && (
+                  <SelectorIntervalo valor={intervaloGuardado} onChange={(i) => cambiar({ intervalo: i })} />
+                )}
+                <ConmutadorVista modo={modo} onChange={(m) => cambiar({ modo: m })} />
+              </div>
             </div>
 
             {vista === 'lista' ? (
               buckets.proximas.length === 0 ? (
-                <Vacio seccion="agenda" filtrado={!!soloDe} />
+                <Vacio filtrado={!!soloDe} />
               ) : (
                 <PorDias
                   lista={buckets.proximas}
@@ -294,50 +392,73 @@ function Agenda({ demo }: { demo: boolean }) {
                     desaparecía al pasar de semana, empujando la rejilla hacia
                     abajo cada vez, y eso costaba más que lo que ahorraba. La
                     semana vacía ya se ve vacía. */}
-                {visibles.length === 0 && (
-                  <div className="mb-3 rounded-xl filo bg-white px-3.5 py-2.5 text-[13px] text-slate-500 shadow-card">
-                    {soloDe
-                      ? `${nombreDelFiltro} todavía no tiene ninguna entrevista.`
-                      : WHATSAPP_LISTO
-                        ? 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Invitar a entrevista".'
-                        : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Agendar entrevista".'}
+                {/* LA REJILLA Y SU RAÍL (referencia que dio Mario, ago 2026).
+                    A la izquierda la FORMA de la semana; a la derecha el mes en
+                    pequeño (para saltar a cualquier día y ver dónde hay carga) y
+                    el DETALLE del día que señalas, que es lo que una columna de
+                    123px no puede enseñar entero.
+
+                    Se MONTA o no se monta, nunca se esconde con `hidden`: dentro
+                    hay botones de día y de cita, y ocultos seguirían en el
+                    tabulador y en el lector, con las mismas citas dos veces. Es
+                    la regla que ya obliga a montar el raíl de la ficha. */}
+                {/* El ancho va ESCRITO (`_256px`) y no interpolado desde `RAIL_ANCHO`:
+                    Tailwind busca nombres de clase COMPLETOS en el código y una
+                    clase compuesta desde una variable no la genera nunca. La
+                    constante existe para la CUENTA de `RAIL_MINIMO`; si cambia
+                    una, cambia la otra. */}
+                <div className={hayRail ? 'grid grid-cols-[minmax(0,1fr)_256px] items-start gap-4' : ''}>
+                  <div className="min-w-0">
+                    {visibles.length === 0 && (
+                      <div className="mb-3 rounded-xl filo bg-white px-3.5 py-2.5 text-[13px] text-slate-500 shadow-card">
+                        {soloDe
+                          ? `${nombreDelFiltro} todavía no tiene ninguna entrevista.`
+                          : WHATSAPP_LISTO
+                            ? 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Invitar a entrevista".'
+                            : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Agendar entrevista".'}
+                      </div>
+                    )}
+                    <AgendaGrid
+                      dias={dias}
+                      interviews={visibles}
+                      hoy={hoy}
+                      ahoraMin={ahoraMin}
+                      nombreDe={nombreDe}
+                      puestoDe={puestoDe}
+                      atencionDe={atencionDe}
+                      onDia={(clave) => {
+                        setCursor(clave)
+                        cambiar({ intervalo: 'dia' })
+                      }}
+                      onAbrir={setAbierto}
+                    />
                   </div>
-                )}
-                <AgendaGrid
-                  dias={dias}
-                  interviews={visibles}
-                  hoy={hoy}
-                  ahoraMin={ahoraMin}
-                  nombreDe={nombreDe}
-                  puestoDe={puestoDe}
-                  atencionDe={atencionDe}
-                  onDia={(clave) => {
-                    setCursor(clave)
-                    cambiar({ v: 'dia' })
-                  }}
-                  onAbrir={setAbierto}
-                />
+
+                  {hayRail && (
+                    <aside className="flex flex-col gap-4">
+                      <MiniMes cursor={cursor} dias={dias} hoy={hoy} porDia={porDia} onDia={setCursor} />
+                      {/* El detalle del día SOLO en vista de semana: en la de un
+                          día la rejilla de al lado ya ES ese detalle, y a lo
+                          ancho de una columna entera lo cuenta mejor. Un panel
+                          que repite lo que tienes al lado es una lista de más. */}
+                      {vista === 'semana' && (
+                        <DiaDelRail
+                          dia={cursor}
+                          hoy={hoy}
+                          lista={delDia}
+                          nombreDe={nombreDe}
+                          puestoDe={puestoDe}
+                          atencionDe={atencionDe}
+                          onAbrir={setAbierto}
+                        />
+                      )}
+                    </aside>
+                  )}
+                </div>
               </>
             )}
           </>
-        ) : (seccion === 'enMarcha' ? enMarcha : buckets.pasadas).length === 0 ? (
-          <Vacio seccion={seccion} />
-        ) : (
-          <ul className="space-y-2">
-            {(seccion === 'enMarcha' ? enMarcha : buckets.pasadas).map((i) => (
-              <li key={i.id}>
-                <Fila
-                  entrevista={i}
-                  nombre={nombreDe(i)}
-                  puesto={puestoDe(i)}
-                  atencion={atencionDe(i.candidateId)}
-                  onAbrir={setAbierto}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </TabPanel>
+      )}
 
       {puestoAbierto && (
         <CandidateModal
@@ -356,6 +477,136 @@ function Agenda({ demo }: { demo: boolean }) {
   )
 }
 
+/**
+ * EL DÍA QUE SEÑALAS, DETALLADO (raíl de la agenda, ago 2026).
+ *
+ * No es la vista de Lista con otro nombre y no compite con ella: aquella
+ * contesta "qué tengo por delante" y llega hasta octubre; esto contesta "quién
+ * viene ESE día", que es justo lo que una columna de 123px no puede enseñar
+ * entera. Es el reparto de la referencia: la rejilla da la FORMA de la semana
+ * (dónde hay hueco, qué se pisa) y el raíl da los NOMBRES.
+ *
+ * El día lo manda el cursor, no "hoy" a secas: mirando la semana que viene, un
+ * panel clavado en hoy no cuenta nada de lo que tienes delante. Al entrar el
+ * cursor ES hoy, así que se abre en lo de hoy, que es lo que hace la referencia.
+ */
+function DiaDelRail({
+  dia,
+  hoy,
+  lista,
+  nombreDe,
+  puestoDe,
+  atencionDe,
+  onAbrir,
+}: {
+  dia: string
+  hoy: string
+  lista: Interview[]
+  nombreDe: (i: Interview) => string
+  puestoDe: (i: Interview) => string
+  atencionDe: (candidateId: string) => string | null
+  onAbrir: (candidateId: string) => void
+}) {
+  const p = partesClave(dia)
+  const esHoy = dia === hoy
+  return (
+    <section aria-label={`Citas del ${p.diaLargo} ${p.dia}`}>
+      <header className="mb-2 flex items-baseline justify-between gap-2 px-0.5">
+        <h3 className="truncate text-[13px] font-semibold text-slate-900">
+          {esHoy ? 'Hoy' : `${p.diaLargo.charAt(0).toUpperCase()}${p.diaLargo.slice(1)} ${p.dia}`}
+        </h3>
+        {/* La cifra pelada, sin chapa, como los contadores del lateral. */}
+        {lista.length > 0 && (
+          <span className="num shrink-0 text-[13px] text-slate-500">
+            {lista.length}
+            <span className="sr-only"> {lista.length === 1 ? 'entrevista' : 'entrevistas'}</span>
+          </span>
+        )}
+      </header>
+      {lista.length === 0 ? (
+        // El vacío se dice, no se esconde: un raíl que aparece y desaparece según
+        // el día obliga a releer la pantalla entera cada vez que mueves el cursor.
+        <p className="rounded-xl filo bg-white px-3.5 py-3 text-[13px] text-slate-500">
+          {esHoy ? 'Hoy no tienes ninguna cita.' : 'Ese día no tienes ninguna cita.'}
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {lista.map((i) => (
+            <li key={i.id}>
+              <TarjetaRail
+                entrevista={i}
+                nombre={nombreDe(i)}
+                puesto={puestoDe(i)}
+                atencion={atencionDe(i.candidateId)}
+                onAbrir={onAbrir}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+/**
+ * Una cita en el raíl. Es la `Fila` de la lista apretada a 296px: la hora deja
+ * de ir en su columna (ahí se llevaba 56 de los 264 útiles) y sube a la línea
+ * del nombre, que es lo único que no se puede truncar.
+ *
+ * El estado se dice con el FILO DE COLOR de la izquierda, como en la rejilla, y
+ * no con una pastilla: aquí no hay ancho para la palabra y dos formas para el
+ * mismo dato en la misma pantalla se leen como dos datos.
+ */
+function TarjetaRail({
+  entrevista: i,
+  nombre,
+  puesto,
+  atencion,
+  onAbrir,
+}: {
+  entrevista: Interview
+  nombre: string
+  puesto: string
+  atencion: string | null
+  onAbrir: (candidateId: string) => void
+}) {
+  const meta = INTERVIEW_STATUS_META[i.status]
+  const Icono = i.mode === 'videollamada' ? Video : i.mode === 'telefonica' ? Phone : MapPin
+  const sitio = i.mode === 'presencial' && i.locationText ? i.locationText : ''
+  return (
+    <button
+      type="button"
+      onClick={() => onAbrir(i.candidateId)}
+      title={`${nombre}. ${puesto}. ${meta.label}${atencion ? `. ${atencion}` : ''}`}
+      className="relative flex w-full flex-col overflow-hidden rounded-xl filo bg-white py-2.5 pl-3.5 pr-3 text-left transition-colors duration-[var(--duration-control)] hover:filo-slate-300"
+    >
+      <span className={`absolute inset-y-0 left-0 w-[3px] ${meta.dot}`} aria-hidden />
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="num shrink-0 text-[13px] font-semibold text-slate-900">
+          {i.startsAt ? clockTimeInZone(i.startsAt, i.timezone) : '--:--'}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-slate-900">{nombre}</span>
+        {i.reconfirmedAt && (
+          <CheckCheck
+            className="size-3.5 shrink-0 text-emerald-600"
+            aria-label={`Confirmó que viene, el ${fullDateTimeInZone(i.reconfirmedAt, i.timezone)}`}
+          />
+        )}
+      </span>
+      <span className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] leading-tight text-slate-500">
+        <Icono className="size-3 shrink-0 text-slate-400" aria-hidden />
+        <span className="truncate">{sitio ? `${puesto}, ${sitio}` : puesto}</span>
+      </span>
+      {atencion && (
+        <span className="mt-1.5 flex items-start gap-1.5 text-[12px] leading-tight text-slate-700">
+          <AlertCircle className="mt-px size-3 shrink-0" aria-hidden />
+          <span className="min-w-0">{atencion}</span>
+        </span>
+      )}
+    </button>
+  )
+}
+
 /** Debajo de 768px la semana no cabe. Una sola pregunta, un solo sitio. */
 function useCompacto(): boolean {
   const [v, setV] = useState(() => window.matchMedia('(max-width: 767px)').matches)
@@ -369,78 +620,93 @@ function useCompacto(): boolean {
 }
 
 /**
- * Semana / Día / Lista. Es un cambio de VISTA, no de sección: por eso va en un
- * grupo segmentado y no en las pestañas de arriba, que reparten contenido
- * distinto.
+ * CALENDARIO O LISTA. Es el conmutador de la casa, el mismo que Tabla/Tablero en
+ * el panel de un puesto (Mario, ago 2026): dos iconos en una caja rectangular con
+ * filo y divisoria interior, el activo en tinta de acento (seleccionar es uno de
+ * los cuatro usos permitidos del ultramarine) y el peso sin tocar, o cada cambio
+ * ensancharía su mitad y movería a la vecina.
  *
- * Anatomía de `SwitchVista` (Dashboard.tsx), que es la del conmutador de la casa
- * desde ago 2026: caja RECTANGULAR con filo y divisoria interior, no un carril
- * gris con una pastilla blanca deslizándose dentro. Esto era lo segundo, o sea el
- * patrón exacto que aquel sustituyó, y encima con el hijo activo en
- * `rounded-[6px]`, un radio que no existe en la escala (controles 8px).
+ * Sustituye al grupo segmentado de tres (Semana · Día · Lista), que metía en un
+ * solo control dos preguntas distintas: cómo se PRESENTA la agenda y qué TRAMO
+ * enseña el calendario. La segunda solo significa algo dentro de la primera, así
+ * que ahora es un desplegable aparte que no existe en la lista.
  *
- * Tres detalles que no son opcionales, y son los mismos de allí: `overflow-clip`
- * (los hijos son cajas cuadradas que llegan al filo y en la curva se comerían el
- * borde), la divisoria la pinta la mitad de la DERECHA con un `border-l` (un
- * `divide-x` del padre lo taparía el fondo del hijo activo) y el activo se dice
- * con TINTA de acento, que es uno de los cuatro usos permitidos del ultramarine:
- * seleccionar. El peso NO cambia entre activo e inactivo, o cada cambio de vista
- * ensancharía su segmento y movería a los vecinos.
+ * `h-8` y no los 40 del panel: aquí la fila entera es de 32 (las flechas de
+ * semana y el botón "Hoy"), y una fila se lee por su línea de base común.
  *
- * `h-8` y no los 40px de `SwitchVista`: aquí la fila entera es de 32 (las flechas
- * de semana y el botón "Hoy"), y una fila se lee por su línea de base común.
- *
- * Es un `radiogroup` de verdad con flechas, no tres `<button aria-pressed>`
- * sueltos: son tres estados excluyentes de una misma cosa.
+ * Es un `radiogroup` de verdad con flechas, no dos `<button aria-pressed>`: son
+ * dos estados excluyentes de una misma cosa.
  */
-function Segmentado<T extends string>({
-  valor,
-  onChange,
-  opciones,
-}: {
-  valor: T
-  onChange: (v: T) => void
-  opciones: { value: T; label: string }[]
-}) {
+function ConmutadorVista({ modo, onChange }: { modo: Modo; onChange: (m: Modo) => void }) {
+  const opciones = [
+    { value: 'calendario' as const, label: 'Calendario', Icono: CalendarDays },
+    { value: 'lista' as const, label: 'Lista', Icono: List },
+  ]
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
   const mover = (dir: 1 | -1) => {
-    const i = opciones.findIndex((o) => o.value === valor)
-    onChange(opciones[(i + dir + opciones.length) % opciones.length].value)
+    const i = opciones.findIndex((o) => o.value === modo)
+    const j = (i + dir + opciones.length) % opciones.length
+    onChange(opciones[j].value)
+    requestAnimationFrame(() => refs.current[j]?.focus())
   }
   return (
     <div
       role="radiogroup"
-      aria-label="Cómo ver la agenda"
-      className="inline-flex h-8 shrink-0 items-center overflow-clip rounded-lg filo bg-white"
+      aria-label="Cómo se presenta la agenda"
+      className={`flex shrink-0 items-center overflow-clip rounded-lg filo bg-white ${ALTO_FRANJA}`}
     >
       {opciones.map((o, i) => {
-        const activo = o.value === valor
+        const activa = modo === o.value
         return (
           <button
             key={o.value}
+            ref={(el) => { refs.current[i] = el }}
             type="button"
             role="radio"
-            aria-checked={activo}
-            tabIndex={activo ? 0 : -1}
+            aria-checked={activa}
+            aria-label={o.label}
+            title={o.label}
+            tabIndex={activa ? 0 : -1}
             onClick={() => onChange(o.value)}
             onKeyDown={(e) => {
               if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); mover(1) }
               else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); mover(-1) }
             }}
-            className={`flex h-full items-center px-3 text-[13px] font-medium outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+            className={`grid h-full w-10 place-items-center outline-none pointer-coarse:w-11 transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
               i > 0 ? 'border-l border-slate-200' : ''
-            } ${
-                // El relleno del activo va al paso 100 y no al 50/60 de `SwitchVista`: allí la
-                // mitad activa lleva ADEMÁS su cifra rellena en `indigo-600`, que es la mitad
-                // del contraste, y aquí no hay cifra. Medido: el 50 al 60% sobre blanco da
-                // 1,04:1, por debajo del 1,05 en que esta doctrina declaró que una cápsula
-                // teñida deja de leerse como forma; el 100 da 1,23:1.
-                activo ? 'bg-indigo-100 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'
-              }`}
+            } ${activa ? 'bg-indigo-50/60 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'}`}
           >
-            {o.label}
+            <o.Icono className="size-4" aria-hidden />
           </button>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * QUÉ TRAMO ENSEÑA EL CALENDARIO. Un desplegable de verdad (`<select>`) y no un
+ * menú dibujado: son dos opciones excluyentes de una lista cerrada, que es
+ * literalmente para lo que existe el control nativo, y así se abre igual con el
+ * teclado, con el dedo y con el lector sin que haya que reimplementar nada.
+ *
+ * El chevron es un ICONO, no una imagen de fondo: el `bg-[url(...)]` con el
+ * data-URI dentro es la utilidad que Tailwind nunca llegó a generar y dejó un
+ * desplegable sin flecha en el formulario público durante meses.
+ */
+function SelectorIntervalo({ valor, onChange }: { valor: Intervalo; onChange: (i: Intervalo) => void }) {
+  return (
+    <div className="relative shrink-0">
+      <select
+        value={valor}
+        onChange={(e) => onChange(e.target.value as Intervalo)}
+        aria-label="Tramo que enseña el calendario"
+        className="h-10 appearance-none rounded-lg filo bg-white pl-3.5 pr-9 text-sm font-medium text-slate-800 pointer-coarse:h-11 outline-none transition-colors duration-[var(--duration-control)] hover:filo-slate-300 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40"
+      >
+        <option value="semana">Semana</option>
+        <option value="dia">Día</option>
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" aria-hidden />
     </div>
   )
 }
@@ -648,33 +914,25 @@ function Fila({
   )
 }
 
-function Vacio({ seccion, filtrado = false }: { seccion: Seccion; filtrado?: boolean }) {
-  const texto =
-    seccion === 'agenda'
-      ? filtrado
-        ? {
-            // Con un filtro puesto, "invita a alguien" sería un consejo falso:
-            // lo que pasa es que en ESA agenda no hay nada.
-            titulo: 'Nada por delante en esta agenda',
-            cuerpo: 'Pulsa otra vez en la foto para ver las entrevistas de todo el equipo.',
-          }
-        : {
-            titulo: 'No tienes entrevistas por delante',
-            // El consejo tiene que llevar al botón que existe: mientras el canal
-            // no esté de alta, la cabecera de la ficha dice "Agendar entrevista"
-            // y no "Invitar a entrevista" (ver `lib/whatsapp.ts`).
-            cuerpo: WHATSAPP_LISTO
-              ? 'Abre la ficha de un candidato y pulsa "Invitar a entrevista" para cuadrar una cita.'
-              : 'Abre la ficha de un candidato y pulsa "Agendar entrevista" para apuntar la cita.',
-          }
-      : seccion === 'enMarcha'
-        ? {
-            titulo: 'Nada en marcha',
-            cuerpo: WHATSAPP_LISTO
-              ? 'Aquí verás las invitaciones enviadas mientras el candidato elige horario.'
-              : `${WHATSAPP_WIP.linea} Cuando esté, aquí verás las invitaciones mientras el candidato elige horario.`,
-          }
-        : { titulo: 'Todavía no hay historial', cuerpo: 'Las entrevistas pasadas se quedan aquí.' }
+/** El vacío de la LISTA: no hay nada por delante. (Los de "En marcha" y
+ *  "Pasadas" se fueron con sus pestañas.) */
+function Vacio({ filtrado = false }: { filtrado?: boolean }) {
+  const texto = filtrado
+    ? {
+        // Con un filtro puesto, "invita a alguien" sería un consejo falso: lo que
+        // pasa es que en ESA agenda no hay nada.
+        titulo: 'Nada por delante en esta agenda',
+        cuerpo: 'Pulsa otra vez en la foto para ver las entrevistas de todo el equipo.',
+      }
+    : {
+        titulo: 'No tienes entrevistas por delante',
+        // El consejo tiene que llevar al botón que existe: mientras el canal no
+        // esté de alta, la cabecera de la ficha dice "Agendar entrevista" y no
+        // "Invitar a entrevista" (ver `lib/whatsapp.ts`).
+        cuerpo: WHATSAPP_LISTO
+          ? 'Abre la ficha de un candidato y pulsa "Invitar a entrevista" para cuadrar una cita.'
+          : 'Abre la ficha de un candidato y pulsa "Agendar entrevista" para apuntar la cita.',
+      }
 
   return (
     <div className="rounded-xl border border-dashed border-slate-300 bg-white/50 px-6 py-12 text-center">

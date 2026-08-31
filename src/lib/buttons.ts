@@ -199,6 +199,36 @@ export function botonIcono(variant: BtnVariant = 'primary', size: BtnSize = 'md'
  * que no pone la que sobra. Es el mismo motivo por el que existe
  * `BTN_PRIMARY_LATERAL`.
  */
+/**
+ * LA ALTURA DE UNA FRANJA DE HERRAMIENTAS: 40px, y 44 en táctil.
+ *
+ * Es el estándar de la casa (Mario, ago 2026: "ese tiene que ser el estándar"),
+ * y sale del panel de un puesto, que es donde se afinó: **es la fila con la que
+ * más se trabaja de una pantalla**, así que se hizo más grande que los botones
+ * de la cabecera, que se usan mucho menos. Lo que se toca a menudo se hace más
+ * grande, no más pequeño. Una fila se lee por su línea de base común, así que ahí
+ * miden esto TODOS sus habitantes: los chips, el buscador, su lupa, los
+ * conmutadores y los botones de texto.
+ *
+ * Se declara aquí, junto a las tallas de botón, y no en la pantalla que lo
+ * estrenó: lo usan el panel de un puesto, Candidatos y la agenda, y tres copias
+ * del mismo número acaban siendo tres alturas distintas.
+ */
+export const ALTO_FRANJA = 'h-10 pointer-coarse:h-11'
+
+/**
+ * El botón de TEXTO de una franja de herramientas ("Hoy", "Filtros"): la
+ * superficie del secundario a la altura de la fila.
+ *
+ * No es `BTN_SECONDARY` con un `h-10` pegado detrás: `h-9` y `h-10` son la MISMA
+ * utilidad de Tailwind y no se resuelven por el orden en que se escriben. La
+ * salida es siempre la variante que no pone la que sobra, igual que en
+ * `BTN_ICONO_FRANJA` y `BTN_PRIMARY_LATERAL`.
+ */
+export const BTN_SECONDARY_FRANJA = [
+  CAJA, BTN_MOTION, BTN_SUPERFICIE.secondary, ALTO_FRANJA, 'gap-1.5 px-3.5 text-sm font-medium', 'shrink-0',
+].join(' ')
+
 export const BTN_ICONO_FRANJA = [CAJA, BTN_MOTION, BTN_SUPERFICIE.secondary, 'size-10 pointer-coarse:size-11', 'shrink-0'].join(' ')
 
 /**

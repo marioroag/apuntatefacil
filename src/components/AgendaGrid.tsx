@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, CheckCheck, MapPin, Phone, Video } from 'lucide-react'
 import { bloquesDelDia, franja, reloj, partesClave, type Bloque } from '../lib/agenda'
 import { INTERVIEW_STATUS_META, type Interview } from '../lib/types'
@@ -21,6 +21,8 @@ const PX_HORA = 80
 /** Aire por arriba para que la primera etiqueta de hora no salga cortada. */
 const PAD_TOP = 12
 const PX_MIN = PX_HORA / 60
+/** Por debajo de esto la rejilla deja de enseñar una jornada y no vale para nada. */
+const ALTO_MINIMO = 320
 
 export function AgendaGrid({
   dias,
@@ -70,6 +72,46 @@ export function AgendaGrid({
   // Al abrir (y al cambiar de tramo) se enseña lo que importa: la hora actual si
   // el tramo la contiene, y si no, la primera cita. Empezar siempre a las 8:00
   // dejaría la tarde escondida bajo el pliegue.
+  // EL ALTO LO PONE LO QUE SOBRA DE PANTALLA (Mario, ago 2026: "aprovecha el
+  // espacio vertical que hay vacío"). Estaba en `max-h-[62vh]`, un número
+  // inventado que en un monitor dejaba media ventana en blanco por debajo y en un
+  // portátil apretaba la jornada a 450px. Es la misma decisión que ya toma la
+  // gráfica de Vista general: el hueco es exactamente el que dejan la cabecera y
+  // la barra de herramientas.
+  //
+  // SE MIDE LA POSICIÓN DENTRO DEL CONTENIDO, no el `top` contra la ventana: el
+  // `top` cambia al desplazar la página, así que la rejilla crecería sola
+  // mientras bajas. Con `scrollTop` sumado, el número es el mismo se desplace o
+  // no. Y no hay bucle de medida aunque se observe el DOM: lo que se lee es la
+  // POSICIÓN, que no depende del alto que le acabamos de poner.
+  const [maxAlto, setMaxAlto] = useState<number>()
+  useLayoutEffect(() => {
+    const caja = scroll.current
+    const main = caja?.closest('main')
+    if (!caja || !main) return
+    // El aire de debajo NO se inventa: es el relleno que la propia pantalla ya
+    // pone al pie (`py-6`). Puesto a mano se contaba dos veces y la página se
+    // quedaba con dos píxeles de scroll que no llevaban a ninguna parte.
+    //
+    // Y se descuentan LOS FILOS DE LA TARJETA: el `max-height` va en la caja que
+    // desplaza, que vive DENTRO del marco, así que lo que ocupa la pantalla es
+    // ese alto más los 2px de borde. Sin restarlos sobraba 1px de scroll, que es
+    // de los que no llevan a ninguna parte pero encienden la barra.
+    const marco = caja.parentElement
+    const pagina = caja.closest('.mx-auto')
+    const medir = () => {
+      if (!marco) return
+      const dentro = marco.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop
+      const aire = pagina ? parseFloat(getComputedStyle(pagina).paddingBottom) || 0 : 0
+      const filos = marco.offsetHeight - caja.offsetHeight
+      setMaxAlto(Math.max(ALTO_MINIMO, main.clientHeight - dentro - aire - filos))
+    }
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(main)
+    return () => ro.disconnect()
+  }, [])
+
   const clave = dias.join()
   useLayoutEffect(() => {
     const caja = scroll.current
@@ -92,8 +134,22 @@ export function AgendaGrid({
     // caja en contenedor de scroll. (Aquí el `sticky` de dentro no dependía de
     // esto: cuelga del div con `overflow-y-auto` de la línea de abajo, que es su
     // contenedor de scroll más cercano se ponga lo que se ponga aquí fuera.)
-    <div className="overflow-clip rounded-xl filo bg-white shadow-card">
-      <div ref={scroll} className="max-h-[62vh] overflow-y-auto overscroll-contain">
+    // `isolate` (CONTEXTO DE APILAMIENTO PROPIO), y no es cosmético: la cabecera
+    // de días es `sticky z-30` y el raíl del lateral es `absolute z-30`, así que
+    // empataban, y entre dos empatados gana el que va DESPUÉS en el DOM. Se veía
+    // en cuanto el lateral se contrae y se asoma al pasar por encima: el raíl se
+    // despliega ENCIMA del contenido y la rejilla se le dibujaba por delante.
+    //
+    // La salida NO es subirle el z al lateral (el contenido llega hasta z-50 con
+    // la barra de selección, y un raíl por encima taparía esa barra) ni bajar la
+    // cabecera a z-20, que es donde viven la línea de la hora actual y el bloque
+    // al pasar por encima: empatada con ellos y yendo antes en el DOM, se le
+    // colarían por delante al desplazar. Con `isolate`, los z de dentro solo
+    // compiten ENTRE ELLOS y la tarjeta entera se apila donde le toca, por
+    // debajo del lateral. Regla general: **una caja con z-index dentro se aísla,
+    // o sus números salen a competir con los de toda la página.**
+    <div className="isolate overflow-clip rounded-xl filo bg-white shadow-card">
+      <div ref={scroll} style={{ maxHeight: maxAlto }} className="overflow-y-auto overscroll-contain">
         {/* Cabecera de días. Pegada arriba: al bajar por la tarde hay que seguir
             sabiendo de qué día es cada columna. La vista de un día la pinta
             igual (antes se escondía por no repetir el rótulo de la barra): al
