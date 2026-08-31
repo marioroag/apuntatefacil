@@ -619,21 +619,24 @@ export function promptEvaluador(args: {
     'que debes usar siempre que no tengas el dato: al candidato no se le puede penalizar ' +
     'por algo que nadie le preguntó.\n' +
     '- "no_cumple": la candidatura dice claramente que no.\n\n' +
-    'EVIDENCIA: todo valor distinto de "no_consta" lleva su evidencia, una cita corta, ' +
-    'LITERAL y CONTIGUA de la respuesta o del CV en la que te apoyas: copiada tal cual, ' +
-    'sin resumir, sin corregir erratas y sin juntar trozos de sitios distintos (la cita ' +
-    'se busca después en el documento, y una cita retocada no se encuentra). En "fuente" ' +
-    'di de dónde sale: "respuesta" si viene del formulario, "cv" si viene del CV. Sin ' +
-    'evidencia, el valor es "no_consta". No confundas "no_consta" con "no_cumple". ' +
-    'Juzga solo lo que veas escrito.\n\n' +
+    'EVIDENCIA: todo valor distinto de "no_consta" lleva su evidencia. Si viene del CV, ' +
+    'es una cita corta, LITERAL y CONTIGUA, copiada tal cual: sin resumir, sin corregir ' +
+    'erratas y sin juntar trozos de sitios distintos (la cita se busca después en el ' +
+    'documento, y una cita retocada no se encuentra). Si viene de una RESPUESTA del ' +
+    'formulario, se cita CON su pregunta ("Curso plataforma elevadora: Sí"), nunca un ' +
+    '"Sí" suelto: quien lea el informe tiene que saber qué se contestó a qué. En ' +
+    '"fuente" di de dónde sale: "respuesta" si viene del formulario, "cv" si viene del ' +
+    'CV. Sin evidencia, el valor es "no_consta". No confundas "no_consta" con ' +
+    '"no_cumple". Juzga solo lo que veas escrito.\n\n' +
     'LECTURA DE RESPUESTAS: las escriben personas reales con prisa, y a veces contestan ' +
     'de lado: a "años de experiencia" alguien responde el AÑO en que empezó ("2008" ' +
     'significa que trabaja en ello desde 2008, no que no conste), a un sí o no responde ' +
     '"claro", a una cantidad, "más de 10". Si la respuesta tiene UNA lectura razonable, ' +
     'JÚZGALA con esa lectura, citando tal cual lo que escribió; "no_consta" es para ' +
-    'cuando falta el dato, nunca para castigar la forma de contestar. Si la respuesta es ' +
-    'de verdad ambigua (dos lecturas plausibles que cambian el juicio), entonces sí: ' +
-    '"no_consta".\n\n' +
+    'cuando falta el dato, nunca para castigar la forma de contestar. Pero razonable de ' +
+    'verdad: un número sin sentido para la pregunta (un teléfono donde se piden años de ' +
+    'experiencia) no tiene lectura, y una respuesta ambigua (dos lecturas plausibles que ' +
+    'cambian el juicio) tampoco: en esos casos, "no_consta".\n\n' +
     'CONTRASTE: si el CV contradice una respuesta del formulario (por ejemplo, responde ' +
     '5 años de experiencia y las etapas del CV suman 2), el criterio afectado es ' +
     '"parcial" como máximo y lo apuntas en "contrastes": en "respuesta" resumes lo que ' +
