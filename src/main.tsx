@@ -51,6 +51,7 @@ import { StoreProvider } from './lib/store'
 import { ProfilesProvider } from './lib/profiles'
 import { ToastProvider } from './components/ui/Toast'
 import { AuthGate } from './components/AuthGate'
+import { SoloSoporte } from './components/SoloSoporte'
 import { AppLayout, FirstCampaignRedirect } from './screens/AppLayout'
 // La landing y el login quedan en el bundle de entrada (primer pintado de la web
 // pública y del acceso). El resto de pantallas van con code-splitting: cada una en
@@ -186,13 +187,15 @@ createRoot(document.getElementById('root')!).render(
                 <Route
                   path="/demo"
                   element={
-                    <DemoAuthProvider>
-                      <StoreProvider>
-                        <ProfilesProvider>
-                          <AppLayout />
-                        </ProfilesProvider>
-                      </StoreProvider>
-                    </DemoAuthProvider>
+                    <SoloSoporte>
+                      <DemoAuthProvider>
+                        <StoreProvider>
+                          <ProfilesProvider>
+                            <AppLayout />
+                          </ProfilesProvider>
+                        </StoreProvider>
+                      </DemoAuthProvider>
+                    </SoloSoporte>
                   }
                 >
                   <Route index element={<FirstCampaignRedirect />} />

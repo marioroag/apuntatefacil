@@ -6,7 +6,9 @@ import { Onboarding } from '../screens/Onboarding'
 import { BTN_PRIMARY } from '../lib/buttons'
 import { IconoVacio } from './ui/IconoVacio'
 
-function FullSpinner() {
+/** Se exporta para que la puerta de la demo (`SoloSoporte`) espere con la MISMA
+ *  pantalla: dos ruedas distintas para lo mismo se separan al primer retoque. */
+export function FullSpinner() {
   return (
     <div className="grid min-h-svh place-items-center bg-slate-50" role="status" aria-label="Cargando">
       <Loader2 className="size-6 animate-spin text-slate-500" aria-hidden />

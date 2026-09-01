@@ -30,8 +30,20 @@ supabase.auth.onAuthStateChange(() => {
   inflight = null
 })
 
-export function useIsSupportStaff(): boolean {
-  const [staff, setStaff] = useState(cached ?? false)
+/**
+ * Igual pero en TRES estados: `null` mientras se pregunta, y luego sí o no.
+ *
+ * Hace falta para una PUERTA. Con el booleano de siempre, que arranca en `false`,
+ * quien SÍ es del equipo se comería el rechazo en el primer render, antes de que la
+ * respuesta llegue del servidor; y adivinar que sí mientras se pregunta sería enseñar
+ * un instante lo que hay detrás a quien no debe verlo. La única salida honesta es
+ * decir "todavía no lo sé" y que quien pregunta decida qué pinta mientras tanto.
+ *
+ * Tras la primera llamada, el valor está cacheado a nivel de módulo, así que las
+ * siguientes puertas de la misma sesión abren sin esperar.
+ */
+export function useSoporte(): boolean | null {
+  const [staff, setStaff] = useState<boolean | null>(cached)
   useEffect(() => {
     let on = true
     check().then((v) => on && setStaff(v))
@@ -40,4 +52,8 @@ export function useIsSupportStaff(): boolean {
     }
   }, [])
   return staff
+}
+
+export function useIsSupportStaff(): boolean {
+  return useSoporte() === true
 }

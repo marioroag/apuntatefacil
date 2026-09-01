@@ -6,6 +6,13 @@ export const BRAND = 'Apúntate Fácil'
 export const TAGLINE = 'Apúntate fácil, contrata fácil.'
 export const DOMAIN = 'apuntatefacil.com'
 
+// Dónde se pide una demo. FUENTE ÚNICA: la demo del producto dejó de ser pública en
+// ago 2026 (ver la puerta de `/demo` en main.tsx), así que lo que la landing ofrece ya
+// no es entrar a mirar sino reservar un rato con nosotros. Está aquí y no en la landing
+// porque son cinco botones los que apuntan a este enlace, y un enlace de agenda cambia
+// (otro calendario, otro tipo de evento) sin que cambie nada más del producto.
+export const DEMO_URL = 'https://cal.com/mario-rodriguez-fadaz5/demo'
+
 // Buzón de soporte. FUENTE ÚNICA: cuando el buzón real esté operativo, cambiar solo
 // esta línea y todos los enlaces "Ayuda"/"Contacto" apuntan al sitio correcto.
 export const SUPPORT_EMAIL = `soporte@${DOMAIN}`

@@ -13,7 +13,7 @@ import { STATUS_META, type CandidateStatus } from '../lib/types'
 import { BrowserMock } from '../components/BrowserMock'
 import { AppShot, MovilShot, TablonShot } from '../components/AppShot'
 import { Logo } from '../components/Logo'
-import { BRAND, TAGLINE } from '../lib/brand'
+import { BRAND, DEMO_URL, TAGLINE } from '../lib/brand'
 import { SupportDialog } from '../components/SupportDialog'
 import { PRECIO_PROCESO, PRUEBA_DIAS, TRIAL_REASSURANCE } from '../lib/pricing'
 import { PrecioProceso } from '../components/PrecioProceso'
@@ -100,14 +100,67 @@ export function Landing() {
       <TopNav />
       <main id="contenido">
         <Hero />
-        <Compare />
-        <HowItWorks />
-        <Features />
-        <Team />
-        <CostAnchor />
-        <Pricing />
-        <Faq />
-        <FinalCta />
+        {/* LOS DOS RAÍLES (Mario, ago 2026, con Attio delante). Medido en su DOM: no
+            son un adorno por sección, es UN solo elemento que recorre la página entera
+            por debajo del hero y pone la línea con su `border-x`. Por eso van aquí y no
+            dentro de cada sección: así los tramos no pueden desalinearse ni quedarse
+            uno sin su línea, y el filo es continuo de arriba abajo.
+
+            Vive en el MISMO contenedor que la barra de arriba (1440 con 24 de relleno),
+            que es lo que convierte dos líneas en un sistema: el raíl izquierdo cae
+            exactamente donde empieza el logo y el derecho donde acaba "Empezar".
+
+            Y arranca DESPUÉS del hero, igual que en Attio (sus raíles empiezan en el
+            píxel 1517, ya pasada la portada). El hero es lo único que va a sangre: sus
+            mocks asoman por fuera de la columna a propósito, así que meterlos aquí
+            sería recortarlos.
+
+            Las líneas horizontales ya las ponen las secciones con su `border-y`, y
+            dentro del raíl pasan a ir de un lado al otro, que es lo que cierra la
+            cuadrícula.
+
+            EN UN TELÉFONO NO HAY RAÍLES, y se decidió mirándolo: a 390px de ancho caen
+            a 16 del filo de la pantalla, y eso ya no se lee como una cuadrícula sino
+            como un marco alrededor de la página. Sin ellos (ni relleno) las secciones
+            vuelven a ir a sangre, que es como estaban. */}
+        {/* EL FILO QUE CIERRA EL HERO VA A SANGRE (Mario, ago 2026), de un filo del
+            navegador al otro, no de raíl a raíl. Es la frontera entre lo único que se
+            sale de la columna y todo lo demás, así que tiene que ser tan ancho como la
+            página; los de dentro, que separan secciones de la cuadrícula, van de raíl
+            a raíl.
+
+            Y es un elemento SUYO en vez del `border-t` de la sección siguiente, que es
+            donde estaba: ahí dentro pasó a medir lo que el raíl. Colocado aquí lo sube
+            el margen negativo del hero, igual que subía a la sección, así que cae en el
+            mismo píxel en el que estaba. */}
+        <div className="border-t border-slate-200" />
+        {/* LAS BANDAS ALTERNAN BLANCO Y GRIS, Y LA FASE LA MARCA EL HERO. Al quitar
+            la franja de sectores (ago 2026) se perdió: el hero es blanco y la sección
+            que le seguía pasó a serlo también, así que la página abría con 2.368px de
+            blanco seguido, partidos solo por un filo que no separaba dos colores. Un
+            filo entre dos fondos iguales no es una frontera, es una raya.
+
+            La primera banda de aquí es SIEMPRE gris, y a partir de ahí una sí y una no,
+            hasta el cierre, que vuelve a blanco porque su tarjeta oscura ya es el corte.
+            El filo horizontal lo pone la banda GRIS con su `border-y`, así cada cambio
+            de color lleva su línea y ninguna se duplica; la primera va con `border-b` a
+            secas porque encima tiene el filo a sangre del hero.
+
+            AL AÑADIR O QUITAR UNA SECCIÓN HAY QUE RECORRER LA CADENA, no solo darle un
+            fondo a la nueva: la fase de todo lo que va detrás depende de cuántas haya
+            delante. Es lo que no se hizo al borrar la de sectores. */}
+        <div className="mx-auto max-w-[90rem] sm:px-6">
+          <div className="sm:border-x sm:border-slate-200">
+            <Compare />
+            <HowItWorks />
+            <Features />
+            <Team />
+            <CostAnchor />
+            <Pricing />
+            <Faq />
+            <FinalCta />
+          </div>
+        </div>
       </main>
       <Footer />
     </div>
@@ -183,10 +236,12 @@ function TopNav() {
             ))}
           </div>
         </div>
+        {/* UNA SOLA ACCIÓN EN LA BARRA (Mario, ago 2026). "Solicitar demo" también
+            vivía aquí y se retiró: la barra acompaña toda la página y lo que tiene que
+            ofrecer en ese sitio permanente es entrar. La demo se pide donde el
+            argumento ya está hecho (el hero, Equipo y el cierre), no antes de haber
+            leído nada. */}
         <div className="hidden items-center gap-2.5 md:flex">
-          <Link to="/demo" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
-            Ver la demo
-          </Link>
           <Link to="/login" className={`${BTN_PRIMARY} group`}>
             Empezar <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
@@ -202,12 +257,11 @@ function TopNav() {
               {label}
             </a>
           ))}
-          {/* Acciones separadas de los enlaces de sección (espeja el nav de escritorio). */}
+          {/* Acciones separadas de los enlaces de sección (espeja el nav de escritorio),
+              así que aquí tampoco está "Solicitar demo": si las dos se separan, el menú
+              del móvil deja de ser el mismo menú. */}
           <div className="mt-2 border-t border-slate-100 pt-2">
-            <Link to="/demo" onClick={() => setOpen(false)} className="block rounded-lg px-3 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100 active:bg-slate-200">
-              Ver la demo
-            </Link>
-            <Link to="/login" onClick={() => setOpen(false)} className={`${BTN_PRIMARY} mt-1 w-full`}>
+            <Link to="/login" onClick={() => setOpen(false)} className={`${BTN_PRIMARY} w-full`}>
               Empezar <ArrowRight className="size-4" aria-hidden />
             </Link>
           </div>
@@ -558,9 +612,9 @@ function Hero() {
             <Link to="/login" className={BTN_PRIMARY_LG}>
               Empieza gratis
             </Link>
-            <Link to="/demo" className={BTN_SECONDARY_LG}>
-              Ver la demo
-            </Link>
+            <a href={DEMO_URL} target="_blank" rel="noopener" className={BTN_SECONDARY_LG}>
+              Solicitar demo<span className="sr-only"> (se abre en otra pestaña)</span>
+            </a>
           </div>
           <p className="mt-4 text-sm text-slate-500">{TRIAL_REASSURANCE}</p>
         </div>
@@ -630,12 +684,7 @@ function ChatTime({ children }: { children: React.ReactNode }) {
 
 function Compare() {
   return (
-    // EL FILO QUE CIERRA EL HERO VIVE AQUÍ, no en el hero (Mario, ago 2026). El hero
-    // lleva un margen inferior NEGATIVO para comerse el hueco que le sobra al
-    // parallax, así que su caja acaba 64px por DENTRO de esta sección: un
-    // `border-b` suyo se dibujaría ahí abajo y lo taparía este fondo blanco. El
-    // filo de arriba de quien viene después cae justo en la frontera que se ve.
-    <section className="border-t border-slate-200 bg-white">
+    <section className="border-b border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl section-x section-y">
         <Reveal className="text-center">
           <p className="text-sm font-semibold text-slate-500">La misma vacante, dos conversaciones</p>
@@ -732,7 +781,7 @@ function HowItWorks() {
     { icon: ListChecks, title: 'Gestiona todo desde un panel', body: 'Cada candidatura queda en tu lista, ordenada. Filtras por lo relevante, actualizas el estado y decides a quién contactar.' },
   ]
   return (
-    <section id="como-funciona" className="border-y border-slate-200 bg-slate-50">
+    <section id="como-funciona" className="bg-white">
       <div className="mx-auto max-w-6xl section-x section-y">
         <Reveal>
           <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:mx-auto max-lg:text-center sm:text-4xl">
@@ -751,7 +800,9 @@ function HowItWorks() {
                       style={{ left: '1.25rem', width: 'calc(100% - 1.25rem + 2.5rem)' }}
                     />
                   ) : null}
-                  <div className="relative z-10 mx-auto grid size-10 place-items-center rounded-full bg-slate-900 text-white ring-8 ring-slate-50 lg:mx-0">
+                  {/* El aro tapa el hilo que une los pasos, así que se pinta del fondo de SU
+                      sección: si cambia la banda, cambia el aro. */}
+                  <div className="relative z-10 mx-auto grid size-10 place-items-center rounded-full bg-slate-900 text-white ring-8 ring-white lg:mx-0">
                     <s.icon className="size-5" aria-hidden />
                     <span className="sr-only">Paso {i + 1}</span>
                   </div>
@@ -855,7 +906,7 @@ function Features() {
   ]
   const [hero, ...rest] = items
   return (
-    <section className="bg-white">
+    <section className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl section-x section-y">
         <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:mx-auto max-lg:text-center sm:text-4xl">
           Todo lo que necesitas para elegir bien, sin perder a nadie
@@ -1066,7 +1117,7 @@ function Team() {
     },
   ]
   return (
-    <section className="border-y border-slate-200 bg-slate-50">
+    <section className="bg-white">
       <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 section-x section-y lg:grid-cols-2 lg:items-start lg:gap-14">
         <Reveal delay={0.08} className="max-lg:order-last lg:pl-4">
           <TeamBoardMock />
@@ -1090,9 +1141,9 @@ function Team() {
               </li>
             ))}
           </ul>
-          <Link to="/demo/equipo" className={`${BTN_SECONDARY_LG} mt-7`}>
-            Ver el tablón en la demo
-          </Link>
+          <a href={DEMO_URL} target="_blank" rel="noopener" className={`${BTN_SECONDARY_LG} mt-7`}>
+            Solicitar demo<span className="sr-only"> (se abre en otra pestaña)</span>
+          </a>
         </Reveal>
       </div>
     </section>
@@ -1101,7 +1152,9 @@ function Team() {
 
 function CompactCostComparison() {
   return (
-    <div className="overflow-hidden rounded-2xl filo bg-slate-50">
+    // La mitad clara va en BLANCO porque esta sección es una banda gris: en gris se
+    // fundiría con el fondo y la caja se leería a medias, solo la parte oscura.
+    <div className="overflow-hidden rounded-2xl filo bg-white">
       <div className="grid grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
         <div className="border-b border-r border-slate-200 px-4 py-4">
           <h3 className="text-label font-semibold leading-snug text-slate-700">Lo que ocurre hoy</h3>
@@ -1137,7 +1190,7 @@ function CostComparisonLedger() {
       <div className="lg:hidden">
         <CompactCostComparison />
       </div>
-      <div className="hidden overflow-hidden rounded-2xl filo bg-slate-50 lg:block">
+      <div className="hidden overflow-hidden rounded-2xl filo bg-white lg:block">
         <div className="grid lg:grid-cols-[0.92fr_1.08fr]">
           <div className="border-b border-slate-200 px-6 py-7 sm:px-8 sm:py-9 lg:border-r lg:px-9">
             <h3 className="max-w-sm text-title font-semibold tracking-tight text-slate-900">Cuando todo se queda repartido</h3>
@@ -1178,7 +1231,7 @@ function CostComparisonLedger() {
 
 function CostAnchor() {
   return (
-    <section className="bg-white" aria-labelledby="coste-contratar-heading">
+    <section className="border-y border-slate-200 bg-slate-50" aria-labelledby="coste-contratar-heading">
       <div className="mx-auto max-w-6xl section-x section-y">
         <div className="max-w-3xl">
           <p className="text-sm font-semibold text-slate-500">Antes de mirar el precio</p>
@@ -1202,7 +1255,7 @@ function CostAnchor() {
 
 function Pricing() {
   return (
-    <section id="precio" className="border-y border-slate-200 bg-slate-50">
+    <section id="precio" className="bg-white">
       <div className="mx-auto max-w-6xl section-x section-y">
         <div className="text-center">
           <h2 className="mx-auto max-w-3xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
@@ -1297,10 +1350,18 @@ function Faq() {
     ['¿Hay permanencia?', 'No. Cierras un proceso con un clic y deja de cobrarse en ese momento. Sin llamadas de retención ni trámites adicionales.'],
     ['¿Los candidatos son míos si cierro un proceso?', 'Sí. El proceso cerrado se conserva entero: puedes consultarlo y exportarlo a Excel en cualquier momento, aunque ya no pagues por él.'],
     ['¿Hay costes ocultos o precios “desde”?', `No. Son ${PRECIO_PROCESO} € al mes + IVA por cada proceso de selección que tengas abierto, con candidaturas sin límite y todo el producto incluido. Lo que ves aquí es lo que pagas.`],
-    ['¿Puedo probarlo sin registrarme ni tarjeta?', `Sí. La demo funciona con datos de ejemplo, sin cuenta ni tarjeta. Y al crear tu cuenta, tu primer proceso es gratis durante ${PRUEBA_DIAS} días, con todas las candidaturas que lleguen y también sin tarjeta: se pide al final de la prueba.`],
+    // La pregunta decía "sin registrarme ni tarjeta" y la respuesta se apoyaba en que
+    // la demo era pública. Desde que dejó de serlo, registrarse SÍ hace falta para
+    // probarlo, así que cambia la pregunta y no solo la respuesta: dejarla como estaba
+    // sería prometer algo que ya no existe.
+    ['¿Puedo probarlo sin tarjeta?', `Sí. Al crear tu cuenta, tu primer proceso es gratis durante ${PRUEBA_DIAS} días, con todas las candidaturas que lleguen y sin tarjeta: se pide al final de la prueba. Y si prefieres que te lo enseñemos antes, puedes solicitar una demo.`],
   ]
+  // El filo que cierra esta sección va ABAJO y no arriba del bloque siguiente: aquel
+  // es un bloque centrado a `max-w-6xl`, así que su borde mediría 1152 y no llegaría a
+  // los raíles. Aquí, siendo la sección de ancho completo, la línea va de un raíl al
+  // otro como las demás.
   return (
-    <section id="faq" className="bg-white">
+    <section id="faq" className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-3xl section-x section-y">
         <h2 className="text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:text-center sm:text-4xl">Respuestas claras antes de empezar</h2>
         <div className="mt-10 overflow-hidden border-y border-slate-200 bg-white">
@@ -1323,19 +1384,23 @@ function FinalCta() {
   return (
     <section className="mx-auto max-w-6xl section-x section-y">
       <div className="overflow-hidden rounded-3xl bg-slate-900 px-8 py-14 text-center sm:px-16">
+        {/* Este bloque vendía la demo pública ("prueba el panel", "no pide registro ni
+            tarjeta"). Al dejar de serlo, ese texto pasaba a prometer algo que ya no
+            existe, así que cambia entero y con él la jerarquía: ahora lo principal es
+            empezar, y pedir una demo es la alternativa. */}
         <h2 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          Prueba el panel con candidatos de ejemplo
+          Empieza gratis, o te lo enseñamos
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-slate-300">
-          Filtra, revisa estados y exporta a Excel como en un puesto real. La demo no pide registro ni tarjeta.
+          Tu primer proceso es gratis {PRUEBA_DIAS} días, con todas las candidaturas que lleguen y sin tarjeta. Si prefieres verlo con nosotros antes, reserva un rato y te lo enseñamos por dentro.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:mt-6">
-          <Link to="/demo" className={`${BTN_INVERTED_LG} group`}>
-            Ver la demo <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
+          <Link to="/login" className={`${BTN_INVERTED_LG} group`}>
+            Empieza gratis <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
-          <Link to="/login" className="inline-flex h-12 items-center gap-2 rounded-lg px-5 text-base font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:bg-white/15">
-            Empezar
-          </Link>
+          <a href={DEMO_URL} target="_blank" rel="noopener" className="inline-flex h-12 items-center gap-2 rounded-lg px-5 text-base font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:bg-white/15">
+            Solicitar demo<span className="sr-only"> (se abre en otra pestaña)</span>
+          </a>
         </div>
       </div>
     </section>
