@@ -21,9 +21,15 @@
  *   peldaño por debajo en las dos cosas, así que al ir del panel a Bandeja o a
  *   Entrevistas el título adelgazaba sin que nadie lo hubiera decidido. Si el
  *   panel cambia, cambia esto; son la misma cabecera.
- * · **El contador va INLINE, al lado del título y en tinta de apoyo** ("Bandeja
- *   274"), no en una línea aparte ni dentro de una chapa. Es el tamaño de la
- *   pantalla, no una alarma.
+ * · **EL CONTADOR NO VIVE AQUÍ, VIVE EN LA LÍNEA DE CONTEXTO** (Mario, ago 2026).
+ *   Esta pieza llegó a pintarlo pegado al título, en gris ("Candidatos 608"), y
+ *   eso deja un número suelto que hay que deducir: qué cuenta solo lo sabía quien
+ *   usa lector, porque el sustantivo iba en un `sr-only`. Su sitio es el subtítulo,
+ *   enganchado con un middot, que es como lo resuelve el panel de un puesto
+ *   ("Construcción, Valencia · 97 candidaturas"). Lo compone la pantalla, que es
+ *   quien sabe qué está contando; aquí no hace falta ninguna prop.
+ *   Se fueron con él `cuenta` y `cuentaLabel`: una prop sin consumidor invita a
+ *   reintroducir lo que se acaba de quitar.
  * · **Las acciones de pantalla viven en la LÍNEA DEL TÍTULO**, a la derecha. Es
  *   la fila más alta del contenido y la que el ojo barre primero; abajo, se
  *   pierden entre los filtros.
@@ -34,18 +40,12 @@
  */
 export function PageHeader({
   titulo,
-  cuenta,
-  cuentaLabel,
   sub,
   acciones,
   pegada = false,
   className = '',
 }: {
   titulo: React.ReactNode
-  /** El tamaño de lo que hay en la pantalla. Ausente = no se pinta. */
-  cuenta?: number
-  /** Qué cuenta, para quien no ve el número. Sin repetirlo. */
-  cuentaLabel?: string
   sub?: React.ReactNode
   /** Acciones de la pantalla, a la derecha de la línea del título. */
   acciones?: React.ReactNode
@@ -86,15 +86,6 @@ export function PageHeader({
       <div className="min-w-0">
         <h1 className="flex items-baseline gap-2 text-2xl font-bold leading-tight tracking-[-0.012em] text-slate-900">
           <span className="min-w-0 truncate">{titulo}</span>
-          {cuenta !== undefined && (
-            // `slate-500` y no `slate-400`: es texto con significado y el 400 se
-            // queda en 2,6:1 sobre blanco. En peso normal, que es lo que lo deja
-            // por debajo del título sin tener que encogerlo.
-            <span className="num shrink-0 font-normal text-slate-500">
-              {cuenta}
-              {cuentaLabel && <span className="sr-only"> {cuentaLabel}</span>}
-            </span>
-          )}
         </h1>
         {sub && <p className="mt-1 text-sm font-medium text-slate-500">{sub}</p>}
       </div>

@@ -628,11 +628,11 @@ function Lienzo({ datos, rango }: { datos: Datos; rango: Rango }) {
           //
           // La regla que queda: **un reset no se anima. Si el estado de partida de
           // una animación tiene transición, nunca se llega a ver.**
-          className={
-            crecido
-              ? 'transition-transform duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none'
-              : 'transition-none'
-          }
+          // `grafica-crece` vive en `index.css` y no aquí porque dura MÁS que el
+          // techo de 240ms, y en esta casa lo que recorre distancia declara su
+          // duración en su propia clase con el motivo escrito, como el barrido del
+          // anillo de Meridian. Su `@media` ya se ocupa de reduced-motion.
+          className={crecido ? 'grafica-crece' : 'transition-none'}
         >
           {datos.series.map((s) => {
             const pts = s.valores.map((v, i) => `${x(i).toFixed(1)} ${y(v).toFixed(1)}`)

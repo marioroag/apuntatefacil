@@ -357,6 +357,33 @@
   .meridian-sweep { animation: meridian-sweep 620ms var(--ease-out) both; }
 }
 
+/* LA GRÁFICA DE VISTA GENERAL CRECE DESDE SU EJE, y lo hace DESPACIO (Mario, ago
+   2026: "hazla más lenta/smooth"). Estaba en el techo de 240ms, que es la medida
+   de un overlay que aparece; esto no aparece, RECORRE: la forma sube 250px de
+   alto por 900 de ancho, y a 240ms la curva se lo come antes de que el ojo pueda
+   seguir una sola de las tres series. Es la misma excepción declarada que el
+   barrido del anillo de Meridian y el trazo del check de onboarding, y por el
+   mismo motivo: cuando algo recorre distancia, el techo de la interfaz no aplica.
+
+   470ms y no un token nuevo: el vocabulario sigue teniendo tres duraciones, y lo
+   que recorre distancia declara la suya donde se usa, con su motivo escrito. Y
+   tampoco `--duration-hero` (720ms), que es del reveal de la landing: atar los dos
+   haría que afinar uno moviera el otro sin que nadie se enterase.
+
+   `--ease-standard` y no `--ease-out`, que es lo que ya decidía la doctrina: esto
+   no reacciona a un dedo sobre sí mismo, TRANSFORMA la gráfica de un estado a
+   otro. Con el recorrido más largo se nota además lo que esa curva hace bien:
+   arranca despacio, así que la forma no pega un tirón al salir del eje.
+
+   Va SOLO en la clase que crece, nunca en la que pone el 0: un reset no se anima
+   (el razonamiento largo está en `Resumen.tsx`, donde se cazó con los eventos de
+   transición en la mano). */
+@media (prefers-reduced-motion: no-preference) {
+  .grafica-crece {
+    transition: transform 470ms var(--ease-standard);
+  }
+}
+
 /* LA CITA SUBRAYADA EN EL CV (CvViewer). Ámbar de marcador fluorescente sobre el
    documento, con multiply para que la letra respire debajo como con un marcador
    de verdad. EXCEPCIÓN DECLARADA a "estado y decoración no comparten paleta":

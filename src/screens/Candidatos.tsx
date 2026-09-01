@@ -7,7 +7,7 @@ import { useToast } from '../components/ui/Toast'
 import { StatusSelect } from '../components/ui/StatusPill'
 import { ColHead, TABLE, ROW, CELL, FIJA, TRANSICION_FILA, useFilasALaVista, HuecoFilas } from '../components/ui/DataTable'
 import { CandidateModal } from './CandidateModal'
-import { fechaCorta, fullDateTime, formatPhone, candidateName } from '../lib/format'
+import { fechaCorta, fullDateTime, formatPhone, candidateName, miles } from '../lib/format'
 import { clickDeFila } from '../lib/fila'
 import { MeridianAvatar } from '../components/Meridian'
 import { candidateFit } from '../lib/meridian'
@@ -501,9 +501,21 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
           cuánta se ve ahora. Mismo criterio que el total del panel de un puesto. */}
       <PageHeader
         titulo="Candidatos"
-        cuenta={todos.length}
-        cuentaLabel={vista.cuenta(todos.length)}
-        sub={vista.sub}
+        // EL RECUENTO VA EN LA LÍNEA DE CONTEXTO, CON SU MIDDOT Y SU SUSTANTIVO
+        // (Mario, ago 2026: "haz que se vea con un punto y x candidatos como se
+        // hace en puesto"). Estaba pegado al título, en gris y sin decir qué
+        // contaba: un 608 suelto al lado de "Candidatos" hay que deducirlo, y para
+        // quien no ve la pantalla vivía en un `sr-only` aparte. Aquí lo dice
+        // entero, y de paso la pantalla se lee igual que el panel de un puesto,
+        // que resuelve exactamente lo mismo ("Construcción, Valencia · 97
+        // candidaturas"). El sustantivo lo pone la VISTA, así que en Contratados
+        // dice "contratados" y en Favoritos "favoritos": el número por sí solo no
+        // distingue los cuatro cortes, que es de lo que va esta pantalla.
+        //
+        // Sigue siendo el total de la vista SIN filtrar: es cuánta gente tienes,
+        // no cuánta se ve ahora. Lo que cambia al filtrar se dice en la región
+        // viva de abajo, que es la que lo anuncia.
+        sub={`${vista.sub} · ${miles(todos.length)} ${vista.cuenta(todos.length)}`}
         // La cabecera del panel de un puesto: `pb-3` en vez de margen, para que
         // sus 12px más los 16 de la franja den los mismos 28 que hay por debajo de
         // los chips. Ver `pegada` en la pieza.

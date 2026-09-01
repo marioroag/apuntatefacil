@@ -298,7 +298,20 @@ export function GlobalSearch({ onClose }: { onClose?: () => void }) {
   )
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="Buscar" className="fixed inset-0 z-50">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Buscar"
+      // CENTRADA DE VERDAD (Mario, ago 2026), no colgada del 10% de la ventana.
+      // El argumento de antes era que centrada "el campo bailaría en vertical al
+      // cambiar la lista", y ese argumento ya estaba muerto: el panel tiene ALTO
+      // FIJO desde el principio, así que no crece ni encoge con lo que escribas y
+      // no hay nada que pueda bailar. Medido antes: 86px de hueco arriba contra
+      // 265 abajo, o sea la paleta descolgada en una ventana de portátil.
+      // Solo a partir de `sm`: por debajo ocupa la pantalla entera y no hay hueco
+      // que repartir, así que ahí el contenedor sigue siendo un bloque normal.
+      className="fixed inset-0 z-50 sm:flex sm:items-center sm:justify-center"
+    >
       {/* Telón solo donde el panel NO ocupa la pantalla entera: a pantalla
           completa no hay nada detrás que atenuar, y un telón bajo una hoja opaca
           es una capa que no se ve y sí se paga. */}
@@ -306,10 +319,9 @@ export function GlobalSearch({ onClose }: { onClose?: () => void }) {
 
       {/* ALTO FIJO, no "lo que midan los resultados". Una paleta que crece y
           encoge con cada tecla obliga a reencontrar la primera fila en cada
-          pulsación; con el alto quieto, lo único que se mueve es la lista. Y
-          arriba (10% de la ventana) porque se lee de arriba abajo: centrada de
-          verdad, el campo bailaría en vertical al cambiar la lista. */}
-      <div className="relative mx-auto flex h-full max-h-full flex-col overflow-clip bg-white sm:mt-[10vh] sm:h-[min(32rem,72vh)] sm:w-[min(40rem,calc(100vw-2rem))] sm:rounded-xl sm:filo sm:shadow-pop">
+          pulsación; con el alto quieto, lo único que se mueve es la lista. Y es
+          justo lo que deja centrarla sin que nada se mueva de sitio. */}
+      <div className="relative flex h-full max-h-full flex-col overflow-clip bg-white sm:h-[min(32rem,72vh)] sm:w-[min(40rem,calc(100vw-2rem))] sm:rounded-xl sm:filo sm:shadow-pop">
         <div className="flex shrink-0 items-center border-b border-slate-200">
           {campo}
           {/* En móvil no hay tecla Escape ni pie que la anuncie: hace falta una

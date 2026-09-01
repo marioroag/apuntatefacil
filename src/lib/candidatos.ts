@@ -77,6 +77,11 @@ export type Vista = {
    * El subtítulo de la pantalla. Aquí SÍ se lo gana (la doctrina dice que un
    * subtítulo tiene que ganárselo): las cuatro vistas comparten título, así que
    * esta línea es lo único que dice arriba en cuál estás.
+   *
+   * SIN PUNTO FINAL, y no es un descuido: desde ago 2026 no es una frase suelta,
+   * es la LÍNEA DE CONTEXTO de la pantalla, y el recuento se le engancha con un
+   * middot igual que en el panel de un puesto ("Construcción, Valencia · 97
+   * candidaturas"). Un punto justo antes del middot parte la línea en dos.
    */
   sub: string
   /** Qué se está contando, para quien no ve la cifra del título. */
@@ -95,7 +100,7 @@ export const VISTAS: Vista[] = [
     label: 'Activos',
     to: '/candidatos',
     estados: STATUS_ORDER.filter((v) => v !== 'descartado'),
-    sub: 'Toda tu gente menos la que has descartado.',
+    sub: 'Toda tu gente menos la que has descartado',
     cuenta: (n) => plural(n, 'candidato activo', 'candidatos activos'),
     vacio: {
       titulo: 'Aún no tienes candidatos',
@@ -108,7 +113,7 @@ export const VISTAS: Vista[] = [
     label: 'Contratados',
     to: '/candidatos/contratados',
     estados: ['contratado'],
-    sub: 'Quien ya tiene el puesto, de todos tus procesos.',
+    sub: 'Quien ya tiene el puesto, de todos tus procesos',
     cuenta: (n) => plural(n, 'contratado', 'contratados'),
     vacio: {
       titulo: 'Todavía no has contratado a nadie',
@@ -126,7 +131,7 @@ export const VISTAS: Vista[] = [
     // Sin `estados`: se puede marcar a cualquiera, también a un descartado, y una
     // lista llamada "Favoritos" que se dejara alguno fuera no diría la verdad.
     soloFavoritos: true,
-    sub: 'A quien has marcado con la estrella, de todos tus procesos.',
+    sub: 'A quien has marcado con la estrella, de todos tus procesos',
     cuenta: (n) => plural(n, 'favorito', 'favoritos'),
     vacio: {
       titulo: 'Todavía no has marcado a nadie',
@@ -140,7 +145,7 @@ export const VISTAS: Vista[] = [
     // Sin recortes: es la lista entera. Se declara igual que las otras para que la
     // pantalla no tenga que preguntar cuál es la especial.
     to: '/candidatos/todos',
-    sub: 'Toda tu gente, incluidos los descartados.',
+    sub: 'Toda tu gente, incluidos los descartados',
     cuenta: (n) => plural(n, 'candidato', 'candidatos'),
     vacio: {
       titulo: 'Aún no tienes candidatos',
