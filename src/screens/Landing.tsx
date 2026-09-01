@@ -19,7 +19,6 @@ import { PRECIO_PROCESO, PRUEBA_DIAS, TRIAL_REASSURANCE } from '../lib/pricing'
 import { PrecioProceso } from '../components/PrecioProceso'
 import { BTN_INVERTED_LG, BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
 
-const SECTORS = ['Construcción', 'Logística', 'Limpieza', 'Reformas', 'Comercio', 'Cuidados']
 
 const COST_COMPARISON_ROWS = [
   {
@@ -101,7 +100,6 @@ export function Landing() {
       <TopNav />
       <main id="contenido">
         <Hero />
-        <Sectors />
         <Compare />
         <HowItWorks />
         <Features />
@@ -159,24 +157,37 @@ function TopNav() {
   }, [open])
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 pt-[env(safe-area-inset-top)] backdrop-blur">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6" aria-label="Principal">
-        <div className="flex items-center gap-6">
+      {/* LAS MEDIDAS DE ESTA BARRA SON LAS DE ATTIO (Mario, ago 2026), leídas de su
+          DOM y no de una captura: 1440 de tope con 24 de relleno lateral, 16 de
+          relleno arriba y abajo alrededor de una fila de 36 (67px de barra; la
+          nuestra queda en 68 porque su 16/15 es una asimetría de un píxel que aquí
+          no tiene motivo), enlaces a 15px con 6 de hueco, 32 del logo al primer
+          enlace y 10 entre los dos botones de la derecha.
+
+          El tope de 1440 es MÁS ANCHO que el contenido de la página (1280), y es a
+          propósito: en Attio la barra respira hasta el filo del navegador mientras
+          lo de dentro sigue acotado. */}
+      <nav className="mx-auto flex max-w-[90rem] items-center justify-between px-4 py-4 sm:px-6" aria-label="Principal">
+        <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center" aria-label={BRAND}>
             <BrandLockup />
           </Link>
-          <div className="hidden items-center gap-1 md:flex">
+          <div className="hidden items-center gap-1.5 md:flex">
             {links.map(([label, href]) => (
-              <a key={href} href={href} className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+              // `leading-5` no es decorativo: con un tamaño arbitrario, Tailwind no
+              // trae interlineado y la pastilla se iría de 36 a 38, que es lo único
+              // que hay que sostener para que la fila cuadre.
+              <a key={href} href={href} className="rounded-lg px-3 py-2 text-[15px] leading-5 font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
                 {label}
               </a>
             ))}
           </div>
         </div>
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="hidden items-center gap-2.5 md:flex">
           <Link to="/demo" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900">
             Ver la demo
           </Link>
-          <Link to="/login" className={`${BTN_PRIMARY} group ml-1`}>
+          <Link to="/login" className={`${BTN_PRIMARY} group`}>
             Empezar <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
           </Link>
         </div>
@@ -255,27 +266,72 @@ function useHeroMovido() {
  */
 // El tope no es estético: cada píxel que el mock sube por su cuenta es un píxel
 // MÁS de hueco entre él y la sección de abajo, y ese hueco se ve entero al seguir
-// bajando. Con 140 se iban ~290px de blanco, que se lee como un agujero. A 96, y
-// devolviéndole a la sección el relleno que el propio gesto ya crea (`lg:pb-16` en
-// vez de `pb-24`), el hueco se queda en los ~200 de siempre.
-const PARALLAX_FACTOR = 0.35
-const PARALLAX_TOPE = 96
+// bajando. Con 140 se iban ~290px de blanco, que se lee como un agujero. Lo que
+// deja subirlo es DEVOLVERLE a la sección el relleno que el propio gesto ya crea:
+// en escritorio la sección no lleva ninguno y encima se come 40px con un margen
+// negativo (40 -> 64), porque el hueco lo pone entero el parallax y sobraba: medido en el
+// punto donde el imán deja la página, el aire hasta la sección de abajo pasa de 168
+// a 96. Son 64 y no 40 desde que el teléfono cuelga menos: al subir la pieza más
+// baja, el hueco de debajo crece solo y hay que volver a descontarlo. De esos 168, 111 los ponía el propio parallax y 25 el encogido de la ventana
+// al 0,92, que deja aire por debajo aunque nadie lo haya pedido. El caso de `prefers-reduced-motion`, donde ese relleno sí hace falta
+// (allí no hay parallax y el teléfono cuelga por debajo del panel), está declarado
+// en `index.css`.
+//
+// Y EL FACTOR ES LO QUE SE NOTA (Mario, ago 2026: "un poco más notable"). El tope
+// dice cuánto se mueve en total; el factor, a qué velocidad se despega del papel,
+// que es lo que de verdad se lee como parallax. A 0,35 el techo llegaba a los 274
+// de scroll, o sea que el gesto se repartía en tres pantallas de móvil y casi no
+// se veía; a 0,5 llega a los 256 con más recorrido, así que el mock adelanta a la
+// página justo mientras la estás mirando.
+const PARALLAX_FACTOR = 0.5
+const PARALLAX_TOPE = 128
+
+// CUÁNTO SE SUAVIZA (Mario: "y el scroll suave"). El parallax iba CLAVADO al
+// scroll, así que con la rueda del ratón avanzaba a escalones del tamaño de cada
+// muesca: el mock daba saltos en vez de deslizarse. Ahora persigue a su objetivo
+// acercándose una fracción en cada fotograma, que es lo que hace que el papel y el
+// mock parezcan tener pesos distintos.
+//
+// NO ES SECUESTRAR EL SCROLL, que es lo que Mario retiró en su día: la página va
+// exactamente a donde la mandes y a la velocidad de siempre. Lo único que se retrasa
+// es una capa decorativa, y sola.
+//
+// 0,16 por fotograma a 60Hz: el 90% del recorrido en ~14 fotogramas (unos 230ms),
+// que es el orden del resto de la casa. Más bajo y el mock se queda flotando
+// detrás; más alto y no se distingue de ir clavado.
+const PARALLAX_SUAVIZADO = 0.16
 
 function useHeroParallax(activo: boolean) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = ref.current
     if (!el || !activo) return
+    const meta = () => Math.min(window.scrollY * PARALLAX_FACTOR, PARALLAX_TOPE)
+    let subida = meta()
     let pedido = 0
-    const pintar = () => {
+    let ultimo = 0
+    const pintar = (t: number) => {
       pedido = 0
-      const subida = Math.min(window.scrollY * PARALLAX_FACTOR, PARALLAX_TOPE)
-      el.style.setProperty('--hero-parallax', `${subida}px`)
+      const destino = meta()
+      // El paso se corrige por el TIEMPO que ha durado el fotograma, no por el
+      // fotograma a secas: en una pantalla de 120Hz hay el doble de fotogramas, así
+      // que con un paso fijo el suavizado duraría la mitad y en un monitor rápido
+      // esto se vería casi clavado. Con la corrección, el recorrido dura lo mismo en
+      // cualquier pantalla. El tope de 64ms es para que volver a una pestaña
+      // aparcada no dé un salto: ahí se avanza un fotograma normal y ya.
+      const dt = ultimo ? Math.min(64, t - ultimo) : 16.6667
+      ultimo = t
+      subida += (destino - subida) * (1 - Math.pow(1 - PARALLAX_SUAVIZADO, dt / 16.6667))
+      // Medio píxel es el suelo por debajo del cual ya no se ve nada moverse: se
+      // clava el valor y se apaga el bucle en vez de perseguir decimales para siempre.
+      if (Math.abs(destino - subida) < 0.5) subida = destino
+      el.style.setProperty('--hero-parallax', `${subida.toFixed(2)}px`)
+      if (subida !== destino) pedido = requestAnimationFrame(pintar)
     }
     const alScroll = () => {
       if (!pedido) pedido = requestAnimationFrame(pintar)
     }
-    pintar()
+    el.style.setProperty('--hero-parallax', `${subida}px`)
     window.addEventListener('scroll', alScroll, { passive: true })
     return () => {
       window.removeEventListener('scroll', alScroll)
@@ -286,11 +342,186 @@ function useHeroParallax(activo: boolean) {
   return ref
 }
 
+/**
+ * EL IMÁN DEL HERO (Mario, ago 2026: "que el scroll suave se haga más fuerte cuando
+ * te acercas a la posición que queremos y más débil cuanto más lejos estás").
+ *
+ * Hay un sitio donde la composición se ve como se diseñó, centrada en la pantalla,
+ * y alrededor de él hay un POZO: un campo que tira hacia el centro y que se nota
+ * más cuanto más cerca estás. No es un remate al soltar, es una fuerza que está
+ * puesta todo el rato mientras andas por ahí. Por eso la página pesa al pasar por
+ * el sitio bueno y se queda ahí sola, y por eso pasar de largo sigue siendo posible:
+ * la mano siempre mueve más que el imán.
+ *
+ * DOS COSAS QUE SE PROBARON ANTES Y NO ERAN ESTO:
+ *   · `scroll-snap-type: y proximity`, la herramienta nativa. Es un imán de acero,
+ *     no un imán: su radio lo decide el navegador y resultó enorme, así que con el
+ *     punto a 224px del principio la página se quedaba ATRAPADA ahí y con la rueda
+ *     no había forma de volver arriba. Y no se puede graduar.
+ *   · Un tirón AL PARAR. Funcionaba, pero era otra cosa: no se sentía nada mientras
+ *     te movías y de pronto la página se recolocaba sola. Lo que se pide es que se
+ *     note al acercarse, no al terminar.
+ *
+ * LA FORMA DE LA FUERZA ES UNA CAMPANA, no un radio con filo. `exp(-(d/alcance)²)`
+ * decae rápido y sin escalón, así que no hay ninguna distancia en la que el imán
+ * "se encienda": simplemente deja de contar. Medido con estos números, el paso por
+ * fotograma es de ~4,7px a 39 de distancia (que es donde más tira), 4 a 55, 0,7 a
+ * 100 y prácticamente cero pasados los 112, o sea que EN EL PRINCIPIO DE LA PÁGINA
+ * NO TIRA NADA. Eso último no es un detalle: es lo que hundió al `scroll-snap`.
+ *
+ * EL ALCANCE BAJÓ DE 80 A 55 (Mario, ago 2026). Con 80, el pozo llegaba a 150 y una
+ * muesca de rueda son ~100: te devolvía siempre y hacían falta dos para salir, que
+ * es la parte de "no te molesta si quieres pasar" que no se cumplía. A 55 el pozo se
+ * queda por debajo de lo que anda una muesca, así que tira fuerte donde importa y
+ * una sola muesca decidida ya te suelta.
+ *
+ * Y NO PELEA CON EL NAVEGADOR. Mientras la rueda está moviendo la página de verdad
+ * (más de `IMAN_MANO` píxeles por fotograma), el imán no escribe: si escribiera,
+ * cortaría la animación suave del propio navegador y el gesto se volvería a saltos.
+ * Toma el relevo cuando esa animación se apaga, que es justo cuando se puede notar
+ * que algo tira.
+ */
+// El alcance es la sigma de la campana; la fuerza, la fracción de la distancia que
+// se recorre por fotograma en el punto de más tirón. El mínimo es el suelo por
+// debajo del cual no se escribe: sin él, a 200px de distancia el imán arrastraría la
+// página unos pocos píxeles por segundo para siempre, que es un scroll que se mueve
+// solo mientras lees.
+const IMAN_ALCANCE = 55
+const IMAN_FUERZA = 0.2
+const IMAN_MINIMO = 0.35
+const IMAN_MANO = 6
+
+function useImanHero(
+  ref: { current: HTMLDivElement | null },
+  activo: boolean,
+  movido: boolean,
+) {
+  // Hasta cuándo la composición está todavía colocándose. Al cruzar el umbral, la
+  // ventana tarda `--duration-hero` en encoger y subir, y durante ese rato su caja
+  // no es la que va a ser: medido, el imán calculaba el sitio bueno 27px más abajo
+  // del real. Tirar hacia un sitio equivocado y corregir después se lee como que la
+  // página no para quieta, así que ahí no se tira.
+  const asentado = useRef(0)
+  useEffect(() => {
+    const ms =
+      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--duration-hero')) ||
+      720
+    asentado.current = performance.now() + ms
+  }, [movido])
+
+  useEffect(() => {
+    if (!activo) return
+    let pedido = 0
+    let anterior = window.scrollY
+    let ultimo = 0
+    let quietos = 0
+
+    /**
+     * Dónde está el sitio bueno, en scroll de página. Se mide en vez de escribirse:
+     * depende del alto de la ventana del navegador y de la composición, que cambia
+     * con el ancho.
+     *
+     * El parallax que ya está aplicado se DEVUELVE a la cuenta (de ahí el `+
+     * aplicado`), así que lo que se calcula es el centro de la composición como si
+     * no hubiera parallax; eso es un número fijo, y por eso el destino no se mueve
+     * mientras el imán tira. Con la medida cruda, el punto huiría a la vez que se
+     * persigue.
+     */
+    const destino = () => {
+      const capa = ref.current
+      const ventana = capa?.querySelector<HTMLElement>('.hero-ventana')
+      if (!capa || !ventana) return null
+      // La caja de la composición son la ventana Y lo que le cuelga por fuera: los
+      // dos mocks son hijos suyos colocados fuera de su caja, así que no entran en
+      // su rectángulo.
+      let arriba = Infinity
+      let abajo = -Infinity
+      for (const nodo of [ventana, ...ventana.children]) {
+        const r = (nodo as HTMLElement).getBoundingClientRect()
+        if (!r.height) continue
+        arriba = Math.min(arriba, r.top)
+        abajo = Math.max(abajo, r.bottom)
+      }
+      if (!Number.isFinite(arriba)) return null
+      const aplicado = parseFloat(capa.style.getPropertyValue('--hero-parallax')) || 0
+      const centro = (arriba + abajo) / 2 + window.scrollY + aplicado
+      const mitad = window.innerHeight / 2
+      // Se busca la Y que cumple centro - parallax(Y) - Y = mitad. Son dos tramos,
+      // porque el parallax deja de crecer en su tope: primero se prueba el llano
+      // (donde la Y solo hay que restarla) y, si no cae ahí, el de la rampa.
+      const llano = centro - PARALLAX_TOPE - mitad
+      const y =
+        llano * PARALLAX_FACTOR >= PARALLAX_TOPE
+          ? llano
+          : (centro - mitad) / (1 + PARALLAX_FACTOR)
+      const tope = document.documentElement.scrollHeight - window.innerHeight
+      return Math.max(0, Math.min(tope, y))
+    }
+
+    const paso = (t: number) => {
+      pedido = 0
+      const y = window.scrollY
+      const suyo = Math.abs(y - anterior)
+      anterior = y
+      const dt = ultimo ? Math.min(64, t - ultimo) : 16.6667
+      ultimo = t
+
+      const colocandose = performance.now() < asentado.current
+      const meta = colocandose ? null : destino()
+      let tira = false
+      if (meta != null && suyo <= IMAN_MANO) {
+        const d = meta - y
+        // La campana: mucha fuerza al lado del punto, nada a lo lejos. Corregida
+        // por la duración del fotograma, como el parallax, para que el tirón dure
+        // lo mismo en una pantalla de 60Hz que en una de 120.
+        const fuerza = IMAN_FUERZA * Math.exp(-((d / IMAN_ALCANCE) ** 2))
+        const avance = d * (1 - Math.pow(1 - fuerza, dt / 16.6667))
+        if (Math.abs(avance) >= IMAN_MINIMO) {
+          // `instant` a propósito: `html` lleva `scroll-behavior: smooth` para las
+          // anclas, y sin esto cada fotograma lanzaría su propia animación suave y
+          // se pisarían unas a otras. Lo suave lo pone la campana.
+          window.scrollTo({ top: y + avance, behavior: 'instant' })
+          anterior = window.scrollY
+          tira = true
+        }
+      }
+
+      // El bucle se apaga solo cuando ni la página se mueve ni el imán tira, y
+      // vuelve al primer scroll: un `requestAnimationFrame` eterno en una landing es
+      // trabajo que se paga en batería sin que pase nada.
+      //
+      // PERO NO MIENTRAS LA COMPOSICIÓN SE ESTÁ COLOCANDO, y esto se vio en pantalla:
+      // con la rueda, el gesto termina antes que los 720ms de la ventana, así que el
+      // bucle se daba por parado (unos 400ms de quietud) justo antes de que el imán
+      // tuviera permiso para tirar. Con el ratón no se notaba porque un `scrollTo`
+      // programático llega con la ventana ya colocada; con la rueda, el imán no
+      // enganchaba NUNCA.
+      quietos = tira || suyo > 0.5 || colocandose ? 0 : quietos + 1
+      if (quietos < 24) pedido = requestAnimationFrame(paso)
+    }
+
+    const alScroll = () => {
+      quietos = 0
+      if (!pedido) {
+        ultimo = 0
+        pedido = requestAnimationFrame(paso)
+      }
+    }
+
+    window.addEventListener('scroll', alScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', alScroll)
+      if (pedido) cancelAnimationFrame(pedido)
+    }
+  }, [ref, activo])
+}
+
 function Hero() {
   const movido = useHeroMovido()
   const hayDosColumnas = useHayDosColumnas()
   const menosMovimiento = useMenosMovimiento()
   const parallax = useHeroParallax(hayDosColumnas && !menosMovimiento)
+  useImanHero(parallax, hayDosColumnas && !menosMovimiento, movido)
   return (
     // `data-hero` es el interruptor de los dos estados; `hero-texto` y `hero-ventana`
     // son INERTES sin él y fuera de escritorio (el mecanismo y sus condiciones están
@@ -314,7 +545,7 @@ function Hero() {
     <div className="overflow-x-clip">
     <section
       data-hero={movido ? 'movido' : undefined}
-      className="mx-auto max-w-7xl px-4 pb-16 pt-20 text-center sm:px-6 lg:pb-16 lg:pt-28"
+      className="hero-seccion mx-auto max-w-7xl px-4 pb-16 pt-20 text-center sm:px-6 lg:-mb-16 lg:pb-0 lg:pt-28"
     >
         <div className="hero-texto">
           <h1 className="mx-auto text-balance text-[2.75rem] font-semibold leading-[1.04] tracking-[-0.035em] text-slate-900 sm:text-5xl lg:text-[4rem] lg:leading-[0.95] lg:tracking-[-0.02em]">
@@ -344,8 +575,13 @@ function Hero() {
           nadie ve en un móvil, y ahí el hero además ya se sale de pantalla. Es el
           mismo umbral que usa la propia página del anuncio para montar su raíl. */}
       <div ref={parallax} className="hero-parallax">
-      <div className="hero-ventana relative mx-auto mt-12 lg:mt-[5.1875rem] lg:max-w-[70.875rem]">
-        <AppShot />
+      {/* 66rem = 1056px. Bajó de 70,875 (1134) porque a ese ancho la ventana llenaba
+          la fila entera y los dos mocks solo tenían margen para asomar; un peldaño
+          más pequeña, la composición se lee como tres piezas sobre una mesa y no
+          como un panel con dos pegatinas. La captura mide 3024 y aquí se pinta a
+          1056, así que sigue sobrándole resolución en cualquier pantalla. */}
+      <div className="hero-ventana relative mx-auto mt-12 lg:mt-[5.1875rem] lg:max-w-[66rem]">
+        <AppShot enReposo={!movido} />
         {hayDosColumnas && (
           // Cuánto ASOMA por fuera del filo derecho: un cuarto de su ancho en los
           // dos anchos (48 de 200, 56 de 232), no una medida suelta por talla. El
@@ -357,33 +593,14 @@ function Hero() {
           // par de offsets sueltos sino una cuenta contra el filo del navegador,
           // con su mínimo y su techo, y ahí está explicada.
           <>
-            <TablonShot />
-            <MovilShot />
+            <TablonShot enReposo={!movido} />
+            <MovilShot enReposo={!movido} />
           </>
         )}
       </div>
       </div>
     </section>
     </div>
-  )
-}
-
-function Sectors() {
-  return (
-    <section className="border-y border-slate-200 bg-slate-50">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <p className="text-center text-copy-md font-medium text-slate-600">
-          Para construcción, hostelería, logística, comercio y mucho más
-        </p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          {SECTORS.map((s) => (
-            <span key={s} className="rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-slate-600 ring-1 ring-inset ring-slate-200">
-              {s}
-            </span>
-          ))}
-        </div>
-      </div>
-    </section>
   )
 }
 

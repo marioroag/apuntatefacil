@@ -548,9 +548,16 @@
   .hero-movil,
   .hero-tablon {
     opacity: 0;
+    /* SOLO SE AGARRA LO QUE SE VE. Aquí abajo están, pero invisibles, así que sin
+       esto el ratón encontraría un cursor de agarre (y un objeto que arrastrar) en
+       una zona donde no hay nada pintado. Fuera de este bloque no hace falta: con
+       `prefers-reduced-motion` los mocks se ven quietos en su sitio desde el
+       principio, y ahí sí se pueden coger. */
+    pointer-events: none;
     transition:
       opacity var(--duration-hero) var(--ease-standard),
-      translate var(--duration-hero) var(--ease-standard);
+      translate var(--duration-hero) var(--ease-standard),
+      transform var(--t-agarre, 0s) var(--ease-standard);
   }
   .hero-movil { translate: -28px 0; }
   .hero-tablon { translate: 28px 0; }
@@ -566,10 +573,15 @@
   [data-hero='movido'] .hero-movil,
   [data-hero='movido'] .hero-tablon {
     opacity: 1;
+    pointer-events: auto;
     translate: 0 0;
+    /* `transform` va SIN el retardo de las otras dos: aquí es el arrastre, que
+       responde a la mano, y en este estado su duración es 0s de todas formas. La
+       vuelta a casa la anima la regla de arriba, que es la que manda en reposo. */
     transition:
       opacity var(--duration-hero) var(--ease-standard) calc(var(--duration-hero) * 0.3),
-      translate var(--duration-hero) var(--ease-standard) calc(var(--duration-hero) * 0.3);
+      translate var(--duration-hero) var(--ease-standard) calc(var(--duration-hero) * 0.3),
+      transform var(--t-agarre, 0s) var(--ease-standard);
   }
 }
 
@@ -739,10 +751,24 @@
                           se quedan quietos sin el 0,92 que los mete hacia dentro:
                           medido, el tablón perdía sus 24px de la izquierda, o sea
                           las caras;
-     max(--tope, ...)     y el techo, que no es estético: pasada la mitad de su
-                          ancho el mock deja de solapar el panel, y entonces ya no
-                          se lee como algo que sale de él sino como una pieza
-                          suelta flotando en el margen.
+     max(--tope, ...)     y el techo, hasta dónde pueden llegar cuando sobra sitio.
+
+   EL TECHO ES EL MISMO PARA LOS DOS, y eso es lo que deja la composición cuadrada
+   (Mario, ago 2026: "bien medido a los lados para que quede equilibrado"). Estuvo
+   en -8rem el tablón y -7rem el teléfono, cada uno calculado como la mitad de SU
+   ancho, y como el panel va centrado eso dejaba la fila descuadrada: medido a
+   1440px, 116px de margen a la izquierda contra 131 a la derecha. Lo que tiene que
+   coincidir no son los anchos de los mocks, que son distintos y da igual, sino lo
+   que SOBRESALEN, porque es lo que decide dónde acaba la composición por cada
+   lado. Con un solo número, los dos filos quedan a la misma distancia a cualquier
+   ancho de ventana.
+
+   13rem = 208px sale de la composición que dibujó Mario, leída en proporción al
+   panel (sobresalen un 19,8% de su ancho) para que no dependa de a qué tamaño se
+   dibujó. Deroga la regla vieja, que topaba en la mitad del ancho del mock con el
+   argumento de que más lejos deja de leerse como algo que sale del panel: lo que
+   se busca ahora es justo lo otro, tres piezas apoyadas en una mesa y no dos
+   pegatinas en un panel, así que el teléfono apenas lo roza.
 
    Ojo: esto es la posición SIN ESCALAR. En el estado movido todo va al 0,92, que
    los mete un poco más adentro, así que el aire de verdad es mayor que `--aire`.
@@ -752,19 +778,110 @@
 .hero-tablon {
   position: absolute;
   --aire: 28px;
+  --tope: -13rem;
   --fuera: max(var(--tope), min(-1.5rem, calc(var(--aire) - (100vw - 100%) / 2)));
 }
 
+/* EN VERTICAL NO SE EMPAREJAN, Y ES A PROPÓSITO: el tablón arranca arriba y el
+   teléfono cae por abajo. Puestos a la misma altura serían dos piezas simétricas a
+   los lados de un panel, que es un adorno; en diagonal se leen como tres cosas
+   dejadas encima de una mesa.
+
+   El vuelo de abajo salió de la composición dibujada (un 5,6% del ancho del panel)
+   y Mario lo recortó después a 24px, ver más abajo. */
 .hero-movil {
-  --tope: -7rem;   /* 112px, la mitad de sus 232 */
   right: var(--fuera);
+  /* 24px. Bajó de 60 (Mario, ago 2026: "un poco más arriba"): colgando tanto, el
+     teléfono era la pieza que marcaba el suelo de la composición y obligaba a la
+     sección a reservarle sitio por debajo. Con menos vuelo se apoya en el filo del
+     panel en vez de descolgarse de él. */
   bottom: -1.5rem;
 }
 
+/* Y SU FILO DE ARRIBA CAE EN LA LÍNEA DONDE EMPIEZA LA APP, justo por debajo de la
+   barra del navegador del panel (Mario, ago 2026). Estuvo asomando 40px por ENCIMA
+   de la ventana, que es lo que traía la composición dibujada; con la tarjeta ya
+   detrás, ese trozo suelto por arriba era lo único que se veía fuera de sitio.
+   Alineado aquí, lo que asoma arranca donde arranca el contenido de la ventana.
+   No es un hueco elegido a ojo: 55px es el alto exacto de esa barra, así que si
+   algún día cambia, este número se mueve con ella. */
 .hero-tablon {
-  --tope: -8rem;   /* 128px, la mitad de sus 256 */
   left: var(--fuera);
-  top: 42%;
+  top: 3.4375rem;     /* 55px, el alto de la barra del navegador */
+}
+
+/* EL TABLÓN VA DEBAJO DE LA DASHBOARD Y EL TELÉFONO ENCIMA (Mario, ago 2026).
+   Los tres estaban en el orden del DOM, o sea los dos mocks por delante de la
+   ventana, y así la tarjeta del tablón tapaba su esquina y su barra: lo primero que
+   se veía de la ventana grande era algo puesto encima. Detrás, asoma por su filo
+   izquierdo, que es lo que la composición viene contando desde el principio (los
+   mocks SALEN DE DETRÁS de la ventana) y lo que le da profundidad de verdad a las
+   tres piezas, porque la sombra del panel le cae por encima.
+
+   El teléfono se queda delante: es la otra mitad del producto, la que ve el
+   candidato, y detrás se comería medio anuncio justo donde se lee el sueldo.
+
+   Se declaran los tres aunque dos coincidan con el orden natural del DOM: una pila
+   escrita a medias es la que se descoloca sola en cuanto alguien mueve un elemento
+   de sitio en el JSX. El arrastre pone su propio z por encima de los tres. */
+.hero-tablon { z-index: 1; }
+.hero-panel  { z-index: 2; }
+.hero-movil  { z-index: 3; }
+
+/* SE COGEN CON LA MANO (Mario, ago 2026). El mecanismo del arrastre está en
+   `useAgarrable` (components/AppShot.tsx) y aquí solo vive lo que se ve.
+
+   El cursor de "agarrando" no se muda al `<body>` mientras dura el gesto, que es
+   el apaño de siempre en un arrastre: aquí no hace falta, porque el mock sigue al
+   puntero exactamente, así que el puntero nunca se le sale y su propio `:active`
+   basta. (`:active` aguanta todo el gesto aunque el ratón salga del elemento,
+   mientras el botón siga apretado.)
+
+   Y NO se declara `touch-action`: en táctil el arrastre no existe a propósito, así
+   que la zona tiene que seguir comportándose como el papel de la página. */
+/* CUÁNTO AIRE QUEDA DEBAJO DEL HERO (Mario, ago 2026: "menos aire debajo"). La
+   sección lleva poco relleno al pie porque el parallax ya crea el suyo: al subir el
+   mock 128px, ese hueco se ve entero mientras sigues bajando. Con `lg:pb-8` quedan
+   ~185px por debajo del mock más bajo, contra los 233 de antes.
+
+   PERO CON `prefers-reduced-motion` HACE FALTA MÁS, y esa es la excepción. El
+   teléfono cuelga por debajo del panel; en el uso normal eso no molesta porque
+   a esa altura todavía está invisible y el parallax lo ha subido antes de
+   encenderse, pero ahí los mocks están quietos y visibles en su sitio desde el
+   principio, así que con 32px de relleno el teléfono se metía dentro de la sección
+   de abajo. El relleno no es estético, es el sitio que ocupa una pieza. */
+@media (min-width: 64rem) and (prefers-reduced-motion: reduce) {
+  .hero-seccion {
+    /* Lo que cuelga el teléfono (24px) más aire. */
+    /* Y se le devuelve el margen que en escritorio se le come: sin parallax no hay
+       hueco que descontar, así que el negativo solo serviría para meter el teléfono
+       dentro de la sección de abajo. */
+    margin-bottom: 0;
+    padding-bottom: 2.75rem;
+  }
+}
+
+.hero-agarre {
+  cursor: grab;
+}
+
+/* LA VENTANA GRANDE. `hero-ventana` es su ENVOLTORIO y hace el gesto del scroll;
+   esto es la ventana en sí, que es hermana de los dos mocks y se mueve sola.
+   Su única transición es la vuelta a casa, y por eso `--t-agarre` vale 0s mientras
+   no la haya: un arrastre no se anima, sigue al ratón. */
+.hero-panel {
+  /* POSICIONADA, y no es decorativo: `z-index` NO hace nada en un elemento sin
+     posicionar, así que sin esto el panel se quedaba SIEMPRE por debajo de los dos
+     mocks (que sí son `absolute`) por mucho que el arrastre le subiera el número.
+     Se vio midiendo quién pinta encima en un punto compartido: panel en z 6, móvil
+     en 5, y ganaba el móvil. Con `relative` y sin z propio el reparto es el de
+     siempre, el orden del DOM: el panel primero y los mocks encima. */
+  position: relative;
+  transition: transform var(--t-agarre, 0s) var(--ease-standard);
+}
+
+.hero-agarre:active {
+  cursor: grabbing;
 }
 
 

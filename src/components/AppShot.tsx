@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMenosMovimiento } from '../lib/media'
 
@@ -49,9 +49,24 @@ function BarraNavegador({ compacta = false }: { compacta?: boolean }) {
   )
 }
 
-export function AppShot({ className = '' }: { className?: string }) {
+export function AppShot({
+  className = '',
+  enReposo = false,
+}: {
+  className?: string
+  enReposo?: boolean
+}) {
+  const { ref, manejadores } = useAgarrable(enReposo)
   return (
-    <div className={`overflow-clip rounded-2xl filo bg-white shadow-pop ${className}`}>
+    // El arrastre va en la VENTANA y no en `hero-ventana`, que es su envoltorio:
+    // los dos mocks pequeños cuelgan de ese envoltorio, así que moviéndolo se
+    // llevaría a los tres de viaje. Como hermana suya, cada pieza se mueve sola y
+    // el contador de apilado las ordena a las tres con el mismo criterio.
+    <div
+      ref={ref}
+      {...manejadores}
+      className={`hero-panel hero-agarre select-none overflow-clip rounded-2xl filo bg-white shadow-pop ${className}`}
+    >
       <BarraNavegador />
       <Pantallas />
     </div>
@@ -209,6 +224,218 @@ function Pantallas() {
   )
 }
 
+/**
+ * LAS TRES PIEZAS DEL HERO SE AGARRAN Y SE MUEVEN (Mario, ago 2026), y la que
+ * coges pasa por delante del resto.
+ *
+ * No es un juguete gratuito: ahí están las tres caras del producto, y poder
+ * empujarlas dice que esto es una pantalla viva y no una lámina de marketing.
+ * Mientras mueves una la estás mirando a ella, así que tiene que tapar a todo lo
+ * demás; y si al soltarla volviera detrás pegaría un salto justo al terminar el
+ * gesto, así que el orden que deja el arrastre se queda puesto.
+ *
+ * AL VOLVER ARRIBA, CADA UNA VUELVE A SU SITIO (Mario). Es lo que convierte el
+ * arrastre en algo que se puede tocar sin miedo: nada se pierde y no hace falta un
+ * botón de "colocar" que solo serviría para deshacer lo que acabas de hacer. El
+ * hero, además, tiene una composición pensada, y esa composición es a lo que hay
+ * que volver.
+ *
+ * SOLO CON PUNTERO FINO, y no es un olvido: en táctil un arrastre vertical encima
+ * de una pieza ES el scroll de la página, y robárselo deja la portada sin poder
+ * bajar. Es la misma decisión que retiró el gesto de abrir el cajón cuando se
+ * peleaba con el desplazamiento horizontal de la tabla: dos cosas que compiten por
+ * el mismo gesto no se reparten con heurísticas, se queda la que no tiene
+ * alternativa.
+ *
+ * SIN ALTERNATIVA DE TECLADO, y hay que declararlo porque esta doctrina la exige
+ * siempre que hay arrastre. La exige cuando el arrastre PRODUCE algo (una lista
+ * reordenada, una columna más ancha): ahí hay un destino al que alguien tiene que
+ * poder llegar de otra forma. Aquí no hay destino, porque dónde acabe una pieza
+ * decorativa no es un valor que nadie necesite fijar, y una ruta de teclado hacia
+ * él sería meter en el tabulador tres imágenes que no llevan a ninguna parte.
+ *
+ * EL ARRASTRE VA EN `transform` Y LO DEMÁS EN `translate`/`scale`, que son
+ * propiedades DISTINTAS y se componen (el navegador aplica primero `translate`,
+ * luego `scale` y al final `transform`). Escritos en la misma, o el arrastre
+ * hereda la transición de 720ms de la entrada y la pieza va por detrás del ratón,
+ * o hay que apagar y encender esa transición a mano en cada gesto. Separados, cada
+ * uno lleva su tiempo sin enterarse del otro.
+ *
+ * Y se escribe DIRECTO en el nodo, sin `setState`, que es lo mismo que ya hacen el
+ * parallax de al lado y el asa de las columnas: un render por fotograma repintaría
+ * el hero entero para mover una caja.
+ */
+// Cuántas se han cogido, para que la ÚLTIMA quede encima. Contador de módulo y no
+// estado de React a propósito: quién tapa a quién es el ORDEN en que se han
+// cogido, que es literalmente lo que cuenta un contador. Con estado habría que
+// subir la pregunta al padre y bajarla como prop a cada pieza, o sea inventar un
+// canal entre hermanas para un dato que ninguna de las tres lee.
+//
+// Arranca POR ENCIMA de la pila de reposo (tablón 1, ventana 2, teléfono 3, en
+// `index.css`), o coger el tablón lo dejaría empatado con la ventana y seguiría
+// medio tapado justo mientras lo mueves.
+let ordenAgarre = 3
+
+type Arrastre = {
+  px: number
+  py: number
+  x: number
+  y: number
+  escala: number
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+}
+
+const entre = (min: number, max: number, v: number) => Math.min(max, Math.max(min, v))
+
+/** @param enReposo El hero ha vuelto arriba: cada pieza se va a su sitio. */
+function useAgarrable(enReposo: boolean) {
+  const ref = useRef<HTMLDivElement>(null)
+  const menosMovimiento = useMenosMovimiento()
+  const arrastre = useRef<Arrastre | null>(null)
+
+  const alPulsar = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = ref.current
+    if (!el || e.pointerType === 'touch' || e.button !== 0) return
+    const caja = el.getBoundingClientRect()
+    // LA PIEZA VIVE DENTRO DE UNA CAJA ESCALADA, así que un `translate` suyo no
+    // mide en pantalla lo que dice. La ventana del hero está al 0,92 mientras el
+    // realce del scroll está puesto, o sea que moviendo el ratón 120px la pieza
+    // recorría 110 y se quedaba un 8% por detrás del puntero: en un arrastre largo
+    // eso ya no es un detalle, es que el objeto no obedece a la mano. Se mide la
+    // escala que de verdad tiene encima (lo que ocupa contra lo que dice medir) y
+    // el recorrido se divide por ella. Se lee al EMPEZAR el gesto y no en cada
+    // movimiento, porque medir una caja obliga al navegador a recalcular la
+    // maquetación y eso no se hace sesenta veces por segundo.
+    const escala = caja.width / el.offsetWidth || 1
+    // De dónde parte: se lee del DOM y no de un contador propio, así que una pieza
+    // cogida A MEDIA VUELTA a su sitio sigue desde donde de verdad está (durante
+    // una transición, el valor calculado es el del fotograma actual). Y ojo: el
+    // `transform` calculado NO incluye `translate` ni `scale`, que son propiedades
+    // aparte; aquí solo llega lo que ha puesto el arrastre.
+    const desde = new DOMMatrixReadOnly(getComputedStyle(el).transform)
+    // LA JAULA ES LA PANTALLA (Mario): se pueden empujar por donde quieras, pero no
+    // sacarlas. Los topes se ESTIRAN para incluir el sitio de partida, así que coger
+    // una pieza nunca la mueve: en su sitio de casa el teléfono ya asoma un poco por
+    // debajo del pliegue, y un tope a secas lo habría subido de un tirón al tocarlo.
+    arrastre.current = {
+      px: e.clientX,
+      py: e.clientY,
+      x: desde.m41,
+      y: desde.m42,
+      escala,
+      minX: Math.min(desde.m41, desde.m41 - caja.left / escala),
+      maxX: Math.max(desde.m41, desde.m41 + (window.innerWidth - caja.right) / escala),
+      minY: Math.min(desde.m42, desde.m42 - caja.top / escala),
+      maxY: Math.max(desde.m42, desde.m42 + (window.innerHeight - caja.bottom) / escala),
+    }
+    // Se corta la vuelta a casa si estaba en marcha: primero se quita la duración y
+    // luego se clava el valor de este fotograma, los dos antes de que el navegador
+    // vuelva a calcular estilos, o la transición en vuelo daría un salto al final.
+    el.style.removeProperty('--t-agarre')
+    el.style.transform = `translate(${desde.m41}px, ${desde.m42}px)`
+    el.style.zIndex = String(++ordenAgarre)
+    // La captura mantiene el gesto aunque el puntero se salga de la pieza.
+    el.setPointerCapture(e.pointerId)
+    e.preventDefault()
+  }
+
+  const alMover = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = ref.current
+    const a = arrastre.current
+    if (!el || !a) return
+    const x = entre(a.minX, a.maxX, a.x + (e.clientX - a.px) / a.escala)
+    const y = entre(a.minY, a.maxY, a.y + (e.clientY - a.py) / a.escala)
+    el.style.transform = `translate(${x}px, ${y}px)`
+  }
+
+  const alSoltar = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!arrastre.current) return
+    arrastre.current = null
+    const el = e.currentTarget
+    try {
+      if (el.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId)
+    } catch {
+      /* ya se había soltado */
+    }
+  }
+
+  // LA VUELTA A CASA. La duración viaja en una variable y no en una clase porque
+  // `transition` es una abreviatura: una regla nueva no le AÑADE `transform` a la
+  // lista, se la SUSTITUYE entera, y con ella se irían el fundido y la entrada. Con
+  // la variable, la lista se declara una sola vez en el CSS (donde tiene que estar)
+  // y aquí solo se enciende: en reposo vale 0s, o sea que el arrastre es inmediato.
+  //
+  // Y DURA 240ms, NO LOS 720 DEL HERO, que es lo primero que se probó (Mario: "los
+  // mocks pequeños hacen el efecto out en la posición en la que estaban y
+  // reaparecen en la predeterminada"). Con la misma duración que el fundido, la
+  // vuelta y el apagado van CLAVADOS el uno al otro, y eso, que suena a lo
+  // correcto, es justo lo que la esconde: medido fotograma a fotograma, la pieza
+  // recorría el 80% del camino ya por debajo del 50% de opacidad, así que lo único
+  // que se veía era el arranque. Volviendo en un tercio del tiempo, llega a su
+  // sitio con la opacidad todavía en ~0,7 y el viaje se ve entero; el hero la apaga
+  // después, que es su parte. Es lo mismo que ya hace el relevo del raíl lateral:
+  // lo que tiene que verse ocupa su propio tramo y no compite con lo que lo tapa.
+  //
+  // Las tres vuelven con el mismo tiempo aunque la ventana grande no se funda: dos
+  // velocidades se leerían como dos gestos distintos en una composición que es una.
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !enReposo || !el.style.transform) return
+    // El orden de apilado se suelta AL LLEGAR y no al salir: por el camino la pieza
+    // sigue siendo la que estabas moviendo y tiene que seguir pasando por delante.
+    const limpiar = () => {
+      el.style.removeProperty('--t-agarre')
+      el.style.removeProperty('z-index')
+    }
+    if (menosMovimiento) {
+      // Quien pide menos movimiento no quiere ver volar una caja de vuelta; y ahí
+      // las piezas están quietas en su sitio, así que colocarlas de golpe no
+      // interrumpe ningún gesto.
+      el.style.transform = ''
+      limpiar()
+      return
+    }
+    el.style.setProperty('--t-agarre', 'var(--duration-max)')
+    el.style.transform = ''
+    const fin = (ev: TransitionEvent) => {
+      if (ev.propertyName === 'transform') limpiar()
+    }
+    el.addEventListener('transitionend', fin)
+    el.addEventListener('transitioncancel', fin)
+    return () => {
+      el.removeEventListener('transitionend', fin)
+      el.removeEventListener('transitioncancel', fin)
+      // Y SE LIMPIA TAMBIÉN AL BAJAR OTRA VEZ, que es la parte que se olvida y se
+      // vio en pantalla: volviendo a bajar antes de que la pieza llegue a su sitio,
+      // el `transitionend` ya no llega (esto se ha desmontado) y el z-index se
+      // quedaba puesto, así que la ventana grande seguía tapando a los dos mocks en
+      // una composición donde ya nadie había cogido nada. Quitar aquí la duración
+      // da la vuelta por terminada al instante, que es lo correcto: la pieza ya iba
+      // a casa y lo que estás haciendo es volver a mirar el hero entero.
+      limpiar()
+    }
+  }, [enReposo, menosMovimiento])
+
+  return {
+    ref,
+    manejadores: {
+      onPointerDown: alPulsar,
+      onPointerMove: alMover,
+      onPointerUp: alSoltar,
+      onPointerCancel: alSoltar,
+      // Lo de dentro son IMÁGENES, y el navegador tiene su propio gesto para ellas:
+      // arrastrarlas como fichero, con su fantasma translúcido colgando del ratón.
+      // Se corta una vez aquí y no con un `draggable={false}` por imagen, porque el
+      // evento burbujea y esto son ocho capturas repartidas en tres piezas: cada
+      // `<img>` nueva volvería a traérselo.
+      onDragStart: (e: React.DragEvent<HTMLDivElement>) => e.preventDefault(),
+    },
+  }
+}
+
 // EL MISMO PRODUCTO EN EL OTRO LADO: el anuncio que ve el candidato, en su móvil.
 // Al lado del panel dice de un vistazo lo que el hero no puede decir con palabras
 // sin alargarse: que esto son DOS superficies, la de quien contrata y la de quien
@@ -223,9 +450,20 @@ function Pantallas() {
 // INVENTARLAS, y un dato inventado en la pantalla que enseña el producto es
 // justamente lo que esta casa no hace. La isla basta para que se lea como un
 // teléfono moderno, que es todo lo que tiene que decir el marco.
-export function MovilShot({ className = '' }: { className?: string }) {
+export function MovilShot({
+  className = '',
+  enReposo = false,
+}: {
+  className?: string
+  enReposo?: boolean
+}) {
+  const { ref, manejadores } = useAgarrable(enReposo)
   return (
-    <div className={`hero-movil bg-slate-900 shadow-pop ${className}`}>
+    <div
+      ref={ref}
+      {...manejadores}
+      className={`hero-movil hero-agarre select-none bg-slate-900 shadow-pop ${className}`}
+    >
       {/* El `relative` va AQUÍ y no en el cuerpo, y no es cosmético: quien monta
           esta pieza la coloca (`absolute`), y `relative` y `absolute` son la MISMA
           utilidad de Tailwind, así que no se resuelven por el orden en que se
@@ -263,10 +501,19 @@ export function MovilShot({ className = '' }: { className?: string }) {
 //
 // Aquí no hace falta CSS aparte, a diferencia del teléfono: no hay medidas
 // derivadas de otras (ni canto, ni radios concéntricos), solo un ancho por talla.
-export function TablonShot({ className = '' }: { className?: string }) {
+export function TablonShot({
+  className = '',
+  enReposo = false,
+}: {
+  className?: string
+  enReposo?: boolean
+}) {
+  const { ref, manejadores } = useAgarrable(enReposo)
   return (
     <div
-      className={`hero-tablon w-64 overflow-clip rounded-xl filo bg-white shadow-pop xl:w-72 ${className}`}
+      ref={ref}
+      {...manejadores}
+      className={`hero-tablon hero-agarre select-none w-64 overflow-clip rounded-xl filo bg-white shadow-pop xl:w-72 ${className}`}
     >
       <BarraNavegador compacta />
       <div className="p-3.5">
