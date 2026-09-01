@@ -630,7 +630,12 @@ function ChatTime({ children }: { children: React.ReactNode }) {
 
 function Compare() {
   return (
-    <section className="bg-white">
+    // EL FILO QUE CIERRA EL HERO VIVE AQUÍ, no en el hero (Mario, ago 2026). El hero
+    // lleva un margen inferior NEGATIVO para comerse el hueco que le sobra al
+    // parallax, así que su caja acaba 64px por DENTRO de esta sección: un
+    // `border-b` suyo se dibujaría ahí abajo y lo taparía este fondo blanco. El
+    // filo de arriba de quien viene después cae justo en la frontera que se ve.
+    <section className="border-t border-slate-200 bg-white">
       <div className="mx-auto max-w-6xl section-x section-y">
         <Reveal className="text-center">
           <p className="text-sm font-semibold text-slate-500">La misma vacante, dos conversaciones</p>
