@@ -2,7 +2,8 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, CheckCheck, MapPin, Phone, Video } from 'lucide-react'
 import { bloquesDelDia, franja, reloj, partesClave, type Bloque } from '../lib/agenda'
 import { INTERVIEW_STATUS_META, type Interview } from '../lib/types'
-import { clockTimeInZone, fullDateTimeInZone } from '../lib/format'
+import { isLive } from '../lib/interviews'
+import { clockTimeInZone, fullDateTimeInZone, type MemberTone } from '../lib/format'
 
 /**
  * La semana (o el día) con sus citas colocadas a la hora que son.
@@ -32,6 +33,7 @@ export function AgendaGrid({
   nombreDe,
   puestoDe,
   atencionDe,
+  tonoDe,
   onDia,
   onAbrir,
 }: {
@@ -45,6 +47,11 @@ export function AgendaGrid({
   nombreDe: (i: Interview) => string
   puestoDe: (i: Interview) => string
   atencionDe: (candidateId: string) => string | null
+  /**
+   * El tono del ANFITRIÓN, o null si teñir no diría nada (una sola agenda en la
+   * empresa). Lo decide quien monta la rejilla, que es quien sabe cuántas hay.
+   */
+  tonoDe: (i: Interview) => MemberTone | null
   /** Abrir un día suelto al pulsar su cabecera. */
   onDia: (clave: string) => void
   /** Abrir la ficha del candidato SIN salir de la agenda. */
@@ -243,6 +250,7 @@ export function AgendaGrid({
                       nombre={nombreDe(b.entrevista)}
                       puesto={puestoDe(b.entrevista)}
                       atencion={atencionDe(b.entrevista.candidateId)}
+                      tono={tonoDe(b.entrevista)}
                       pasada={dia < hoy || (dia === hoy && b.hasta <= ahoraMin)}
                       holgado={dias.length === 1 && b.columnas === 1}
                       onAbrir={onAbrir}
@@ -273,6 +281,7 @@ function BloqueCita({
   nombre,
   puesto,
   atencion,
+  tono,
   pasada,
   holgado,
   onAbrir,
@@ -282,6 +291,7 @@ function BloqueCita({
   nombre: string
   puesto: string
   atencion: string | null
+  tono: MemberTone | null
   pasada: boolean
   /** Un día entero para él solo: cabe el puesto en la misma línea del nombre. */
   holgado: boolean
@@ -289,6 +299,12 @@ function BloqueCita({
 }) {
   const { entrevista: i, columna, columnas } = bloque
   const meta = INTERVIEW_STATUS_META[i.status]
+  // UNA CITA CAÍDA NO SE TIÑE DE NADIE. Cancelada, rechazada, sin respuesta o no
+  // se pudo: ese hueco vuelve a estar libre, y eso pesa más que de quién era. Se
+  // queda con el gris apagado del estado, que es lo que deja ver de un vistazo
+  // qué tramos de la semana han quedado sueltos.
+  const caida = !isLive(i.status) && i.status !== 'realizada'
+  const suyo = caida ? null : tono
   const altura = Math.max((bloque.hasta - bloque.desde) * PX_MIN, 26)
   const inicio = clockTimeInZone(i.startsAt!, i.timezone)
   const fin = i.endsAt ? clockTimeInZone(i.endsAt, i.timezone) : null
@@ -319,10 +335,24 @@ function BloqueCita({
       }}
       className={`absolute z-10 flex flex-col overflow-hidden rounded-lg py-1 text-left ring-1 ring-inset transition-shadow hover:z-20 hover:shadow-card ${
         estrecho ? 'pl-1.5 pr-1' : 'pl-2.5 pr-1.5'
-      } ${meta.chip} ${meta.borde} ${pasada ? 'opacity-60' : ''}`}
+      } ${suyo ? `${suyo.suave} ${suyo.canto} text-slate-900` : `${meta.chip} ${meta.borde}`} ${
+        pasada ? 'opacity-60' : ''
+      }`}
     >
-      {/* El filo de color dice el estado sin gastar una palabra de las pocas que caben. */}
-      <span className={`absolute inset-y-0 left-0 w-[3px] ${meta.dot}`} aria-hidden />
+      {/* EN ESTA PANTALLA EL COLOR DICE UNA SOLA COSA: DE QUIÉN ES LA CITA (Mario,
+          ago 2026). El filo llegó a quedarse con el estado, para no perder el
+          canal; con la tarjeta del raíl al lado diciendo lo contrario con el mismo
+          gesto, eran dos idiomas para el mismo color en la misma pantalla. Ahora
+          el filo es el tono OSCURO de la persona, o sea la clase exacta que pinta
+          su cara, sobre el claro del relleno.
+          EL ESTADO NO SE PIERDE, cambia de canal: una cita caída se queda en gris
+          ENTERA (arriba), una pasada baja a 60% de opacidad, la lista lo escribe
+          con su palabra y el `title` de aquí lo dice. Lo que hoy no tiene canal
+          propio es "la hora aún no está cerrada" (invitada, eligiendo), y no se
+          echa en falta porque con WhatsApp apagado no existe ninguna. Cuando
+          exista, su canal es la FORMA (un bloque a rayas, el idioma de siempre
+          para una cita tentativa), nunca otro tono: el hue ya es de la persona. */}
+      <span className={`absolute inset-y-0 left-0 w-[3px] ${suyo ? suyo.bg : meta.dot}`} aria-hidden />
 
       <span className="flex items-center gap-1 leading-none">
         <span className="num text-[11px] font-semibold">{inicio}</span>
@@ -341,16 +371,22 @@ function BloqueCita({
         <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
           <span className="truncate text-[12.5px] font-semibold leading-tight text-slate-900">{nombre}</span>
           {holgado && (
-            <span className="flex min-w-0 items-center gap-1 text-[11.5px] leading-tight text-slate-500">
-              <Icono className="size-3 shrink-0 text-slate-400" aria-hidden />
+            <span className="flex min-w-0 items-center gap-1 text-[11.5px] leading-tight text-slate-600">
+              <Icono className="size-3 shrink-0 text-slate-500" aria-hidden />
               <span className="truncate">{sitio ? `${puesto}, ${sitio}` : puesto}</span>
             </span>
           )}
         </span>
       )}
+      {/* SOBRE UN RELLENO TEÑIDO, `slate-500` NO LLEGA (ago 2026). Medido: 4,00:1
+          sobre el peor tono de la paleta y 4,31 sobre el ámbar que ya se usaba, con
+          el suelo en 4,5; y el icono en `slate-400` se quedaba en 2,20, por debajo
+          del 3:1 de un gráfico con significado. Venía de antes: el bloque llevaba el
+          gris de apoyo del PAPEL BLANCO puesto sobre un fondo de color, y nadie lo
+          había vuelto a medir. Sube a 600/500 y da 6,31 y 4,00. */}
       {conPuesto && (
-        <span className="mt-auto flex items-center gap-1 truncate text-[11px] leading-none text-slate-500">
-          <Icono className="size-3 shrink-0 text-slate-400" aria-hidden />
+        <span className="mt-auto flex items-center gap-1 truncate text-[11px] leading-none text-slate-600">
+          <Icono className="size-3 shrink-0 text-slate-500" aria-hidden />
           <span className="truncate">{sitio || puesto}</span>
         </span>
       )}

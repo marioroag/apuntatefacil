@@ -16,7 +16,8 @@ import { claveDeHoy, partesClave, rotuloRango, semanaDe, sumarDias } from '../li
 import { INTERVIEW_STATUS_META, type Interview } from '../lib/types'
 import { PageHeader } from '../components/ui/PageHeader'
 import {
-  candidateName, clockTimeInZone, dayKeyInZone, fullDateTimeInZone, minutesInZone, personLabel, plural,
+  candidateName, clockTimeInZone, dayKeyInZone, fullDateTimeInZone, memberAvatarTone, minutesInZone,
+  personLabel, plural, type MemberTone,
 } from '../lib/format'
 
 // Agenda de entrevistas de toda la empresa: a quién ves, cuándo y dónde, y su
@@ -256,6 +257,27 @@ function Agenda({ demo }: { demo: boolean }) {
   const puestoDe = (i: Interview) => campaigns.find((c) => c.id === i.campaignId)?.title ?? 'Puesto'
   const nombreDelFiltro = anfitriones.find((a) => a.id === soloDe)?.nombre ?? ''
 
+  // EL BLOQUE DE UNA CITA SE TIÑE DEL COLOR DE SU ANFITRIÓN (Mario, ago 2026).
+  // En una semana con tres agendas encima, lo primero que se pregunta al mirar
+  // la rejilla no es en qué estado está cada cita, es cuáles son MÍAS; y eso solo
+  // se podía contestar leyendo el filtro de arriba y volviendo a bajar.
+  //
+  // SALE DEL MISMO SITIO QUE SU CARA (`memberAvatarTone`, con la misma semilla),
+  // y eso no es un detalle de implementación: el filtro de anfitrión pinta esas
+  // caras justo encima de la rejilla, así que LAS CARAS SON LA LEYENDA. Con una
+  // paleta propia habría que aprenderse dos códigos para las mismas personas, y
+  // se separarían al primer retoque.
+  //
+  // CON UNA SOLA AGENDA NO SE TIÑE. No hay nada que distinguir, así que el color
+  // no diría de quién es sino que sería adorno, y encima le quitaría al bloque el
+  // relleno con el que hoy dice su estado. Es la misma regla que ya decide que el
+  // filtro de anfitrión no exista en una empresa de una persona.
+  const tonos = useMemo(() => {
+    if (anfitriones.length < 2) return null
+    return new Map<string, MemberTone>(anfitriones.map((a) => [a.id, memberAvatarTone(a.email ?? a.id)]))
+  }, [anfitriones])
+  const tonoDe = (i: Interview) => tonos?.get(i.hostUserId) ?? null
+
   // La ficha abierta y su puesto. El puesto sale del propio candidato, como en
   // la Bandeja: la agenda mezcla puestos, y así la cabecera del pop-up acompaña
   // al pasar de uno a otro con las flechas.
@@ -491,6 +513,7 @@ function Agenda({ demo }: { demo: boolean }) {
                       lista={delDia}
                       nombreDe={nombreDe}
                       puestoDe={puestoDe}
+                      tonoDe={tonoDe}
                       atencionDe={atencionDe}
                       onAbrir={setAbierto}
                     />
@@ -506,6 +529,7 @@ function Agenda({ demo }: { demo: boolean }) {
                       nombreDe={nombreDe}
                       puestoDe={puestoDe}
                       atencionDe={atencionDe}
+                      tonoDe={tonoDe}
                       onDia={(clave) => {
                         setCursor(clave)
                         cambiar({ intervalo: 'dia' })
@@ -528,6 +552,7 @@ function Agenda({ demo }: { demo: boolean }) {
                           lista={delDia}
                           nombreDe={nombreDe}
                           puestoDe={puestoDe}
+                          tonoDe={tonoDe}
                           atencionDe={atencionDe}
                           onAbrir={setAbierto}
                         />
@@ -578,6 +603,7 @@ function DiaDelRail({
   nombreDe,
   puestoDe,
   atencionDe,
+  tonoDe,
   onAbrir,
   ancho = false,
 }: {
@@ -587,6 +613,8 @@ function DiaDelRail({
   nombreDe: (i: Interview) => string
   puestoDe: (i: Interview) => string
   atencionDe: (candidateId: string) => string | null
+  /** El tono del anfitrión, o null si teñir no diría nada (una sola agenda). */
+  tonoDe: (i: Interview) => MemberTone | null
   onAbrir: (candidateId: string) => void
   /**
    * A ANCHO DE PANTALLA (el móvil, ago 2026). Ahí esto no acompaña a una rejilla:
@@ -635,6 +663,7 @@ function DiaDelRail({
             ) : (
               <li key={i.id}>
                 <TarjetaRail
+                  tono={tonoDe(i)}
                   entrevista={i}
                   nombre={nombreDe(i)}
                   puesto={puestoDe(i)}
@@ -664,12 +693,14 @@ function TarjetaRail({
   nombre,
   puesto,
   atencion,
+  tono,
   onAbrir,
 }: {
   entrevista: Interview
   nombre: string
   puesto: string
   atencion: string | null
+  tono: MemberTone | null
   onAbrir: (candidateId: string) => void
 }) {
   const meta = INTERVIEW_STATUS_META[i.status]
@@ -682,7 +713,16 @@ function TarjetaRail({
       title={`${nombre}. ${puesto}. ${meta.label}${atencion ? `. ${atencion}` : ''}`}
       className="relative flex w-full flex-col overflow-hidden rounded-xl filo bg-white py-2.5 pl-3.5 pr-3 text-left transition-colors duration-[var(--duration-control)] hover:filo-slate-300"
     >
-      <span className={`absolute inset-y-0 left-0 w-[3px] ${meta.dot}`} aria-hidden />
+      {/* EL FILO DICE DE QUIÉN ES, no en qué estado está (Mario, ago 2026). Es el
+          mismo color exacto que su cara: `tono.bg` es la clase que pinta el disco
+          del avatar, así que la fila de caras del filtro sigue siendo la leyenda
+          también aquí. Con el filo diciendo el estado, esta tarjeta y el bloque de
+          al lado hablaban dos idiomas para el mismo color y en la misma pantalla.
+          Medido sobre el blanco de la tarjeta: 5,03-8,36:1 según el tono.
+          Sin tono (una sola agenda) el color vuelve a decir el estado, y ahí va con
+          `barra` y no con `dot`: es el único que lo dice, así que tiene que llegar
+          a 3:1, y `dot` se quedaba en 2,13 el ámbar y 2,22 el verde. */}
+      <span className={`absolute inset-y-0 left-0 w-[3px] ${tono ? tono.bg : meta.barra}`} aria-hidden />
       <span className="flex min-w-0 items-center gap-2">
         <span className="num shrink-0 text-[13px] font-semibold text-slate-900">
           {i.startsAt ? clockTimeInZone(i.startsAt, i.timezone) : '--:--'}

@@ -357,17 +357,35 @@ export const INTERVIEW_LIVE: InterviewStatus[] = ['invitada', 'proponiendo', 'co
  * es una pastilla: el bloque del calendario (`AgendaGrid`), que sí necesita canto
  * propio para separarse de sus vecinos y de la rejilla. Mezclado dentro de `chip`,
  * la pastilla se lo llevaba puesto sin quererlo.
+ *
+ * `barra` es el MISMO tono dos peldaños más oscuro, y existe desde que el bloque
+ * del calendario se tiñe del color de su anfitrión (ago 2026). Ahí el filo de 3px
+ * pasó a ser el ÚNICO portador del estado, y `dot` no da la talla: medido sobre
+ * un relleno de persona da **1,86:1**, por debajo del 3:1 que esta casa exige a un
+ * gráfico con significado. Antes no se notaba porque el relleno decía el estado
+ * también, así que el filo solo lo repetía; al mudarse el relleno, un adorno pasó
+ * a ser una señal sin que nadie volviera a medirlo.
+ *
+ * **Y separa por LUMINOSIDAD, no por tono**, que es lo que lo hace fiable: el hue
+ * de la persona es arbitrario, así que un filo ámbar sobre un relleno naranja o
+ * uno azul sobre uno celeste se pierden por parecido. Con el peso 700 el filo se
+ * lee sobre CUALQUIERA de los diez tonos de la paleta (medido: 3,7-4,0:1). Es la
+ * misma salida que ya resolvió la estrella dorada contra el ámbar de "entrevista":
+ * cuando dos colores compiten, desempata otra propiedad.
  */
-export const INTERVIEW_STATUS_META: Record<InterviewStatus, { label: string; dot: string; chip: string; borde: string }> = {
-  invitada:      { label: 'Invitada',      dot: 'bg-blue-500',  chip: 'bg-blue-100 text-blue-800',   borde: 'ring-blue-200' },
-  proponiendo:   { label: 'Eligiendo',     dot: 'bg-blue-500',  chip: 'bg-blue-100 text-blue-800',   borde: 'ring-blue-200' },
-  confirmada:    { label: 'Confirmada',    dot: 'bg-amber-500', chip: 'bg-amber-100 text-amber-800', borde: 'ring-amber-200' },
-  reprogramando: { label: 'Reprogramando', dot: 'bg-amber-500', chip: 'bg-amber-100 text-amber-800', borde: 'ring-amber-200' },
-  realizada:     { label: 'Realizada',     dot: 'bg-green-500', chip: 'bg-green-100 text-green-800', borde: 'ring-green-200' },
-  cancelada:     { label: 'Cancelada',     dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
-  rechazada:     { label: 'No le interesa', dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
-  sin_respuesta: { label: 'Sin respuesta', dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
-  fallida:       { label: 'No se pudo',    dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
+export const INTERVIEW_STATUS_META: Record<
+  InterviewStatus,
+  { label: string; dot: string; barra: string; chip: string; borde: string }
+> = {
+  invitada:      { label: 'Invitada',      dot: 'bg-blue-500',  barra: 'bg-blue-700',  chip: 'bg-blue-100 text-blue-800',   borde: 'ring-blue-200' },
+  proponiendo:   { label: 'Eligiendo',     dot: 'bg-blue-500',  barra: 'bg-blue-700',  chip: 'bg-blue-100 text-blue-800',   borde: 'ring-blue-200' },
+  confirmada:    { label: 'Confirmada',    dot: 'bg-amber-500', barra: 'bg-amber-700', chip: 'bg-amber-100 text-amber-800', borde: 'ring-amber-200' },
+  reprogramando: { label: 'Reprogramando', dot: 'bg-amber-500', barra: 'bg-amber-700', chip: 'bg-amber-100 text-amber-800', borde: 'ring-amber-200' },
+  realizada:     { label: 'Realizada',     dot: 'bg-green-500', barra: 'bg-green-700', chip: 'bg-green-100 text-green-800', borde: 'ring-green-200' },
+  cancelada:     { label: 'Cancelada',     dot: 'bg-slate-300', barra: 'bg-slate-400', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
+  rechazada:     { label: 'No le interesa', dot: 'bg-slate-300', barra: 'bg-slate-400', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
+  sin_respuesta: { label: 'Sin respuesta', dot: 'bg-slate-300', barra: 'bg-slate-400', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
+  fallida:       { label: 'No se pudo',    dot: 'bg-slate-300', barra: 'bg-slate-400', chip: 'bg-slate-100 text-slate-500', borde: 'ring-slate-200' },
 }
 
 /**

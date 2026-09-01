@@ -276,22 +276,50 @@ export function initials(name: string): string {
 }
 
 /**
- * Color estable por miembro del equipo (email o id).
- * Misma semilla → mismo tono en tablón, hilo y lista de miembros.
- * Paleta fija, sin el ultramarine de marca (ese va solo a acción).
+ * COLOR ESTABLE POR MIEMBRO DEL EQUIPO (semilla: su email o su id).
+ * Misma semilla → mismo tono en el tablón, en el hilo, en la lista de miembros y
+ * en la agenda. Paleta fija, sin el ultramarine de marca (ese va solo a acción).
+ *
+ * **UNA ENTRADA SIRVE A DOS SUPERFICIES, y por eso trae cuatro clases.** `bg` +
+ * `text` pintan el DISCO de la cara (tono oscuro, inicial en blanco); `suave` +
+ * `canto` pintan un RELLENO CLARO del mismo hue, que es lo que necesita el bloque
+ * de una cita en el calendario (ago 2026). Es el mismo reparto que ya hace
+ * `STATUS_META`: un hue, dos pesos según dónde se pinte. Lo que NO puede pasar es
+ * que sean dos tablas: el filtro de anfitrión de la agenda pinta las caras justo
+ * encima de la rejilla, así que las caras SON la leyenda de los bloques, y dos
+ * listas de la misma verdad se separan al primer retoque.
+ *
+ * **EL GRAFITO SALIÓ DE LA TABLA al entrar la segunda superficie.** Era el único
+ * que no era un color de identidad sino el NEUTRO de la app, el mismo gris con el
+ * que se dice "esto está apagado", y en un calendario ese gris ya significa algo:
+ * es el relleno de una cita caída, o sea un hueco libre otra vez. Como cara
+ * pasaba desapercibido; como bloque haría que las citas vivas de una persona se
+ * leyeran como canceladas. En su sitio va lima, que es el único hue distinto que
+ * quedaba libre (fuera el rojo y el rosa por reservados, el azul y el índigo por
+ * vecinos de la marca, y el resto por ser el mismo color que otra entrada).
+ * Cuesta que quien hoy tiene la cara en grafito la vea cambiar: el color no está
+ * guardado en ninguna parte, sale del hash, así que es solo eso, un repinte.
+ *
+ * El rosa SÍ se queda, y no contradice al "fuera el rojo y el rosa" de las
+ * etiquetas: aquella regla es para un chip suelto en una tabla gris, donde el
+ * rosa se lee como un problema. Aquí TODOS los bloques van teñidos, así que uno
+ * rosa es otra persona más y no una alarma.
  */
 const MEMBER_AVATAR_TONES = [
-  { bg: 'bg-slate-800', text: 'text-white', name: 'text-slate-800' },
-  { bg: 'bg-sky-700', text: 'text-white', name: 'text-sky-700' },
-  { bg: 'bg-teal-700', text: 'text-white', name: 'text-teal-700' },
-  { bg: 'bg-violet-700', text: 'text-white', name: 'text-violet-700' },
-  { bg: 'bg-amber-700', text: 'text-white', name: 'text-amber-800' },
-  { bg: 'bg-rose-700', text: 'text-white', name: 'text-rose-700' },
-  { bg: 'bg-emerald-700', text: 'text-white', name: 'text-emerald-700' },
-  { bg: 'bg-orange-700', text: 'text-white', name: 'text-orange-700' },
-  { bg: 'bg-cyan-800', text: 'text-white', name: 'text-cyan-800' },
-  { bg: 'bg-fuchsia-800', text: 'text-white', name: 'text-fuchsia-800' },
+  { bg: 'bg-lime-700', text: 'text-white', name: 'text-lime-700', suave: 'bg-lime-100', canto: 'ring-lime-200' },
+  { bg: 'bg-sky-700', text: 'text-white', name: 'text-sky-700', suave: 'bg-sky-100', canto: 'ring-sky-200' },
+  { bg: 'bg-teal-700', text: 'text-white', name: 'text-teal-700', suave: 'bg-teal-100', canto: 'ring-teal-200' },
+  { bg: 'bg-violet-700', text: 'text-white', name: 'text-violet-700', suave: 'bg-violet-100', canto: 'ring-violet-200' },
+  { bg: 'bg-amber-700', text: 'text-white', name: 'text-amber-800', suave: 'bg-amber-100', canto: 'ring-amber-200' },
+  { bg: 'bg-rose-700', text: 'text-white', name: 'text-rose-700', suave: 'bg-rose-100', canto: 'ring-rose-200' },
+  { bg: 'bg-emerald-700', text: 'text-white', name: 'text-emerald-700', suave: 'bg-emerald-100', canto: 'ring-emerald-200' },
+  { bg: 'bg-orange-700', text: 'text-white', name: 'text-orange-700', suave: 'bg-orange-100', canto: 'ring-orange-200' },
+  { bg: 'bg-cyan-800', text: 'text-white', name: 'text-cyan-800', suave: 'bg-cyan-100', canto: 'ring-cyan-200' },
+  { bg: 'bg-fuchsia-800', text: 'text-white', name: 'text-fuchsia-800', suave: 'bg-fuchsia-100', canto: 'ring-fuchsia-200' },
 ] as const
+
+/** Lo que un tono de miembro sabe pintar: la cara (bg/text/name) y un relleno claro. */
+export type MemberTone = (typeof MEMBER_AVATAR_TONES)[number]
 
 function hashSeed(seed: string): number {
   let h = 0
@@ -299,11 +327,7 @@ function hashSeed(seed: string): number {
   return Math.abs(h)
 }
 
-export function memberAvatarTone(seed: string | null | undefined): {
-  bg: string
-  text: string
-  name: string
-} {
+export function memberAvatarTone(seed: string | null | undefined): MemberTone {
   const key = (seed ?? '').trim().toLowerCase()
   if (!key) return MEMBER_AVATAR_TONES[0]
   return MEMBER_AVATAR_TONES[hashSeed(key) % MEMBER_AVATAR_TONES.length]
