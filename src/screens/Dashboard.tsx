@@ -77,7 +77,8 @@ import { exportCandidatesToExcel, exportCandidatesToCsv, exportCandidateDocs } f
 type FormatoExport = 'xlsx' | 'csv' | 'zip'
 import { RegistrarAccion } from '../lib/acciones'
 import { answerStr, CAMPOS_YA_PINTADOS, relativeDate, fechaCorta, fullDateTime, miles, formatPhone, candidateName } from '../lib/format'
-import { clickDeFila } from '../lib/fila'
+import { clickDeFila, invasionDeSeleccion } from '../lib/fila'
+import type { Invasion } from '../lib/fila'
 // El anillo de ajuste se queda en el avatar (Mario, jul 2026) y desde ago 2026 lo
 // acompaña la columna "Encaje", que dice en palabras lo que el anillo dice en arco:
 // mismo par punto+texto que exige la doctrina para el estado. Con ella vuelve su
@@ -2100,6 +2101,22 @@ const ANCHO_ESCRITORIO: Partial<Record<ColKey, number>> = {
 const anchoEscritorioDe = (k: ColKey, tipo?: FormField['type']) => ANCHO_ESCRITORIO[k] ?? medidasDe(tipo).base
 const anchoMovilDe = (k: ColKey, tipo?: FormField['type']) => ANCHO_MOVIL[k] ?? medidasDe(tipo).base
 
+/**
+ * Las clases del tinte que INVADE, por lado (ver `.fila-invade` en index.css).
+ *
+ * Compuestas aquí y no al vuelo (`fila-invade-${dir}`): son clases con nombre y
+ * este proyecto ya se ha comido una vez que una clase compuesta a mano no llegue
+ * nunca al CSS compilado (el chevron del `<select>`). Escritas enteras, un
+ * buscador las encuentra desde la hoja de estilos.
+ */
+const CLASE_INVASION: Record<Invasion, string> = {
+  arriba: 'fila-invade fila-invade-arriba',
+  abajo: 'fila-invade fila-invade-abajo',
+  ambos: 'fila-invade fila-invade-ambos',
+}
+/** Identidad estable para el arranque: así el primer render no crea un mapa por fila. */
+const SIN_INVASION: Map<string, Invasion> = new Map()
+
 // Memoizada: es lo más caro de la pantalla (142 filas son ~200ms de pintura) y el
 // panel se repinta por cosas que no la tocan, la primera de ellas cada tecla del
 // buscador. Con las props estables (ver los `useCallback` del panel), un render que
@@ -2188,6 +2205,53 @@ const CandidateTable = memo(function CandidateTable({
   // entran aquí: son pocas y viven en su propio `<tbody>`, encima de estas.
   const cuerpoRef = useRef<HTMLTableSectionElement>(null)
   const { desde, hasta, huecoArriba, huecoAbajo } = useFilasALaVista(rows.length, cuerpoRef)
+  // LA SELECCIÓN INVADE DESDE LA FILA DE AL LADO (Mario, sep 2026). La decisión
+  // está en `invasionDeSeleccion` y la pintura en `.fila-invade` (index.css);
+  // aquí solo vive lo que ninguno de los dos puede saber: CUÁL era la selección
+  // antes de este clic.
+  //
+  // Se ajusta el estado DURANTE el render y no desde un efecto, que es lo que
+  // esta doctrina ya fijó para resincronizar con algo que llega de fuera: un
+  // efecto pinta primero la fila con el tinte ya puesto y la animación arranca
+  // un fotograma tarde, o sea con el color entero a la vista. Es el mismo motivo
+  // por el que un reset no se anima en la gráfica de Vista general.
+  const [selAntes, setSelAntes] = useState(selected)
+  const [invasion, setInvasion] = useState<Map<string, Invasion>>(SIN_INVASION)
+  if (selAntes !== selected) {
+    setSelAntes(selected)
+    const nueva = invasionDeSeleccion(rows.map((r) => r.id), selAntes, selected)
+    setInvasion((m) => {
+      // Se MEZCLA en vez de sustituir: marcando dos vecinas seguidas y deprisa,
+      // sustituir le quitaría la clase a la primera a media animación y su fondo
+      // pegaría un salto del 60% al 100%. Y de paso se limpia lo que ya no está
+      // marcado, que es lo que impide que el mapa crezca sin fin.
+      const sobran = [...m.keys()].some((id) => !selected.has(id))
+      if (nueva.size === 0 && !sobran) return m
+      const n = new Map(m)
+      for (const id of n.keys()) if (!selected.has(id)) n.delete(id)
+      for (const [id, dir] of nueva) n.set(id, dir)
+      return n
+    })
+  }
+  // Al acabar la animación la fila vuelve al tinte de siempre. No es limpieza por
+  // limpieza: la tabla pinta solo las filas que se ven, así que una fila marcada
+  // que se sale de pantalla y vuelve se MONTA otra vez, y con la clase puesta
+  // volvería a invadir cada vez que pasas por ella.
+  //
+  // Lo que se paga, y es pequeño: si la fila se desmonta a MEDIA animación
+  // (marcar y desplazarse deprisa en el mismo gesto) el evento no llega nunca, y
+  // esa fila invadirá una vez más al volver a pantalla. Con reduced-motion no hay
+  // ni animación ni evento, así que la clase se queda pintando el mismo tinte
+  // hasta que se desmarque, que es exactamente lo que se ve.
+  const olvidarInvasion = useCallback((id: string) => {
+    setInvasion((m) => {
+      if (!m.has(id)) return m
+      const n = new Map(m)
+      n.delete(id)
+      return n
+    })
+  }, [])
+
   // La casilla de selección no está en `orden`: es el asa de la fila, no un campo.
   const columnasTabla = orden.length + 1
   // EL MÍNIMO DE CADA COLUMNA LO DICE SU CONTENIDO (Mario, ago 2026). No hay un
@@ -2569,13 +2633,24 @@ const CandidateTable = memo(function CandidateTable({
           <HuecoFilas alto={huecoArriba} columnas={columnasTabla} />
           {rows.slice(desde, hasta).map((c) => {
             const sel = selected.has(c.id)
+            const invade = invasion.get(c.id)
+            // El fondo de una fila MARCADA es SIEMPRE el tinte de siempre; lo que
+            // añade la invasión es el blanco que aún no ha sido invadido, que
+            // encoge encima (`CLASE_INVASION` y `.fila-invade` en index.css). Que
+            // el color de debajo no cambie en ningún momento es lo que hace que al
+            // acabar la animación no se vea el relevo: es el parpadeo que tenía la
+            // primera versión, que iba de blanco y tenía que virar al tinte.
+            const fondoSel = `bg-tabla-selec ${invade ? CLASE_INVASION[invade] : ''}`
             // El fondo de las dos celdas FIJAS. Es el mismo de la fila y no puede
             // no serlo: la fila lo necesita para pintarse y ellas para tapar lo
             // que se desliza por debajo, así que un tono distinto sería una
-            // costura vertical en mitad de cada candidato.
+            // costura vertical en mitad de cada candidato. Y por eso la invasión
+            // la llevan las tres a la vez: puestas en el mismo commit, sus
+            // animaciones arrancan en el mismo fotograma y se leen como una sola
+            // banda creciendo.
             // Con la transición de la fila: la celda fija pinta su propio fondo,
             // y sin ella salta mientras el resto se funde (ver `TRANSICION_FILA`).
-            const fondoFila = esMovil ? '' : `${TRANSICION_FILA} ${sel ? 'bg-tabla-selec' : 'bg-white group-hover:bg-slate-50'}`
+            const fondoFila = esMovil ? '' : `${TRANSICION_FILA} ${sel ? fondoSel : 'bg-white group-hover:bg-slate-50'}`
             const name = candidateName(c) || 'Sin nombre'
             const arrivedAt = arrivalOrder.get(c.id)
             const hasTags = c.tagIds.some((id) => tags.some((tag) => tag.id === id))
@@ -2586,7 +2661,10 @@ const CandidateTable = memo(function CandidateTable({
                   ? { animation: `drop-in 240ms var(--ease-out) ${Math.min(arrivedAt, 4) * 45}ms both` }
                   : undefined}
                 onClick={(e) => clickDeFila(e) && onOpen(c.id)}
-                className={`${ROW} group cursor-pointer ${sel ? 'bg-tabla-selec' : 'hover:bg-slate-50'}`}
+                // Solo la de la propia fila: la misma animación corre en las dos
+                // celdas fijas y su evento burbujea hasta aquí.
+                onAnimationEnd={(e) => { if (e.target === e.currentTarget) olvidarInvasion(c.id) }}
+                className={`${ROW} group cursor-pointer ${sel ? fondoSel : 'hover:bg-slate-50'}`}
               >
                 {/* La ÚNICA celda que no abre la ficha, y a propósito: es la zona de
                     puntería de su checkbox, no un hueco de la fila (ver lib/fila.ts). */}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clickDeFila } from './fila'
+import { clickDeFila, invasionDeSeleccion } from './fila'
 import fuenteFila from './fila.ts?raw'
 
 /**
@@ -113,5 +113,64 @@ describe('clickDeFila distingue la fila de sus controles', () => {
         `clickDeFila ya no reconoce <${control}> como control: un click dentro de uno abrirá además la ficha.`,
       ).toBe(true)
     }
+  })
+})
+
+/**
+ * EL GUARDIÁN DE LA INVASIÓN.
+ *
+ * Lo que de verdad vigila, porque es lo único que aquí se puede romper sin que
+ * se note: la regla de que solo invade la fila marcada SOLA. Sin ella, un
+ * "seleccionar todo" con una fila ya marcada deja una rezagada animándose
+ * mientras las otras cien aparecen de golpe, y eso solo se ve en el clic
+ * concreto que lo provoca. El resto de casos son la especificación escrita: qué
+ * filo elige cada vecindad, y que el orden que manda es en el que se PINTA (la
+ * tabla se ordena por seis columnas, así que "contiguo" cambia con el orden).
+ */
+describe('la selección invade desde la fila de al lado', () => {
+  const filas = ['a', 'b', 'c', 'd']
+  const set = (...ids: string[]) => new Set(ids)
+
+  it('entra por arriba cuando la vecina de arriba ya estaba marcada', () => {
+    expect(invasionDeSeleccion(filas, set('a'), set('a', 'b')).get('b')).toBe('arriba')
+  })
+
+  it('entra por abajo cuando la que ya estaba marcada es la de abajo', () => {
+    expect(invasionDeSeleccion(filas, set('c'), set('b', 'c')).get('b')).toBe('abajo')
+  })
+
+  it('entra por los dos filos al rellenar un hueco', () => {
+    expect(invasionDeSeleccion(filas, set('a', 'c'), set('a', 'b', 'c')).get('b')).toBe('ambos')
+  })
+
+  it('una fila marcada sola no invade: no hay de dónde venga el color', () => {
+    expect(invasionDeSeleccion(filas, set(), set('b')).size).toBe(0)
+    // Y tampoco vale una marcada que no esté PEGADA: `a` y `c` no se tocan.
+    expect(invasionDeSeleccion(filas, set('a'), set('a', 'c')).size).toBe(0)
+  })
+
+  it('marcarlas todas de golpe no invade ninguna, ni aunque una toque a otra ya marcada', () => {
+    expect(invasionDeSeleccion(filas, set(), set(...filas)).size).toBe(0)
+    // Este es el caso que hay que sostener, y el que falla en cuanto alguien
+    // quita la regla de "solo una": `d` ya estaba marcada y `c` llega pegada a
+    // ella, pero llega con otras dos, así que no se ha unido a nadie, han
+    // llegado todas juntas.
+    expect(invasionDeSeleccion(filas, set('d'), set(...filas)).size).toBe(0)
+  })
+
+  it('desmarcar no invade', () => {
+    expect(invasionDeSeleccion(filas, set('a', 'b'), set('a')).size).toBe(0)
+  })
+
+  it('el vecino se busca en el orden en que se PINTA la tabla', () => {
+    // Las mismas dos filas con la tabla ordenada al revés: `b` deja de tener a
+    // `a` encima y pasa a tenerla debajo, así que el tinte entra por el filo
+    // contrario. Es lo que obliga a que quien llama pase las filas ya ordenadas.
+    expect(invasionDeSeleccion(['d', 'c', 'b', 'a'], set('a'), set('a', 'b')).get('b')).toBe('abajo')
+  })
+
+  it('la primera y la última fila solo miran hacia dentro', () => {
+    expect(invasionDeSeleccion(filas, set('b'), set('a', 'b')).get('a')).toBe('abajo')
+    expect(invasionDeSeleccion(filas, set('c'), set('c', 'd')).get('d')).toBe('arriba')
   })
 })

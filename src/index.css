@@ -384,6 +384,88 @@
   }
 }
 
+/* LA SELECCIÓN INVADE DESDE LA FILA DE AL LADO (Mario, sep 2026)
+   ---------------------------------------------------------------------------
+   Marcar una fila pegada a otra ya marcada es AGRANDAR la selección que ya hay,
+   no empezar una nueva; apareciendo de golpe las dos cosas se ven igual. Con el
+   tinte entrando por el filo que comparten, el bloque se lee como bloque justo
+   en el momento en que crece. Quién invade y desde qué lado lo decide
+   `invasionDeSeleccion` (src/lib/fila.ts), que es donde está escrito por qué una
+   fila marcada sola NO invade: no tendría de dónde venir el color.
+
+   CÓMO: la fila se tiñe ENTERA desde el primer fotograma y lo que se anima es el
+   BLANCO que todavía no ha sido invadido, una capa de fondo que encoge hasta
+   cero contra el filo por el que entra el tinte. Se ve exactamente igual y es la
+   única forma de que no parpadee al terminar; el porqué, abajo.
+
+   No es una caja superpuesta que se escala, y eso lo manda la anatomía de la
+   tabla: el fondo de una fila lo pintan TRES elementos, el `<tr>` y las dos
+   celdas fijas, que son opacas para tapar lo que se desliza por debajo (ver
+   `FIJA` en DataTable). Una caja encima del `<tr>` quedaría por debajo de las
+   fijas y la invasión no se vería en la mitad izquierda, que es justamente donde
+   está la casilla que acabas de pulsar. La misma clase en los tres, arrancada en
+   el mismo fotograma, es una sola banda.
+
+   POR QUÉ ENCOGE EL BLANCO Y NO CRECE EL TINTE, que fue el primer intento y lo
+   cazó Mario: "hay un blink al terminar en el que se quita el tinte y vuelve
+   entero". Con el tinte como capa, la fila tenía que ir de blanco por debajo, y
+   al acabar la animación había que devolverla a su fondo de siempre
+   (`bg-tabla-selec`) y quitar la capa. Ese relevo cambia el COLOR DE FONDO del
+   blanco al tinte, y la fila lleva `transition-colors` (`TRANSICION_FILA`, que
+   está ahí para que la celda fija no salte contra el resto), así que el cambio
+   se animaba 150ms: la capa desaparecía de golpe, el color arrancaba en blanco y
+   subía hasta el tinte. Un parpadeo.
+
+   Invertido, el color de fondo es el tinte ANTES, DURANTE y DESPUÉS, así que al
+   quitar la clase no hay ningún color que transicionar y no hay relevo que ver.
+   LA REGLA GENERAL, que vale para cualquier animación que acabe entregándole el
+   resultado a un estado en reposo: **anima lo que SOBRA, no lo que llega**, o
+   asegúrate de que lo que pinta durante y lo que pinta después es el mismo valor.
+   Si el elemento tiene además una transición declarada, el relevo no es
+   instantáneo aunque lo parezca en el código.
+
+   EXCEPCIÓN DECLARADA a "solo transform y opacity", con el mismo argumento que
+   el barrido del skeleton (`shimmer`, que anima `background-position`) y el
+   destello de la cita del CV (`background-color`): no mueve ninguna caja ni toca
+   el layout, es pintura sobre 56px de alto y solo en las filas que se ven (la
+   tabla pinta una ventana, no las 593 de Candidatos). Y el `linear-gradient` es
+   de UN color de punta a punta, o sea que tampoco es un gradiente: es la única
+   forma que hay de darle altura a un fondo.
+
+   `--duration-enter` porque esto es algo que APARECE, y `--ease-standard` y no
+   `--ease-out` por el reparto que ya fijó el buscador del panel: la curva
+   exponencial es para lo que reacciona a tu dedo SOBRE EL PROPIO OBJETO, y aquí
+   no se está arrastrando nada, se transforma la selección de un estado a otro.
+   Medido con `--ease-out`, el tinte se comía el 54% de la fila en los primeros
+   11ms: eso no es una invasión, es un destello. Con la estándar entra y sale
+   despacio y se ve de dónde viene, que es todo lo que esto tiene que contar.
+
+   Con reduced-motion la fila sale teñida entera: lo que se pierde es la lectura
+   de por dónde ha crecido, no la selección, que se sigue viendo en el tinte y en
+   la casilla. */
+@keyframes fila-invade { from { background-size: 100% 100%; } }
+
+.fila-invade {
+  /* Lo que queda por invadir: el blanco de una fila sin marcar. En reposo mide
+     cero, así que la clase que se quede puesta de más no pinta nada. */
+  background-image: linear-gradient(var(--color-white) 0 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 0%;
+  /* Y sin transición de color mientras dura: por debajo del blanco la fila ya
+     está teñida, y con la transición puesta el tinte que va asomando llegaría a
+     medio camino de su color. */
+  transition-property: none;
+}
+/* El blanco se retira hacia el filo CONTRARIO a aquel por el que entra el tinte;
+   rellenando un hueco entre dos ya marcadas, entra por los dos y el blanco se
+   cierra en el centro. */
+.fila-invade-arriba { background-position: bottom; }
+.fila-invade-abajo { background-position: top; }
+.fila-invade-ambos { background-position: center; }
+@media (prefers-reduced-motion: no-preference) {
+  .fila-invade { animation: fila-invade var(--duration-enter) var(--ease-standard); }
+}
+
 /* LA CITA SUBRAYADA EN EL CV (CvViewer). Ámbar de marcador fluorescente sobre el
    documento, con multiply para que la letra respire debajo como con un marcador
    de verdad. EXCEPCIÓN DECLARADA a "estado y decoración no comparten paleta":
