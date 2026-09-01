@@ -1568,8 +1568,14 @@ function Documentos({
     const fila = await addCandidateDocument(candidate.id, { path: up.data.path, nombre, bytes: file.size })
     setSubiendo(false)
     if (!fila) {
-      // El fichero ya está en el bucket pero nadie lo referencia: se retira.
-      await supabase.storage.from('cvs').remove([up.data.path]).catch(() => {})
+      // EL FICHERO SE QUEDA EN EL BUCKET, y no es un descuido: aquí había un
+      // `remove()` que no borraba nada. El permiso de borrado se deriva de la FILA
+      // (`20260902130000_borrar_documentos.sql`) y este es justo el caso en que la
+      // fila no existe, así que no hay nada de donde derivarlo. Se probó cubrirlo
+      // por `owner_id`, y para eso hay que ensanchar también la LECTURA del bucket
+      // (storage exige ver el objeto antes de borrarlo): no compensa abrir la
+      // lectura de una carpeta de CV por un fallo raro. El huérfano lo limpia un
+      // barrido de servidor, que está pendiente.
       toast.error('No se pudo guardar el documento.')
       return
     }

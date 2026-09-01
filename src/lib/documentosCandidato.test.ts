@@ -31,6 +31,10 @@ const MIGRACIONES = import.meta.glob('../../supabase/migrations/*.sql', {
   query: '?raw', import: 'default', eager: true,
 }) as Record<string, string>
 
+const FUENTE = import.meta.glob('../**/*.{ts,tsx}', {
+  query: '?raw', import: 'default', eager: true,
+}) as Record<string, string>
+
 /** El cuerpo de la última declaración de una policy, sin sus comentarios. */
 function ultimaPolicy(nombre: string): { fichero: string; cuerpo: string } | null {
   const re = new RegExp(`create policy "${nombre}"[\\s\\S]*?;`, 'g')
@@ -64,8 +68,42 @@ describe('los documentos de un candidato', () => {
     ).toContain('candidate_documents')
   })
 
+  /**
+   * BORRAR SE DERIVA DE LA FILA IGUAL QUE LEER. El bucket estuvo sin política de
+   * DELETE, así que las tres llamadas a `remove()` que había en el cliente no
+   * borraban nada: contestaban 200 con `[]` (medido), y el `.catch()` de detrás
+   * nunca se enteraba. Quien quitaba un documento se quedaba con el fichero
+   * dentro del bucket para siempre.
+   */
+  it('el bucket tiene política de borrado, y con el mismo gate que la de leer', () => {
+    const p = ultimaPolicy('cvs_delete_visible')
+    expect(p, 'no hay política de DELETE sobre `cvs`: `remove()` devuelve 200 sin borrar nada').not.toBeNull()
+    expect(p!.cuerpo, `${p!.fichero}: el borrado no mira \`candidate_documents\``).toContain('candidate_documents')
+    expect(p!.cuerpo, `${p!.fichero}: el borrado no mira \`candidates.cv_path\``).toMatch(/candidates[\s\S]*cv_path|cv_path[\s\S]*candidates/)
+  })
+
+  /**
+   * Y NADIE VUELVE A PROMETER UNA LIMPIEZA QUE NO OCURRE. Un `remove()` sobre
+   * `cvs` solo puede borrar lo que tiene fila, así que fuera del store (que borra
+   * el fichero ANTES que la fila, por eso funciona) cualquier otra llamada es un
+   * no-op con un comentario al lado afirmando lo contrario. Los huérfanos son cosa
+   * de un barrido de servidor.
+   */
+  it('solo el store borra del bucket, y nadie finge limpiar huérfanos', () => {
+    const culpables = Object.entries(FUENTE)
+      .filter(([r]) => !r.includes('.test.') && !r.endsWith('/store.tsx'))
+      .filter(([, src]) =>
+        src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').includes("storage.from('cvs').remove"))
+      .map(([r]) => r.replace(/^\.{1,2}\//, 'src/'))
+    expect(
+      culpables,
+      'Un `remove()` sobre `cvs` fuera del store no borra: el permiso se deriva de la FILA, ' +
+        'y estos sitios llaman justo cuando la fila no existe. Devuelve 200 con [] y ningún error.',
+    ).toEqual([])
+  })
+
   it('nada que dé acceso a un documento se acota por EMPRESA', () => {
-    for (const nombre of ['cvs_select_visible', 'candidate_documents_select', 'candidate_documents_insert', 'candidate_documents_delete']) {
+    for (const nombre of ['cvs_select_visible', 'cvs_delete_visible', 'candidate_documents_select', 'candidate_documents_insert', 'candidate_documents_delete']) {
       const p = ultimaPolicy(nombre)
       if (!p) continue
       expect(

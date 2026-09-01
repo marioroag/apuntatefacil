@@ -292,9 +292,13 @@ export function PublicForm() {
         const path = `${campaign.slug}/${crypto.randomUUID()}.${ext}`
         const up = await supabase.storage.from('cvs').upload(path, file, { upsert: false })
         if (up.error) {
-          // Lo ya subido se retira: media candidatura de ficheros huérfanos (con
-          // datos personales) sin candidato que los referencie es peor que nada.
-          if (subidos.length) await supabase.storage.from('cvs').remove(subidos).catch(() => {})
+          // LO YA SUBIDO SE QUEDA. Aquí había un `remove()` de los ficheros
+          // anteriores; no borraba nada y el `.catch()` que llevaba detrás no
+          // llegaba a enterarse, porque `.remove()` contesta 200 con `[]` cuando
+          // no puede. Quien sube es `anon`, así que no hay ni fila ni `owner_id`
+          // de donde derivar el permiso, y una regla por prefijo dejaría a
+          // cualquiera borrar el CV de cualquiera. Es cosa de un barrido de
+          // servidor, que está pendiente.
           setSubmitPhase('idle')
           setSubmitError('No pudimos subir tu documento. Inténtalo de nuevo o quítalo para continuar.')
           formTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -321,10 +325,9 @@ export function PublicForm() {
     })
     setSubmitPhase('idle')
     if (error) {
-      // El CV ya se subió antes del RPC: si la candidatura se rechaza, lo borramos
-      // para no dejar ficheros huérfanos (con PII) sin candidato que los referencie.
-      const huerfanos = [cvPath, ...docs.map((d) => d.path)].filter((p): p is string => !!p)
-      if (huerfanos.length) supabase.storage.from('cvs').remove(huerfanos).catch(() => {})
+      // El CV ya se subió antes del RPC, y si la candidatura se rechaza SE QUEDA
+      // en el bucket. Mismo motivo que arriba: `anon` no puede borrar, y el
+      // `remove()` que había aquí devolvía 200 sin borrar nada.
       // El puesto puede haberse llenado o pausado entre que se cargó y se envió.
       const msg = error.message ?? ''
       const full = msg.includes('CANDIDATE_LIMIT_REACHED') || msg.includes('no acepta candidaturas')

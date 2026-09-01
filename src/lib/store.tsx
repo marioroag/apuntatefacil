@@ -2716,10 +2716,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return toCandidateDocument(data as CandidateDocumentRow)
     },
 
+    /**
+     * EL FICHERO PRIMERO Y LA FILA DESPUÉS, y ese orden ES el mecanismo.
+     *
+     * El permiso para borrar del bucket se DERIVA de la fila (misma regla que la
+     * lectura, ver `20260902130000_borrar_documentos.sql`), así que en cuanto la
+     * fila se va no queda nada desde donde alcanzar el fichero: se quedaría en el
+     * bucket para siempre, invisible, y quien pulsó "quitar" creería que lo borró.
+     * Al revés es recuperable en los dos fallos posibles: si el fichero no se va,
+     * no se toca nada y se puede reintentar; si se fue y la fila no, el reintento
+     * borra la fila (el bucket ya no tiene nada que quitar).
+     *
+     * OJO CON `.remove()`: **no devuelve error cuando no borra nada**. Contesta 200
+     * con `[]`, así que un `.catch()` detrás nunca se dispara. Lo que dice si de
+     * verdad se fue es el LARGO del array; el `error` solo aparece si falla la red.
+     * Aquí basta con distinguir eso: `[]` significa que ya no estaba (un reintento),
+     * y entonces borrar la fila es exactamente lo que toca.
+     */
     removeCandidateDocument: async (id) => {
       if (companyId === 'demo') {
         setDemoCandidateDocuments((ds) => ds.filter((d) => d.id !== id))
         return true
+      }
+      const { data: fila } = await supabase
+        .from('candidate_documents').select('path').eq('id', id).maybeSingle()
+      if (fila?.path) {
+        const { error: errStorage } = await supabase.storage.from('cvs').remove([fila.path])
+        if (errStorage) return false // fallo de red: la fila NO se toca
       }
       const { error } = await supabase.from('candidate_documents').delete().eq('id', id)
       return !error
