@@ -64,8 +64,6 @@ import { AjustesVista, type OpcionOrden } from '../components/AjustesVista'
 import { KanbanPuesto } from '../components/KanbanPuesto'
 import { useModoPanel, type ModoPanel } from '../lib/modoPanel'
 import { DUR, EASE } from '../lib/motion'
-import { Avatar } from '../components/ui/Avatar'
-import { useProfiles } from '../lib/profiles'
 import { StatusSelect, StatusPickerSheet, MenuEstado } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -76,7 +74,7 @@ import { exportCandidatesToExcel, exportCandidatesToCsv, exportCandidateDocs } f
 /** Los tres formatos de exportación (ver la página Exportar del `···`). */
 type FormatoExport = 'xlsx' | 'csv' | 'zip'
 import { RegistrarAccion } from '../lib/acciones'
-import { answerStr, CAMPOS_YA_PINTADOS, relativeDate, fechaCorta, fullDateTime, miles, formatPhone, candidateName } from '../lib/format'
+import { answerStr, CAMPOS_YA_PINTADOS, fechaCorta, fullDateTime, miles, formatPhone, candidateName } from '../lib/format'
 import { clickDeFila, invasionDeSeleccion } from '../lib/fila'
 import type { Invasion } from '../lib/fila'
 // El anillo de ajuste se queda en el avatar (Mario, jul 2026) y desde ago 2026 lo
@@ -150,8 +148,7 @@ export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany, setStatusMany, setStatus, setFavorito, commentCounts } = useStore()
-  const { company, role, user } = useAuth()
-  const profiles = useProfiles()
+  const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
   const navigate = useNavigate()
@@ -573,14 +570,6 @@ export function Dashboard() {
       return n
     })
   }, [])
-  // "Actualizado hace X": la candidatura más reciente. El puesto no guarda un
-  // `updatedAt` y no se inventa uno; lo que se pregunta en la cabecera es cuándo
-  // fue la última vez que aquí pasó algo, y eso es que entró alguien.
-  const ultimaEntrada = useMemo(
-    () => all.reduce<string | null>((max, c) => (!max || c.submittedAt > max ? c.submittedAt : max), null),
-    [all],
-  )
-
   // IDs de candidatos que "acaban de llegar" (en vivo por realtime, por refresco
   // manual o por tirar para refrescar) mientras el usuario ya tenía el puesto
   // abierto: la fila hace una entrada breve en la tabla (nunca en la carga
@@ -1160,42 +1149,18 @@ export function Dashboard() {
                 .concat(`${miles(all.length)} ${all.length === 1 ? 'candidatura' : 'candidaturas'}`)
                 .join(' · ')}
             </p>
-            {/* La última señal de vida del puesto se dice DOS VECES en el JSX pero
-                UNA SOLA en cada ancho, que es la regla: en escritorio cabe a la
-                derecha, junto a tu cara y los verbos; por debajo de `lg` esa fila
-                no tiene sitio y baja a su propia línea, debajo del contexto
-                (referencia de Mario, ago 2026). Antes simplemente desaparecía por
-                debajo de `lg`, o sea que en el móvil no había forma de saber si el
-                puesto seguía recibiendo gente. */}
-            {ultimaEntrada && (
-              <p className="mt-0.5 text-sm font-medium text-slate-500 lg:hidden">
-                Actualizado {relativeDate(ultimaEntrada)}
-              </p>
-            )}
           </div>
 
           <div className="flex shrink-0 items-center gap-2.5">
-            {/* Última señal de vida del puesto: la candidatura más reciente. No hay
-                `updatedAt` en el puesto y no se inventa uno: lo que de verdad se
-                pregunta aquí es cuándo entró la última persona. */}
-            {ultimaEntrada && (
-              <span className="hidden text-[13px] text-slate-500 lg:inline">
-                Actualizado {relativeDate(ultimaEntrada)}
-              </span>
-            )}
-            {/* Aire extra DESPUÉS de tu cara: a la izquierda queda el contexto
-                (cuándo pasó algo, quién eres) y a la derecha los verbos. Con el
-                hueco uniforme de 10px, tu cara quedaba pegada a "Compartir" y se
-                leía como el primer botón de la serie. El aire ES jerarquía: dos
-                cosas con propósitos distintos no se pegan. */}
-            <span className="hidden sm:block sm:mr-1.5">
-              <Avatar
-                name={profiles.nameFor(user?.id ?? null, user?.email ?? null) || 'Tu cuenta'}
-                seed={user?.email ?? user?.id}
-                src={profiles.avatarFor(user?.id ?? null)}
-                size={28}
-              />
-            </span>
+            {/* AQUÍ NO SE DICE CUÁNDO NI QUIÉN (Mario, sep 2026). Vivían aquí un
+                "Actualizado hace X" (la última candidatura) y, pegada a él, TU
+                cara. Juntos se leían como una sola frase, "actualizado hace tres
+                horas por Marta", y esa frase es falsa: la cara era la de quien
+                mira, no la de quien tocó nada, y lo que se fechaba no era una
+                edición del puesto sino que hubiera entrado alguien. Eso último ya
+                lo cuenta la lista, que es lo que hay justo debajo, con su fecha
+                por fila. La cabecera se queda en lo que el puesto ES y en lo que
+                se puede hacer con él. */}
             <ShareMenu
               campaignId={campaign.id}
               title={campaign.title}
