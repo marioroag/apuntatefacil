@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CreditCard, Loader2, Receipt } from 'lucide-react'
 import {
-  PLAN_LABEL, PRECIO_PROCESO, PRUEBA_DIAS, diasDePruebaRestantes, procesoAbierto, procesosAbiertos,
+  PLAN_LABEL, PRECIO_PROCESO, PRUEBA_DIAS, diasDePruebaRestantes, hayPagoActivo, procesoAbierto,
+  procesosAbiertos,
 } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { useAuth } from '../lib/auth'
@@ -19,7 +20,53 @@ import { pollPlanAndReload } from '../lib/planSync'
 //  - Pagando: los procesos abiertos, el total al mes y el portal de Stripe
 //    (método de pago, facturas). Dejar de pagar = cerrar procesos, cada uno
 //    desde su pantalla: aquí no hay "cancelar suscripción" porque no hace falta.
-//  - Tiers antiguos (Esencial/Pro/Multi): se conservan cancelar/reanudar.
+//  - Tiers antiguos (Esencial/Pro/Multi): se conservan cancelar/reanudar,
+//    PERO solo si detrás hay una suscripción viva. Un plan antiguo puesto a
+//    mano (sin cliente ni suscripción en Stripe) no tiene nada que gestionar
+//    ni que cancelar: ahí lo único que cabe es el alta del pago por proceso.
+
+/**
+ * El alta del pago. Se declara una sola vez porque la piden DOS sitios: la
+ * prueba y un plan antiguo que se quedó sin suscripción detrás. Escrito dos
+ * veces, el día que se afine el botón o su letra pequeña se afinaría uno.
+ */
+function ActivarPago({ onClick, cargando, bloqueadas }: {
+  onClick: () => void
+  cargando: boolean
+  bloqueadas: number
+}) {
+  return (
+    <>
+      <button onClick={onClick} disabled={cargando} className={`${BTN_PRIMARY} mt-5 w-full justify-center sm:w-auto disabled:opacity-60`}>
+        {cargando ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <CreditCard className="size-4" aria-hidden />}
+        Añadir método de pago
+      </button>
+      <p className="mt-3 text-[13px] leading-relaxed text-slate-500">
+        Tarjeta o domiciliación (SEPA), con el pago seguro de Stripe. Al activarlo pagas {PRECIO_PROCESO} € al mes + IVA
+        por cada proceso que tengas abierto
+        {bloqueadas > 0 ? ', y tus candidaturas en espera se desbloquean al momento' : ''}.
+      </p>
+    </>
+  )
+}
+
+/**
+ * El motivo REAL de un fallo del servidor. `invoke` deja la respuesta 4xx/5xx
+ * envuelta en `error.context` sin leerle el cuerpo, así que sin esto cualquier
+ * causa conocida ("ya tienes una suscripción de un plan anterior") se leía en
+ * pantalla como un "inténtalo de nuevo" que no lleva a ninguna parte, y había
+ * que ir a los registros del servidor para saber qué pasaba.
+ */
+async function motivo(error: unknown): Promise<string | null> {
+  const ctx = (error as { context?: unknown })?.context
+  if (!(ctx instanceof Response)) return null
+  try {
+    const cuerpo = await ctx.clone().json()
+    return typeof cuerpo?.error === 'string' && cuerpo.error ? cuerpo.error : null
+  } catch {
+    return null // el cuerpo no era JSON
+  }
+}
 
 export function Plan() {
   const { company, refreshCompany, role, companyLoading } = useAuth()
@@ -78,7 +125,7 @@ export function Plan() {
       void pollPlanAndReload(refreshCompany, (co) => !!co && co.plan === 'proceso' && co.paid_processes > 0)
       return
     }
-    toast.error('No se pudo abrir el pago. Inténtalo de nuevo.')
+    toast.error(await motivo(error) ?? 'No se pudo abrir el pago. Inténtalo de nuevo.')
   }
 
   // Portal de Stripe: método de pago, facturas y datos fiscales.
@@ -92,7 +139,7 @@ export function Plan() {
       window.location.href = data.url as string
       return
     }
-    toast.error('No se pudo abrir el portal de facturación. Inténtalo de nuevo.')
+    toast.error(await motivo(error) ?? 'No se pudo abrir el portal de facturación. Inténtalo de nuevo.')
   }
 
   // Legacy: cancelar/reanudar la suscripción de un tier retirado.
@@ -101,7 +148,7 @@ export function Plan() {
     const { data, error } = await supabase.functions.invoke('stripe-checkout', { body: { cancel: true, companyId: company?.id } })
     setDialogBusy(false)
     if (error || !data?.canceled) {
-      toast.error('No se pudo cancelar. Inténtalo de nuevo.')
+      toast.error(await motivo(error) ?? 'No se pudo cancelar. Inténtalo de nuevo.')
       return
     }
     setConfirmCancel(false)
@@ -113,7 +160,7 @@ export function Plan() {
     const { data, error } = await supabase.functions.invoke('stripe-checkout', { body: { resume: true, companyId: company?.id } })
     setBusy(null)
     if (error || !data?.resumed) {
-      toast.error('No se pudo reanudar. Inténtalo de nuevo.')
+      toast.error(await motivo(error) ?? 'No se pudo reanudar. Inténtalo de nuevo.')
       return
     }
     toast.success('Suscripción reanudada.')
@@ -123,8 +170,9 @@ export function Plan() {
   const dias = diasDePruebaRestantes(company?.trial_ends_at)
   const bloqueadas = Object.values(lockedInfo).reduce((n, i) => n + i.count, 0)
   const pastDue = company?.subscription_status === 'past_due'
-  const sinPago = plan === 'proceso'
-    && !['active', 'trialing', 'past_due'].includes(company?.subscription_status ?? '')
+  // Lo que decide qué se puede hacer aquí es si Stripe está cobrando, no cómo
+  // se llame el plan: los dos se separan en cuanto un plan se pone a mano.
+  const conPago = hayPagoActivo(company)
   const esLegacy = plan === 'esencial' || plan === 'pro' || plan === 'multi'
 
   // Se iguala la ESCALA DE RELLENO con las demás pantallas del shell (`py-6
@@ -174,14 +222,7 @@ export function Plan() {
               se siguen recibiendo y las verás todas al activar el pago.
             </p>
           )}
-          <button onClick={activarPago} disabled={!!busy} className={`${BTN_PRIMARY} mt-5 w-full justify-center sm:w-auto disabled:opacity-60`}>
-            {busy === 'checkout' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <CreditCard className="size-4" aria-hidden />}
-            Añadir método de pago
-          </button>
-          <p className="mt-3 text-[13px] text-slate-500">
-            Tarjeta o domiciliación (SEPA), con el pago seguro de Stripe. Al activarlo pagas {PRECIO_PROCESO} € al mes + IVA
-            por cada proceso que tengas abierto, y tus candidaturas en espera se desbloquean al momento.
-          </p>
+          <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} />
         </div>
       )}
 
@@ -202,7 +243,7 @@ export function Plan() {
               revisa tu método de pago para no perder el acceso.
             </p>
           )}
-          {sinPago && (
+          {!conPago && (
             <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-[13px] leading-relaxed text-slate-600">
               No tienes ningún pago activo. Tus puestos cerrados se conservan enteros y exportables:
               reabre uno desde su pantalla y pasarás por el pago seguro de Stripe.
@@ -225,7 +266,7 @@ export function Plan() {
                 </li>
               ))}
             </ul>
-          ) : !sinPago ? (
+          ) : conPago ? (
             <p className="mt-4 text-sm text-slate-600">
               No tienes procesos abiertos: no se te cobrará más. Tus puestos cerrados siguen enteros y exportables.
             </p>
@@ -247,30 +288,43 @@ export function Plan() {
       {esLegacy && (
         <div className="mt-6 rounded-xl filo bg-white p-6 shadow-card">
           <h2 className="text-lg font-semibold text-slate-900">Plan {PLAN_LABEL[plan]}</h2>
-          <p className="mt-1 text-sm leading-relaxed text-slate-600">
-            Estás en un plan anterior, que ya no se ofrece. Lo conservas tal cual mientras quieras;
-            si lo cancelas, pasarás al pago por proceso ({PRECIO_PROCESO} € al mes + IVA por proceso abierto).
-          </p>
-          {company?.cancel_at_period_end ? (
+          {!conPago ? (
             <>
-              <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-[13px] text-slate-600">
-                Tu plan se cancelará al final del periodo ya pagado.
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                Estás en un plan anterior, que ya no se ofrece, y ahora mismo no tiene ningún pago detrás:
+                no hay facturas que ver ni suscripción que cancelar. Para seguir con tus procesos abiertos,
+                añade un método de pago y pasarás al pago por proceso.
               </p>
-              <button onClick={reanudarLegacy} disabled={!!busy} className={`${BTN_SECONDARY} mt-4 disabled:opacity-60`}>
-                {busy === 'resume' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-                Reanudar suscripción
-              </button>
+              <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} />
             </>
           ) : (
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button onClick={abrirPortal} disabled={!!busy} className={`${BTN_SECONDARY} disabled:opacity-60`}>
-                {busy === 'portal' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Receipt className="size-4 text-slate-400" aria-hidden />}
-                Gestionar pago y facturas
-              </button>
-              <button onClick={() => setConfirmCancel(true)} disabled={!!busy} className="text-sm font-medium text-slate-500 hover:text-red-600 disabled:opacity-60">
-                Cancelar suscripción
-              </button>
-            </div>
+            <>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                Estás en un plan anterior, que ya no se ofrece. Lo conservas tal cual mientras quieras;
+                si lo cancelas, pasarás al pago por proceso ({PRECIO_PROCESO} € al mes + IVA por proceso abierto).
+              </p>
+              {company?.cancel_at_period_end ? (
+                <>
+                  <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-[13px] text-slate-600">
+                    Tu plan se cancelará al final del periodo ya pagado.
+                  </p>
+                  <button onClick={reanudarLegacy} disabled={!!busy} className={`${BTN_SECONDARY} mt-4 disabled:opacity-60`}>
+                    {busy === 'resume' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+                    Reanudar suscripción
+                  </button>
+                </>
+              ) : (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <button onClick={abrirPortal} disabled={!!busy} className={`${BTN_SECONDARY} disabled:opacity-60`}>
+                    {busy === 'portal' ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Receipt className="size-4 text-slate-400" aria-hidden />}
+                    Gestionar pago y facturas
+                  </button>
+                  <button onClick={() => setConfirmCancel(true)} disabled={!!busy} className="text-sm font-medium text-slate-500 hover:text-red-600 disabled:opacity-60">
+                    Cancelar suscripción
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
