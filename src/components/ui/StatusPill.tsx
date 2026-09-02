@@ -167,9 +167,12 @@ export function StatusSelect({
   onChange: (s: CandidateStatus) => void
   align?: 'left' | 'right'
   /**
-   * Vive dentro de una celda de la rejilla. **En móvil, entonces, el disparador
+   * Vive dentro de una celda de la rejilla, y eso decide DOS cosas: que la
+   * pastilla se quede sin punto (ver más abajo) y cómo se pulsa en móvil.
+   *
+   * **En móvil el disparador
    * es la CELDA ENTERA** (Mario, ago 2026): una pastilla de 24px de alto es un
-   * objetivo de toque de la mitad del mínimo, y en una fila de 56px hay sitio de
+   * objetivo de toque de la mitad del mínimo, y en una fila de 48px hay sitio de
    * sobra alrededor que no hace nada. En escritorio se queda como está, porque
    * ahí apuntar con el ratón a la pastilla no cuesta nada y una zona pulsable
    * enorme se llevaría por delante el click que abre la ficha.
@@ -219,7 +222,15 @@ export function StatusSelect({
       <span
         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-semibold transition-colors ${m.chip} group-hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
       >
-        <span className={`size-2 shrink-0 rounded-full ${m.dot}`} aria-hidden />
+        {/* EN LA TABLA, SIN PUNTO (Mario, sep 2026). No rompe la regla de que un
+            estado nunca se dice solo con color: lo que se lee es su NOMBRE, y el
+            punto solo repetía en dos píxeles el mismo color que ya tiene el
+            relleno de la pastilla. En una columna de treinta filas eso son
+            treinta glifos que no añaden un dato, y es el mismo argumento que ya
+            le quitó el anillo a esta pastilla. Fuera de la tabla se queda: allí
+            la pastilla aparece SOLA, sin sus hermanas debajo para comparar, y el
+            punto es lo que la ata a la familia de los cinco estados. */}
+        {!celda && <span className={`size-2 shrink-0 rounded-full ${m.dot}`} aria-hidden />}
         {m.label}
         <ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />
       </span>
