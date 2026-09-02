@@ -93,7 +93,7 @@ export const FIJA = 'sticky z-10'
 export const TRANSICION_FILA = 'transition-colors duration-[var(--duration-control)]'
 
 /** Fila de datos. `group/row` deja que la última celda se quede sin filo inferior. */
-export const ROW = `group/row h-14 ${TRANSICION_FILA}`
+export const ROW = `group/row h-12 ${TRANSICION_FILA}`
 
 /**
  * Celda de datos.
@@ -375,7 +375,7 @@ export function ColHead({
 
    Tres cosas que hay que respetar al usarlo, y las tres se aprendieron aquí:
 
-   1. **EL ALTO DE FILA ES UN CONTRATO** (`ALTO_FILA`, los mismos 56px del `h-14`
+   1. **EL ALTO DE FILA ES UN CONTRATO** (`ALTO_FILA`, los mismos 48px del `h-12`
       de `ROW`). El hueco de arriba mide `desde * ALTO_FILA`, así que si una fila
       creciera, el hueco mentiría y la ventana se desplazaría respecto a lo que
       de verdad se ve. Por eso el alto lo declara ESTE módulo y no cada pantalla:
@@ -390,8 +390,20 @@ export function ColHead({
       es como se busca aquí a una persona.
 --------------------------------------------------------------------------- */
 
-/** El alto de una fila de datos, en píxeles: los mismos 56 del `h-14` de `ROW`. */
-export const ALTO_FILA = 56
+/**
+ * El alto de una fila de datos, en píxeles: los mismos 48 del `h-12` de `ROW`.
+ *
+ * Bajó de 56 a 48 en sep 2026 (Mario: "las rows un poco menos altas"). Lo que
+ * decide el suelo es que la FILA ES EL OBJETIVO DE TOQUE en móvil, donde se abre
+ * la ficha pulsándola entera: 48 es exactamente el mínimo, así que por debajo de
+ * aquí no se baja sin darle otra diana al dedo. Alrededor de la cara de 28px
+ * quedan 10 por lado, que es lo que separa una lista densa de una apretada.
+ *
+ * Y NO es solo este número: en móvil hay dos celdas (estado y etiquetas) cuyo
+ * disparador cubre la fila entera con un `min-h`, y si se quedan en el alto viejo
+ * son ELLAS las que estiran la fila. Van juntos o la fila mide dos cosas.
+ */
+export const ALTO_FILA = 48
 
 /** Filas de más que se pintan por encima y por debajo de lo que se ve. 12 son
  *  672px de margen a cada lado: bastante para que un desplazamiento normal no

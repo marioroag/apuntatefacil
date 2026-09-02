@@ -214,7 +214,7 @@ export function StatusSelect({
       valor={status}
       onChange={onChange}
       align={align}
-      triggerClass={`group inline-flex rounded-full ${celda ? 'max-sm:-mx-2 max-sm:flex max-sm:min-h-14 max-sm:w-[calc(100%+1rem)] max-sm:items-center max-sm:rounded-lg max-sm:px-2' : ''}`}
+      triggerClass={`group inline-flex rounded-full ${celda ? 'max-sm:-mx-2 max-sm:flex max-sm:min-h-12 max-sm:w-[calc(100%+1rem)] max-sm:items-center max-sm:rounded-lg max-sm:px-2' : ''}`}
     >
       <span
         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-semibold transition-colors ${m.chip} group-hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}

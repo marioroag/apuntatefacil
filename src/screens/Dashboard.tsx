@@ -2533,7 +2533,7 @@ const CandidateTable = memo(function CandidateTable({
             {lockedDates.map((date, i) => (
               // Sin `group/row`: estas filas nunca son la última de la tabla (debajo
               // vienen las reales), así que conservan su filo inferior siempre.
-              <tr key={`locked-${i}`} className="h-14 bg-tabla-bloqueada">
+              <tr key={`locked-${i}`} className="h-12 bg-tabla-bloqueada">
                 <td className={`${CELL_FLUSH} ${fijaCasilla} ${fijaCasilla && 'bg-tabla-bloqueada'} px-0 text-center leading-none`}>
                   <div aria-hidden className="mx-auto size-4 rounded-[5px] border border-slate-300 bg-white blur-[4px] select-none" />
                 </td>
@@ -2698,7 +2698,7 @@ const CandidateTable = memo(function CandidateTable({
                             selectedIds={[c.id]}
                             canManage={canManageTags}
                             flotante
-                            triggerClass="flex w-full min-w-0 items-center rounded-md -mx-1 px-1 py-0.5 text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 max-sm:-mx-2 max-sm:min-h-14 max-sm:w-[calc(100%+1rem)] max-sm:rounded-lg max-sm:px-2"
+                            triggerClass="flex w-full min-w-0 items-center rounded-md -mx-1 px-1 py-0.5 text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 max-sm:-mx-2 max-sm:min-h-12 max-sm:w-[calc(100%+1rem)] max-sm:rounded-lg max-sm:px-2"
                           >
                             {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} /> : <span className="text-[13px] text-slate-600">–</span>}
                           </BulkTagMenu>
@@ -3160,7 +3160,7 @@ function SkeletonRows({ showFit }: { showFit: boolean }) {
   return (
     <div role="status" aria-label="Cargando candidatos">
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="flex h-14 items-center gap-3 border-b border-slate-100 px-3 py-3 last:border-0">
+        <div key={i} className="flex h-12 items-center gap-3 border-b border-slate-100 px-3 py-3 last:border-0">
           <div className="size-4 shrink-0 rounded skeleton" />
           <div className="h-3.5 w-40 rounded skeleton" />
           <div className="ml-auto hidden items-center gap-8 md:flex">
