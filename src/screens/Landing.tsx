@@ -140,16 +140,25 @@ export function Landing() {
             blanco seguido, partidos solo por un filo que no separaba dos colores. Un
             filo entre dos fondos iguales no es una frontera, es una raya.
 
-            La primera banda de aquí es SIEMPRE gris, y a partir de ahí una sí y una no,
-            hasta el cierre, que vuelve a blanco porque su tarjeta oscura ya es el corte.
-            El filo horizontal lo pone la banda GRIS con su `border-y`, así cada cambio
-            de color lleva su línea y ninguna se duplica; la primera va con `border-b` a
-            secas porque encima tiene el filo a sangre del hero.
+            LA FASE SE VOLTEÓ AL LLEGAR EL DEGRADADO (Mario, sep 2026), así que ahora
+            la primera banda de aquí es BLANCA y la primera gris es "Cómo funciona". El
+            gris de arranque estaba ahí para que el filo del hero separase dos colores,
+            y esa deuda ya la paga el degradado: el suelo del hero es lavanda, no blanco,
+            de modo que el filo a sangre marca un cambio de verdad sin ayuda de la banda.
+            Y es la mejor de las dos, porque lavanda contra blanco es una transición
+            limpia mientras que lavanda contra gris son dos superficies teñidas
+            encontrándose, que enturbia el sitio donde acaba la portada.
+
+            A partir de ahí, una sí y una no hasta el cierre, al que ahora le toca gris
+            (su tarjeta oscura sigue siendo el corte; ese argumento nunca fue sobre el
+            color de la banda). El filo horizontal lo pone la banda GRIS con su
+            `border-y`, así cada cambio de color lleva su línea y ninguna se duplica; la
+            última va con `border-t` a secas porque debajo tiene el filo del pie.
 
             AL AÑADIR O QUITAR UNA SECCIÓN HAY QUE RECORRER LA CADENA, no solo darle un
             fondo a la nueva: la fase de todo lo que va detrás depende de cuántas haya
             delante. Es lo que no se hizo al borrar la de sectores. */}
-        <div className="mx-auto max-w-[90rem] sm:px-6">
+        <div className="mx-auto max-w-marco sm:px-6">
           <div className="sm:border-x sm:border-slate-200">
             <Compare />
             <HowItWorks />
@@ -220,7 +229,7 @@ function TopNav() {
           El tope de 1440 es MÁS ANCHO que el contenido de la página (1280), y es a
           propósito: en Attio la barra respira hasta el filo del navegador mientras
           lo de dentro sigue acotado. */}
-      <nav className="mx-auto flex max-w-[90rem] items-center justify-between px-4 py-4 sm:px-6" aria-label="Principal">
+      <nav className="mx-auto flex max-w-marco items-center justify-between px-4 py-4 sm:px-6" aria-label="Principal">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center" aria-label={BRAND}>
             <BrandLockup />
@@ -596,10 +605,32 @@ function Hero() {
     // `clip` y no `hidden` porque `hidden` haría de esto un contenedor de scroll.
     // Recorta en la caja de RELLENO, así que lo que cuelga hacia abajo dentro del
     // `pb-24` de la sección no se toca.
-    <div className="overflow-x-clip">
+    <div className="relative overflow-x-clip">
+      {/* EL TINTE VA A SANGRE Y DETRÁS DE TODO. Vive en el envoltorio y no en la
+          sección porque la sección va acotada a `max-w-7xl`: ahí dentro el color
+          moriría en el filo de la COLUMNA y se verían dos costuras verticales en
+          mitad del blanco. El hero es lo único de esta página que va de un filo del
+          navegador al otro, y esto tiene que ir con él.
+
+          NO LLEVA `z-index`, Y POR ESO LA SECCIÓN TIENE QUE SER `relative`. Un
+          absoluto se pinta en la capa de los posicionados, o sea POR ENCIMA del
+          texto de un bloque en flujo: sin tocar la sección, el tinte quedaba
+          lavando el titular en vez de detrás de él. Con las dos posicionadas y sin
+          z-index manda el orden del DOM, y la sección va después. `relative` a
+          secas no crea contexto de apilamiento, así que los z de los mocks (1, 2 y
+          3) siguen resolviéndose donde se resolvían.
+
+          Y NO con `-z-10`, que es el tropiezo clásico: el fondo blanco de la
+          página lo pinta un bloque en flujo, y esos van DESPUÉS de los z
+          negativos, así que el degradado desaparecería entero.
+
+          `bottom-16` son los mismos 64px del `-mb-16` de la sección, o sea que la
+          capa acaba justo en el filo que cierra el hero. Ese margen solo existe en
+          `lg`, que es exactamente donde vive el degradado. */}
+      <div aria-hidden className="hero-envolvente pointer-events-none absolute inset-x-0 top-0 bottom-16" />
     <section
       data-hero={movido ? 'movido' : undefined}
-      className="hero-seccion mx-auto max-w-7xl px-4 pb-16 pt-20 text-center sm:px-6 lg:-mb-16 lg:pb-0 lg:pt-28"
+      className="hero-seccion relative mx-auto max-w-7xl px-4 pb-16 pt-20 text-center sm:px-6 lg:-mb-16 lg:pb-0 lg:pt-28"
     >
         <div className="hero-texto">
           <h1 className="mx-auto text-balance text-[2.75rem] font-semibold leading-[1.04] tracking-[-0.035em] text-slate-900 sm:text-5xl lg:text-[4rem] lg:leading-[0.95] lg:tracking-[-0.02em]">
@@ -684,7 +715,7 @@ function ChatTime({ children }: { children: React.ReactNode }) {
 
 function Compare() {
   return (
-    <section className="border-b border-slate-200 bg-slate-50">
+    <section className="bg-white">
       <div className="mx-auto max-w-6xl section-x section-y">
         <Reveal className="text-center">
           <p className="text-sm font-semibold text-slate-500">La misma vacante, dos conversaciones</p>
@@ -781,7 +812,7 @@ function HowItWorks() {
     { icon: ListChecks, title: 'Gestiona todo desde un panel', body: 'Cada candidatura queda en tu lista, ordenada. Filtras por lo relevante, actualizas el estado y decides a quién contactar.' },
   ]
   return (
-    <section id="como-funciona" className="bg-white">
+    <section id="como-funciona" className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl section-x section-y">
         <Reveal>
           <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:mx-auto max-lg:text-center sm:text-4xl">
@@ -906,7 +937,7 @@ function Features() {
   ]
   const [hero, ...rest] = items
   return (
-    <section className="border-y border-slate-200 bg-slate-50">
+    <section className="bg-white">
       <div className="mx-auto max-w-6xl section-x section-y">
         <h2 className="max-w-2xl text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:mx-auto max-lg:text-center sm:text-4xl">
           Todo lo que necesitas para elegir bien, sin perder a nadie
@@ -1117,7 +1148,7 @@ function Team() {
     },
   ]
   return (
-    <section className="bg-white">
+    <section className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto grid max-w-6xl grid-cols-1 gap-12 section-x section-y lg:grid-cols-2 lg:items-start lg:gap-14">
         <Reveal delay={0.08} className="max-lg:order-last lg:pl-4">
           <TeamBoardMock />
@@ -1231,7 +1262,7 @@ function CostComparisonLedger() {
 
 function CostAnchor() {
   return (
-    <section className="border-y border-slate-200 bg-slate-50" aria-labelledby="coste-contratar-heading">
+    <section className="bg-white" aria-labelledby="coste-contratar-heading">
       <div className="mx-auto max-w-6xl section-x section-y">
         <div className="max-w-3xl">
           <p className="text-sm font-semibold text-slate-500">Antes de mirar el precio</p>
@@ -1255,7 +1286,7 @@ function CostAnchor() {
 
 function Pricing() {
   return (
-    <section id="precio" className="bg-white">
+    <section id="precio" className="border-y border-slate-200 bg-slate-50">
       <div className="mx-auto max-w-6xl section-x section-y">
         <div className="text-center">
           <h2 className="mx-auto max-w-3xl text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
@@ -1361,7 +1392,7 @@ function Faq() {
   // los raíles. Aquí, siendo la sección de ancho completo, la línea va de un raíl al
   // otro como las demás.
   return (
-    <section id="faq" className="border-y border-slate-200 bg-slate-50">
+    <section id="faq" className="bg-white">
       <div className="mx-auto max-w-3xl section-x section-y">
         <h2 className="text-balance text-3xl font-bold tracking-tight text-slate-900 max-lg:text-center sm:text-4xl">Respuestas claras antes de empezar</h2>
         <div className="mt-10 overflow-hidden border-y border-slate-200 bg-white">
@@ -1382,25 +1413,34 @@ function Faq() {
 
 function FinalCta() {
   return (
-    <section className="mx-auto max-w-6xl section-x section-y">
-      <div className="overflow-hidden rounded-3xl bg-slate-900 px-8 py-14 text-center sm:px-16">
-        {/* Este bloque vendía la demo pública ("prueba el panel", "no pide registro ni
-            tarjeta"). Al dejar de serlo, ese texto pasaba a prometer algo que ya no
-            existe, así que cambia entero y con él la jerarquía: ahora lo principal es
-            empezar, y pedir una demo es la alternativa. */}
-        <h2 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          Empieza gratis, o te lo enseñamos
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-slate-300">
-          Tu primer proceso es gratis {PRUEBA_DIAS} días, con todas las candidaturas que lleguen y sin tarjeta. Si prefieres verlo con nosotros antes, reserva un rato y te lo enseñamos por dentro.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:mt-6">
-          <Link to="/login" className={`${BTN_INVERTED_LG} group`}>
-            Empieza gratis <ArrowRight className="size-4 transition-transform duration-[var(--duration-control)] ease-out group-hover:translate-x-1" aria-hidden />
-          </Link>
-          <a href={DEMO_URL} target="_blank" rel="noopener" className="inline-flex h-12 items-center gap-2 rounded-lg px-5 text-base font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:bg-white/15">
-            Solicitar demo<span className="sr-only"> (se abre en otra pestaña)</span>
-          </a>
+    // EL CIERRE PASA A BANDA GRIS AL VOLTEAR LA CADENA (sep 2026). Antes era el
+    // único tramo sin fondo propio, y se justificaba porque su tarjeta oscura ya
+    // hacía el corte; con la fase invertida le toca gris, y el argumento de la
+    // tarjeta sigue en pie porque no era sobre el COLOR de la banda sino sobre no
+    // necesitar una frontera extra. Lleva `border-t` y no `border-y`: el filo de
+    // abajo lo pone ya el `border-t` del pie, y dos hairlines pegados son una
+    // línea de 2px.
+    <section className="border-t border-slate-200 bg-slate-50">
+      <div className="mx-auto max-w-6xl section-x section-y">
+        <div className="overflow-hidden rounded-3xl bg-slate-900 px-8 py-14 text-center sm:px-16">
+          {/* Este bloque vendía la demo pública ("prueba el panel", "no pide registro ni
+              tarjeta"). Al dejar de serlo, ese texto pasaba a prometer algo que ya no
+              existe, así que cambia entero y con él la jerarquía: ahora lo principal es
+              empezar, y pedir una demo es la alternativa. */}
+          <h2 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            Empieza gratis, o te lo enseñamos
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-pretty text-lg leading-relaxed text-slate-300">
+            Tu primer proceso es gratis {PRUEBA_DIAS} días, con todas las candidaturas que lleguen y sin tarjeta.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:mt-6">
+            <Link to="/login" className={BTN_INVERTED_LG}>
+              Empieza gratis
+            </Link>
+            <a href={DEMO_URL} target="_blank" rel="noopener" className="inline-flex h-12 items-center gap-2 rounded-lg px-5 text-base font-semibold text-white ring-1 ring-white/25 transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:bg-white/15">
+              Solicitar demo<span className="sr-only"> (se abre en otra pestaña)</span>
+            </a>
+          </div>
         </div>
       </div>
     </section>
@@ -1411,7 +1451,7 @@ function Footer() {
   const [supportOpen, setSupportOpen] = useState(false)
   return (
     <footer className="border-t border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-8 sm:grid sm:grid-cols-3 sm:items-center sm:px-6">
+      <div className="mx-auto flex max-w-marco flex-col items-center gap-4 px-4 py-8 sm:grid sm:grid-cols-3 sm:items-center sm:px-6">
         <div className="sm:justify-self-start">
           <BrandLockup compact />
         </div>

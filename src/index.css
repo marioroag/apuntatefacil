@@ -98,6 +98,18 @@
   --container-trabajo: 1240px;
   --container-lectura: 820px;
 
+  /* Y UNA TERCERA QUE NO ES UNA COLUMNA DE CONTENIDO, SINO EL MARCO DE LA LANDING:
+     donde arranca el logo y donde acaba "Empezar", donde caen los dos raíles y
+     ahora también el pie, que iba 288px más estrecho que la barra sin que nadie lo
+     hubiera decidido (Mario, sep 2026). Estaba escrita a mano en dos sitios y el
+     pie iba a ser el tercero, que es justo como se acaba teniendo cinco números
+     casi iguales. Con nombre, las tres piezas del chrome dicen que son el mismo
+     marco.
+     En rem y no en px como sus dos hermanas porque es la medida que la landing ya
+     usaba: pasarla a px movería el marco para quien tenga otro tamaño de letra
+     raíz, y eso es un cambio de comportamiento que aquí nadie ha pedido. */
+  --container-marco: 90rem;
+
   --color-lateral: #ffffff;
   --color-lateral-filo: #e5e7eb;
   --color-lateral-hover: #f4f5f7;
@@ -1411,6 +1423,110 @@
     color-mix(in srgb, var(--color-acceso-panel) 85%, transparent) 75%,
     var(--color-acceso-panel) 100%
   );
+}
+
+/* ---------------------------------------------------------------------------
+   `hero-envolvente` · el color de marca envuelve al hero por los lados.
+
+   Diseño de Mario (sep 2026), dibujado a mano sobre una captura: dos curvas que
+   nacen pegadas a las esquinas de arriba, bajan casi verticales por los filos y
+   se abren hacia dentro hasta meterse detrás del mock, con el color POR DEBAJO
+   de esa línea. O sea que el titular y sus dos botones se quedan en blanco y el
+   tinte abraza la composición desde los costados y por el suelo.
+
+   NO SE DIBUJA LA CURVA: la curva ES la línea de nivel de un degradado radial.
+   Un `ellipse at 50% 0%` tiene por isolíneas elipses centradas arriba en medio,
+   y una elipse recorrida hacia abajo se estrecha hasta cerrarse en el centro,
+   que es exactamente la forma del boceto: pegada al filo arriba, abierta abajo. Escrita como un `clip-path` o como un
+   SVG habría que mantener una curva a mano Y su degradado; así solo hay una
+   cosa, y el filo entre lo blanco y lo teñido no existe porque nunca hay filo.
+
+   CUARTA EXCEPCIÓN DECLARADA A "SIN GRADIENTES", y la primera que no está
+   haciendo legible algo: el barrido del skeleton, el desvanecido del scroll y el
+   velo de la foto no pintan, informan (y `acceso-fundido` funde dos piezas en
+   una). Ésta sí decora, y por eso se acota:
+     · SOLO EN LA LANDING, que es la superficie de marketing. Dentro del producto
+       la regla sigue entera.
+     · SOLO EN ESCRITORIO (Mario). Es el mismo umbral de 64rem del realce del
+       hero, y se escribe una vez: en un móvil la portada se sale de pantalla en
+       cuanto empiezas y el tinte solo serviría para ensuciar el blanco.
+     · Y NUNCA DEBAJO DE LOS CTA. El acento en esta casa dice "esto se pulsa", y
+       el centro del hero es justo donde están los dos botones: por eso el núcleo
+       de la elipse es transparente hasta el 62%. El tinte vive en los filos,
+       donde no hay nada que pulsar, así que el acento no se reparte.
+
+   EL SUELO VA AL 20% Y NO AL 6% DE LA FICHA DEL ANUNCIO, y la diferencia no es un
+   capricho: aquel 6% tiñe una CAJA de 360px que además lleva su filo alrededor,
+   así que se lee por el contraste con lo que tiene al lado; esto es una capa a
+   sangre de 1440 sobre blanco puro y sin nada con lo que compararse, y a ese
+   valor sencillamente no llegaba a verse. Subió en dos pasadas y las dos con algo
+   delante: al 10% con "hazlo un poco más notable" (Mario, sep 2026), y al 20% con
+   la portada de Attio como referencia ("tiene que verse algo así"), que es el
+   registro que él quiere. Medido sobre su captura, el tinte de sus esquinas de
+   abajo sale en el entorno del 22% de un acento; el 20% cae en #d8dcfa, o sea el
+   mismo peldaño.
+
+   Y SUBE CON ÉL EL TRAMO DE EN MEDIO (8%, la misma proporción de antes), porque
+   el pleno solo se alcanza en las esquinas de abajo: tocando solo el pico, casi
+   toda la superficie que de verdad se ve se quedaría donde estaba.
+
+   Y VA SOBRE `--accent`, no sobre un azul escrito a mano, para que la portada no
+   pueda separarse del logo.
+--------------------------------------------------------------------------- */
+@utility hero-envolvente {
+  @media (min-width: 64rem) {
+    /* LOS DOS RADIOS SALEN DE DOS PUNTOS DEL BOCETO, no de probar hasta que
+       quedara bien. La elipse va centrada arriba en medio, así que su isolínea
+       cumple (dx/rx)² + (dy/ry)² = t, y con dos puntos se despejan los dos.
+
+       Lo que fija la forma es DÓNDE EMPIEZA EL COLOR (el 62%), porque eso es lo
+       que Mario dibujó: una línea que nace pegada a la esquina de arriba, baja
+       casi vertical por el filo y solo abajo se abre hacia dentro.
+         · Punto 1, la esquina: a la altura del titular la línea va a ~14px del
+           filo. 0,62 · 79% · 1440 = 706, o sea 14 de los 720 de media ventana.
+         · Punto 2, el filo del mock: la línea se mete detrás de él a ~520px por
+           debajo del arranque. Con rx puesto, eso despeja ry = 125%.
+       De ahí sale lo que hace que se lea como una curva y no como una banda: en
+       la mitad de arriba el color va pegado al filo, y en la de abajo se abre.
+
+       Y EL TERCER NÚMERO CAE SOLO, que es la comprobación de que la cuenta está
+       bien: con esos dos radios, t = 1 (el tinte entero) se alcanza en la esquina
+       de abajo justo en el suelo del hero (√(0,400 + 0,640) = 1,02). O sea que el
+       color llega a su valor exactamente donde acaba la portada, ni antes ni
+       después.
+
+       NO SE DIBUJA LA CURVA: la curva ES la línea de nivel del degradado. Escrita
+       como `clip-path` o como un SVG habría que mantener una curva a mano Y su
+       degradado; así solo hay una cosa, y el filo entre lo blanco y lo teñido no
+       existe porque nunca hay filo.
+
+       SE PROBÓ CON PUNTOS Y SE RETIRÓ EL MISMO DÍA (Mario, sep 2026), y queda
+       escrito para que no se reintente sin un motivo nuevo. Era una retícula de
+       14px con el punto de canto blando, para que al atenuarse ENCOGIERA además
+       de aclararse, que es como funciona un semitono de verdad. Se veía bien y
+       sobraba: una textura es una cosa MÁS que mirar en la pantalla donde solo
+       hay que leer un titular y decidir entre dos botones, y el degradado ya
+       hacía el trabajo entero (decir de quién es esto y apoyar el mock) sin pedir
+       atención. La forma no cambió al quitarlos, porque la forma nunca estuvo en
+       el material: vive en estos dos radios.
+
+       NO SE LE PONE MÁSCARA POR ABAJO (Mario, sep 2026: "tiene que llegar hasta
+       el suelo del hero, se difumina hacia arriba no abajo"). Estuvo con una que
+       lo apagaba en el último tercio y era el gesto al revés: el tinte se moría
+       en el aire antes de llegar al filo y dejaba una banda de blanco entre el
+       color y el suelo. Difuminar HACIA ARRIBA no pide una capa más, ya lo hace
+       la elipse: el núcleo transparente está arriba en medio y por debajo de su
+       cota todo va saturado, así que el color nace en el suelo y se deshace
+       subiendo. Lo que se paga es que el filo que cierra el hero pasa a separar
+       dos colores en vez de dos blancos; es lo correcto para lo que ese filo ES,
+       y de paso el suelo teñido apoya el mock en vez de dejarlo flotando. */
+    background-image: radial-gradient(
+      79% 125% at 50% 0%,
+      color-mix(in srgb, var(--accent) 0%, transparent) 62%,
+      color-mix(in srgb, var(--accent) 8%, transparent) 78%,
+      color-mix(in srgb, var(--accent) 20%, transparent) 100%
+    );
+  }
 }
 
 /* Respetar reduced-motion globalmente. */
