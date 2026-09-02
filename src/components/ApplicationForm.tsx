@@ -4,7 +4,7 @@ import type { Campaign } from '../lib/types'
 import { FieldRenderer } from './FieldRenderer'
 import type { FieldValue } from './FieldRenderer'
 import { accentOnWhite, readableOn } from '../lib/colors'
-import { HojaPublica } from './HojaPublica'
+import { CAJA_LOGO, HojaPublica } from './HojaPublica'
 import { ENLACE_PRIVACIDAD, consentimientoVigente } from '../lib/consent'
 
 /**
@@ -134,7 +134,7 @@ export function ApplicationForm({
             {logoUrl ? (
               // `object-contain` y relleno, no `cover`: un logotipo no se
               // recorta. La caja con filo es la del anuncio.
-              <img src={logoUrl} alt="" className="size-12 shrink-0 rounded-xl bg-white object-contain p-1.5 filo" />
+              <img src={logoUrl} alt="" className={CAJA_LOGO} />
             ) : (
               <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-accent text-lg font-bold text-on-accent">
                 {companyName.slice(0, 1)}

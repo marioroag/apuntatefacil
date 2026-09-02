@@ -8,7 +8,7 @@ import { accentOnWhite, readableOn } from '../lib/colors'
 import { resumenApuntarse, senalesApuntarse, type ResumenApuntarse } from '../lib/apuntarse'
 import { useHayDosColumnas } from '../lib/media'
 import { publicFormPath } from '../lib/brand'
-import { HojaPublica } from './HojaPublica'
+import { CAJA_LOGO, HojaPublica } from './HojaPublica'
 import type { OtroPuesto } from '../lib/demoPublico'
 import type { Campaign } from '../lib/types'
 
@@ -148,7 +148,7 @@ export function AnuncioPublico({
               </h1>
               <div className="mt-5 flex items-center gap-3.5">
                 {logoUrl ? (
-                  <img src={logoUrl} alt="" className="size-12 shrink-0 rounded-xl bg-white object-contain p-1.5 filo" />
+                  <img src={logoUrl} alt="" className={CAJA_LOGO} />
                 ) : (
                   <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-accent text-lg font-bold text-on-accent">
                     {companyName.slice(0, 1)}

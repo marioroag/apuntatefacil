@@ -42,6 +42,28 @@
  * puesto, que es lo que se ha venido a leer. El techo de una foto de cabecera es
  * el punto donde deja de presentar la página y pasa a ser la página.
  */
+/**
+ * LA CAJA DEL LOGO DE LA MARCA: alto fijo y ancho el que pida el logotipo.
+ *
+ * Estaba en `size-12`, o sea una baldosa cuadrada, y con un logotipo que no lo
+ * fuera (una marca alargada, que es lo normal en un wordmark) el `object-contain`
+ * lo encajaba dentro dejando dos bandas vacías: el filo rodeaba la CAJA y no el
+ * dibujo, que es lo que Mario vio ("el filo no abraza el icono"). Con el alto
+ * fijo y el ancho automático, la caja se ajusta a la forma de cada logo y el filo
+ * lo abraza siempre.
+ *
+ * El TECHO existe porque al lado va el nombre de la empresa: sin él, un logotipo
+ * de 6:1 empujaría el nombre fuera de una pantalla de 375. Pasado ese ancho el
+ * `object-contain` vuelve a encajarlo, que es el comportamiento correcto para el
+ * caso raro.
+ *
+ * Se declara UNA vez porque la usan las dos superficies públicas (el anuncio y
+ * el formulario), y ahí la coherencia no es estética: al pulsar "Apúntate ahora"
+ * el candidato tiene que reconocer que sigue en el mismo sitio.
+ */
+export const CAJA_LOGO =
+  'h-12 w-auto max-w-[160px] shrink-0 rounded-xl bg-white object-contain p-1.5 filo'
+
 export function HojaPublica({
   bannerUrl,
   children,
