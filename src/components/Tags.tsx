@@ -488,7 +488,7 @@ export function ManageTagsModal({ open, onClose }: { open: boolean; onClose: () 
           <button
             onClick={onClose}
             aria-label="Cerrar"
-            className="-mr-1 shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            className={`-mr-1 ${botonIcono('ghost', 'sm')}`}
           >
             <X className="size-5" aria-hidden />
           </button>

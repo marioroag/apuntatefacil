@@ -103,6 +103,25 @@ const MARCO_SIN_FILO: Record<string, string> = {
     'quedan con una sola mano hasta que el foco pase por `filo-*`.',
 }
 
+/**
+ * Botones de SOLO ICONO que declaran su propia tinta base y por qué. La regla que
+ * vigila el detector de abajo: un glifo que es lo ÚNICO que se ve de un control se
+ * pinta en `slate-600` (`ICONO_CONTROL`, o el `ghost` de `BTN_SUPERFICIE`), porque
+ * es lo único que dice que ahí hay algo que pulsar. Un `hover:` puede ir a donde
+ * quiera: eso es un estado, no la tinta.
+ */
+const TINTA_ICONO_PROPIA: Record<string, string> = {
+  'components/Sidebar.tsx':
+    'El lateral tiene su propia escala, medida y escrita en la doctrina de ' +
+    'Nitidez: etiquetas en slate-900, iconos en slate-800 y chevrones en 700, ' +
+    'medio peldaño por debajo de lo que acompañan. No es deriva, es un sistema.',
+  'components/ui/ListaOrdenable.tsx':
+    'El asa de arrastrar (`TINTA_ASA`) va deliberadamente apagada: es una ' +
+    'afordancia secundaria que en varias listas ni siquiera se ve hasta el ' +
+    'hover, no un control que tenga que encontrarse de un vistazo. Ya está ' +
+    'declarada en un solo sitio, que es lo que esta prueba persigue.',
+}
+
 /** Elementos que pintan borde y anillo a la vez, y por qué no es un doble trazo. */
 const DOBLE_TRAZO_OK: Record<string, string> = {}
 
@@ -113,6 +132,31 @@ function fuentes(): { ruta: string; codigo: string }[] {
   return Object.entries(FUENTES)
     .map(([ruta, codigo]) => ({ ruta: ruta.replace(/^\.\.\//, ''), codigo }))
     .filter((f) => !f.ruta.endsWith('.test.tsx'))
+}
+
+/**
+ * El código sin sus comentarios. Un detector que no los quita vigila la PROSA:
+ * basta con que un comentario nombre el token que se busca (o lo desaconseje)
+ * para que el bloque pase en verde. Pasó al escribir el detector de tintas.
+ */
+function sinComentarios(t: string): string {
+  return t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/[^\n]*/g, '$1')
+}
+
+/**
+ * Índice del `>` que cierra la etiqueta de apertura de un JSX: el primero que
+ * está FUERA de llaves. Un `onClick={() => ...}` mete un `>` en medio de los
+ * atributos, así que buscar el primero a secas corta donde no es.
+ */
+function finDeApertura(bloque: string): number {
+  let llaves = 0
+  for (let i = 0; i < bloque.length; i++) {
+    const c = bloque[i]
+    if (c === '{') llaves++
+    else if (c === '}') llaves--
+    else if (c === '>' && llaves === 0) return i
+  }
+  return -1
 }
 
 /** Un fallo por cada infracción, con su sitio, para que el mensaje sea accionable. */
@@ -428,12 +472,93 @@ describe('el vocabulario se mantiene coherente', () => {
     ).toEqual([])
   })
 
+  it('un botón de solo icono no se inventa su tinta', () => {
+    // EL GLIFO ES LO ÚNICO QUE SE VE DE ESE CONTROL, así que su tinta no puede
+    // salir de la mano de quien escribió esa pantalla. Se auditó en sep 2026 y
+    // había CUATRO grises para el mismo trabajo, ninguno decidido por nadie: el
+    // engranaje en `slate-800` (heredado del secundario, que lo pone para su
+    // ETIQUETA), el embudo de Filtros en `slate-400`, la lupa y el `···` en
+    // `slate-500` cada uno por su lado, y media docena de cierres de diálogo en
+    // otro. Tres tonos en la misma pantalla se leen como tres materiales.
+    //
+    // Un `hover:`/`focus:`/`active:` puede ir a donde quiera: eso es un ESTADO.
+    // Lo que se vigila es la tinta de reposo.
+    const ABRE = /<button\b/g
+    const fallos: Fallo[] = []
+    for (const f of fuentes()) {
+      if (f.ruta in TINTA_ICONO_PROPIA) continue
+      for (const m of f.codigo.matchAll(ABRE)) {
+        const cierre = f.codigo.indexOf('</button>', m.index)
+        if (cierre < 0) continue
+        // LOS COMENTARIOS SE QUITAN ANTES DE MIRAR NADA, y no es un detalle: la
+        // primera versión de esto se probó rompiéndola a propósito y NO cazó el
+        // fallo, porque el botón llevaba un comentario que explicaba por qué no
+        // usaba `botonIcono`... y el detector leyó ese nombre y se saltó el
+        // bloque entero. Un guardián que se cree lo que dicen los comentarios
+        // vigila la prosa, no el código.
+        const bloque = sinComentarios(f.codigo.slice(m.index, cierre))
+        // Dónde acaba la etiqueta de apertura: el primer `>` FUERA de llaves. No
+        // vale `indexOf('>')`, y esto también se descubrió rompiéndolo: cualquier
+        // `onClick={() => ...}` trae un `>` propio, así que el corte caía dentro
+        // de los atributos y el bloque no parecía un botón de solo icono. Con eso,
+        // el detector se saltaba en silencio a la mitad de sus candidatos.
+        const corte = finDeApertura(bloque)
+        if (corte < 0) continue
+        const abre = bloque.slice(0, corte + 1)
+        // Solo iconos dentro: quitado lo que solo oye un lector, lo que queda son
+        // etiquetas auto-cerradas en mayúscula (un componente de lucide) y nada
+        // más. Con texto, un número o un `{expr}` dentro, la tinta la manda el
+        // texto y esta regla no aplica.
+        const dentro = bloque.slice(corte + 1).replace(/<span[^>]*sr-only[^>]*>[\s\S]*?<\/span>/g, '')
+        // El icono puede venir de una PROPIEDAD (`<o.Icono />`, `<dim.icon />`) y
+        // no solo de un componente en mayúscula. Pedir solo `<[A-Z]` dejaba fuera
+        // a los conmutadores enteros, que es justo donde vivían dos de las tintas
+        // sueltas. Lo que sigue quedando fuera son las etiquetas HTML de verdad
+        // (`<span>`, `<svg>`), que no son iconos.
+        if (!/^(?:\s|\{?\/\*[\s\S]*?\*\/\}?)*(?:<(?:[A-Z][\w.]*|[a-z]\w*\.[\w.]+)\s[^<>]*\/>\s*)+$/.test(dentro)) continue
+        // UN SEGMENTO DE UN GRUPO NO ES UN BOTÓN FANTASMA: ahí la tinta dice si
+        // esa opción está ELEGIDA (acento) o no (tinta normal), así que no puede
+        // ser un gris fijo de la casa. Es la misma anatomía en el conmutador de
+        // mitades, en el de tabla/tablero y en el de calendario/lista.
+        if (/role="radio"/.test(abre)) continue
+        // SE MIRAN LAS DOS MITADES POR SEPARADO, y esto también salió de romperlo:
+        // saltarse el botón entero porque su CLASE viene del vocabulario deja
+        // pasar una tinta escrita en el GLIFO, que es la otra mitad del problema.
+        // Cada mitad se exime por lo suyo: el botón, si su pintura sale de
+        // `botonIcono`/`BTN_*`; el glifo, si trae `ICONO_CONTROL`.
+        const revisar =
+          (abre.includes('botonIcono') || abre.includes('BTN_') || abre.includes('ICONO_CONTROL') ? '' : abre) +
+          (dentro.includes('ICONO_CONTROL') ? '' : dentro)
+        for (const g of revisar.matchAll(/(?<![\w:-])text-slate-(\d00)(?![\w-])/g)) {
+          if (g[1] === '600') continue // la tinta de la casa, escrita a mano
+          fallos.push({
+            ruta: f.ruta,
+            linea: f.codigo.slice(0, m.index).split('\n').length,
+            texto: g[0],
+          })
+        }
+      }
+    }
+
+    expect(
+      fallos,
+      `Botones de solo icono con una tinta inventada:\n${lista(fallos)}\n\n` +
+        `El glifo es lo ÚNICO que se ve de ese control, así que va en la tinta de la ` +
+        `casa: \`slate-600\`. Cógela de \`ICONO_CONTROL\` (o monta el botón con ` +
+        `\`botonIcono('ghost', ...)\`, que ya la trae junto con su hover y su caja). ` +
+        `Un \`hover:\` puede ir a donde quiera, que eso es un estado. Si esta pieza ` +
+        `de verdad necesita otra tinta de reposo, apúntala en TINTA_ICONO_PROPIA con ` +
+        `el motivo escrito.`,
+    ).toEqual([])
+  })
+
   it('cada excepción trae su motivo escrito', () => {
     const vacias = [
       ...Object.entries(SOMBRAS_SIN_TOKEN),
       ...Object.entries(TRAZOS_A_MANO),
       ...Object.entries(DOBLE_TRAZO_OK),
       ...Object.entries(MARCO_SIN_FILO),
+      ...Object.entries(TINTA_ICONO_PROPIA),
     ]
       .filter(([, motivo]) => motivo.trim().length < 25)
       .map(([clave]) => clave)

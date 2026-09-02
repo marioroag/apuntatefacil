@@ -217,6 +217,24 @@ type Sort = {
  * encima o al enfocar: con seis columnas, seis flechitas grises permanentes hacen
  * más ruido que la propia cabecera, y la que SÍ ordena ahora mismo se ve siempre.
  */
+/**
+ * EL GLIFO QUE NOMBRA UNA COLUMNA: 14px y trazo COMPENSADO (Mario, sep 2026).
+ *
+ * El trazo de la casa es uno solo (`--stroke-icon`, 1,75) y está pensado para un
+ * icono de 16. A 14 el glifo encoge pero el trazo no, así que la misma línea pesa
+ * proporcionalmente menos y la cabecera se lee fina al lado de su etiqueta en
+ * semibold. Se compensa con la razón exacta de las dos tallas (16/14), que
+ * devuelve 2 y deja el glifo con el MISMO peso óptico que uno de 16: no es un
+ * icono más gordo, es el mismo icono a otro tamaño.
+ *
+ * Va con `[stroke-width:]` y relativo al token, nunca con la prop `strokeWidth`
+ * de lucide: la regla global de `index.css` es CSS y le gana al atributo del SVG,
+ * así que la prop no pinta. Y escrito con `calc()` para que el día que se mueva
+ * el grosor de la casa esto se mueva con él en vez de descolgarse.
+ */
+export const ICONO_COLUMNA =
+  'size-3.5 shrink-0 text-slate-500 [stroke-width:calc(var(--stroke-icon)*16/14)]'
+
 export function ColHead({
   icon: Icon,
   children,
@@ -281,7 +299,7 @@ export function ColHead({
   // con ella.
   const label = (
     <>
-      {Icon && <Icon className="size-3.5 shrink-0 text-slate-500" aria-hidden />}
+      {Icon && <Icon className={ICONO_COLUMNA} aria-hidden />}
       <span className="truncate text-[13px] font-semibold">{children}</span>
     </>
   )

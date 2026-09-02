@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Checkbox } from './ui/Checkbox'
 import { colocarFlotante } from '../lib/flotante'
 import { useEsTactil } from '../lib/media'
-import { BTN_SUPERFICIE, ALTO_FRANJA } from '../lib/buttons'
+import { BTN_SUPERFICIE, ALTO_FRANJA, ICONO_CONTROL, botonIcono } from '../lib/buttons'
 import type { SavedView } from '../lib/types'
 
 /* ---------------------------------------------------------------------------
@@ -220,7 +220,13 @@ export function ChipDimension({ dim }: { dim: DimensionFiltro }) {
             : `${BTN_SUPERFICIE.secondary} ${open ? 'bg-slate-50' : ''}`
         }`}
       >
-        {dim.icon && <dim.icon className={`size-4 shrink-0 ${dim.n > 0 ? 'text-indigo-500' : 'text-slate-400'}`} aria-hidden />}
+        {/* Neutro va al gris de control (`ICONO_CONTROL`), como el embudo de
+            Filtros que tiene al lado: en Candidatos el chip de Puesto se pinta
+            aunque no filtre, así que en `slate-400` era otra vez un cuarto gris en
+            la misma fila. Con filtros puestos pasa a indigo, igual que su
+            etiqueta: eso no es un gris, es el acento diciendo que este control
+            está haciendo algo. */}
+        {dim.icon && <dim.icon className={dim.n > 0 ? 'size-4 shrink-0 text-indigo-500' : ICONO_CONTROL} aria-hidden />}
         <span className="truncate">{dim.label}</span>
         {/* El recuento entre parentesis dice cuanto hay puesto sin tener que
             abrir. Vacio no se pinta: "(0)" seria contar la nada. */}
@@ -505,7 +511,11 @@ export function MenuAnadirFiltro({
             : `${BTN_SUPERFICIE.secondary} ${open ? 'bg-slate-50' : ''}`
         }`}
       >
-        <Filter className={`size-4 shrink-0 ${hayFiltros ? 'text-indigo-500' : 'text-slate-400'}`} aria-hidden />
+        {/* Neutro, el mismo gris que la lupa y el engranaje (`ICONO_CONTROL`): eran
+            tres tonos en la misma fila. Con filtros puestos pasa a indigo, igual
+            que su etiqueta, y eso no es un cuarto gris: es el acento diciendo que
+            este control está haciendo algo. */}
+        <Filter className={hayFiltros ? 'size-4 shrink-0 text-indigo-500' : ICONO_CONTROL} aria-hidden />
         <span className="max-sm:hidden">Filtros</span>
       </button>
 
@@ -530,7 +540,7 @@ export function MenuAnadirFiltro({
                 type="button"
                 onClick={volver}
                 aria-label="Volver"
-                className="grid size-8 shrink-0 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                className={botonIcono('ghost', 'sm')}
               >
                 <ChevronLeft className="size-4" aria-hidden />
               </button>
@@ -576,7 +586,7 @@ export function MenuAnadirFiltro({
                         type="button"
                         onClick={() => onBorrarVista?.(v.id)}
                         aria-label={`Eliminar vista ${v.name}`}
-                        className="mr-1 grid size-8 shrink-0 place-items-center rounded-lg text-slate-400 transition-opacity hover:bg-slate-200 hover:text-slate-700 focus-visible:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
+                        className="mr-1 grid size-8 shrink-0 place-items-center rounded-lg text-slate-600 transition-opacity hover:bg-slate-200 hover:text-slate-900 focus-visible:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
                       >
                         <Trash2 className="size-3.5" aria-hidden />
                       </button>

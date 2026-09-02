@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Settings2 } from 'lucide-react'
+import { Columns3, Rows3, Settings2 } from 'lucide-react'
 import { Checkbox } from './ui/Checkbox'
 import { AsaOrdenar, ListaOrdenable, useFilaOrdenable } from './ui/ListaOrdenable'
-import { BTN_ICONO_FRANJA } from '../lib/buttons'
+import { BTN_ICONO_FRANJA, ICONO_CONTROL } from '../lib/buttons'
 import type { ColumnaVista, VistaTabla } from '../lib/vistaTabla'
+import type { ModoPanel } from '../lib/modoPanel'
 
 /* ---------------------------------------------------------------------------
    AJUSTES DE LA VISTA: qué columnas se ven, y en qué orden.
@@ -112,7 +113,87 @@ function FilaColumna<K extends string>({ col, vista }: { col: ColumnaVista<K>; v
   )
 }
 
+/**
+ * TABLA O TABLERO (Mario, ago 2026, con una referencia de CRM delante; se mudó
+ * DENTRO de este panel en sep 2026).
+ *
+ * Vivía suelto en la franja, a la derecha del engranaje, y eran dos controles
+ * contiguos gobernando lo mismo: **este panel ES el de la presentación**, así que
+ * el modo es su primera pregunta y no su vecina. Lo de fuera costaba además 80px
+ * de la fila con la que más se trabaja para una decisión que se toma de tarde en
+ * tarde, mientras que lo que sí se usa a diario (buscar, filtrar) se apretaba.
+ *
+ * VA EL PRIMERO Y SIN RÓTULO. Primero porque es la decisión más ENVOLVENTE de las
+ * tres: decide qué significan las otras dos (en tablero, la lista son los campos
+ * de la tarjeta y el orden pierde "Estado"). Y sin rótulo porque con las palabras
+ * puestas se nombra solo, y un tercer encabezado en un panel de 304px es un
+ * renglón que no dice nada que no esté ya debajo.
+ *
+ * AQUÍ SÍ LLEVA LAS PALABRAS, y en la franja no las llevaba. No es una
+ * contradicción: allí el icono a secas se justificaba por el ancho de una fila
+ * que iba justa, y aquí hay una columna entera. La regla de la casa es que un
+ * icono hay que aprendérselo; en cuanto hay sitio, se escribe.
+ *
+ * Sigue siendo un `radiogroup` de verdad (dos `role="radio"` con flechas), la
+ * misma caja con filo y divisoria interior que el conmutador de mitades, y el
+ * activo se dice con el acento, que es uno de sus cuatro usos: seleccionar.
+ */
+function ConmutadorModo({ modo, onChange }: { modo: ModoPanel; onChange: (m: ModoPanel) => void }) {
+  const opciones = [
+    { value: 'tabla' as const, label: 'Tabla', Icono: Rows3 },
+    { value: 'tablero' as const, label: 'Tablero', Icono: Columns3 },
+  ]
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
+  const mover = (dir: 1 | -1) => {
+    const i = opciones.findIndex((o) => o.value === modo)
+    const j = (i + dir + opciones.length) % opciones.length
+    onChange(opciones[j].value)
+    requestAnimationFrame(() => refs.current[j]?.focus())
+  }
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Cómo se presenta la lista"
+      // El marco es el de los DOS CAMPOS que tiene debajo (`slate-300`) y no el
+      // `filo` de la franja de la que viene: son tres controles apilados en una
+      // columna de 304px, y uno con el borde medio tono más claro se lee como si
+      // fuera de otro material. Es la misma regla que acaba de igualar el filo
+      // del buscador con el de su lupa.
+      className="flex h-9 items-center overflow-clip rounded-lg border border-slate-300 bg-white"
+    >
+      {opciones.map((o, i) => {
+        const activa = modo === o.value
+        return (
+          <button
+            key={o.value}
+            ref={(el) => { refs.current[i] = el }}
+            type="button"
+            role="radio"
+            aria-checked={activa}
+            tabIndex={activa ? 0 : -1}
+            onClick={() => onChange(o.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); mover(1) }
+              else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); mover(-1) }
+            }}
+            className={`flex h-full flex-1 items-center justify-center gap-1.5 text-[13px] font-medium outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+              // La divisoria la pinta la mitad de la derecha: un `divide-x` en el
+              // padre no serviría, porque el hijo activo pinta fondo encima.
+              i > 0 ? 'border-l border-slate-300' : ''
+            } ${activa ? 'bg-indigo-50/60 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'}`}
+          >
+            <o.Icono className="size-4 shrink-0" aria-hidden />
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function AjustesVista<K extends string>({
+  modo,
+  onModo,
   ordenes,
   sort,
   onOrdenar,
@@ -122,6 +203,9 @@ export function AjustesVista<K extends string>({
   buscando,
   rotuloLista = 'Qué columnas se ven',
 }: {
+  /** Tabla o tablero: la primera pregunta del panel (ver `ConmutadorModo`). */
+  modo: ModoPanel
+  onModo: (m: ModoPanel) => void
   ordenes: OpcionOrden[]
   sort: { key: string; dir: 'asc' | 'desc' }
   onOrdenar: (key: string, dir: 'asc' | 'desc') => void
@@ -176,11 +260,21 @@ export function AjustesVista<K extends string>({
         title="Ajustes de la vista"
         className={BTN_ICONO_FRANJA}
       >
-        <Settings2 className="size-4" aria-hidden />
+        {/* El mismo gris que la lupa y que el embudo: una fila se lee por lo
+            que tiene en común (ver `ICONO_CONTROL`). */}
+        <Settings2 className={ICONO_CONTROL} aria-hidden />
       </button>
 
       {open && (
         <div className="absolute right-0 z-50 mt-1.5 w-[19rem] overflow-clip rounded-xl filo bg-white shadow-pop">
+          {/* LO PRIMERO, TABLA O TABLERO: es lo que decide qué significan las dos
+              secciones de debajo, así que se elige antes de entrar en ellas. */}
+          <section className="p-3">
+            <ConmutadorModo modo={modo} onChange={onModo} />
+          </section>
+
+          <div className="h-px bg-slate-100" />
+
           <section className="p-3">
             <div className="flex items-center justify-between">
               <h3 className="text-[13px] font-semibold text-slate-700">Cómo se ordena</h3>

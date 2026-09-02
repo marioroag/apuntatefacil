@@ -266,7 +266,7 @@ function Calendario({
             type="button"
             aria-label="Mes anterior"
             onClick={() => saltarMes(-1)}
-            className="grid size-7 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            className="grid size-7 place-items-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             <ChevronLeft className="size-4" aria-hidden />
           </button>
@@ -274,7 +274,7 @@ function Calendario({
             type="button"
             aria-label="Mes siguiente"
             onClick={() => saltarMes(1)}
-            className="grid size-7 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            className="grid size-7 place-items-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             <ChevronRight className="size-4" aria-hidden />
           </button>

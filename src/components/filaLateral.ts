@@ -295,54 +295,40 @@ export const FILA_CHEVRON =
  *  (los puestos y las vistas de Candidatos) y este proyecto ya sabe cómo acaba
  *  eso: dos filas que empiezan iguales y se separan al primer retoque.
  *
- *  EL RELLENO ES 12 PORQUE LA LISTA TRAE AHORA SU RAÍL (`FILA_SUBLISTA`, ago
- *  2026). Antes eran 48 medidos desde el filo del menú; ahora 23 los pone el
- *  margen de la lista, 1 el propio raíl y 12 su relleno, así que aquí quedan 12
- *  para que el texto siga aterrizando en los MISMOS 64px que la etiqueta de su
- *  madre. El número no es a ojo: es lo que sobra de una cuenta que no ha cambiado
- *  de resultado, y se movió de 11 a 12 al recentrarse el raíl con el icono de 18. */
+ *  EL RELLENO ES 12 PORQUE LA LISTA YA PONE LOS OTROS 36 (`FILA_SUBLISTA`): 24
+ *  de margen y 12 de relleno, así que aquí quedan 12 para que el texto aterrice
+ *  en los MISMOS 64px que la etiqueta de su madre. El número no es a ojo: es lo
+ *  que sobra de una cuenta que no ha cambiado de resultado en tres retoques
+ *  seguidos (el icono de 20 a 18, el raíl recentrado, y el raíl retirado). */
 export const FILA_HIJA =
   'flex h-10 w-full items-center gap-2 rounded-xl pl-3 pr-3.5 text-[15px] font-medium outline-none lg:h-8 transition-colors duration-[var(--duration-control)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-lateral)]'
 
 /**
- * EL RAÍL DE UNA SUBLISTA: una línea que cae del icono de su madre (Mario, ago
- * 2026, con la referencia de shadcn delante).
+ * LA SANGRÍA DE UNA SUBLISTA. Sin raíl (Mario, sep 2026).
  *
- * Lo que resuelve es una pregunta que la sangría sola no contestaba: **hasta
- * dónde llega esta lista.** Con seis puestos seguidos de "Candidatos", el ojo no
- * sabía dónde acababan los hijos y empezaba la siguiente fila de primer nivel; la
- * sangría dice "esto va dentro" pero no dice "y termina aquí". La línea sí, y
- * además ata visualmente la lista a la fila que la abrió.
+ * Aquí hubo una línea vertical que caía del centro del icono de la madre (ago
+ * 2026, con la referencia de shadcn delante). Contestaba una pregunta que la
+ * sangría sola no contesta —**hasta dónde llega esta lista**— y ataba la lista a
+ * la fila que la abrió. Mario la ha retirado, y lo que se paga queda escrito: con
+ * seis puestos seguidos, dónde acaban los hijos y empieza la siguiente fila de
+ * primer nivel lo dice solo la sangría. Si algún día vuelve a molestar, la salida
+ * es la que ya se descartó una vez para el color: **antes de subir el tono de la
+ * línea, probar la FORMA** (más hueco antes de la fila siguiente, por ejemplo).
  *
- * CAE EN EL CENTRO DEL ICONO DE LA MADRE, que es de donde parece salir: el icono
- * ocupa de 30 a 48 desde el filo del menú, así que el raíl va en el **39**, o sea
- * `ml-[23px]` sobre el relleno de 16 del contenedor. Puesto en cualquier otro
- * sitio se lee como una línea decorativa en vez de como la continuación de una
- * fila.
- *
- * Estuvo en 40 (`ml-6`) mientras el icono medía 20, y se quedó 1px descolgado al
- * bajar el icono a 18 (Mario lo vio: "el raíl también déjalo centrado con el
- * icono"). Es el segundo número derivado que cobra ese cambio, después del
- * relleno del raíl contraído: **un número que sale de una cuenta se recalcula
- * cuando cambia un término de la cuenta**, y por eso la cuenta va escrita aquí y
- * no solo su resultado.
- *
- * VA EN EL FILO DE LA CASA (`--color-lateral-filo`, o sea `slate-200`, 1,24:1
- * sobre blanco). Se probó subirlo a `slate-300` (1,48) con el argumento de que un
- * raíl no es el canto de una caja sino una GUÍA que el ojo sigue de arriba abajo,
- * y **Mario lo revirtió el mismo día**. El argumento no era falso, pero pesaba
- * menos que lo que costaba: en una superficie donde todo lo demás (la marca, las
- * tarjetas, el campo del pie) usa un solo hairline, una línea medio tono más
- * oscura no se lee como "más guía", se lee como una línea de OTRO sistema. Un
- * vocabulario de un solo filo vale más que el matiz.
+ * LA COLUMNA NO SE MUEVE, y esa es la parte que hay que respetar al tocar esto:
+ * el texto de una hija aterriza en los MISMOS 64px que la etiqueta de su madre.
+ * La cuenta era 23 de margen + 1 de raíl + 12 de relleno; ahora son **24 + 12**,
+ * o sea el píxel del raíl absorbido por el margen. El fondo de la píldora de una
+ * hija tampoco se mueve un píxel (arranca en 52 desde el filo del menú), que es
+ * lo que evita que quitar una línea descuadre una lista entera.
  *
  * NO CONTRADICE "la sangría va en la FILA, no en la lista", que es lo que impedía
  * que las señales de los hijos cayeran 6px a la izquierda de las demás: eso lo
  * rompía un relleno a los DOS lados. Aquí solo se mete el lado izquierdo; el
  * derecho sigue llegando al filo, así que los puntos de novedad siguen cayendo en
- * la misma vertical que el chevron de su madre (medido: 225 en las dos).
+ * la misma vertical que el chevron de su madre.
  */
-export const FILA_SUBLISTA = 'ml-[23px] space-y-0.5 border-l border-[var(--color-lateral-filo)] pb-1 pl-3 pt-1'
+export const FILA_SUBLISTA = 'ml-6 space-y-0.5 pb-1 pl-3 pt-1'
 
 /**
  * EL RELLENO DE UNA ZONA DEL LATERAL, animado.

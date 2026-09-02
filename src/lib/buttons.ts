@@ -80,6 +80,22 @@ const CAJA = `${FORMA} rounded-lg`
  * El anillo del secundario sube de `slate-300/80` a `slate-200` y se apoya en el
  * hover para engordar: sin sombra de contacto, un anillo al 80% de opacidad se
  * quedaba a medio camino entre "hay una caja" y "no la hay".
+ *
+ * SE PROBÓ PINTARLO CON `filo` (las dos manos de una superficie) Y SE REVIRTIÓ
+ * EL MISMO DÍA (sep 2026), y queda escrito para que nadie lo reintente sin un
+ * motivo nuevo. La sospecha que lo disparó era que el borde de un botón y el de
+ * la tabla se vieran de DISTINTO color; medido con el cuentagotas, son el mismo
+ * (`slate-200` los dos), así que lo único que quedaba en pie era el matiz del
+ * antialias en el arco de las esquinas: un 23% de pico contra un 13%, en cuatro
+ * curvas de 8px. **A cambio, `filo` va con `border` y eso ensancha 2px cada botón
+ * de ancho automático** (medido: "Filtros" de 91 a 93), y arrastra tres cuidados
+ * (el foco, `outline-none` y mover las dos manos a la vez en el hover). Mal
+ * negocio: se paga en toda la app por algo que no se ve.
+ *
+ * La incoherencia que se acepta a cambio: el campo del buscador y el conmutador
+ * SÍ van a dos manos, porque son superficies con `border` propio, y ahí `filo` no
+ * cuesta un píxel. La regla queda como estaba: **`filo` es para el marco de una
+ * SUPERFICIE; el hairline de un CONTROL lo pinta su anillo, que no ocupa layout.**
  */
 export const BTN_SUPERFICIE = {
   primary: 'bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800',
@@ -198,9 +214,13 @@ export function botonIcono(variant: BtnVariant = 'primary', size: BtnSize = 'md'
  * EL BOTÓN DE ICONO DE LA FRANJA DE FILTROS: 40px, no 36.
  *
  * Todo lo que vive en esa fila mide 40 (el buscador, su lupa y el conmutador
- * Activos/Rechazados), y no por capricho: es la fila con la que más se trabaja de
- * la pantalla, así que se hizo más grande que los botones de la cabecera, que se
- * usan mucho menos. Un icono de 36 al lado de un conmutador de 40 se ve hundido.
+ * Activos/Rechazados). Nació más grande que los botones de la cabecera con el
+ * argumento de que es la fila con la que más se trabaja; **ese argumento se cayó
+ * en sep 2026, cuando Mario subió también los de la cabecera a 40 y el título con
+ * ellos**. Lo que queda en pie es lo otro: un icono de 36 al lado de un
+ * conmutador de 40 se ve hundido, y ahora eso vale para las dos filas. Los 40 son
+ * la altura de un control de pantalla, no la de una franja concreta; el nombre se
+ * queda por no mover media app de sitio.
  *
  * Se declara aquí y no se arregla con un `size-10` pegado al final de
  * `botonIcono(...)`: `size-9` y `size-10` son la MISMA utilidad de Tailwind y no
@@ -238,7 +258,53 @@ export const BTN_SECONDARY_FRANJA = [
   CAJA, BTN_MOTION, BTN_SUPERFICIE.secondary, ALTO_FRANJA, 'gap-1.5 px-3.5 text-sm font-medium', 'shrink-0',
 ].join(' ')
 
+/**
+ * El botón de ACENTO a la altura de un control de pantalla (hoy, "Compartir" en
+ * la cabecera de un puesto). Hermano de `BTN_SECONDARY_FRANJA`, con el peso que
+ * `peso()` le da a un sólido.
+ *
+ * No es `BTN_PRIMARY` con un `h-10` pegado detrás, por lo de siempre: `h-9` y
+ * `h-10` son la MISMA utilidad y no se resuelven por el orden en que se
+ * escriben. La salida es la variante que no pone la que sobra.
+ */
+export const BTN_PRIMARY_FRANJA = [
+  CAJA, BTN_MOTION, BTN_SUPERFICIE.primary, ALTO_FRANJA, 'gap-1.5 px-3.5 text-sm font-semibold', 'shrink-0',
+].join(' ')
+
 export const BTN_ICONO_FRANJA = [CAJA, BTN_MOTION, BTN_SUPERFICIE.secondary, 'size-10 pointer-coarse:size-11', 'shrink-0'].join(' ')
+
+/**
+ * EL GLIFO DE UN BOTÓN DE ICONO: `slate-700`, y uno solo (Mario, sep 2026).
+ *
+ * Eran CUATRO glifos con TRES grises, y ninguno lo había decidido nadie: el
+ * engranaje en `slate-800` (heredado del secundario, que lo pone para su
+ * ETIQUETA), el embudo de Filtros en `slate-400`, y la lupa y el `···` de la
+ * cabecera en `slate-500`, cada uno escrito a mano por su lado. Tres tonos en la
+ * misma pantalla se leen como tres materiales, y una fila se lee por lo que tiene
+ * en común.
+ *
+ * `slate-600` (7,6:1) es el peldaño que sirve para los DOS papeles que hay ahí:
+ * el glifo que va SOLO dentro de un botón (la lupa, el engranaje, el `···`) y el
+ * que ACOMPAÑA a una palabra (el embudo de "Filtros"). Se lee como un control y
+ * no como un adorno, y a la vez se queda un peldaño por debajo de una etiqueta en
+ * `slate-800`, que es la misma jerarquía que separa el título de una cabecera de
+ * tabla de su icono. En `slate-400` un glifo que va solo se queda pálido siendo lo
+ * único que se ve del control; en tinta, el que acompaña a una palabra le compite.
+ *
+ * Va en el SVG y no en el botón: `BTN_ICONO_FRANJA` trae su `text-slate-800` y
+ * dos colores en el mismo `className` se resuelven por orden de emisión, no de
+ * escritura. En el hijo gana siempre, porque lo del padre solo se hereda.
+ *
+ * Lo que sí cambia de tono es el ESTADO: el embudo de Filtros pasa a indigo
+ * cuando hay filtros puestos, igual que su etiqueta. Eso no es un cuarto gris, es
+ * el acento diciendo que ese control está haciendo algo.
+ *
+ * No se llama `ICONO_FRANJA` porque no es de la franja: el `···` de la cabecera
+ * del puesto llevaba su propio gris escrito a mano, y lo que le faltaba era salir
+ * de aquí. Un valor escrito a mano en varios sitios es exactamente como nacieron
+ * los tres tonos que esto vino a juntar.
+ */
+export const ICONO_CONTROL = 'size-4 shrink-0 text-slate-600'
 
 /**
  * BOTÓN DE BLOQUE: el que cierra un formulario de acceso (entrar, crear cuenta,

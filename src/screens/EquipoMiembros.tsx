@@ -238,7 +238,7 @@ export function EquipoMiembros() {
                       <Copy className="size-3.5" aria-hidden /> Enlace
                     </button>
                     {isOwner && !demo && (
-                      <button onClick={() => revoke(inv.id)} aria-label={`Revocar invitación de ${inv.email}`} className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600">
+                      <button onClick={() => revoke(inv.id)} aria-label={`Revocar invitación de ${inv.email}`} className="grid size-8 place-items-center rounded-lg text-slate-600 hover:bg-red-50 hover:text-red-600">
                         <Trash2 className="size-4" aria-hidden />
                       </button>
                     )}
@@ -348,7 +348,7 @@ function MemberRow({
         <button
           onClick={onEdit}
           aria-label={`Editar acceso de ${member.email}`}
-          className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          className={botonIcono('ghost', 'sm')}
         >
           <Pencil className="size-4" aria-hidden />
         </button>
@@ -357,7 +357,9 @@ function MemberRow({
         <button
           onClick={onRemove}
           aria-label={`Eliminar a ${member.email} del equipo`}
-          className="grid size-8 place-items-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-600"
+          // A mano y no `botonIcono('ghost')` por el hover DESTRUCTIVO, que es
+          // lo único que lo distingue: su tinta base sí es la de la casa.
+          className="grid size-8 place-items-center rounded-lg text-slate-600 transition-colors duration-[var(--duration-control)] hover:bg-red-50 hover:text-red-600"
         >
           <Trash2 className="size-4" aria-hidden />
         </button>

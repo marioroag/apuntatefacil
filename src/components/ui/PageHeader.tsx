@@ -13,7 +13,10 @@
  *   debajo: la jerarquía estaba invertida y el nombre de la pantalla perdía
  *   contra un número. Ahora 24px. No 30 como la referencia: nuestra columna es
  *   más estrecha y más densa, y la doctrina dice que la jerarquía la dan el peso
- *   y el color antes que el tamaño. Con `-0.012em`, el tracking de titular: a
+ *   y el color antes que el tamaño. **Subió a 28 en sep 2026** (Mario), cuando
+ *   los botones de la cabecera del puesto pasaron a 40: con las acciones más
+ *   grandes y el título quieto, el nombre de la pantalla volvía a pesar menos que
+ *   sus controles. Se mueve aquí Y en el panel a la vez, que es la regla de abajo. Con `-0.012em`, el tracking de titular: a
  *   este cuerpo el espaciado de texto corrido se ve blando.
  * · **Las MEDIDAS SON LAS DEL PANEL DEL PUESTO** (Mario, ago 2026), que es la
  *   pantalla donde se afinaron a ojo: `font-bold` y no `semibold`, y el subtítulo
@@ -84,7 +87,7 @@ export function PageHeader({
     // no en cada pantalla, que es lo que impide que vuelvan a separarse.
     <header className={`flex flex-wrap items-start justify-between gap-x-4 gap-y-3 pt-3 ${pegada ? 'pb-2' : 'mb-6'} ${className}`}>
       <div className="min-w-0">
-        <h1 className="flex items-baseline gap-2 text-2xl font-bold leading-tight tracking-[-0.012em] text-slate-900">
+        <h1 className="flex items-baseline gap-2 text-[28px] font-bold leading-tight tracking-[-0.012em] text-slate-900">
           <span className="min-w-0 truncate">{titulo}</span>
         </h1>
         {sub && <p className="mt-1 text-sm font-medium text-slate-500">{sub}</p>}

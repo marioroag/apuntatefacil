@@ -431,7 +431,7 @@ function Conocimientos({ valor, onChange }: { valor: string[]; onChange: (v: str
               type="button"
               onClick={() => onChange(valor.filter((v) => v !== c))}
               aria-label={`Quitar ${c}`}
-              className="rounded text-slate-400 transition-colors duration-[var(--duration-control)] hover:text-slate-700"
+              className="rounded text-slate-600 transition-colors duration-[var(--duration-control)] hover:text-slate-900"
             >
               <X className="size-3.5" aria-hidden />
             </button>

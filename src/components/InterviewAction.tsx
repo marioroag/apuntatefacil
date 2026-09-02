@@ -4,7 +4,7 @@ import { Modal } from './ui/Modal'
 import { useStore } from '../lib/store'
 import { useToast } from './ui/Toast'
 import { SelectorFechaHora } from './ui/DateTimePicker'
-import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM, botonIcono } from '../lib/buttons'
 import { useAnfitrion } from '../lib/anfitrion'
 import { useOcupado } from '../lib/ocupado'
 import { WHATSAPP_LISTO } from '../lib/whatsapp'
@@ -169,7 +169,7 @@ export function AgendarManualDialog({
           type="button"
           aria-label="Cerrar"
           onClick={onClose}
-          className="grid size-9 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          className={botonIcono('ghost')}
         >
           <X className="size-5" aria-hidden />
         </button>
@@ -465,7 +465,7 @@ export function CambiarCitaDialog({
           type="button"
           aria-label="Cerrar"
           onClick={onClose}
-          className="grid size-9 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          className={botonIcono('ghost')}
         >
           <X className="size-5" aria-hidden />
         </button>

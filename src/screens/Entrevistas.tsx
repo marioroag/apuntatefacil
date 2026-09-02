@@ -379,7 +379,7 @@ function Agenda({ demo }: { demo: boolean }) {
                         type="button"
                         onClick={() => setCursor((c) => sumarDias(c, -salto))}
                         aria-label={vista === 'dia' ? 'Día anterior' : 'Semana anterior'}
-                        className="grid h-full w-10 place-items-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 pointer-coarse:w-11"
+                        className="grid h-full w-10 place-items-center text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 pointer-coarse:w-11"
                       >
                         <ChevronLeft className="size-4" aria-hidden />
                       </button>
@@ -388,7 +388,7 @@ function Agenda({ demo }: { demo: boolean }) {
                         type="button"
                         onClick={() => setCursor((c) => sumarDias(c, salto))}
                         aria-label={vista === 'dia' ? 'Día siguiente' : 'Semana siguiente'}
-                        className="grid h-full w-10 place-items-center text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 pointer-coarse:w-11"
+                        className="grid h-full w-10 place-items-center text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 pointer-coarse:w-11"
                       >
                         <ChevronRight className="size-4" aria-hidden />
                       </button>

@@ -153,7 +153,7 @@ export function InfoTooltip({ text }: { text: string }) {
       <button
         type="button"
         aria-label="Más información"
-        className="grid size-4 place-items-center rounded-full text-slate-500 hover:text-slate-600 focus-visible:text-slate-600"
+        className="grid size-4 place-items-center rounded-full text-slate-600 transition-colors duration-[var(--duration-control)] hover:text-slate-900 focus-visible:text-slate-900"
       >
         <Info className="size-3.5" aria-hidden />
       </button>

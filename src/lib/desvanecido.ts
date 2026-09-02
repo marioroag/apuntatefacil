@@ -16,10 +16,11 @@ import { useLayoutEffect, useState, type RefObject } from 'react'
    **Es la excepción declarada a "sin gradientes"** (la segunda, después del
    barrido del skeleton), y se sostiene porque no es pintura: es información.
 
-   Vive aquí y no dentro de un componente porque ya son dos consumidores en dos
-   ejes distintos: la tira de pastillas de `ui/Tabs` (horizontal) y la lista de
-   horas de `ui/DateTimePicker` (vertical). Escrito dos veces, el día que se
-   afine el desvanecido solo se afinaría uno.
+   Vive aquí y no dentro de un componente porque ya son TRES consumidores en dos
+   ejes distintos: la tira de pastillas de `ui/Tabs` y la de chips de filtro del
+   panel de un puesto (horizontales), y la lista de horas de `ui/DateTimePicker`
+   (vertical). Escrito tres veces, el día que se afine el desvanecido solo se
+   afinaría uno.
 --------------------------------------------------------------------------- */
 
 /** Cuánto se desvanece el filo por el que la lista continúa. */

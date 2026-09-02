@@ -251,7 +251,7 @@ export function GlobalSearch({ onClose }: { onClose?: () => void }) {
             inputRef.current?.focus()
           }}
           aria-label="Borrar la búsqueda"
-          className="grid size-7 shrink-0 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          className="grid size-7 shrink-0 place-items-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
         >
           <X className="size-4" aria-hidden />
         </button>

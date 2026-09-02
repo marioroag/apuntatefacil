@@ -129,7 +129,7 @@ export function MiniMes({
             type="button"
             onClick={() => moverMes(-1)}
             aria-label="Mes anterior"
-            className={`grid place-items-center rounded-md text-slate-500 outline-none transition-colors duration-[var(--duration-control)] hover:bg-slate-100 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${grande ? 'size-11' : 'size-7'}`}
+            className={`grid place-items-center rounded-md text-slate-600 outline-none transition-colors duration-[var(--duration-control)] hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${grande ? 'size-11' : 'size-7'}`}
           >
             <ChevronLeft className="size-4" aria-hidden />
           </button>
@@ -137,7 +137,7 @@ export function MiniMes({
             type="button"
             onClick={() => moverMes(1)}
             aria-label="Mes siguiente"
-            className={`grid place-items-center rounded-md text-slate-500 outline-none transition-colors duration-[var(--duration-control)] hover:bg-slate-100 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${grande ? 'size-11' : 'size-7'}`}
+            className={`grid place-items-center rounded-md text-slate-600 outline-none transition-colors duration-[var(--duration-control)] hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${grande ? 'size-11' : 'size-7'}`}
           >
             <ChevronRight className="size-4" aria-hidden />
           </button>

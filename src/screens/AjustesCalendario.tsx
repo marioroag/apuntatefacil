@@ -451,7 +451,7 @@ export function AjustesCalendario() {
                           type="button"
                           onClick={() => quitarTramo(d.n, i)}
                           aria-label={`Quitar este tramo del ${d.largo.toLowerCase()}`}
-                          className="grid size-8 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                          className="grid size-8 place-items-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
                         >
                           <X className="size-4" aria-hidden />
                         </button>

@@ -914,7 +914,9 @@ function ProposalRow({
           type="button"
           onClick={onRetract}
           aria-label={`Retirar a ${name} de la petición`}
-          className="grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+          // A mano por el objetivo de toque (`pointer-coarse:size-11`), que la
+          // talla `sm` de `botonIcono` no trae; la tinta sí es la de la casa.
+          className="grid size-8 pointer-coarse:size-11 shrink-0 place-items-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
         >
           <X className="size-3.5" aria-hidden />
         </button>
@@ -1065,7 +1067,7 @@ function Composer({
               type="button"
               onClick={() => onPickerOpen(false)}
               aria-label="Cerrar buscador de candidatos"
-              className="grid size-8 pointer-coarse:size-11 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              className="grid size-8 pointer-coarse:size-11 place-items-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
             >
               <X className="size-4" aria-hidden />
             </button>
@@ -1184,7 +1186,7 @@ function Composer({
                     // pasaba de 24 a 48 y dejaba de ser una cápsula. Los 12px de
                     // `-inset-3` sobre un glifo de 20 dan los 44 del mínimo táctil
                     // sin engordar un solo píxel lo que se ve.
-                    className="relative grid size-5 place-items-center rounded-full text-slate-400 hover:bg-slate-200/80 hover:text-slate-700 pointer-coarse:after:absolute pointer-coarse:after:-inset-3 pointer-coarse:after:content-['']"
+                    className="relative grid size-5 place-items-center rounded-full text-slate-600 hover:bg-slate-200/80 hover:text-slate-900 pointer-coarse:after:absolute pointer-coarse:after:-inset-3 pointer-coarse:after:content-['']"
                   >
                     <X className="size-3" aria-hidden />
                   </button>

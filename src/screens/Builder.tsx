@@ -486,7 +486,11 @@ function FieldRowHeader({
         {...(handleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
         {...noFocus}
         className={`rounded-lg p-1.5 hover:bg-slate-100 ${
-          overlay ? 'cursor-grabbing text-slate-500' : `cursor-grab ${TINTA_ASA} active:cursor-grabbing`
+          // La tinta sale de `TINTA_ASA` en las DOS ramas: el asa va apagada a
+          // propósito (es una afordancia, no un mando) y con un gris escrito a
+          // mano aquí, arrastrar la cambiaba de color a media maniobra. El hover
+          // que trae no se dispara mientras arrastras, así que no estorba.
+          overlay ? `cursor-grabbing ${TINTA_ASA}` : `cursor-grab ${TINTA_ASA} active:cursor-grabbing`
         }`}
         aria-label={`Reordenar ${field.label}, posición ${index + 1} de ${total}`}
       >
@@ -636,7 +640,7 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o:
             <button
               onClick={() => onChange(options.filter((_, j) => j !== i))}
               disabled={options.length <= 1}
-              className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
+              className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-30"
               aria-label={`Quitar opción ${o}`}
             >
               <X className="size-4" aria-hidden />

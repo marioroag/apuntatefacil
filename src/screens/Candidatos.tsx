@@ -21,6 +21,7 @@ import { PageHeader } from '../components/ui/PageHeader'
 import { useEsMovil } from '../lib/media'
 import { BTN_SECONDARY } from '../lib/buttons'
 import { ChipDimension, MenuAnadirFiltro, type DimensionFiltro } from '../components/FiltroChip'
+import { useDesvanecido } from '../lib/desvanecido'
 import { useColumnasAjustables } from '../lib/columnas'
 import { estadosDe, incluye, traeNuevos, vistaPor, type VistaCandidatos } from '../lib/candidatos'
 import { IconoVacio } from '../components/ui/IconoVacio'
@@ -486,6 +487,17 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
   // "categorías añadidas", que se desincroniza en cuanto desmarcas el último valor.
   const dimensionesVisibles = useMemo(() => dimensiones.filter((d) => d.n > 0), [dimensiones])
 
+  // El desvanecido de la tira de chips, el mismo que el panel de un puesto (ver
+  // `lib/desvanecido.ts`): sin barra a la vista, un filtro que se sale del filo
+  // sencillamente no existe para quien mira. La señal de remedida son los chips
+  // que hay Y su cuenta, porque un chip cambia de ancho al pasar de "(1)" a
+  // "(12)" y un `ResizeObserver` sobre el contenedor no se entera de que sus
+  // hijos son otros.
+  const chipsRef = useRef<HTMLDivElement>(null)
+  const mascaraChips = useDesvanecido(chipsRef, 'x', {
+    senal: dimensionesVisibles.map((d) => `${d.id}:${d.n}`).join(),
+  })
+
   const openCandidate = openId ? candidates.find((c) => c.id === openId) ?? null : null
   const openCampaign = openCandidate ? getCampaign(openCandidate.campaignId) ?? null : null
 
@@ -565,7 +577,11 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
             onLimpiarTodo={limpiarMenu}
           />
         </div>
-        <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          ref={chipsRef}
+          style={mascaraChips ? { maskImage: mascaraChips, WebkitMaskImage: mascaraChips } : undefined}
+          className="flex min-w-0 flex-1 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {dimensionesVisibles.map((d) => (
             <ChipDimension key={d.id} dim={d} />
           ))}

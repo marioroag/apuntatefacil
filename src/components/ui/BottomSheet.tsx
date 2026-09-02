@@ -128,7 +128,7 @@ export function BottomSheet({
                   onClick={onClose}
                   onPointerDown={(e) => e.stopPropagation()}
                   aria-label="Cerrar"
-                  className="-mr-1 inline-flex size-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+                  className="-mr-1 inline-flex size-11 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
                 >
                   <X className="size-5" aria-hidden />
                 </button>

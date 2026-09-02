@@ -37,8 +37,6 @@ import {
   Search,
   SearchX,
   Settings2,
-  Rows3,
-  Columns3,
   Timer,
   Share2,
   Sparkles,
@@ -62,7 +60,8 @@ import { useColumnasAjustables } from '../lib/columnas'
 import { useVistaTabla, type ColumnaVista, type VistaTabla } from '../lib/vistaTabla'
 import { AjustesVista, type OpcionOrden } from '../components/AjustesVista'
 import { KanbanPuesto } from '../components/KanbanPuesto'
-import { useModoPanel, type ModoPanel } from '../lib/modoPanel'
+import { useModoPanel } from '../lib/modoPanel'
+import { useDesvanecido } from '../lib/desvanecido'
 import { DUR, EASE } from '../lib/motion'
 import { StatusSelect, StatusPickerSheet, MenuEstado } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
@@ -97,7 +96,7 @@ import { useEsMovil } from '../lib/media'
 import { ChipDimension, MenuAnadirFiltro, type DimensionFiltro } from '../components/FiltroChip'
 import { MaskedPhone } from '../components/MaskedPhone'
 import { PullToRefresh, type RefreshResult } from '../components/PullToRefresh'
-import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SUPERFICIE, botonIcono } from '../lib/buttons'
+import { BTN_ICONO_FRANJA, BTN_PRIMARY, BTN_PRIMARY_FRANJA, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SUPERFICIE, ICONO_CONTROL } from '../lib/buttons'
 import { copyText } from '../lib/clipboard'
 import { supabase } from '../lib/supabase'
 import { searchScore } from '../lib/search'
@@ -927,6 +926,26 @@ export function Dashboard() {
   // tenga que acordarse de sincronizar la otra lista.
   const dimensionesVisibles = useMemo(() => dimensiones.filter((d) => d.n > 0), [dimensiones])
 
+  // EL DESVANECIDO DE LA TIRA DE CHIPS (Mario, sep 2026). La fila de filtros es
+  // UNA SOLA LÍNEA que se desplaza (envolviendo cambiaría de alto al filtrar y
+  // recolocaría la tabla justo cuando miras el resultado), y una zona que
+  // scrollea dentro de otra que también scrollea no tiene forma de anunciarse:
+  // la barra del navegador o se esconde o mide un píxel, y en táctil no existe.
+  // Sin nada, un sexto filtro sencillamente no existe para quien mira.
+  //
+  // Es el mecanismo de la casa (`lib/desvanecido.ts`), el mismo que la tira de
+  // pastillas de la ficha y la lista de horas del selector: recorta con una
+  // máscara SOLO el lado por el que de verdad continúa, así que llegar al final
+  // lo apaga, que es justo lo que dice "hasta aquí".
+  //
+  // La señal de remedida son los chips que hay Y su cuenta: un chip cambia de
+  // ancho al pasar de "(1)" a "(12)", y un `ResizeObserver` sobre el contenedor
+  // no se entera de que sus hijos son otros.
+  const chipsRef = useRef<HTMLDivElement>(null)
+  const mascaraChips = useDesvanecido(chipsRef, 'x', {
+    senal: dimensionesVisibles.map((d) => `${d.id}:${d.n}`).join(),
+  })
+
   if (!campaign) {
     return (
       <div className="grid h-full place-items-center px-6 py-16">
@@ -1130,7 +1149,14 @@ export function Dashboard() {
                 pequeño el accesorio, más aire necesita para leerse como una cosa
                 aparte. */}
             <div className="flex min-w-0 items-center gap-3">
-              <h1 className="min-w-0 truncate text-2xl font-bold leading-tight tracking-[-0.012em] text-slate-900">{campaign.title}</h1>
+              {/* 28px (Mario, sep 2026). Sube CON sus acciones: con los botones en
+                  40 y el título en 24, el nombre de la pantalla pesaba menos que
+                  los controles que tiene al lado, que es exactamente la jerarquía
+                  invertida que esta cabecera ya corrigió una vez contra las cifras
+                  de las tarjetas. Y sube en `PageHeader` a la vez, porque son la
+                  misma cabecera: si se moviera solo aquí, el título cambiaría de
+                  tamaño al ir del panel a Candidatos. */}
+              <h1 className="min-w-0 truncate text-[28px] font-bold leading-tight tracking-[-0.012em] text-slate-900">{campaign.title}</h1>
               <EstadoPuesto
                 status={campaign.status}
                 canManage={canManage}
@@ -1220,15 +1246,21 @@ export function Dashboard() {
             Por debajo de `sm` se apilan A PROPÓSITO (no cabe la derecha al lado),
             que es distinto de apilarse por accidente. */}
         <div className="flex flex-wrap items-start gap-2 py-4 sm:flex-nowrap">
-          {/* 1 · BUSCAR. En móvil abre la fila y se lleva todo el ancho que sobra
-              hasta Filtros; en escritorio vuelve a la derecha, plegado en lupa. */}
-          <div className="order-1 flex min-w-0 flex-1 sm:order-3 sm:ml-1 sm:flex-none">
+          {/* 1 · BUSCAR, EL PRIMERO DE LA FILA A TODOS LOS ANCHOS (diseño de
+              Mario, sep 2026). Estaba el tercero, contra el filo derecho; ahora
+              abre la franja, que es el orden en que se trabaja: primero buscas a
+              alguien y lo que quede lo recortas con los filtros. Se sigue plegando
+              en escritorio, pero hacia la DERECHA: la lupa es lo que se queda
+              quieto (ver `BuscadorPuesto`). En móvil se lleva todo el ancho que
+              sobra hasta Filtros; en escritorio mide lo suyo y el sobrante se lo
+              quedan los chips. */}
+          <div className="order-1 flex min-w-0 flex-1 sm:flex-none">
             <BuscadorPuesto value={search} onChange={setSearch} />
           </div>
 
-          {/* 2 · FILTROS. Comparte fila con el buscador en móvil (donde es solo el
-              icono) y encabeza la columna izquierda en escritorio. */}
-          <div className="order-2 shrink-0 sm:order-1">
+          {/* 2 · FILTROS, detrás del buscador y pegado a sus chips: el control y su
+              lectura son la misma cosa. En móvil es solo el icono. */}
+          <div className="order-2 shrink-0">
             <MenuAnadirFiltro
               dimensiones={dimensiones}
               hayFiltros={activeFilterCount > 0}
@@ -1241,16 +1273,20 @@ export function Dashboard() {
             />
           </div>
 
-          {/* 3 · EN QUÉ MITAD DE LA LISTA ESTÁS. Solo en escritorio: en móvil no
+          {/* 4 · EN QUÉ MITAD DE LA LISTA ESTÁS. Solo en escritorio: en móvil no
               cabe en la fila y, si no se ve, tampoco filtra (ver `vista`). */}
-          {/* AJUSTES DE LA VISTA, el último de la fila y a la derecha del
-              conmutador: primero se decide QUÉ lista miras (filtros, buscador,
-              mitad) y al final cómo se te presenta. Solo en escritorio, como el
-              conmutador y como el asa de ajustar anchos: en móvil los anchos
-              están medidos al píxel y el orden de las columnas es otro a
+          {/* AJUSTES DE LA VISTA, el último de la fila: primero se decide QUÉ
+              lista miras (filtros, buscador, mitad) y al final cómo se te
+              presenta. Y desde sep 2026 CÓMO SE TE PRESENTA ES TODO SUYO: tabla o
+              tablero era un conmutador suelto a su derecha y se ha mudado dentro,
+              al principio del panel (Mario). Dos controles contiguos gobernando la
+              presentación eran dos puertas para lo mismo, y el de fuera se llevaba
+              80px de la fila para una decisión que se toma de tarde en tarde.
+              Solo en escritorio, como el asa de ajustar anchos: en móvil los
+              anchos están medidos al píxel y el orden de las columnas es otro a
               propósito, así que ahí no hay nada que elegir. */}
           {!esMovil && (
-            <div className="order-3 flex shrink-0 items-center gap-2 sm:order-4">
+            <div className="order-4 flex shrink-0 items-center gap-2">
               {/* En TABLERO no se pintan ni el conmutador de mitades ni el
                   engranaje: el primero recorta por estado, que allí es la
                   maquetación, y el segundo gobierna columnas y orden de la
@@ -1270,6 +1306,20 @@ export function Dashboard() {
                   maquetación; el orden que queda es el de las tarjetas DENTRO de
                   su columna. */}
               <AjustesVista
+                modo={modo}
+                onModo={(m) => {
+                  // EL ORDEN SIGUE AL MODO, PERO SOLO SI NO LO HABÍAS TOCADO: una
+                  // intención declarada gana a una inferida (la misma regla que
+                  // hace que el conmutador de mitades solo se mueva cuando el lado
+                  // en el que estás no puede tener nada). Si estabas en el orden de
+                  // fábrica, pasas al de fábrica del otro modo; si habías elegido
+                  // uno, se respeta.
+                  const antes = m === 'tablero' ? ORDEN_INICIAL : ORDEN_INICIAL_TABLERO
+                  if (sort.key === antes.key && sort.dir === antes.dir) {
+                    setSort(m === 'tablero' ? ORDEN_INICIAL_TABLERO : ORDEN_INICIAL)
+                  }
+                  setModo(m)
+                }}
                 ordenes={tablero ? ordenesDe(campaign, showFit).filter((o) => o.key !== 'estado') : ordenesDe(campaign, showFit)}
                 sort={sort}
                 onOrdenar={ordenar}
@@ -1279,30 +1329,14 @@ export function Dashboard() {
                 rotuloLista={tablero ? 'Qué se ve en la tarjeta' : undefined}
                 buscando={q.length > 0}
               />
-              <ConmutadorModo
-                modo={modo}
-                onChange={(m) => {
-                  // EL ORDEN SIGUE AL MODO, PERO SOLO SI NO LO HABÍAS TOCADO:
-                  // una intención declarada gana a una inferida (la misma regla
-                  // que hace que el conmutador de mitades solo se mueva cuando
-                  // el lado en el que estás no puede tener nada). Si estabas en
-                  // el orden de fábrica, pasas al de fábrica del otro modo; si
-                  // habías elegido uno, se respeta.
-                  const antes = m === 'tablero' ? ORDEN_INICIAL : ORDEN_INICIAL_TABLERO
-                  if (sort.key === antes.key && sort.dir === antes.dir) {
-                    setSort(m === 'tablero' ? ORDEN_INICIAL_TABLERO : ORDEN_INICIAL)
-                  }
-                  setModo(m)
-                }}
-              />
             </div>
           )}
 
-          {/* 4 · LOS CHIPS DE LO QUE ESTÁ FILTRANDO, pegados a su botón: el control
+          {/* 3 · LOS CHIPS DE LO QUE ESTÁ FILTRANDO, pegados a su botón: el control
               y su lectura son la misma cosa. Vacío sigue montado en escritorio
-              porque es el que CRECE y empuja el buscador contra el filo derecho;
-              en móvil, donde no empuja nada, se esconde para no dejar una fila
-              vacía con su hueco.
+              porque es el que CRECE y separa el buscador de lo que vive contra el
+              filo derecho; en móvil, donde no empuja nada, se esconde para no
+              dejar una fila vacía con su hueco.
 
               UNA SOLA LÍNEA QUE SE DESPLAZA, no una pila (Mario, ago 2026). Al
               envolver, cada chip nuevo empujaba hacia abajo la tabla entera y la
@@ -1317,7 +1351,9 @@ export function Dashboard() {
               así que el desplegable de un chip ya no puede ser `absolute` dentro.
               Va en un portal con posición fija (ver `ChipDimension`). */}
           <div
-            className={`order-4 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:order-2 sm:flex-1 sm:basis-auto ${
+            ref={chipsRef}
+            style={mascaraChips ? { maskImage: mascaraChips, WebkitMaskImage: mascaraChips } : undefined}
+            className={`order-3 flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-1 sm:basis-auto ${
               dimensionesVisibles.length > 0 ? 'basis-full' : 'hidden sm:flex'
             }`}
           >
@@ -3187,14 +3223,33 @@ function TestChip() {
 }
 
 /**
- * BUSCAR EN EL PUESTO. Una lupa que se abre en campo, con la lupa a la DERECHA en
- * su bloque teñido (diseño de Mario, ago 2026).
+ * BUSCAR EN EL PUESTO. Una lupa que se abre en campo, la PRIMERA de la franja y
+ * desenrollando hacia la DERECHA (diseño de Mario, sep 2026).
  *
- * El campo ocupaba la fila entera y empujaba todo lo demás contra el filo derecho;
- * plegado deja el sitio a lo que se mira más veces, que son los filtros y en qué
- * mitad de la lista estás. Se abre al pulsar y **no se cierra si has escrito algo**:
- * plegarlo con texto dentro borraría un filtro sin decirlo, que es peor que ocupar
- * ancho. Escape con el campo vacío (o pulsar la lupa) lo vuelve a plegar.
+ * Estuvo al final de la fila y creciendo hacia la izquierda, con la lupa como tapa
+ * derecha teñida de acento. Lo que cambia no es solo el sitio: buscar a una
+ * persona es de lo que más se hace en esta pantalla, así que abre la franja, que
+ * es el orden en que se trabaja (primero buscas y lo que quede lo recortas con los
+ * filtros). Y creciendo hacia la derecha el campo se desenrolla hacia el hueco que
+ * de verdad sobra, en vez de empujar a los filtros contra el filo.
+ *
+ * SIGUE PLEGÁNDOSE, y por lo de siempre: plegado deja el sitio a lo que se mira
+ * más veces. **No se cierra si has escrito algo**, porque plegarlo con texto
+ * dentro borraría un filtro sin decirlo. Escape con el campo vacío lo repliega.
+ *
+ * LO ÚNICO QUE SE MUEVE ES LO QUE APARECE: la lupa está ANCLADA en el mismo píxel
+ * en los dos estados y lo que crece es el campo, que sale de detrás de ella. Es la
+ * misma regla que ya gobernaba la versión anterior, solo que con el ancla en el
+ * otro extremo. La curva es `--ease-standard` y no `--ease-out`: esto no reacciona
+ * al dedo sobre sí mismo, TRANSFORMA una caja de un estado a otro.
+ *
+ * Y LA LUPA CAMBIA DE PAPEL CON EL ESTADO. Plegada es un CONTROL (pulsarla abre);
+ * abierta no pliega nada, así que pasa a ser el ADORNO de dentro del campo, en
+ * gris y sin caja, y deja pasar el click al propio campo. Una caja de acento que
+ * no hace nada es un botón que miente. Con eso, escritorio y móvil pintan por fin
+ * lo MISMO cuando el campo está abierto, y la rama de móvil se queda solo con lo
+ * que de verdad la distingue: allí la fila es suya entera, así que no hay nada que
+ * ahorrar plegándola y el campo entra abierto.
  *
  * No toca el mecanismo de tres ritmos del buscador (`search` urgente, `q` en
  * transición, `dq` con debounce): eso vive en la pantalla y aquí solo cambia CÓMO
@@ -3205,7 +3260,8 @@ function BuscadorPuesto({ value, onChange }: { value: string; onChange: (v: stri
   const [abierto, setAbierto] = useState(false)
   const esMovil = useEsMovil()
   const ref = useRef<HTMLInputElement>(null)
-  const visible = abierto || value.length > 0
+  // En móvil no se pliega nunca: la fila es suya entera (ver arriba).
+  const visible = esMovil || abierto || value.length > 0
 
   // El foco va en un efecto y NO en el propio click: `requestAnimationFrame`
   // programado dentro del manejador puede dispararse ANTES de que React comita el
@@ -3215,44 +3271,15 @@ function BuscadorPuesto({ value, onChange }: { value: string; onChange: (v: stri
     if (abierto) ref.current?.focus()
   }, [abierto])
 
-  // EN MÓVIL NO SE PLIEGA, Y LA LUPA CAMBIA DE PAPEL (ago 2026, referencia de
-  // Mario). Aquí la fila es suya entera, así que no hay nada que ahorrar
-  // plegándola: el campo entra abierto y ocupa lo que sobra hasta el botón de
-  // Filtros. Y con el campo siempre abierto la lupa deja de ser un CONTROL (no
-  // pliega nada) y pasa a ser un ADORNO, así que se mete dentro del campo, en
-  // gris y sin caja, en vez de quedarse fuera como tapa teñida de acento: una
-  // caja de acento que no hace nada es un botón que miente.
-  //
-  // 16px de letra y no 14: por debajo de 16 iOS hace zoom al enfocar y la
-  // pantalla se descoloca, que es la misma razón por la que los campos del
-  // formulario público llevan ese cuerpo.
-  if (esMovil) {
-    return (
-      <div className="relative min-w-0 flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
-        <input
-          type="search"
-          aria-label="Buscar candidatos"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Buscar candidatos"
-          className="h-11 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-base text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-inset focus:ring-indigo-500/40"
-        />
-      </div>
-    )
-  }
-
   return (
-    <div className="flex min-w-0 items-center">
-      {/* Lo que se anima es un envoltorio que SOLO envuelve al campo, y la lupa se
-          queda FUERA. Primero lo hice al revés (una caja única que crecía con el
-          botón dentro) y el botón viajaba con ella: el campo parecía empujar a la
-          lupa. Con la lupa anclada, el campo se desenrolla por detrás de ella y lo
-          único que se mueve es lo que aparece. */}
+    <div className="relative flex min-w-0 flex-1 items-center sm:flex-none">
+      {/* Lo que se anima es el ENVOLTORIO del campo; la lupa vive fuera de él y no
+          se mueve un píxel. En móvil no hay animación que valga: el campo ocupa lo
+          que sobra de la fila y ya está. */}
       <div
-        style={{ transitionProperty: 'width, opacity' }}
-        className={`overflow-hidden transition-[width,opacity] duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none ${
-          visible ? 'w-full opacity-100 sm:w-48' : 'w-0 opacity-0'
+        style={{ transitionProperty: 'width' }}
+        className={`min-w-0 flex-1 overflow-hidden transition-[width] duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none sm:flex-none ${
+          visible ? 'sm:w-64' : 'sm:w-10 sm:pointer-coarse:w-11'
         }`}
       >
         <input
@@ -3270,35 +3297,106 @@ function BuscadorPuesto({ value, onChange }: { value: string; onChange: (v: stri
             }
           }}
           onBlur={() => !value && setAbierto(false)}
-          placeholder="Buscar candidatos..."
-          // Sin borde derecho y con las esquinas izquierdas redondeadas: el campo y
-          // la lupa son UNA pieza partida en dos, no dos controles pegados. El
-          // anillo de foco va `inset` (y no el `ring-4` de un campo suelto), o se
-          // derramaría por encima del botón que tiene al lado.
-          className="h-10 w-full rounded-l-lg border border-r-0 border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-inset focus:ring-indigo-500/40 pointer-coarse:h-11"
+          placeholder="Buscar..."
+          // EL FILO ES EL MISMO QUE EL DEL BOTÓN (Mario, sep 2026): `slate-200`,
+          // el hairline de la casa, y no el `slate-300` que traía de campo suelto.
+          // Aquí el campo y la lupa son LA MISMA PIEZA en dos estados, así que un
+          // borde medio tono más oscuro al abrirse se leía como si al desenrollarse
+          // cambiara de material.
+          //
+          // Y va con `filo`, o sea a DOS MANOS, aunque sea un campo: la segunda se
+          // retira sola al enfocar (`:not(:focus-visible)`), que es justo lo que le
+          // faltaba al caso por el que los campos se quedaron con una mano. Aquí no
+          // hay nada que tapar, porque el único cambio de color del borde es el del
+          // foco. `outline-none` no se la lleva por delante: `.filo:not(...)` tiene
+          // más especificidad, así que no depende del orden de emisión.
+          //
+          // El relleno izquierdo es el ancho de la lupa: el texto arranca donde
+          // acaba ella, no debajo. Y la opacidad entra ANTES de que la caja termine
+          // (`--duration-enter` contra `--duration-max`), o se leerían dos
+          // movimientos en vez de uno. 16px de letra en táctil: por debajo de eso
+          // iOS hace zoom al enfocar.
+          className={`h-10 w-full rounded-lg filo bg-white pl-10 pr-10 text-sm text-slate-900 outline-none transition-opacity duration-[var(--duration-enter)] placeholder:text-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-inset focus:ring-indigo-500/40 motion-reduce:transition-none pointer-coarse:h-11 pointer-coarse:pl-11 pointer-coarse:pr-11 pointer-coarse:text-base ${
+            visible ? 'opacity-100' : 'opacity-0'
+          }`}
         />
       </div>
-      {/* La lupa cambia de PAPEL con el estado: plegada es un icono suelto (sin
-          caja, gris); abierta es la tapa derecha del campo, teñida de acento. */}
+      {/* LA LUPA, ANCLADA, Y SUS DOS PAPELES.
+          Plegada es UN BOTÓN DE LA FRANJA como cualquier otro (Mario, sep 2026):
+          fondo blanco y filo, o sea `BTN_ICONO_FRANJA`, el mismo que el engranaje
+          de la vista. Sin caja se leía como un adorno suelto en una fila donde
+          todo lo demás es un control, y lo que se pulsa tiene que parecer que se
+          pulsa.
+          Abierta no pliega nada, así que pasa a ser el ADORNO de dentro del campo:
+          sin caja, en gris y dejando pasar el click, que es lo que espera
+          cualquiera que pulse un icono metido en una caja de texto.
+          Los dos juegos de clases se eligen ENTEROS y no se pisan: fondo, anillo y
+          talla son las mismas utilidades en los dos, y esas no se resuelven por el
+          orden en que se escriben. */}
       <button
         type="button"
-        onClick={() => {
-          if (!visible) { setAbierto(true); return }
-          // Abierta y vacía se pliega (la vuelta con el ratón, porque Escape es de
-          // teclado); con algo escrito NO se pliega, solo enfoca: plegarla borraría
-          // un filtro sin decirlo.
-          if (!value) setAbierto(false)
-          else ref.current?.focus()
-        }}
-        aria-label={visible ? 'Buscar candidatos' : 'Abrir el buscador de candidatos'}
-        className={`grid h-10 w-10 shrink-0 place-items-center outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 pointer-coarse:h-11 pointer-coarse:w-11 ${
+        onClick={() => setAbierto(true)}
+        aria-hidden={visible}
+        tabIndex={visible ? -1 : 0}
+        aria-label="Abrir el buscador de candidatos"
+        title="Buscar candidatos"
+        className={`absolute left-0 ${
           visible
-            ? 'rounded-r-lg border border-slate-300 bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
-            : 'rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+            ? 'pointer-events-none inline-flex size-10 items-center justify-center pointer-coarse:size-11'
+            : BTN_ICONO_FRANJA
         }`}
       >
-        <Search className="size-4" aria-hidden />
+        {/* LA TINTA DEL GLIFO ES LA MISMA EN LOS DOS ESTADOS (Mario, sep 2026), y
+            por lo mismo que el filo: es una pieza que se desenrolla, no dos. Y es
+            la de TODOS los glifos de un botón de icono (`ICONO_CONTROL`), porque
+            una fila se lee por lo que tiene en común. Queda por encima del
+            marcador de posición que tiene al lado, y está bien: el glifo se pulsa
+            cuando el campo está plegado y el marcador no se pulsa nunca. */}
+        <Search className={ICONO_CONTROL} aria-hidden />
       </button>
+
+      {/* LA CRUZ DE VACIAR, y solo cuando hay algo que vaciar (Mario, sep 2026):
+          un botón que no puede hacer nada es peor que ninguno, y con el campo
+          vacío sería un glifo más en una fila que ya tiene cuatro.
+
+          Es la misma pieza que la del buscador global (misma caja, mismo hover,
+          mismo `aria-label`): vaciar un campo de búsqueda se hace igual en toda la
+          app. No hace falta esconder la equis nativa de WebKit porque `index.css`
+          ya se la quita a todo `input[type=search]`; si no, serían dos.
+
+          NO PLIEGA EL CAMPO, y eso son dos cosas. Una: `preventDefault` en el
+          `mousedown`, para que el campo no pierda el foco (sin eso, el `onBlur`
+          con el campo ya vacío lo replegaría en el mismo gesto). Y otra: deja
+          `abierto` puesto, porque acabas de vaciar para escribir otra cosa, no
+          para cerrar. Para plegarlo están Escape y salirse.
+
+          El objetivo de toque lo estira un `::after` invisible hasta el alto del
+          campo, sin engordar un solo píxel lo que se ve: es el mismo recurso que
+          la cápsula de estado del puesto, y vale siempre que una diana pequeña
+          tiene que seguir siendo pequeña. */}
+      {visible && value.length > 0 && (
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            onChange('')
+            setAbierto(true)
+            ref.current?.focus()
+          }}
+          aria-label="Borrar la búsqueda"
+          title="Borrar la búsqueda"
+          // SIN FONDO (Mario, sep 2026): vive DENTRO de un campo, así que una
+          // placa gris al pasar por encima es una caja dentro de otra caja a 4px
+          // de su filo. El hover lo dice la TINTA, que es lo que ya hace la
+          // estrella de favorito: el color se oscurece y la caja no aparece.
+          className="group absolute right-1 grid size-8 place-items-center rounded-lg after:absolute after:-inset-1 after:content-[''] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 pointer-coarse:right-1.5 pointer-coarse:after:-inset-1.5"
+        >
+          <X
+            className={`${ICONO_CONTROL} transition-colors duration-[var(--duration-control)] group-hover:text-slate-900`}
+            aria-hidden
+          />
+        </button>
+      )}
     </div>
   )
 }
@@ -3397,67 +3495,6 @@ function SwitchVista({
 }
 
 /**
- * TABLA O TABLERO (Mario, ago 2026, con una referencia de CRM delante).
- *
- * Es el hermano icónico del conmutador Activos/Rechazados: la misma caja
- * rectangular con filo y divisoria, el mismo `radiogroup` con flechas. Aquí los
- * dos lados van en ICONO y no en palabra, y no contradice el "un icono hay que
- * aprendérselo" que le puso el nombre a Compartir: estos dos glifos (filas
- * contra columnas) son el vocabulario universal de los conmutadores de vista, y
- * la palabra está en el `aria-label`, el `title` y el lector.
- *
- * Va el ÚLTIMO de la franja, detrás incluso del engranaje: la fila se lee en el
- * orden de las decisiones (qué lista miras, cómo se te presenta), y esta es la
- * más envolvente de todas, decide qué controles existen a su izquierda.
- */
-function ConmutadorModo({ modo, onChange }: { modo: ModoPanel; onChange: (m: ModoPanel) => void }) {
-  const opciones = [
-    { value: 'tabla' as const, label: 'Tabla', Icono: Rows3 },
-    { value: 'tablero' as const, label: 'Tablero', Icono: Columns3 },
-  ]
-  const refs = useRef<(HTMLButtonElement | null)[]>([])
-  const mover = (dir: 1 | -1) => {
-    const i = opciones.findIndex((o) => o.value === modo)
-    const j = (i + dir + opciones.length) % opciones.length
-    onChange(opciones[j].value)
-    requestAnimationFrame(() => refs.current[j]?.focus())
-  }
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Cómo se presenta la lista"
-      className="flex h-10 shrink-0 items-center overflow-clip rounded-lg filo bg-white shadow-control pointer-coarse:h-11"
-    >
-      {opciones.map((o, i) => {
-        const activa = modo === o.value
-        return (
-          <button
-            key={o.value}
-            ref={(el) => { refs.current[i] = el }}
-            type="button"
-            role="radio"
-            aria-checked={activa}
-            aria-label={o.label}
-            title={o.label}
-            tabIndex={activa ? 0 : -1}
-            onClick={() => onChange(o.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); mover(1) }
-              else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); mover(-1) }
-            }}
-            className={`grid h-full w-10 place-items-center outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
-              i > 0 ? 'border-l border-slate-200' : ''
-            } ${activa ? 'bg-indigo-50/60 text-indigo-700' : 'text-slate-800 hover:bg-slate-50'}`}
-          >
-            <o.Icono className="size-4" aria-hidden />
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-/**
  * EL ESTADO DEL PUESTO, en la línea del título y como CONTROL.
  *
  * Antes solo se pintaba cuando NO estaba activo (una chapa "Pausado"/"Cerrado") y
@@ -3541,20 +3578,24 @@ function EstadoPuesto({
       {e.label}
     </>
   )
-  // 24px A TODOS LOS ANCHOS: es un ACCESORIO del título, no un control de la fila
-  // de acciones, así que va por debajo de los 36 de un botón. Llegó a engordar a
-  // 32 en táctil por el objetivo de toque, y ni así lo cumplía (44) mientras que
-  // en el móvil, donde el título ya ocupa dos líneas, sí se notaba: pegada a un
-  // `h1` de 24px, una cápsula de 32 compite con el nombre del puesto en vez de
-  // acompañarlo (Mario, ago 2026).
+  // 28px A TODOS LOS ANCHOS, y es un número DERIVADO: es un ACCESORIO del título,
+  // así que su tamaño sale del suyo. Estuvo en 24 mientras el `h1` estuvo en 24
+  // (Mario, ago 2026: "pegada a un h1 de 24, una cápsula de 32 compite con el
+  // nombre del puesto en vez de acompañarlo"), y sube con él a 28 en sep 2026:
+  // lo que aquella medida protegía era la PROPORCIÓN, no el 24, y con el título
+  // más grande la cápsula se había quedado pequeña al lado de lo que acompaña.
+  // Sube entera, no solo la caja: letra a 13 y relleno a 12, o una cápsula más
+  // alta con la misma letra dentro se lee como una caja con aire de más.
+  // Sigue por debajo de los 40 de un botón de la fila de acciones, que es lo que
+  // la mantiene siendo un accesorio y no un mando.
   //
   // El objetivo de toque no se pierde, se DESPEGA del dibujo: un `::after`
-  // invisible estira el área pulsable hasta ~44 sin engordar un solo píxel lo que
-  // se ve. Es el mismo recurso que ya usaba la pastilla de estado de la tarjeta
-  // de móvil, y la respuesta correcta siempre que una diana pequeña tiene que
-  // seguir siendo pequeña.
-  const forma = 'inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium'
-  const diana = 'relative after:absolute after:-inset-x-1 after:-inset-y-2.5 after:content-[\'\'] sm:after:hidden'
+  // invisible estira el área pulsable hasta 44 sin engordar un solo píxel lo que
+  // se ve (8 por arriba y 8 por abajo de los 28, medido). Es el mismo recurso que
+  // ya usaba la pastilla de estado de la tarjeta de móvil, y la respuesta correcta
+  // siempre que una diana pequeña tiene que seguir siendo pequeña.
+  const forma = 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium'
+  const diana = 'relative after:absolute after:-inset-x-1 after:-inset-y-2 after:content-[\'\'] sm:after:hidden'
 
   if (!canManage) {
     return <span className={`${forma} ${e.chapa}`}>{cara}</span>
@@ -4050,7 +4091,10 @@ function PuestoMenu({
         // contenido se quedaba en 8px y el svg, como hijo flex, se encogía a la
         // mitad: por eso los tres puntos se veían como unos suspensivos flojos y
         // no como un icono. La pieza existe justo para no repetir este fallo.
-        className={`${botonIcono('secondary')} ${open ? 'bg-slate-50' : ''}`}
+        // 40 y no 36 (Mario, sep 2026): el mismo tamaño que el engranaje de la
+        // franja de abajo. La cabecera dejó de ser la fila de los controles
+        // pequeños, así que su botón mide lo que mide un control de pantalla.
+        className={`${BTN_ICONO_FRANJA} ${open ? 'bg-slate-50' : ''}`}
         title="Más acciones"
         aria-label="Más acciones del puesto"
       >
@@ -4061,7 +4105,7 @@ function PuestoMenu({
             `fill-current` pasan a ser discos sólidos y el glifo recupera su peso.
             Es un ajuste del RELLENO, no del trazo: la regla del grosor único
             (`--stroke-icon`) sigue intacta. */}
-        <MoreHorizontal className="size-4 text-slate-500 [&_circle]:fill-current" aria-hidden />
+        <MoreHorizontal className={`${ICONO_CONTROL} [&_circle]:fill-current`} aria-hidden />
       </button>
 
       {/* Escritorio: desplegable anclado al botón y alineado a la derecha, que es
@@ -4177,7 +4221,10 @@ function ShareMenu({
         // otro), mientras que "Compartir" se lee sin aprender nada; y la fila tiene
         // sitio de sobra, que era el único motivo para encogerlo. Se van con el
         // dibujo el chevron, que en móvil no anuncia un desplegable sino una hoja.
-        className={BTN_PRIMARY}
+        // A la altura de un control de pantalla, como el `···` que tiene al lado:
+        // una fila se lee por su línea de base común, y un botón de 36 junto a
+        // uno de 40 se ve hundido.
+        className={BTN_PRIMARY_FRANJA}
         title="Compartir"
         aria-label="Compartir"
         aria-expanded={open}
