@@ -3594,11 +3594,24 @@ function EstadoPuesto({
   // se ve (8 por arriba y 8 por abajo de los 28, medido). Es el mismo recurso que
   // ya usaba la pastilla de estado de la tarjeta de móvil, y la respuesta correcta
   // siempre que una diana pequeña tiene que seguir siendo pequeña.
-  const forma = 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium'
+  // El relleno horizontal NO va aquí: la cápsula tiene dos caras y solo una
+  // acaba en chevron (ver `RELLENO`). `px-3` y `pr-2` son la misma utilidad y no
+  // se resuelven por el orden en que se escriben, así que la salida es la de
+  // siempre: el esqueleto no pone lo que una de las dos va a tener que anular.
+  const forma = 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full text-[13px] font-medium'
+  // EL RELLENO SE MIDE HASTA LA TINTA, NO HASTA LA CAJA (Mario, sep 2026, sobre
+  // la pastilla de estado de la tabla: "parece que hay más padding a la derecha").
+  // El chevron de lucide dibuja su flecha en el 50% central de su viewBox, así que
+  // uno de 14px deja 3,5 de aire dentro de su propia caja: con 12 a los dos lados,
+  // la tinta acaba a 15,5 por la derecha y arranca a 12 por la izquierda. Donde
+  // hay chevron se le descuentan esos 3,5 (12 - 3,5 ≈ 8); donde no lo hay (la
+  // cápsula del encargado, que es una etiqueta y no un mando) el relleno es
+  // simétrico, porque no hay nada que descontar.
+  const RELLENO = { quieta: 'px-3', conChevron: 'pl-3 pr-2' }
   const diana = 'relative after:absolute after:-inset-x-1 after:-inset-y-2 after:content-[\'\'] sm:after:hidden'
 
   if (!canManage) {
-    return <span className={`${forma} ${e.chapa}`}>{cara}</span>
+    return <span className={`${forma} ${RELLENO.quieta} ${e.chapa}`}>{cara}</span>
   }
 
   // Qué SIGNIFICA cada estado, no qué botón pulsas. Es la diferencia entre este
@@ -3650,7 +3663,7 @@ function EstadoPuesto({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`${forma} ${diana} ${e.chapa} transition-[filter] duration-[var(--duration-control)] hover:brightness-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40`}
+        className={`${forma} ${RELLENO.conChevron} ${diana} ${e.chapa} transition-[filter] duration-[var(--duration-control)] hover:brightness-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40`}
       >
         {cara}
         <ChevronDown className={`size-3.5 shrink-0 opacity-70 transition-transform duration-[var(--duration-control)] ${open ? 'rotate-180' : ''}`} aria-hidden />

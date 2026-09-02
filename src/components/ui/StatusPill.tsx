@@ -219,8 +219,19 @@ export function StatusSelect({
       align={align}
       triggerClass={`group inline-flex rounded-full ${celda ? 'max-sm:-mx-2 max-sm:flex max-sm:min-h-12 max-sm:w-[calc(100%+1rem)] max-sm:items-center max-sm:rounded-lg max-sm:px-2' : ''}`}
     >
+      {/* EL RELLENO NO ES SIMÉTRICO PORQUE EL CHEVRON NO LLENA SU CAJA (Mario,
+          sep 2026: "parece que hay más padding a la derecha"). Y lo parecía porque
+          lo hay: medido, el glifo de lucide dibuja su flecha en el 50% central de
+          su viewBox, así que un chevron de 14px deja 3,5 de aire dentro de su
+          propia caja. Con `px-2.5` a los dos lados, la tinta arrancaba a 10 por la
+          izquierda y acababa a **13,5** por la derecha, un 35% más.
+          El relleno derecho se descuenta ese aire (10 - 3,5 ≈ 6, o sea `pr-1.5`) y
+          los dos lados vuelven a leerse iguales. La pastilla de solo lectura
+          (`StatusPill`) se queda simétrica: no lleva chevron, así que no hay nada
+          que descontar. REGLA: cuando una cápsula acaba en un glifo, el relleno de
+          ese lado se mide hasta la TINTA, no hasta la caja. */}
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-semibold transition-colors ${m.chip} group-hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
+        className={`inline-flex items-center gap-1.5 rounded-full py-0.5 pl-2.5 pr-1.5 text-[13px] font-semibold transition-colors ${m.chip} group-hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
       >
         {/* EN LA TABLA, SIN PUNTO (Mario, sep 2026). No rompe la regla de que un
             estado nunca se dice solo con color: lo que se lee es su NOMBRE, y el
