@@ -28,7 +28,10 @@ import { agregarJuicios } from '../../supabase/functions/_shared/triaje'
 import { ACENTO_MARCA } from './colors'
 // Los dos CVs ficticios (contenido + citas literales): la fuente única de la
 // que salen también los PDFs de public/demo (scripts/gen-demo-cvs.mjs).
-import { CITAS_ANDREI, CITAS_JOAQUIN, CV_ANDREI, CV_JOAQUIN } from './demoCv'
+import {
+  CITAS_ALEJANDRO, CITAS_ANDREI, CITAS_IVAN, CITAS_JOAQUIN, CITAS_JUANCARLOS, CITAS_MIRIAM, CITAS_SERGIO,
+  CV_ALEJANDRO, CV_ANDREI, CV_IVAN, CV_JOAQUIN, CV_JUANCARLOS, CV_MIRIAM, CV_SERGIO,
+} from './demoCv'
 
 // PRNG determinista (mulberry32) para que los datos de ejemplo sean estables.
 function rng(seed: number) {
@@ -285,6 +288,11 @@ const campaigns: Campaign[] = [
       f({ id: 'vehiculo', type: 'boolean', label: '¿Vehículo propio para desplazarte?' }),
       f({ id: 'disp', type: 'select', label: 'Disponibilidad para incorporarte', required: true, options: ['Inmediata', 'En 15 días', 'En 1 mes'] }),
       f({ id: 'zonas', type: 'multiselect', label: '¿En qué zonas puedes trabajar?', options: ['Valencia ciudad', 'Torrent', 'Paterna', 'Sagunto', 'Manises', 'Aldaia'] }),
+      // OPCIONAL a propósito, como en el de oficial: en un anuncio de peón se
+      // apunta la gente desde el móvil y pedir el CV como obligatorio deja fuera
+      // a quien no lo tiene a mano. Que sea opcional es además lo que explica
+      // que en la demo lo traigan cinco de ciento cuarenta y siete.
+      f({ id: 'cv', type: 'file', label: 'Adjunta tu CV (PDF)' }),
       f({ id: 'comentarios', type: 'textarea', label: 'Algo que quieras añadir', placeholder: 'Especialidad, herramienta propia...' }),
     ],
   },
@@ -729,7 +737,7 @@ const CRIT_CONTINUIDAD: DemoCriterio = {
 
 // El baremo v2 pondera lo ACREDITADO por encima de lo declarado: con campo de
 // CV, la experiencia que suman sus etapas es un criterio "importante" (espejo
-// del generador real). Solo lo llevan los dos puestos que piden CV.
+// del generador real). Solo lo llevan los puestos que piden CV.
 const CRIT_ACREDITADA: DemoCriterio = {
   clave: 'exp_acreditada', nombre: 'Experiencia acreditada en el CV', nivel: 'importante', fuente: 'cv',
   ev: { cumple: 'Las etapas del CV suman la experiencia pedida', parcial: 'Las etapas del CV suman menos de lo que responde', no_cumple: 'El CV no recoge experiencia en el oficio' },
@@ -742,6 +750,7 @@ const DEMO_CRITERIOS: Record<string, DemoCriterio[]> = {
     { clave: 'incorporacion', nombre: 'Incorporación', nivel: 'importante', ev: { cumple: 'Disponibilidad inmediata', parcial: 'Disponible en 15 días', no_cumple: 'No puede incorporarse hasta dentro de un mes' } },
     { clave: 'zonas', nombre: 'Zonas de trabajo', nivel: 'importante', ev: { cumple: 'Puede trabajar en Valencia ciudad y alrededores', parcial: 'Solo una de las zonas del puesto', no_cumple: 'Ninguna de las zonas del puesto' } },
     { clave: 'vehiculo', nombre: 'Vehículo propio', nivel: 'deseable', ev: { cumple: 'Responde que sí al vehículo propio', parcial: 'Vehículo compartido', no_cumple: 'Responde que no tiene vehículo' } },
+    CRIT_ACREDITADA,
     CRIT_CONTINUIDAD,
   ],
   cmp_oficial: [
@@ -1194,6 +1203,320 @@ candidates.push({
         { nombre: 'Carnet de conducir B', vigencia: '' },
       ],
       formacion: ['Graduado escolar', 'Curso de trabajos en altura (8 horas)'],
+    },
+  }),
+})
+
+// ---------------------------------------------------------------------------
+// LOS CINCO PEONES CON CV (Mario, sep 2026). El porqué de que sean cinco y no
+// todos está en demoCv.ts, junto a su contenido; aquí va lo otro que hace falta
+// para que la demo no se contradiga: cada análisis está escrito a mano, con la
+// evidencia de fuente 'cv' copiada LITERAL del documento, que es lo que hace que
+// el visor la subraye. Son cinco lecturas distintas a propósito, porque un
+// Meridian que solo dice cosas buenas no lo cree nadie.
+// ---------------------------------------------------------------------------
+
+const entradaIvan = dateAgo(1)
+candidates.push({
+  id: 'cand_cv_ivan',
+  campaignId: 'cmp_peon',
+  answers: {
+    nombre: CV_IVAN.nombre,
+    // El teléfono y el correo son los del propio CV: si no cuadraran, la ficha
+    // estaría enseñando dos personas distintas en la misma pantalla.
+    telefono: '622 145 903',
+    email: 'ivan.pardo@example.com',
+    exp: '6',
+    carnet: true,
+    vehiculo: true,
+    disp: 'Inmediata',
+    zonas: ['Valencia ciudad', 'Torrent', 'Aldaia'],
+    cv: CV_IVAN.nombreFichero,
+    comentarios: 'Tengo herramienta de mano propia y la PRL al día.',
+  },
+  cvPath: CV_IVAN.fichero,
+  status: 'nuevo',
+  submittedAt: entradaIvan,
+  statusChangedAt: statusChangedAtFor('nuevo', entradaIvan),
+  source: 'enlace',
+  favorito: true,
+  consentAt: entradaIvan,
+  notes: '',
+  tagIds: [],
+  ai: aiConCv({
+    campaignId: 'cmp_peon',
+    analyzedAt: entradaIvan,
+    summary:
+      'Peón hecho: seis años de obra que el CV acredita con dos etapas largas, carnet, ' +
+      'coche y disponibilidad inmediata.',
+    informe:
+      'De lo mejor que ha entrado para este puesto. Dice seis años de obra y el CV los ' +
+      'sostiene con dos etapas seguidas, la última desde 2022 y todavía en activo, ' +
+      'ayudando a oficial en promociones de vivienda. Trae la PRL de 20 horas con la ' +
+      'tarjeta en vigor, carnet y coche propio, y puede entrar ya. Yo lo llamaría hoy ' +
+      'mismo, antes de que lo coja otro.',
+    valores: {
+      carnet_b: { valor: 'cumple', evidencia: CITAS_IVAN.carnet, fuente: 'cv' },
+      exp_obra: { valor: 'cumple', evidencia: 'Responde 6 años de experiencia en obra', fuente: 'respuesta' },
+      exp_acreditada: { valor: 'cumple', evidencia: CITAS_IVAN.acreditada, fuente: 'cv' },
+      incorporacion: { valor: 'cumple', evidencia: 'Disponibilidad inmediata', fuente: 'respuesta' },
+      zonas: { valor: 'cumple', evidencia: 'Valencia ciudad, Torrent y Aldaia', fuente: 'respuesta' },
+      vehiculo: { valor: 'cumple', evidencia: 'Responde que sí al vehículo propio', fuente: 'respuesta' },
+      continuidad: { valor: 'cumple', evidencia: CITAS_IVAN.continuidad, fuente: 'cv' },
+    },
+    trayectoria: {
+      empleos: [
+        { empresa: 'Construcciones Mislata Norte', puesto: 'Peón de albañil', desde: 'abr 2022', hasta: 'actualidad' },
+        { empresa: 'Reformas Camp de Túria', puesto: 'Peón', desde: 'sep 2019', hasta: 'mar 2022' },
+      ],
+      carnets: [
+        { nombre: 'PRL de construcción (20 horas)', vigencia: 'tarjeta TPC en vigor' },
+        { nombre: 'Carnet de conducir B', vigencia: 'con coche propio' },
+      ],
+      formacion: ['ESO completa', 'Curso de manejo de plataformas elevadoras (8 horas)'],
+    },
+  }),
+})
+
+const entradaSergio = dateAgo(4)
+candidates.push({
+  id: 'cand_cv_sergio',
+  campaignId: 'cmp_peon',
+  answers: {
+    nombre: CV_SERGIO.nombre,
+    telefono: '671 038 552',
+    email: 'sergio.beltran@example.org',
+    exp: '5',
+    carnet: true,
+    vehiculo: false,
+    disp: 'Inmediata',
+    zonas: ['Valencia ciudad', 'Paterna'],
+    cv: CV_SERGIO.nombreFichero,
+    comentarios: '',
+  },
+  cvPath: CV_SERGIO.fichero,
+  status: 'nuevo',
+  submittedAt: entradaSergio,
+  statusChangedAt: statusChangedAtFor('nuevo', entradaSergio),
+  source: 'milanuncios',
+  favorito: false,
+  consentAt: entradaSergio,
+  notes: '',
+  tagIds: [],
+  ai: aiConCv({
+    campaignId: 'cmp_peon',
+    analyzedAt: entradaSergio,
+    summary:
+      'Responde cinco años de obra y su CV empieza en 2023, con dos de esos años en un ' +
+      'almacén. Vale la pena preguntárselo antes de descartarlo.',
+    informe:
+      'Aquí hay algo que aclarar. Responde cinco años de experiencia en obra, pero su CV ' +
+      'arranca en 2023 y de esas dos etapas solo la última, desde enero, es de obra: la ' +
+      'anterior es de almacén de material de construcción. Puede ser que cuente los años ' +
+      'de trato con el sector, o que el CV se le haya quedado corto. Tiene carnet y puede ' +
+      'entrar ya, así que yo lo llamaría y se lo preguntaría directamente.',
+    valores: {
+      carnet_b: { valor: 'cumple', evidencia: CITAS_SERGIO.carnet, fuente: 'cv' },
+      exp_obra: { valor: 'cumple', evidencia: 'Responde 5 años de experiencia en obra', fuente: 'respuesta' },
+      exp_acreditada: { valor: 'parcial', evidencia: CITAS_SERGIO.acreditada, fuente: 'cv' },
+      incorporacion: { valor: 'cumple', evidencia: 'Disponibilidad inmediata', fuente: 'respuesta' },
+      zonas: { valor: 'cumple', evidencia: 'Valencia ciudad y Paterna', fuente: 'respuesta' },
+      vehiculo: { valor: 'no_cumple', evidencia: 'Responde que no tiene vehículo', fuente: 'respuesta' },
+      continuidad: { valor: 'parcial', evidencia: CITAS_SERGIO.continuidad, fuente: 'cv' },
+    },
+    contrastes: [
+      { respuesta: 'Responde 5 años de experiencia en obra', cv: CITAS_SERGIO.contrasteCv },
+    ],
+    trayectoria: {
+      empleos: [
+        { empresa: 'Obras y Reformas Bétera', puesto: 'Peón', desde: 'ene 2025', hasta: 'actualidad' },
+        { empresa: 'Suministros Horta Sud', puesto: 'Mozo de almacén', desde: 'feb 2023', hasta: 'dic 2024' },
+      ],
+      carnets: [{ nombre: 'Carnet de conducir B', vigencia: '' }],
+      formacion: ['ESO completa'],
+    },
+  }),
+})
+
+const entradaMiriam = dateAgo(6)
+candidates.push({
+  id: 'cand_cv_miriam',
+  campaignId: 'cmp_peon',
+  answers: {
+    nombre: CV_MIRIAM.nombre,
+    telefono: '645 720 118',
+    email: 'miriam.salas@example.net',
+    exp: '3',
+    carnet: false,
+    vehiculo: false,
+    disp: 'Inmediata',
+    zonas: ['Valencia ciudad'],
+    cv: CV_MIRIAM.nombreFichero,
+    comentarios: 'Me muevo en metro y autobús, puedo llegar a cualquier obra de Valencia ciudad.',
+  },
+  cvPath: CV_MIRIAM.fichero,
+  status: 'contactado',
+  submittedAt: entradaMiriam,
+  statusChangedAt: statusChangedAtFor('contactado', entradaMiriam),
+  source: 'enlace',
+  favorito: false,
+  consentAt: entradaMiriam,
+  notes: '',
+  tagIds: [],
+  ai: aiConCv({
+    campaignId: 'cmp_peon',
+    analyzedAt: entradaMiriam,
+    summary:
+      'Tres años de oficio acreditados y PRL en vigor, pero sin carnet de conducir, que ' +
+      'en este puesto es lo primero que se pide.',
+    informe:
+      'El oficio lo tiene: tres años de ayudante en rehabilitación de fachadas, con ' +
+      'montaje de andamio y trabajo en altura, y la PRL de 20 horas con tarjeta en vigor. ' +
+      'Lo que falla es el carnet de conducir, que aquí es requisito, y solo puede trabajar ' +
+      'en Valencia ciudad. Si alguna cuadrilla sale de la ciudad y hay quien la recoja, la ' +
+      'tendría en cuenta; si no, no encaja con lo que pide este puesto.',
+    valores: {
+      carnet_b: { valor: 'no_cumple', evidencia: 'Responde que no tiene carnet B', fuente: 'respuesta' },
+      exp_obra: { valor: 'cumple', evidencia: 'Responde 3 años de experiencia en obra', fuente: 'respuesta' },
+      exp_acreditada: { valor: 'cumple', evidencia: CITAS_MIRIAM.acreditada, fuente: 'cv' },
+      incorporacion: { valor: 'cumple', evidencia: 'Disponibilidad inmediata', fuente: 'respuesta' },
+      zonas: { valor: 'parcial', evidencia: 'Solo Valencia ciudad', fuente: 'respuesta' },
+      vehiculo: { valor: 'no_cumple', evidencia: 'Responde que no tiene vehículo', fuente: 'respuesta' },
+      continuidad: { valor: 'cumple', evidencia: CITAS_MIRIAM.continuidad, fuente: 'cv' },
+    },
+    trayectoria: {
+      empleos: [
+        { empresa: 'Rehabilitaciones Ciutat Vella', puesto: 'Ayudante de albañil', desde: 'may 2023', hasta: 'actualidad' },
+        { empresa: 'Pinturas y Reformas Quart', puesto: 'Peona', desde: 'jun 2022', hasta: 'abr 2023' },
+      ],
+      carnets: [
+        { nombre: 'PRL de construcción (20 horas)', vigencia: 'tarjeta TPC en vigor' },
+        { nombre: 'Trabajos en altura (8 horas)', vigencia: '' },
+      ],
+      formacion: ['ESO completa', 'Certificado de profesionalidad de operaciones auxiliares de albañilería'],
+    },
+  }),
+})
+
+const entradaJuanCarlos = dateAgo(9)
+candidates.push({
+  id: 'cand_cv_juancarlos',
+  campaignId: 'cmp_peon',
+  answers: {
+    nombre: CV_JUANCARLOS.nombre,
+    telefono: '610 884 276',
+    email: 'juancarlos.nieto@example.com',
+    exp: '0',
+    carnet: true,
+    vehiculo: true,
+    disp: 'Inmediata',
+    zonas: ['Sagunto', 'Valencia ciudad'],
+    cv: CV_JUANCARLOS.nombreFichero,
+    comentarios: 'Vengo de almacén, pero busco obra por cercanía a casa.',
+  },
+  cvPath: CV_JUANCARLOS.fichero,
+  status: 'descartado',
+  submittedAt: entradaJuanCarlos,
+  statusChangedAt: statusChangedAtFor('descartado', entradaJuanCarlos),
+  source: 'milanuncios',
+  favorito: false,
+  consentAt: entradaJuanCarlos,
+  notes: '',
+  tagIds: [],
+  ai: aiConCv({
+    campaignId: 'cmp_peon',
+    analyzedAt: entradaJuanCarlos,
+    summary:
+      'CV sólido, pero de almacén: ocho años de mozo y ni una etapa de obra. Entra de ' +
+      'cero en el oficio.',
+    informe:
+      'El CV está bien y la persona tiene recorrido, pero es de otro oficio: ocho años de ' +
+      'mozo de almacén y ninguna etapa en obra, y él mismo responde cero años de ' +
+      'experiencia. Dicho eso, este puesto pide menos de un año, y trae lo demás: carnet, ' +
+      'coche, las dos zonas y puede entrar ya. Si buscas manos hechas desde el primer día ' +
+      'no es este; si te vale alguien de cero que aguanta el ritmo, cumple.',
+    valores: {
+      carnet_b: { valor: 'cumple', evidencia: CITAS_JUANCARLOS.carnet, fuente: 'cv' },
+      exp_obra: { valor: 'no_cumple', evidencia: 'Responde 0 años de experiencia en obra', fuente: 'respuesta' },
+      exp_acreditada: { valor: 'no_cumple', evidencia: CITAS_JUANCARLOS.otroOficio, fuente: 'cv' },
+      incorporacion: { valor: 'cumple', evidencia: 'Disponibilidad inmediata', fuente: 'respuesta' },
+      zonas: { valor: 'cumple', evidencia: 'Sagunto y Valencia ciudad', fuente: 'respuesta' },
+      vehiculo: { valor: 'cumple', evidencia: 'Responde que sí al vehículo propio', fuente: 'respuesta' },
+      continuidad: { valor: 'cumple', evidencia: CITAS_JUANCARLOS.continuidad, fuente: 'cv' },
+    },
+    trayectoria: {
+      empleos: [
+        { empresa: 'Distribuciones Palancia', puesto: 'Mozo de almacén', desde: 'nov 2018', hasta: 'actualidad' },
+        { empresa: 'Transportes Camp de Morvedre', puesto: 'Repartidor', desde: 'mar 2016', hasta: 'oct 2018' },
+      ],
+      carnets: [
+        { nombre: 'Carnet de conducir B', vigencia: '' },
+        { nombre: 'Carnet de carretillero elevador', vigencia: 'caducado en 2024' },
+      ],
+      formacion: ['ESO completa'],
+    },
+  }),
+})
+
+const entradaAlejandro = dateAgo(12)
+candidates.push({
+  id: 'cand_cv_alejandro',
+  campaignId: 'cmp_peon',
+  answers: {
+    nombre: CV_ALEJANDRO.nombre,
+    telefono: '633 291 740',
+    email: 'alejandro.ferrer@example.org',
+    exp: '2',
+    carnet: true,
+    vehiculo: false,
+    disp: 'En 15 días',
+    // Solo Aldaia, y es coherente con lo demás: sin coche, alguien que vive
+    // allí no se planta en una obra de Sagunto a las siete de la mañana.
+    zonas: ['Aldaia'],
+    cv: CV_ALEJANDRO.nombreFichero,
+    comentarios: 'Me muevo en autobús, por eso pongo solo Aldaia.',
+  },
+  cvPath: CV_ALEJANDRO.fichero,
+  status: 'entrevista',
+  submittedAt: entradaAlejandro,
+  statusChangedAt: statusChangedAtFor('entrevista', entradaAlejandro),
+  source: 'enlace',
+  favorito: false,
+  consentAt: entradaAlejandro,
+  notes: '',
+  tagIds: [],
+  ai: aiConCv({
+    campaignId: 'cmp_peon',
+    analyzedAt: entradaAlejandro,
+    summary:
+      'Dos años de obra en etapas cortas y con huecos entre ellas. Le falta rodaje, pero ' +
+      'tiene la PRL y el carnet.',
+    informe:
+      'Perfil de entrada: dos años de obra repartidos en dos etapas cortas, la última de ' +
+      'seis meses en encofrado, y huecos entre una y otra que convendría preguntarle. ' +
+      'Trae la PRL de 20 horas y el carnet, aunque se mueve en autobús y solo se ofrece ' +
+      'para obras de Aldaia, y no puede entrar hasta dentro de quince días. Para un puesto ' +
+      'de peón donde va a aprender al lado de un oficial, da el perfil; si hace falta ' +
+      'alguien mañana y en Valencia ciudad, no es este.',
+    valores: {
+      carnet_b: { valor: 'cumple', evidencia: CITAS_ALEJANDRO.carnet, fuente: 'cv' },
+      exp_obra: { valor: 'parcial', evidencia: 'Responde 2 años de experiencia en obra', fuente: 'respuesta' },
+      exp_acreditada: { valor: 'parcial', evidencia: CITAS_ALEJANDRO.acreditada, fuente: 'cv' },
+      incorporacion: { valor: 'parcial', evidencia: 'Disponible en 15 días', fuente: 'respuesta' },
+      zonas: { valor: 'parcial', evidencia: 'Solo Aldaia', fuente: 'respuesta' },
+      vehiculo: { valor: 'no_cumple', evidencia: 'Responde que no tiene vehículo', fuente: 'respuesta' },
+      continuidad: { valor: 'parcial', evidencia: CITAS_ALEJANDRO.continuidad, fuente: 'cv' },
+    },
+    trayectoria: {
+      empleos: [
+        { empresa: 'Encofrados del Turia', puesto: 'Peón de obra', desde: 'feb 2025', hasta: 'jul 2025' },
+        { empresa: 'Reformas Aldaia Centro', puesto: 'Peón', desde: 'abr 2023', hasta: 'nov 2023' },
+      ],
+      carnets: [
+        { nombre: 'PRL de construcción (20 horas)', vigencia: '' },
+        { nombre: 'Carnet de conducir B', vigencia: '' },
+      ],
+      formacion: ['ESO completa'],
     },
   }),
 })

@@ -646,7 +646,7 @@ const Ctx = createContext<Store | null>(null)
 // narrativo (ver `hastaAhora` en seed.ts). El reloj de la demo se ancla en el
 // registro más nuevo, así que un estado v20 guardado seguiría trayendo aquellos
 // eventos del futuro y con ellos los dos días vacíos al final de la gráfica.
-const DEMO_KEY = 'apuntatefacil.demo.v23'
+const DEMO_KEY = 'apuntatefacil.demo.v24'
 
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
