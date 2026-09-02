@@ -393,10 +393,11 @@
    `invasionDeSeleccion` (src/lib/fila.ts), que es donde está escrito por qué una
    fila marcada sola NO invade: no tendría de dónde venir el color.
 
-   CÓMO: la fila se tiñe ENTERA desde el primer fotograma y lo que se anima es el
-   BLANCO que todavía no ha sido invadido, una capa de fondo que encoge hasta
-   cero contra el filo por el que entra el tinte. Se ve exactamente igual y es la
-   única forma de que no parpadee al terminar; el porqué, abajo.
+   CÓMO: la fila se tiñe ENTERA desde el primer fotograma y lo que se anima es lo
+   que TODAVÍA NO ha sido invadido, una capa con el fondo que la fila tenía sin
+   marcar que encoge hasta cero contra el filo por el que entra el tinte. Se ve
+   exactamente igual y es la única forma de que no parpadee al terminar; el
+   porqué, abajo.
 
    No es una caja superpuesta que se escala, y eso lo manda la anatomía de la
    tabla: el fondo de una fila lo pintan TRES elementos, el `<tr>` y las dos
@@ -446,19 +447,31 @@
 @keyframes fila-invade { from { background-size: 100% 100%; } }
 
 .fila-invade {
-  /* Lo que queda por invadir: el blanco de una fila sin marcar. En reposo mide
-     cero, así que la clase que se quede puesta de más no pinta nada. */
-  background-image: linear-gradient(var(--color-white) 0 100%);
+  /* Lo que queda por invadir es el fondo que tenía la fila UN INSTANTE ANTES de
+     marcarla, no un blanco fijo. Con el blanco escrito a pelo, la fila que se
+     acaba de pulsar (que está bajo el ratón, o sea en el gris del hover) daba un
+     salto a blanco justo al empezar la animación: se veía perder el hover y
+     luego entrar el tinte, dos cosas donde solo tiene que haber una. Lo cazó
+     Mario: "la animación empieza con el fondo sin hover".
+
+     Va como variable con fallback y NO como valor propio, y esa diferencia es lo
+     que hace que funcione en las celdas fijas: si `.fila-invade` declarase la
+     variable, la celda se pondría la suya y no vería nunca la de su fila; sin
+     declararla, la HEREDA del `<tr>`, que es quien sabe si el ratón está encima.
+     En reposo la capa mide cero, así que una clase que se quede puesta de más no
+     pinta nada. */
+  background-image: linear-gradient(var(--fila-sin-marcar, var(--color-white)) 0 100%);
   background-repeat: no-repeat;
   background-size: 100% 0%;
-  /* Y sin transición de color mientras dura: por debajo del blanco la fila ya
-     está teñida, y con la transición puesta el tinte que va asomando llegaría a
-     medio camino de su color. */
+  /* Y sin transición de color mientras dura: por debajo la fila ya está teñida,
+     y con la transición puesta el tinte que va asomando llegaría a medio camino
+     de su color. */
   transition-property: none;
 }
-/* El blanco se retira hacia el filo CONTRARIO a aquel por el que entra el tinte;
-   rellenando un hueco entre dos ya marcadas, entra por los dos y el blanco se
-   cierra en el centro. */
+.fila-invade:hover { --fila-sin-marcar: var(--color-slate-50); }
+/* Lo que queda por invadir se retira hacia el filo CONTRARIO a aquel por el que
+   entra el tinte; rellenando un hueco entre dos ya marcadas, entra por los dos y
+   lo que queda se cierra en el centro. */
 .fila-invade-arriba { background-position: bottom; }
 .fila-invade-abajo { background-position: top; }
 .fila-invade-ambos { background-position: center; }
