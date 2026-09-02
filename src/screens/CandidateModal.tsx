@@ -1070,6 +1070,7 @@ function AccionContacto({
   externo = false,
   demo,
   onDemo,
+  onAbrir,
   className,
   label,
   children,
@@ -1079,6 +1080,12 @@ function AccionContacto({
   externo?: boolean
   demo: boolean
   onDemo: () => void
+  /**
+   * Lo que hay que ANOTAR por haberlo abierto (marcar al candidato como
+   * contactado, por ejemplo). Solo se llama cuando el enlace de verdad se abre,
+   * o sea nunca en la demo: ahí no se ha contactado con nadie.
+   */
+  onAbrir?: () => void
   className: string
   /** Nombre accesible, obligatorio cuando el control es solo un icono. */
   label?: string
@@ -1094,6 +1101,15 @@ function AccionContacto({
   return (
     <a
       href={href}
+      // PRIMERO SE ABRE Y DESPUÉS SE ANOTA, y el retardo de un tic no es un
+      // adorno: lo que se anota puede cambiar el estado del candidato, y con él
+      // esta misma pieza (el WhatsApp de un candidato nuevo se convierte en
+      // "Agendar entrevista" en cuanto pasa a contactado). Un React que
+      // reemplaza el `<a>` dentro del propio manejador se lleva por delante el
+      // nodo del que el navegador tiene que sacar el enlace, y el peor final
+      // posible aquí es quedar marcado como contactado sin que el mensaje se
+      // haya llegado a abrir. Cediendo el turno, la navegación ya ha arrancado.
+      onClick={onAbrir ? () => setTimeout(onAbrir, 0) : undefined}
       className={className}
       aria-label={label}
       title={label}
@@ -1165,11 +1181,23 @@ function AccionesCandidato({
       <div className="grid grid-cols-[1fr_auto] gap-2">
         {/* Sin icono, como manda el punto 3 de arriba: en un botón de ancho
             completo el grupo icono+texto se centra y el rótulo queda descentrado. */}
+        {/* ESCRIBIRLE LO PASA A "CONTACTADO" (Mario, sep 2026). Es lo que
+            convierte este botón en un paso del proceso y no en un atajo: el
+            estado dice por dónde va cada candidato, y dejarlo en "Nuevo"
+            después de haberle escrito obliga a moverlo a mano cada vez, que es
+            justo el trabajo que esta pantalla existe para quitar.
+
+            Lo que se asume, y conviene tenerlo escrito: se anota haber ABIERTO
+            el chat, no haber enviado el mensaje, que es lo único que se puede
+            saber desde aquí mientras el canal propio de WhatsApp siga apagado
+            (ver `WHATSAPP_LISTO`). Se acepta porque el estado es reversible y
+            se cambia en el selector que tiene justo debajo. */}
         <AccionContacto
           href={`https://wa.me/${waPhone}`}
           externo
           demo={maskPhone}
           onDemo={onAvisoDemo}
+          onAbrir={() => onEstado('contactado')}
           className={BTN_PRIMARY_BLOCK}
         >
           WhatsApp
