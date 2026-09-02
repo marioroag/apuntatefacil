@@ -120,11 +120,27 @@ export function FitLabel({ fit, className = '' }: { fit: number; className?: str
 
 // Etiqueta de sección del bloque (marca del asistente). El icono es decorativo:
 // grafito neutro, nunca el acento.
-function MeridianLabel() {
+//
+// EL ENCAJE VA A LA DERECHA, EN LA MISMA LÍNEA (Mario, sep 2026). El informe
+// EXPLICA por qué encaja, pero para saber si encaja había que leerse el párrafo
+// entero, y eso es justo lo que la lista contesta de un vistazo en su columna
+// Encaje. Aquí el veredicto vuelve a estar donde se busca, en la cabecera de su
+// propio bloque, y el párrafo pasa a hacer lo que sabe hacer: sostenerlo.
+//
+// En PALABRAS y nunca la nota cruda, que sigue viviendo en el `title`: un número
+// al lado de una persona la convierte en un puesto de una clasificación. Y un
+// peldaño por debajo del rótulo (13 contra 14), que si no son dos títulos
+// disputándose la misma línea.
+function MeridianLabel({ fit }: { fit?: number | null }) {
   return (
     <span className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
       <Sparkles className="size-4 text-slate-500" aria-hidden />
       {MERIDIAN_NAME}
+      {fit != null && (
+        <span className="ml-auto shrink-0" title={`Ajuste ${Math.round(fit)} sobre 100`}>
+          <FitLabel fit={fit} className="text-[13px]" />
+        </span>
+      )}
     </span>
   )
 }
@@ -257,7 +273,7 @@ export function MeridianPanelBlock({
     const print = recienId === candidate.id
     return (
       <div className={TARJETA_INFORME}>
-        <MeridianLabel />
+        <MeridianLabel fit={candidateFit(ai)} />
         <div className={print ? 'meridian-in' : ''}>
           {/* El informe (o, en análisis anteriores a él, la frase de veredicto
               de entonces). Tinta de lectura: aquí el texto ES la cosa. */}
