@@ -5,8 +5,9 @@ import {
   ArrowRight,
   BadgeCheck,
   CalendarDays,
-  Copy,
   Check,
+  ChevronDown,
+  Copy,
   Download,
   FileText,
   GraduationCap,
@@ -14,10 +15,10 @@ import {
   MessageCircle,
   MoreHorizontal,
   Phone,
+  Plus,
   Star,
   Trash2,
   X,
-  Plus,
 } from 'lucide-react'
 import { Modal } from '../components/ui/Modal'
 import { Tabs, TabPanel, type TabItem } from '../components/ui/Tabs'
@@ -239,7 +240,7 @@ export function CandidateModal({
   const open = !!candidate
   const name = candidate ? candidateName(candidate) || 'Sin nombre' : ''
   const phone = candidate ? String(candidate.answers['telefono'] ?? '') : ''
-  const waPhone = phone ? '34' + phone.replace(/\D/g, '') : ''
+  const waPhone = waNumero(phone)
   const fit = candidate ? candidateFit(candidate.ai) : null
 
   const i = siblings && candidate ? siblings.findIndex((c) => c.id === candidate.id) : -1
@@ -885,6 +886,87 @@ function ValorCopiable({ valor, etiqueta, num, truncar = false }: { valor: strin
   )
 }
 
+/**
+ * EL TELÉFONO SE PULSA Y OFRECE QUÉ HACER CON ÉL (Mario, sep 2026).
+ *
+ * Hasta hoy este número solo se COPIABA, y aquella decisión venía con su motivo
+ * escrito: "el teléfono tiene sus acciones de verdad, llamar y WhatsApp, en la
+ * cabecera". Esa cabecera se retiró en ago 2026, así que en escritorio el dato
+ * estaba ahí sin nada que hacer con él salvo pegarlo en otro programa. El motivo
+ * se cayó y con él la regla.
+ *
+ * Copiar NO se pierde, cambia de canal: es el tercer ítem del menú. Y en la DEMO
+ * este control no existe (el número está tapado y no lleva a nadie), que es la
+ * misma frontera que ya aplica `AccionContacto`.
+ *
+ * ESCRIBIRLE A UN CANDIDATO NUEVO LO PASA A CONTACTADO, igual que el botón de
+ * arriba. Es la misma regla mirada desde otra puerta: lo que mueve el estado es
+ * haber escrito, no por dónde se pulsó. Y solo desde "nuevo": desde cualquier
+ * otro estado sería retroceder el proceso por mandar un mensaje.
+ */
+function MenuTelefono({
+  phone,
+  esNuevo,
+  onContactado,
+}: {
+  phone: string
+  esNuevo: boolean
+  onContactado: () => void
+}) {
+  const toast = useToast()
+  const wa = waNumero(phone)
+  const copiar = async (cerrar: () => void) => {
+    const ok = await copyText(formatPhone(phone))
+    if (ok) toast.success('Teléfono copiado')
+    else toast.show(`Copia el teléfono manualmente: ${formatPhone(phone)}`)
+    cerrar()
+  }
+  return (
+    <MenuFlotante etiqueta="Qué hacer con el teléfono" ancho={200} alinear="izquierda"
+      disparador={(props) => (
+        <button
+          {...props}
+          type="button"
+          aria-label={`Teléfono ${formatPhone(phone)}: llamar, WhatsApp o copiar`}
+          className="group -ml-1 flex max-w-full items-center gap-1 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-slate-100"
+        >
+          <span className="num truncate group-hover:underline">{formatPhone(phone)}</span>
+          <ChevronDown className="size-3.5 shrink-0 text-slate-400 group-hover:text-slate-600" aria-hidden />
+        </button>
+      )}
+    >
+      {(cerrar) => (
+        <>
+          {/* Primero WhatsApp: es por donde se contesta en estos sectores, y es
+              lo que la acción principal de un candidato nuevo ya ofrece arriba. */}
+          <a
+            role="menuitem"
+            href={`https://wa.me/${wa}`}
+            target="_blank"
+            rel="noreferrer"
+            className={ITEM_MENU}
+            onClick={() => {
+              // Primero se abre y después se anota, por lo mismo que en
+              // `AccionContacto`: lo que se anota puede rehacer esta pantalla.
+              cerrar()
+              if (esNuevo) setTimeout(onContactado, 0)
+            }}
+          >
+            <MessageCircle className="size-4 text-slate-500" aria-hidden /> WhatsApp
+          </a>
+          <a role="menuitem" href={`tel:${phone.replace(/\s/g, '')}`} className={ITEM_MENU} onClick={cerrar}>
+            <Phone className="size-4 text-slate-500" aria-hidden /> Llamar
+          </a>
+          <div className="my-1 h-px bg-slate-100" role="separator" />
+          <button type="button" role="menuitem" className={ITEM_MENU} onClick={() => void copiar(cerrar)}>
+            <Copy className="size-4 text-slate-500" aria-hidden /> Copiar número
+          </button>
+        </>
+      )}
+    </MenuFlotante>
+  )
+}
+
 function Dato({
   label,
   children,
@@ -1051,6 +1133,13 @@ function Bloque({
  * es la misma regla que aplica `WHATSAPP_LISTO` en el resto de la ficha: nunca
  * se ofrece una acción que acabe en un mensaje que no sale.
  */
+/**
+ * El teléfono en el formato que pide `wa.me`. Vive aquí y no escrito dos veces
+ * porque lo preguntan la cabecera de la ficha y el menú del propio número, y un
+ * prefijo que se escriba en dos sitios acaba siendo dos prefijos.
+ */
+const waNumero = (phone: string) => (phone ? '34' + phone.replace(/\D/g, '') : '')
+
 /**
  * UN CONTACTO QUE EN LA DEMO NO SALE DEL NAVEGADOR.
  *
@@ -1327,7 +1416,11 @@ function FichaDatos({
             ) : maskPhone ? (
               <MaskedPhone value={formatPhone(phone)} />
             ) : (
-              <ValorCopiable valor={formatPhone(phone)} etiqueta="Teléfono" num truncar />
+              <MenuTelefono
+                phone={phone}
+                esNuevo={candidate.status === 'nuevo'}
+                onContactado={() => onEstado('contactado')}
+              />
             )}
           </Dato>
           {/* La fecha SOLA, en su casilla, se dice corta: aquí se compara el día,
@@ -2368,6 +2461,136 @@ function Historial({ candidateId, load, yoEmail }: { candidateId: string; load: 
  *  `size` tiene que igualar al de los botones de SU fila, que no es la misma en las dos:
  *  la cabecera de escritorio usa las variantes _SM (32px) y la barra inferior, las normales
  *  (36px). Con un tamaño fijo aquí, una de las dos filas queda descuadrada. */
+/**
+ * LA CARCASA DE UN MENÚ QUE FLOTA: disparador, panel en portal y colocación.
+ *
+ * No es una abstracción por gusto: dentro hay cuatro decisiones que ya costaron
+ * su fallo cada una, y copiarlas a mano en el siguiente menú es garantizar que
+ * una se quede vieja.
+ *
+ *   1. VA EN UN PORTAL con posición fija. Estos menús viven dentro de columnas
+ *      que se desplazan (el raíl, la columna de móvil), y ahí un panel
+ *      `absolute` lo recorta el propio scroll.
+ *   2. SE MIDE ANTES DE VERSE. Para decidir si abre hacia abajo o hacia arriba
+ *      hace falta su ALTO, y el alto no existe hasta estar en el DOM: se monta
+ *      invisible, se mide en un `useLayoutEffect` y solo entonces se coloca. Es
+ *      el mismo patrón que el globo de `ui/Tooltip`.
+ *   3. EL ESCAPE SE CORTA EN CAPTURA. `ui/Modal` (la ficha) escucha el mismo
+ *      evento en `document` y se registra ANTES, así que en fase de burbuja la
+ *      ficha entera se cerraría antes de que el menú pudiera cortar nada.
+ *   4. EL CLICK-FUERA MIRA EL DISPARADOR **Y** EL PANEL. En el DOM el panel ya
+ *      no está dentro del botón, así que un clic en él se leería como un clic
+ *      fuera y el menú se cerraría antes de que el ítem hiciera nada.
+ */
+function MenuFlotante({
+  etiqueta,
+  ancho = 232,
+  alinear = 'derecha',
+  banda,
+  disparador,
+  children,
+}: {
+  /** Nombre accesible del menú. */
+  etiqueta: string
+  ancho?: number
+  alinear?: 'izquierda' | 'derecha' | 'centro'
+  /**
+   * La superficie que contiene al disparador, si la hay (la barra del pulgar).
+   *
+   * EL HUECO SE MIDE CONTRA LA CAJA QUE PINTA, NO CONTRA EL BOTÓN: el `···` vive
+   * DENTRO del relleno de la barra, así que separándose 6px de él el menú se
+   * metía 5 dentro de la barra y se leía pisándola (medido). Lo que el botón
+   * decide es de dónde sale en horizontal; hasta dónde puede llegar en vertical
+   * lo decide su contenedor.
+   */
+  banda?: React.RefObject<HTMLDivElement | null>
+  /** El botón que lo abre. Recibe lo que tiene que llevar puesto. */
+  disparador: (props: {
+    ref: React.RefObject<HTMLButtonElement | null>
+    'aria-haspopup': 'menu'
+    'aria-expanded': boolean
+    onClick: () => void
+  }) => React.ReactNode
+  /** Los ítems. Reciben la forma de cerrar, que es lo que hacen todos al pulsarse. */
+  children: (cerrar: () => void) => React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null)
+      return
+    }
+    const b = btnRef.current?.getBoundingClientRect()
+    const m = menuRef.current?.getBoundingClientRect()
+    if (!b || !m) return
+    // Vertical contra la banda (si la hay), horizontal contra el botón. Se
+    // construye campo a campo y NO con `{ ...b }`: un `DOMRect` tiene sus
+    // propiedades en el PROTOTIPO, así que el spread devuelve un objeto vacío y
+    // el ancla horizontal se quedaba en `undefined` (el menú se iba al filo
+    // izquierdo de la pantalla, medido: derecha 232 contra los 359 del botón).
+    const caja = banda?.current?.getBoundingClientRect()
+    const a = { left: b.left, right: b.right, top: caja?.top ?? b.top, bottom: caja?.bottom ?? b.bottom }
+    setPos(
+      colocarFlotante(a, { width: ancho, height: m.height }, { width: window.innerWidth, height: window.innerHeight }, { alinear }),
+    )
+  }, [open, banda, ancho, alinear])
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return
+      setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // Este Escape cierra el menú, no el modal de detrás.
+      e.stopPropagation()
+      setOpen(false)
+      btnRef.current?.focus()
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey, true)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey, true)
+    }
+  }, [open])
+
+  return (
+    <>
+      {disparador({
+        ref: btnRef,
+        'aria-haspopup': 'menu',
+        'aria-expanded': open,
+        onClick: () => setOpen((o) => !o),
+      })}
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={etiqueta}
+            // Invisible mientras no se sabe dónde va: ocupa sitio para poder
+            // medirse, pero sin enseñarse en la esquina antes de saltar a su hueco.
+            style={{ position: 'fixed', top: pos?.top ?? 0, left: pos?.left ?? 0, width: ancho, visibility: pos ? undefined : 'hidden' }}
+            className="z-[70] overflow-hidden rounded-xl filo bg-white py-1 shadow-pop"
+          >
+            {children(() => setOpen(false))}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
+
+/** Un ítem de esos menús. Una sola pintura para todos. */
+const ITEM_MENU = 'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50'
+
 function MenuAcciones({
   candidate,
   cvName,
@@ -2397,94 +2620,20 @@ function MenuAcciones({
    */
   banda?: React.RefObject<HTMLDivElement | null>
 }) {
-  const [open, setOpen] = useState(false)
-  const btnRef = useRef<HTMLButtonElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const toast = useToast()
-  const W = 232
 
-  /**
-   * SE COLOCA CONTRA LA VENTANA, Y POR ESO SE MIDE ANTES DE VERSE.
-   *
-   * Estaba escrito a mano y SIEMPRE abría hacia abajo (`r.bottom + 6`). En la
-   * cabecera daba igual, pero este mismo menú vive también en la barra del
-   * pulgar, pegada al filo de abajo de un móvil: allí se desplegaba fuera de la
-   * pantalla y no se veía nada (Mario, ago 2026). `colocarFlotante` es quien
-   * sabe esto: prefiere abajo, sube solo si abajo no cabe y arriba sí, y en
-   * horizontal aprieta contra el filo en vez de salirse.
-   *
-   * Para decidir el lado hace falta el ALTO, y el alto no se sabe hasta que el
-   * menú está en el DOM: se monta invisible, se mide en un `useLayoutEffect` y
-   * solo entonces se coloca. Medirlo después de verse sería un salto de un
-   * fotograma. Es el mismo patrón que el globo de `ui/Tooltip`.
-   */
-  useLayoutEffect(() => {
-    if (!open) {
-      setPos(null)
-      return
-    }
-    const b = btnRef.current?.getBoundingClientRect()
-    const m = menuRef.current?.getBoundingClientRect()
-    if (!b || !m) return
-    // Vertical contra la banda (si la hay), horizontal contra el botón. Se
-    // construye campo a campo y NO con `{ ...b }`: un `DOMRect` tiene sus
-    // propiedades en el PROTOTIPO, así que el spread devuelve un objeto vacío y
-    // el ancla horizontal se quedaba en `undefined` (el menú se iba al filo
-    // izquierdo de la pantalla, medido: derecha 232 contra los 359 del botón).
-    const caja = banda?.current?.getBoundingClientRect()
-    const a = {
-      left: b.left,
-      right: b.right,
-      top: caja?.top ?? b.top,
-      bottom: caja?.bottom ?? b.bottom,
-    }
-    setPos(
-      colocarFlotante(
-        a,
-        { width: W, height: m.height },
-        { width: window.innerWidth, height: window.innerHeight },
-        { alinear: 'derecha' },
-      ),
-    )
-  }, [open, banda])
-
-  useEffect(() => {
-    if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      const t = e.target as Node
-      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return
-      setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      // Este Escape cierra el menú, no el modal de detrás.
-      e.stopPropagation()
-      setOpen(false)
-      btnRef.current?.focus()
-    }
-    document.addEventListener('mousedown', onDoc)
-    document.addEventListener('keydown', onKey, true)
-    return () => {
-      document.removeEventListener('mousedown', onDoc)
-      document.removeEventListener('keydown', onKey, true)
-    }
-  }, [open])
-
-  const item = 'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50'
-
-  const copiarContacto = async () => {
+  const copiarContacto = async (cerrar: () => void) => {
     const phone = String(candidate.answers['telefono'] ?? '')
     const correo = Object.entries(candidate.answers).find(([k]) => k === 'email')?.[1]
     const texto = [candidateName(candidate), phone && formatPhone(phone), correo && String(correo)].filter(Boolean).join('\n')
     const ok = await copyText(texto)
     if (ok) toast.success('Datos de contacto copiados')
     else toast.show('No se pudieron copiar los datos.')
-    setOpen(false)
+    cerrar()
   }
 
-  const descargarCv = async () => {
-    setOpen(false)
+  const descargarCv = async (cerrar: () => void) => {
+    cerrar()
     if (!candidate.cvPath) return
     const { data, error } = await supabase.storage.from('cvs').createSignedUrl(candidate.cvPath, 120, { download: true })
     if (error || !data?.signedUrl) {
@@ -2495,65 +2644,49 @@ function MenuAcciones({
   }
 
   return (
-    <>
-      {/* La pintura del secundario estaba copiada a mano aquí y sale de `botonIcono`.
-          Lo que NO se toca es el objetivo de toque: `TALLA_ICONO.sm` es `size-8` a secas,
-          sin `pointer-coarse`, y la clase que había sí crecía a 44. La fila compacta que
-          lo contiene es `hidden sm:flex`, y `sm` arranca en 640px, o sea que se pinta en
-          cualquier tablet: ahí sí hay dedo, y la doctrina dice que la densidad de
-          escritorio no se paga con un dedo que falla. */}
-      <button
-        ref={btnRef}
-        type="button"
-        aria-label="Más acciones"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className={botonIcono(variante, size, size === 'sm' ? 'pointer-coarse:size-11' : '')}
-      >
-        {/* El icono también acompaña: los vecinos _SM llevan size-3.5. */}
-        <MoreHorizontal className={size === 'sm' ? 'size-3.5' : 'size-4'} aria-hidden />
-      </button>
-      {open &&
-        createPortal(
-          <div
-            ref={menuRef}
-            role="menu"
-            aria-label="Acciones del candidato"
-            // Invisible mientras no se sabe dónde va: ocupa sitio para poder
-            // medirse, pero sin enseñarse en la esquina antes de saltar a su hueco.
-            style={{
-              position: 'fixed',
-              top: pos?.top ?? 0,
-              left: pos?.left ?? 0,
-              width: W,
-              visibility: pos ? undefined : 'hidden',
+    <MenuFlotante etiqueta="Acciones del candidato" banda={banda}
+      disparador={(props) => (
+        // La pintura del secundario estaba copiada a mano aquí y sale de `botonIcono`.
+        // Lo que NO se toca es el objetivo de toque: `TALLA_ICONO.sm` es `size-8` a
+        // secas, sin `pointer-coarse`, y la clase que había sí crecía a 44. La fila
+        // compacta que lo contiene es `hidden sm:flex`, y `sm` arranca en 640px, o sea
+        // que se pinta en cualquier tablet: ahí sí hay dedo, y la doctrina dice que la
+        // densidad de escritorio no se paga con un dedo que falla.
+        <button
+          {...props}
+          type="button"
+          aria-label="Más acciones"
+          className={botonIcono(variante, size, size === 'sm' ? 'pointer-coarse:size-11' : '')}
+        >
+          {/* El icono también acompaña: los vecinos _SM llevan size-3.5. */}
+          <MoreHorizontal className={size === 'sm' ? 'size-3.5' : 'size-4'} aria-hidden />
+        </button>
+      )}
+    >
+      {(cerrar) => (
+        <>
+          {candidate.cvPath && (
+            <button type="button" role="menuitem" className={ITEM_MENU} onClick={() => void descargarCv(cerrar)}>
+              <Download className="size-4 text-slate-500" aria-hidden /> Descargar {cvName ? 'CV' : 'CV'}
+            </button>
+          )}
+          <button type="button" role="menuitem" className={ITEM_MENU} onClick={() => void copiarContacto(cerrar)}>
+            <Copy className="size-4 text-slate-500" aria-hidden /> Copiar datos de contacto
+          </button>
+          <div className="my-1 h-px bg-slate-100" role="separator" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              cerrar()
+              onEliminar()
             }}
-            className="z-[70] overflow-hidden rounded-xl filo bg-white py-1 shadow-pop"
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
           >
-            {candidate.cvPath && (
-              <button type="button" role="menuitem" className={item} onClick={() => void descargarCv()}>
-                <Download className="size-4 text-slate-500" aria-hidden /> Descargar {cvName ? 'CV' : 'CV'}
-              </button>
-            )}
-            <button type="button" role="menuitem" className={item} onClick={() => void copiarContacto()}>
-              <Copy className="size-4 text-slate-500" aria-hidden /> Copiar datos de contacto
-            </button>
-            <div className="my-1 h-px bg-slate-100" role="separator" />
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                onEliminar()
-              }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-            >
-              <Trash2 className="size-4" aria-hidden /> Eliminar candidato
-            </button>
-          </div>,
-          document.body,
-        )}
-    </>
+            <Trash2 className="size-4" aria-hidden /> Eliminar candidato
+          </button>
+        </>
+      )}
+    </MenuFlotante>
   )
 }
