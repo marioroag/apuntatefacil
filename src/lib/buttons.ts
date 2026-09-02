@@ -56,8 +56,17 @@
 export const BTN_MOTION =
   'transition-[background-color,box-shadow,color] duration-[var(--duration-control)] ease-[var(--ease-out)]'
 
+/**
+ * Esqueleto SIN radio, para las pocas variantes que declaran el suyo. Existe
+ * separado por la regla de siempre: `rounded-lg` y `rounded-xl` son la misma
+ * utilidad y no se resuelven por el orden en que se escriben en el `className`,
+ * así que un botón con otro radio no se fabrica añadiéndoselo a `CAJA`, se
+ * fabrica con el esqueleto que no lo pone.
+ */
+const FORMA = 'inline-flex items-center justify-center whitespace-nowrap select-none'
+
 /** Esqueleto: caja y forma. El radio de los controles es 8px (`rounded-lg`). */
-const CAJA = 'inline-flex items-center justify-center rounded-lg whitespace-nowrap select-none'
+const CAJA = `${FORMA} rounded-lg`
 
 /**
  * LA PINTURA de cada variante, que es lo único que de verdad estaba duplicado.
@@ -259,6 +268,33 @@ export function botonBloque(variant: BtnVariant = 'primary', extra = '', motion 
   ]
     .filter(Boolean)
     .join(' ')
+}
+
+/**
+ * EL BOTÓN DE ICONO QUE ACOMPAÑA A UNO DE BLOQUE: 44px y radio de CAMPO.
+ *
+ * Es el gemelo de `botonBloque` para cuando al lado de un botón de ancho completo
+ * hace falta una acción que se dice con un solo glifo (llamar, junto a WhatsApp,
+ * en la ficha del candidato). Comparte con él las dos medidas que lo hacen
+ * parecer la misma pieza: **44px de alto** y **radio 10**, no los 36 y los 8 de
+ * un control de fila. Un cuadrado de 36 al lado de un bloque de 44 se lee como si
+ * fuera de otro grupo, que es el mismo argumento que ya obligó a declarar
+ * `BTN_ICONO_FRANJA` y `BTN_PRIMARY_LATERAL`.
+ *
+ * Se declara aquí y no se apaña con un `size-11 rounded-xl` pegado detrás de
+ * `botonIcono(...)`: son las mismas utilidades que la pieza ya trae, y ahí gana
+ * la que se emita después en el CSS, no la que se escriba al final.
+ *
+ * La variante es un parámetro, como en `botonBloque`, y por defecto es la SÓLIDA
+ * (Mario, sep 2026): donde nació, el cuadrado es la otra mitad de una acción de
+ * marca (llamar, junto a escribir por WhatsApp), no un control de apoyo. En línea
+ * se leía como si fuera de otro grupo.
+ */
+export function botonIconoBloque(variant: BtnVariant = 'primary', extra = '') {
+  return [
+    FORMA, 'rounded-xl', BTN_MOTION, BTN_SUPERFICIE[variant], 'size-11 shrink-0',
+    'disabled:pointer-events-none disabled:opacity-60', extra,
+  ].filter(Boolean).join(' ')
 }
 
 export const BTN_PRIMARY_BLOCK = botonBloque('primary')

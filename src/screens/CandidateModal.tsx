@@ -33,7 +33,7 @@ import { FAVORITO_STAR, SOURCE_META, STATUS_META } from '../lib/types'
 import { CAMPOS_YA_PINTADOS, answerText, candidateName, fechaCorta, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate, shortWhenInZone } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { BTN_PRIMARY, BTN_PRIMARY_BLOCK, BTN_SECONDARY, BTN_SECONDARY_BLOCK, BTN_SECONDARY_SM, botonIcono, BTN_PRIMARY_SM } from '../lib/buttons'
+import { botonIconoBloque, BTN_PRIMARY, BTN_PRIMARY_BLOCK, BTN_SECONDARY, BTN_SECONDARY_BLOCK, BTN_SECONDARY_SM, botonIcono, BTN_PRIMARY_SM } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { copyText } from '../lib/clipboard'
@@ -359,6 +359,11 @@ export function CandidateModal({
   const acciones = (
     <AccionesCandidato
       candidate={candidate}
+      phone={phone}
+      waPhone={waPhone}
+      maskPhone={maskPhone}
+      onAvisoDemo={avisoDemo}
+      esMovil={esMovil}
       onAgendar={() => setAgendarManual(true)}
       onVerEntrevista={WHATSAPP_LISTO ? abrirConversacion : () => setCambiarCita(true)}
       onEstado={cambiarEstado}
@@ -712,28 +717,25 @@ export function CandidateModal({
             >
               {phone && (
                 <>
-                  <a
-                    href={maskPhone ? undefined : `tel:${phone.replace(/\s/g, '')}`}
-                    onClick={maskPhone ? avisoDemo : undefined}
+                  <AccionContacto
+                    href={`tel:${phone.replace(/\s/g, '')}`}
+                    demo={maskPhone}
+                    onDemo={avisoDemo}
                     className={`${BTN_PRIMARY} pointer-events-auto flex-1 shadow-pop`}
                   >
                     <Phone className="size-4 text-indigo-200" aria-hidden /> Llamar
-                  </a>
-                  {waPhone &&
-                    (maskPhone ? (
-                      <button type="button" onClick={avisoDemo} className={`${BTN_SECONDARY} pointer-events-auto flex-1 shadow-pop`}>
-                        <MessageCircle className="size-4 text-slate-400" aria-hidden /> WhatsApp
-                      </button>
-                    ) : (
-                      <a
-                        href={`https://wa.me/${waPhone}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={`${BTN_SECONDARY} pointer-events-auto flex-1 shadow-pop`}
-                      >
-                        <MessageCircle className="size-4 text-slate-400" aria-hidden /> WhatsApp
-                      </a>
-                    ))}
+                  </AccionContacto>
+                  {waPhone && (
+                    <AccionContacto
+                      href={`https://wa.me/${waPhone}`}
+                      externo
+                      demo={maskPhone}
+                      onDemo={avisoDemo}
+                      className={`${BTN_SECONDARY} pointer-events-auto flex-1 shadow-pop`}
+                    >
+                      <MessageCircle className="size-4 text-slate-400" aria-hidden /> WhatsApp
+                    </AccionContacto>
+                  )}
                 </>
               )}
               {/* SIN TELÉFONO NO SE ESCRIBE NADA AQUÍ, y no es una pérdida: sin
@@ -1049,13 +1051,83 @@ function Bloque({
  * es la misma regla que aplica `WHATSAPP_LISTO` en el resto de la ficha: nunca
  * se ofrece una acción que acabe en un mensaje que no sale.
  */
+/**
+ * UN CONTACTO QUE EN LA DEMO NO SALE DEL NAVEGADOR.
+ *
+ * Llamar y escribir por WhatsApp son ENLACES (`tel:` y `wa.me`), que es lo que
+ * hace que funcionen hoy aunque el canal de WhatsApp nuestro siga apagado: ese
+ * WhatsApp es el del empresario y se abre en su móvil. Pero en la demo los
+ * teléfonos están tapados y no llevan a nadie, así que ahí el mismo control es un
+ * `<button>` que lo dice, y no un enlace muerto.
+ *
+ * Existe como pieza porque lo piden DOS sitios con formas distintas (la barra del
+ * pulgar en móvil, y las acciones del raíl desde sep 2026) y lo que comparten no
+ * es la pintura sino esta bifurcación. Escrita cuatro veces, el día que la demo
+ * cambie de aviso se queda a medias.
+ */
+function AccionContacto({
+  href,
+  externo = false,
+  demo,
+  onDemo,
+  className,
+  label,
+  children,
+}: {
+  href: string
+  /** `wa.me` abre otra pestaña; `tel:` no, que se lo queda el sistema. */
+  externo?: boolean
+  demo: boolean
+  onDemo: () => void
+  className: string
+  /** Nombre accesible, obligatorio cuando el control es solo un icono. */
+  label?: string
+  children: React.ReactNode
+}) {
+  if (demo) {
+    return (
+      <button type="button" onClick={onDemo} className={className} aria-label={label} title={label}>
+        {children}
+      </button>
+    )
+  }
+  return (
+    <a
+      href={href}
+      className={className}
+      aria-label={label}
+      title={label}
+      {...(externo ? { target: '_blank', rel: 'noreferrer' } : {})}
+    >
+      {children}
+    </a>
+  )
+}
+
 function AccionesCandidato({
   candidate,
+  phone,
+  waPhone,
+  maskPhone,
+  onAvisoDemo,
+  esMovil,
   onAgendar,
   onVerEntrevista,
   onEstado,
 }: {
   candidate: Candidate
+  /** El teléfono tal cual lo escribió el candidato (para `tel:`). */
+  phone: string
+  /** El mismo, en el formato que pide `wa.me`. Vacío si no dejó ninguno. */
+  waPhone: string
+  maskPhone: boolean
+  onAvisoDemo: () => void
+  /**
+   * En móvil, llamar y escribir por WhatsApp ya viven en la barra del pulgar, así
+   * que aquí no se pintan: serían dos puertas para lo mismo a un dedo de
+   * distancia. Ver `contactar`, más abajo.
+   */
+  esMovil: boolean
   onAgendar: () => void
   onVerEntrevista: () => void
   onEstado: (s: CandidateStatus) => void
@@ -1068,11 +1140,64 @@ function AccionesCandidato({
       : null
   const s = candidate.status
 
+  // CON UN CANDIDATO NUEVO, EL SIGUIENTE PASO ES HABLAR CON ÉL (Mario, sep 2026).
+  //
+  // No es un botón más: es la misma regla de "una sola acción principal por
+  // estado" aplicada al primero de todos. A alguien que acaba de apuntarse no se
+  // le agenda una entrevista, se le escribe; agendar sigue siendo la principal en
+  // cuanto el proceso avanza a "contactado", que es cuando de verdad toca.
+  //
+  // Se ofrece solo si dejó teléfono (un botón que no puede hacer nada es peor que
+  // ninguno) y solo donde no está ya la barra del pulgar, que en móvil pinta
+  // Llamar y WhatsApp para cualquier estado. En escritorio no había NINGUNA forma
+  // de escribirle desde la ficha: el hueco que esto tapa.
+  const contactar = s === 'nuevo' && !esMovil && !!waPhone
+
   const principal =
     s === 'entrevista' ? (
       <button type="button" onClick={() => onEstado('contratado')} className={BTN_PRIMARY_BLOCK}>
         Confirmar contratado
       </button>
+    ) : contactar ? (
+      // LA PAREJA ES UNA REJILLA, no un `flex`: `BTN_PRIMARY_BLOCK` ya trae
+      // `w-full`, y `w-full` con `flex-1` son el mismo eje. En una celda de grid,
+      // el `w-full` hace justo lo que dice y el cuadrado se queda con lo suyo.
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        {/* Sin icono, como manda el punto 3 de arriba: en un botón de ancho
+            completo el grupo icono+texto se centra y el rótulo queda descentrado. */}
+        <AccionContacto
+          href={`https://wa.me/${waPhone}`}
+          externo
+          demo={maskPhone}
+          onDemo={onAvisoDemo}
+          className={BTN_PRIMARY_BLOCK}
+        >
+          WhatsApp
+        </AccionContacto>
+        {/* Llamar SÍ es solo el glifo: el teléfono es de los poquísimos iconos
+            que no hay que aprenderse, y su nombre no se pierde, lo lleva en
+            `aria-label` y en el `title`.
+
+            Y va en COLOR DE MARCA, no en línea (Mario, sep 2026). No rompe la
+            regla de una sola acción principal, la lee bien: escribir y llamar no
+            son una acción y su apoyo, son las dos formas de hacer LO MISMO con un
+            candidato nuevo, y en secundario el cuadrado se leía como si fuera de
+            otro grupo. La que sí es de otro grupo, Descartar, sigue en línea
+            debajo. */}
+        <AccionContacto
+          href={`tel:${phone.replace(/\s/g, '')}`}
+          demo={maskPhone}
+          onDemo={onAvisoDemo}
+          className={botonIconoBloque()}
+          label="Llamar"
+        >
+          {/* El glifo va en blanco y no en el `text-indigo-200` con el que este
+              mismo icono acompaña a "Llamar" en la barra del pulgar: allí es lo
+              que ACOMPAÑA a un rótulo y se sienta un peldaño por debajo; aquí es
+              todo lo que hay que leer. */}
+          <Phone className="size-4" aria-hidden />
+        </AccionContacto>
+      </div>
     ) : s === 'nuevo' || s === 'contactado' ? (
       <button type="button" onClick={onAgendar} className={BTN_PRIMARY_BLOCK}>
         Agendar entrevista
