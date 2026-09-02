@@ -35,9 +35,13 @@ describe('resumenApuntarse', () => {
     expect(r.etiquetas).toEqual(['Teléfono'])
   })
 
-  it('detecta si se pide un documento', () => {
-    expect(resumenApuntarse([f({ id: 'cv', label: 'CV', type: 'file' })]).pideDocumento).toBe(true)
-    expect(resumenApuntarse([f({ id: 'n', label: 'Nombre' })]).pideDocumento).toBe(false)
+  it('cuenta los documentos que se piden', () => {
+    expect(resumenApuntarse([f({ id: 'n', label: 'Nombre' })]).documentos).toBe(0)
+    expect(resumenApuntarse([f({ id: 'cv', label: 'CV', type: 'file' })]).documentos).toBe(1)
+    expect(resumenApuntarse([
+      f({ id: 'cv', label: 'CV', type: 'file' }),
+      f({ id: 'prl', label: 'Tarjeta PRL', type: 'file' }),
+    ]).documentos).toBe(2)
   })
 })
 
@@ -47,14 +51,26 @@ describe('senalesApuntarse', () => {
       .toEqual(['1 pregunta', 'Sin CV', 'Sin crear cuenta'])
   })
 
-  it('no dice "Sin CV" cuando sí se pide uno', () => {
+  it('no dice "Sin CV" cuando sí se pide uno, y lo cuenta', () => {
     // El fallo que importa: prometer menos trabajo del que hay.
     const s = senalesApuntarse(resumenApuntarse([
       f({ id: 'n', label: 'Nombre' }),
       f({ id: 'cv', label: 'Tu CV', type: 'file' }),
     ]))
-    expect(s).toEqual(['2 preguntas', 'Te pedimos un documento', 'Sin crear cuenta'])
+    expect(s).toEqual(['2 preguntas', '1 documento', 'Sin crear cuenta'])
     expect(s).not.toContain('Sin CV')
+  })
+
+  it('con varios documentos lo dice en plural, no "un documento"', () => {
+    // La versión anterior decía "Te pedimos un documento" para uno y para tres:
+    // eso es prometer menos trabajo del que hay, que es justo lo prohibido aquí.
+    const s = senalesApuntarse(resumenApuntarse([
+      f({ id: 'n', label: 'Nombre' }),
+      f({ id: 'cv', label: 'Tu CV', type: 'file' }),
+      f({ id: 'prl', label: 'Tarjeta PRL', type: 'file' }),
+      f({ id: 'carnet', label: 'Carnet de conducir', type: 'file' }),
+    ]))
+    expect(s).toEqual(['4 preguntas', '3 documentos', 'Sin crear cuenta'])
   })
 
   it('"Sin crear cuenta" se dice SIEMPRE', () => {

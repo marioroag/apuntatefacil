@@ -24,8 +24,8 @@ export interface ResumenApuntarse {
   /** Cuántas cosas hay que rellenar. TODAS, también el nombre y el teléfono:
    *  lo que se está diciendo es el esfuerzo, y el esfuerzo las incluye. */
   preguntas: number
-  /** ¿Se pide algún documento (CV, carnet, certificado)? */
-  pideDocumento: boolean
+  /** Cuántos documentos se piden (CV, carnet, certificado). Cero si ninguno. */
+  documentos: number
   /** Las etiquetas, en el orden en que se van a ver. */
   etiquetas: string[]
 }
@@ -34,7 +34,7 @@ export function resumenApuntarse(fields: FormField[]): ResumenApuntarse {
   const visibles = fields.filter((f) => f.label.trim())
   return {
     preguntas: visibles.length,
-    pideDocumento: visibles.some((f) => f.type === 'file'),
+    documentos: visibles.filter((f) => f.type === 'file').length,
     etiquetas: visibles.map((f) => f.label.trim()),
   }
 }
@@ -50,7 +50,14 @@ export function resumenApuntarse(fields: FormField[]): ResumenApuntarse {
 export function senalesApuntarse(r: ResumenApuntarse): string[] {
   return [
     r.preguntas === 1 ? '1 pregunta' : `${r.preguntas} preguntas`,
-    r.pideDocumento ? 'Te pedimos un documento' : 'Sin CV',
+    // SE CUENTAN, como las preguntas (Mario, sep 2026). Decía "Te pedimos un
+    // documento", que es cuatro palabras para el mismo hecho y en un móvil
+    // partía la línea en dos: la señal de que apuntarse es corto ocupando dos
+    // renglones se desmiente a sí misma, que es el mismo argumento por el que
+    // aquí no se enumeran las preguntas una a una.
+    //
+    // Y de paso dice MÁS: "un documento" valía igual para uno que para tres.
+    r.documentos === 0 ? 'Sin CV' : r.documentos === 1 ? '1 documento' : `${r.documentos} documentos`,
     'Sin crear cuenta',
   ]
 }
