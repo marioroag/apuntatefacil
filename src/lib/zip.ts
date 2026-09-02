@@ -122,10 +122,18 @@ export function crearZip(entradas: Entrada[], ahora = new Date()): Blob {
 }
 
 /**
- * Un nombre de fichero que sobreviva a Windows, macOS y a un zip: sin los
- * caracteres que Windows prohíbe, sin barras (aquí no hay carpetas) y sin puntos
- * al final. **Dos candidatos que se llamen igual no pueden pisarse**, así que
- * quien lo use tiene que numerar los repetidos: eso lo hace `nombreUnico`.
+ * UN TRAMO de la ruta dentro del zip: el nombre de una carpeta o el de un
+ * fichero, nunca los dos juntos. Sobrevive a Windows, macOS y a un zip: sin los
+ * caracteres que Windows prohíbe y sin puntos al final.
+ *
+ * **La barra se sustituye a propósito**, y por eso esto se aplica a cada tramo
+ * por separado: el zip de documentos SÍ tiene carpetas (una por persona) y las
+ * arma quien llama uniendo con "/". Si `nombreSeguro` viera la ruta entera se
+ * comería la separación y las tres carpetas de una persona serían un fichero con
+ * guiones.
+ *
+ * **Dos que se llamen igual no pueden pisarse**, así que quien lo use tiene que
+ * numerar los repetidos: eso lo hace `nombreUnico`.
  */
 export function nombreSeguro(texto: string): string {
   return texto

@@ -34,7 +34,7 @@ import { FAVORITO_STAR, SOURCE_META, STATUS_META } from '../lib/types'
 import { CAMPOS_YA_PINTADOS, answerText, candidateName, fechaCorta, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate, shortWhenInZone } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { botonIconoBloque, BTN_PRIMARY, BTN_PRIMARY_BLOCK, BTN_SECONDARY, BTN_SECONDARY_BLOCK, BTN_SECONDARY_SM, botonIcono, BTN_PRIMARY_SM } from '../lib/buttons'
+import { botonIconoBloque, BTN_DANGER_SM, BTN_PRIMARY, BTN_PRIMARY_BLOCK, BTN_SECONDARY, BTN_SECONDARY_BLOCK, BTN_SECONDARY_SM, botonIcono, BTN_PRIMARY_SM } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { copyText } from '../lib/clipboard'
@@ -1732,13 +1732,14 @@ function Documentos({
   cvLeido: 'texto' | 'vision' | 'no' | undefined
   onLocalizadas?: (ids: string[]) => void
 }) {
-  const { loadCandidateDocuments, addCandidateDocument } = useStore()
+  const { loadCandidateDocuments, addCandidateDocument, removeCandidateDocument } = useStore()
   const { company } = useAuth()
   const esDemo = company?.id === 'demo'
   const toast = useToast()
   const [extra, setExtra] = useState<CandidateDocument[]>([])
   const [sel, setSel] = useState('cv')
   const [subiendo, setSubiendo] = useState(false)
+  const [quitando, setQuitando] = useState(false)
   // EL DOCUMENTO SE NOMBRA ANTES DE SUBIRLO. Es un paso más, y se paga a
   // propósito: sin él la pastilla diría `scan_20260831_0001.pdf`, que no es un
   // tipo de documento, y no habría dónde corregirlo después. Va pre-rellenado
@@ -1828,6 +1829,37 @@ function Documentos({
     setExtra((ds) => [...ds, fila])
     setSel(fila.id)
     toast.success('Documento añadido')
+  }
+
+  /**
+   * QUITAR UN DOCUMENTO, y el CV no es uno de ellos.
+   *
+   * Solo se ofrece para los de `candidate_documents`: el CV vive en
+   * `candidates.cv_path`, es lo que lee Meridian y lo que ha citado el informe
+   * que está justo encima, así que quitarlo no es retirar un adjunto, es dejar
+   * el análisis hablando de un documento que ya no está. Cuando haya que
+   * poder, será su propio verbo y no éste.
+   *
+   * El resto del cuidado vive en el store (`removeCandidateDocument`): borra el
+   * FICHERO primero y la fila después, porque el permiso sobre el bucket se
+   * deriva de la fila.
+   */
+  const quitar = async (id: string) => {
+    const doc = extra.find((d) => d.id === id)
+    setQuitando(true)
+    const ok = await removeCandidateDocument(id)
+    setQuitando(false)
+    if (!ok) {
+      toast.error('No se pudo quitar el documento.')
+      return
+    }
+    // En la demo el fichero nunca salió del navegador: su `path` es un object
+    // URL, y sin revocarlo el blob se queda en memoria hasta recargar.
+    if (doc?.path.startsWith('blob:')) URL.revokeObjectURL(doc.path)
+    setExtra((ds) => ds.filter((d) => d.id !== id))
+    // `sel` no se toca: `actual` cae solo al primero de la lista que queda, y
+    // dos sitios decidiendo cuál está elegido es como empiezan a discrepar.
+    toast.show('Documento quitado')
   }
 
   return (
@@ -1947,6 +1979,8 @@ function Documentos({
           citaActiva={actual.esCv ? citaActiva : null}
           cvLeido={actual.esCv ? cvLeido : undefined}
           onLocalizadas={actual.esCv ? onLocalizadas : undefined}
+          onQuitar={actual.esCv ? undefined : () => quitar(actual.id)}
+          quitando={quitando}
         />
       )}
     </div>
@@ -1961,6 +1995,8 @@ function Cv({
   citaActiva,
   cvLeido,
   onLocalizadas,
+  onQuitar,
+  quitando,
 }: {
   candidate: Candidate
   /** El documento a enseñar. Ya no se deduce de `candidate.cvPath`: desde que
@@ -1972,6 +2008,9 @@ function Cv({
   citaActiva: CitaActiva | null
   cvLeido: 'texto' | 'vision' | 'no' | undefined
   onLocalizadas?: (ids: string[]) => void
+  /** Solo lo traen los documentos que se pueden retirar; el CV, nunca. */
+  onQuitar?: () => void | Promise<void>
+  quitando?: boolean
 }) {
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState(false)
@@ -1985,6 +2024,20 @@ function Cv({
   // que no cargó a la primera): vuelve a empezar el camino ENTERO, con firma
   // nueva incluida, en vez de obligar a cerrar la ficha y reabrirla.
   const [intento, setIntento] = useState(0)
+  // SE CONFIRMA EN LA PROPIA FILA, no en un diálogo encima: esto ya vive dentro
+  // de un modal y dos capas apiladas se pelean por el Escape (lo mismo que
+  // decidieron `SedesDialog` y el borrado de una nota). De regalo, el documento
+  // sigue debajo mientras decides: se confirma lo que se está mirando.
+  // No hace falta reiniciarlo al cambiar de documento porque el visor se remonta
+  // por `key`, así que este estado nace limpio con cada uno.
+  const [confirmando, setConfirmando] = useState(false)
+  const cancelarRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    // El foco vive en la papelera, que acaba de desaparecer: sin recogerlo se
+    // caería al body. Va a "Cancelar" y no a "Quitar" porque un Intro de más no
+    // puede borrar un documento.
+    if (confirmando) cancelarRef.current?.focus()
+  }, [confirmando])
   const reintentar = () => {
     setUrl(null)
     setError(false)
@@ -2086,6 +2139,47 @@ function Cv({
   const accion: 'ampliar' | 'descargar' | null = ampliable ? 'ampliar' : path ? 'descargar' : null
   return (
     <div className="flex flex-col">
+      {confirmando ? (
+        <div
+          className="border-b border-slate-100 py-2.5 sm:px-3.5"
+          onKeyDown={(e) => {
+            // En CAPTURA no, que aquí no hace falta: `ui/Modal` escucha en
+            // `document` y este manejador corre antes por burbujeo desde el
+            // botón enfocado. Lo que sí hace falta es cortar, o Escape cerraría
+            // la ficha entera en vez de esta pregunta.
+            if (e.key === 'Escape' && !quitando) {
+              e.stopPropagation()
+              setConfirmando(false)
+            }
+          }}
+        >
+          <p className="text-sm text-slate-800">
+            ¿Quitar <span className="font-semibold">{cvName || 'este documento'}</span>?
+          </p>
+          <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
+            Se borra el fichero y no se puede deshacer. El resto de la ficha no se toca.
+          </p>
+          <div className="mt-2.5 flex gap-2">
+            <button
+              type="button"
+              disabled={quitando}
+              onClick={() => void onQuitar?.()}
+              className={`${BTN_DANGER_SM} disabled:opacity-50`}
+            >
+              {quitando ? 'Quitando…' : 'Quitar'}
+            </button>
+            <button
+              type="button"
+              ref={cancelarRef}
+              disabled={quitando}
+              onClick={() => setConfirmando(false)}
+              className={BTN_SECONDARY_SM}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-slate-100 py-2.5 sm:px-3.5">
         {/* UN MÍNIMO PARA EL NOMBRE, y por eso la fila ENVUELVE (Mario, ago 2026:
             "que salga con ... al final para que no se monte"). Recortarse ya se
@@ -2136,7 +2230,25 @@ function Cv({
             {peso && <span className="num shrink-0 text-[13px] text-slate-500">{peso}</span>}
           </>
         )}
+        {/* QUITAR ESTE DOCUMENTO. Actúa sobre el que estás viendo y no lleva una
+            equis por pastilla: en una tira que ya se desliza, un control por
+            documento son N dianas pequeñas y ninguna te enseña lo que vas a
+            borrar. Aquí el documento está debajo, a la vista. Fuera del botón
+            del nombre, como los demás verbos: un botón dentro de otro es
+            marcado inválido. */}
+        {onQuitar && (
+          <button
+            type="button"
+            onClick={() => setConfirmando(true)}
+            title={`Quitar ${cvName || 'el documento'}`}
+            aria-label={`Quitar ${cvName || 'el documento'}`}
+            className={botonIcono('ghost', 'sm', 'hover:bg-red-50 hover:text-red-600')}
+          >
+            <Trash2 className="size-4" aria-hidden />
+          </button>
+        )}
       </div>
+      )}
 
       {!esPdf ? (
         <div className={`min-h-[240px] ${banda}`}>

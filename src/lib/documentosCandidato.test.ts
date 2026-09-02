@@ -50,6 +50,16 @@ function ultimaPolicy(nombre: string): { fichero: string; cuerpo: string } | nul
   return out
 }
 
+/**
+ * El fuente SIN comentarios. Hace falta antes de buscar cualquier nombre: un
+ * detector que no los quita vigila la PROSA, y aquí ya pasó (los dos de abajo
+ * daban verde con el fallo puesto, porque el nombre que buscaban seguía escrito
+ * en un comentario que lo explicaba).
+ */
+function desnudo(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+}
+
 describe('los documentos de un candidato', () => {
   it('hay políticas que leer', () => {
     expect(ultimaPolicy('cvs_select_visible'), 'no se encuentra cvs_select_visible').not.toBeNull()
@@ -92,14 +102,53 @@ describe('los documentos de un candidato', () => {
   it('solo el store borra del bucket, y nadie finge limpiar huérfanos', () => {
     const culpables = Object.entries(FUENTE)
       .filter(([r]) => !r.includes('.test.') && !r.endsWith('/store.tsx'))
-      .filter(([, src]) =>
-        src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').includes("storage.from('cvs').remove"))
+      .filter(([, src]) => desnudo(src).includes("storage.from('cvs').remove"))
       .map(([r]) => r.replace(/^\.{1,2}\//, 'src/'))
     expect(
       culpables,
       'Un `remove()` sobre `cvs` fuera del store no borra: el permiso se deriva de la FILA, ' +
         'y estos sitios llaman justo cuando la fila no existe. Devuelve 200 con [] y ningún error.',
     ).toEqual([])
+  })
+
+  /**
+   * LO QUE EL STORE SABE BORRAR TIENE QUIEN SE LO PIDA. Esto ya cobró: la
+   * política de DELETE del bucket y `removeCandidateDocument` se escribieron en
+   * sep 2026 y **nada en `src/` lo llamaba**, así que un documento subido por
+   * error se quedaba en la ficha para siempre. Un verbo del store sin llamador no
+   * es código de más: es una función que la ficha promete y no tiene.
+   */
+  it('quitar un documento se puede pedir desde alguna pantalla', () => {
+    const llamadores = Object.entries(FUENTE)
+      .filter(([r]) => !r.includes('.test.') && !r.endsWith('/store.tsx'))
+      .filter(([, src]) => desnudo(src).includes('removeCandidateDocument('))
+      .map(([r]) => r)
+    expect(
+      llamadores.length,
+      '`removeCandidateDocument` no lo llama ninguna pantalla: el store sabe quitar un documento y no hay por dónde pedirlo.',
+    ).toBeGreaterThan(0)
+  })
+
+  /**
+   * Y EL ZIP SE LLEVA LOS DOS SITIOS DONDE VIVE UN FICHERO. Misma trampa que la
+   * policy de lectura, en el otro extremo: `exportCandidateDocs` filtraba por
+   * `cvPath` y punto, mientras la fila del menú decía "CV y adjuntos". El carnet
+   * que pidió el formulario y el contrato que subió el equipo se quedaban fuera.
+   */
+  it('la exportación de documentos mira las dos fuentes', () => {
+    // El glob resuelve desde `src/lib/`, así que la clave es relativa a aquí.
+    const src = FUENTE['./export.ts']
+    expect(src, 'no se encuentra src/lib/export.ts').toBeTruthy()
+    const limpio = desnudo(src)
+    const zip = limpio.slice(limpio.indexOf('export async function exportCandidateDocs'))
+    expect(
+      zip,
+      'src/lib/export.ts: el ZIP no lee `cvPath`. Es el primer fichero de toda candidatura.',
+    ).toContain('cvPath')
+    expect(
+      zip,
+      'src/lib/export.ts: el ZIP no pide los documentos de `candidate_documents`, así que se lleva solo el CV mientras el menú promete "CV y adjuntos".',
+    ).toContain('cargarDocs(')
   })
 
   it('nada que dé acceso a un documento se acota por EMPRESA', () => {

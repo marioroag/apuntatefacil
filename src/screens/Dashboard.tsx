@@ -146,7 +146,7 @@ const SIN_FECHAS: string[] = []
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany, setStatusMany, setStatus, setFavorito, commentCounts } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany, loadDocumentsFor, setStatusMany, setStatus, setFavorito, commentCounts } = useStore()
   const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -1032,7 +1032,7 @@ export function Dashboard() {
   const doExport = async (formato: FormatoExport = 'xlsx') => {
     if (formato === 'zip') {
       try {
-        const r = await exportCandidateDocs(campaign, filtered)
+        const r = await exportCandidateDocs(campaign, filtered, loadDocumentsFor)
         if (!r.incluidos) return toast.show('Ninguna de estas candidaturas trae documentos.')
         // Lo que no se pudo bajar SE DICE. Un zip con 138 de 140 es útil; uno que
         // finge estar completo, no.
@@ -4014,8 +4014,14 @@ function PuestoMenu({
       </div>
       {conDocumentos > 0 && (
         <div className="mt-1 space-y-0.5 border-t border-slate-100 pt-1.5">
+          {/* EL RÓTULO DICE DE QUIÉN SON, porque la cifra es de PERSONAS y no de
+              ficheros: cuántos documentos hay no se sabe sin ir a buscarlos, y
+              esta fila no puede pagar una consulta para pintarse. Decía "Los
+              documentos (27)" con 27 = candidatos con CV, que es la clase de
+              número que se lee como otra cosa. Lo que sí sale exacto es el
+              recuento del final, cuando el zip ya está hecho. */}
           <p className="px-2.5 pb-1 pt-1 text-[12px] text-slate-500">
-            Los documentos ({miles(conDocumentos)})
+            Los documentos de {miles(conDocumentos)} {conDocumentos === 1 ? 'candidato' : 'candidatos'}
           </p>
           <button type="button" onClick={() => { void onExport('zip'); cerrar() }} className={`${FILA} ${QUIETA}`}>
             <FileArchive className={GLIFO} aria-hidden />
