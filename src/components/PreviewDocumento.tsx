@@ -24,6 +24,11 @@ import type { Campaign, Candidate } from '../lib/types'
  * fila de la ficha ("un PDF lo amplía y lo demás lo descarga"): un visor que no
  * sabe abrir un `.docx` no puede prometerlo, y una capa con un error dentro es
  * peor que el fichero en el disco.
+ *
+ * PERO UN PDF QUE NO SE PUEDE SUBRAYAR SÍ SE PREVISUALIZA, con el visor del
+ * navegador (el plan B, que vive dentro de `CvLightbox` desde sep 2026). Eso es
+ * un fallo de NUESTRO visor, no del documento, y cerrar la capa por eso dejaba el
+ * clic mudo: se veía abrirse y cerrarse.
  */
 export function PreviewDocumento({
   campaign,
@@ -43,9 +48,14 @@ export function PreviewDocumento({
   const cvName = cvField ? String(candidate.answers[cvField.id] ?? '') : ''
   const citas = citasDelAnalisis(candidate.ai)
 
-  // Lo que no se puede enseñar se entrega. Y lo que falla se dice y se cierra: una
-  // capa negra con un mensaje encima de la lista no ayuda a nadie.
-  const fuera = !doc.esPdf || doc.visorFallo || doc.error
+  // Lo que no se puede enseñar se entrega: un Word no tiene visor y una firma que
+  // no sale tampoco tiene documento que pintar, así que ahí se descarga y punto.
+  //
+  // QUE LOS BYTES NO LLEGUEN NO ES DE ESTA LISTA (`visorFallo`): el documento se
+  // puede ver igual con el visor del navegador, y el visor grande lo hace desde
+  // sep 2026. Estaba dentro, así que el clic abría la capa de espera y la cerraba
+  // en seco sin enseñar nada, que es el peor final posible para un clic.
+  const fuera = !doc.esPdf || doc.error
   useEffect(() => {
     if (!fuera) return
     void doc.descargar().then((ok) => {
@@ -58,7 +68,10 @@ export function PreviewDocumento({
   }, [fuera])
 
   if (fuera) return null
-  if (!doc.bytes) {
+  // Se espera a los bytes (los que subrayan las citas) mientras puedan llegar; si
+  // se sabe que no van a llegar, se abre ya con el plan B en vez de seguir dando
+  // vueltas a un molinillo.
+  if (!doc.bytes && !doc.visorFallo) {
     // LA ESPERA ES UNA CAPA, no un cambio en la fila: se ha pulsado para ver un
     // documento, así que lo que tiene que pasar es que se abra algo. Sin esto, el
     // clic se quedaba mudo el segundo que tarda la firma más la descarga.

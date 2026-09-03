@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Download, ExternalLink, X } from 'lucide-react'
@@ -18,6 +18,21 @@ import type { CitaCv } from '../lib/meridian'
  * hoy el formulario admite un solo adjunto, así que no se ven nunca, pero la
  * pieza queda lista para el día de los candidatos de portal, que traen varios.
  *
+ * TIENE SU PROPIO PLAN B, Y ESO ES LO QUE ARREGLA UN CIERRE EN SECO (sep 2026).
+ * Su `onFallo` era `onClose`: un PDF que pdf.js no pudiera abrir hacía que el
+ * visor se ABRIERA Y SE CERRARA solo, sin decir nada, y eso es todo lo que
+ * pasaba al pulsar un documento en Safari, donde pdf.js cae al plan B siempre.
+ * El incrustado de la ficha llevaba ese plan B desde el principio (el iframe con
+ * el visor del navegador); el grande no, así que el mismo documento se veía
+ * abajo y desaparecía al ampliarlo. Ahora cae aquí dentro, a pantalla completa,
+ * que además es MEJOR que el incrustado: el iframe de la ficha tiene alto fijo
+ * y este ocupa el telón entero.
+ *
+ * De ahí que `data` sea opcional: la columna Documentos abre esto sin bytes
+ * cuando la descarga para subrayar no sale, en vez de cerrarse y dejar el clic
+ * mudo. La regla es la de siempre: **un visor que no puede pintar el documento
+ * enseña lo que pueda y lo dice; nunca se cierra solo.**
+ *
  * Vive en un PORTAL sobre la ficha (que ya es un Modal), y por eso sus teclas
  * van EN CAPTURA sobre `document` con stopPropagation: el Modal de la ficha
  * escucha el mismo evento en el mismo nodo en fase de burbuja, y sin el corte
@@ -34,7 +49,10 @@ export function CvLightbox({
   docs,
 }: {
   nombre: string
-  data: ArrayBuffer
+  /** Los bytes del PDF, para subrayar las citas. Sin ellos se enseña el plan B
+   *  (el visor del navegador con `urlAparte`): el documento se ve igual, sin
+   *  marcas. */
+  data: ArrayBuffer | null
   citas: CitaCv[]
   onClose: () => void
   onDescargar: () => void
@@ -47,6 +65,12 @@ export function CvLightbox({
   const rootRef = useRef<HTMLDivElement>(null)
   const cerrarRef = useRef<HTMLButtonElement>(null)
   const reducedMotion = useReducedMotion()
+  // pdf.js no pudo con este documento: se enseña con el visor del navegador.
+  const [visorFallo, setVisorFallo] = useState(false)
+  // Hay navegadores sin visor de PDF propio (lo dicen ellos): ahí el iframe pinta
+  // un rectángulo gris mudo, así que mejor decirlo y señalar los dos verbos que
+  // esta misma barra ya tiene puestos arriba.
+  const sinVisorNativo = typeof navigator !== 'undefined' && navigator.pdfViewerEnabled === false
 
   // Foco: entra en la equis al abrir y vuelve a quien abrió al cerrar (el
   // mismo contrato que ui/Modal, aquí a mano porque esto no es esa pieza).
@@ -132,13 +156,29 @@ export function CvLightbox({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <CvViewer
-          data={data}
-          titulo={nombre}
-          citas={citas}
-          aspecto="lienzo"
-          onFallo={onClose}
-        />
+        {data && !visorFallo ? (
+          <CvViewer
+            data={data}
+            titulo={nombre}
+            citas={citas}
+            aspecto="lienzo"
+            // NUNCA `onClose`: un fallo del visor no es una orden de cerrar. Se
+            // cae al plan B, que es lo que ya hacía el incrustado de la ficha.
+            onFallo={() => setVisorFallo(true)}
+          />
+        ) : urlAparte && !sinVisorNativo ? (
+          // Plan B: el visor del navegador. Enseña el documento sin subrayados;
+          // las citas siguen enteras, en texto, en el informe de Meridian.
+          <iframe src={urlAparte} title={nombre} className="h-full w-full bg-slate-100" />
+        ) : (
+          <div className="grid h-full place-items-center px-6 text-center">
+            <p className="max-w-[42ch] text-sm leading-6 text-white/70">
+              {sinVisorNativo
+                ? 'Este navegador no puede enseñar el documento aquí dentro. Descárgalo o ábrelo aparte.'
+                : 'No se pudo abrir el documento aquí dentro. Prueba a descargarlo.'}
+            </p>
+          </div>
+        )}
       </div>
 
       {docs && docs.total > 1 && (
