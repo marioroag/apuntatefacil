@@ -304,18 +304,33 @@ export function initials(name: string): string {
  * etiquetas: aquella regla es para un chip suelto en una tabla gris, donde el
  * rosa se lee como un problema. Aquí TODOS los bloques van teñidos, así que uno
  * rosa es otra persona más y no una alarma.
+ *
+ * **Y DESDE SEP 2026 CADA ENTRADA LLEVA SU HUE, porque llegó una TERCERA
+ * superficie**: la silueta con volumen del candidato (`ui/Avatar` con `silueta`).
+ * Ahí el color no se puede pintar con una clase de Tailwind, porque lo que hay
+ * son degradados dentro de un SVG, así que hace falta el número. Lo que NO puede
+ * pasar es que el hue viva en su propia tabla: la cara de una persona sería de un
+ * color en la lista y de otro en el calendario, que es exactamente lo que esta
+ * entrada lleva evitando desde que tuvo dos consumidores. Un hue, tres pesos
+ * según dónde se pinte.
+ *
+ * Los valores están puestos A OJO contra su rampa de Tailwind, no calculados: las
+ * rampas van en OKLCH y su hue se mueve un poco entre peldaños, así que el número
+ * exacto no existe. Lo que tiene que cumplirse es que el `lime` se vea lima y que
+ * dos entradas no se acerquen tanto como para confundirse, y eso se comprueba
+ * mirando las diez juntas.
  */
 const MEMBER_AVATAR_TONES = [
-  { bg: 'bg-lime-700', text: 'text-white', name: 'text-lime-700', suave: 'bg-lime-100', canto: 'ring-lime-200' },
-  { bg: 'bg-sky-700', text: 'text-white', name: 'text-sky-700', suave: 'bg-sky-100', canto: 'ring-sky-200' },
-  { bg: 'bg-teal-700', text: 'text-white', name: 'text-teal-700', suave: 'bg-teal-100', canto: 'ring-teal-200' },
-  { bg: 'bg-violet-700', text: 'text-white', name: 'text-violet-700', suave: 'bg-violet-100', canto: 'ring-violet-200' },
-  { bg: 'bg-amber-700', text: 'text-white', name: 'text-amber-800', suave: 'bg-amber-100', canto: 'ring-amber-200' },
-  { bg: 'bg-rose-700', text: 'text-white', name: 'text-rose-700', suave: 'bg-rose-100', canto: 'ring-rose-200' },
-  { bg: 'bg-emerald-700', text: 'text-white', name: 'text-emerald-700', suave: 'bg-emerald-100', canto: 'ring-emerald-200' },
-  { bg: 'bg-orange-700', text: 'text-white', name: 'text-orange-700', suave: 'bg-orange-100', canto: 'ring-orange-200' },
-  { bg: 'bg-cyan-800', text: 'text-white', name: 'text-cyan-800', suave: 'bg-cyan-100', canto: 'ring-cyan-200' },
-  { bg: 'bg-fuchsia-800', text: 'text-white', name: 'text-fuchsia-800', suave: 'bg-fuchsia-100', canto: 'ring-fuchsia-200' },
+  { bg: 'bg-lime-700', text: 'text-white', name: 'text-lime-700', suave: 'bg-lime-100', canto: 'ring-lime-200' , hue: 85, sat: 60 },
+  { bg: 'bg-sky-700', text: 'text-white', name: 'text-sky-700', suave: 'bg-sky-100', canto: 'ring-sky-200' , hue: 200, sat: 78 },
+  { bg: 'bg-teal-700', text: 'text-white', name: 'text-teal-700', suave: 'bg-teal-100', canto: 'ring-teal-200' , hue: 174, sat: 62 },
+  { bg: 'bg-violet-700', text: 'text-white', name: 'text-violet-700', suave: 'bg-violet-100', canto: 'ring-violet-200' , hue: 262, sat: 62 },
+  { bg: 'bg-amber-700', text: 'text-white', name: 'text-amber-800', suave: 'bg-amber-100', canto: 'ring-amber-200' , hue: 40, sat: 76 },
+  { bg: 'bg-rose-700', text: 'text-white', name: 'text-rose-700', suave: 'bg-rose-100', canto: 'ring-rose-200' , hue: 348, sat: 68 },
+  { bg: 'bg-emerald-700', text: 'text-white', name: 'text-emerald-700', suave: 'bg-emerald-100', canto: 'ring-emerald-200' , hue: 158, sat: 60 },
+  { bg: 'bg-orange-700', text: 'text-white', name: 'text-orange-700', suave: 'bg-orange-100', canto: 'ring-orange-200' , hue: 25, sat: 78 },
+  { bg: 'bg-cyan-800', text: 'text-white', name: 'text-cyan-800', suave: 'bg-cyan-100', canto: 'ring-cyan-200' , hue: 190, sat: 64 },
+  { bg: 'bg-fuchsia-800', text: 'text-white', name: 'text-fuchsia-800', suave: 'bg-fuchsia-100', canto: 'ring-fuchsia-200' , hue: 292, sat: 62 },
 ] as const
 
 /** Lo que un tono de miembro sabe pintar: la cara (bg/text/name) y un relleno claro. */
