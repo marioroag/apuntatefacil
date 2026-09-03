@@ -1,7 +1,6 @@
 import { startTransition, useLayoutEffect, useState } from 'react'
 import type { RefObject } from 'react'
 import { ArrowUp, ArrowUpDown } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import type { AsaColumna } from '../../lib/columnas'
 
 /* ---------------------------------------------------------------------------
@@ -34,9 +33,21 @@ import type { AsaColumna } from '../../lib/columnas'
       datos vacía y partiría en dos la única cosa que la fila representa, una
       persona.
 
-   Las cabeceras van en frase y con el icono de su tipo, no en versalita: en una
-   rejilla la cabecera es el NOMBRE DE UN CAMPO, no el rótulo de una sección, y
-   el icono lo identifica antes de que se lea la palabra.
+   Las cabeceras van en frase y no en versalita: en una rejilla la cabecera es el
+   NOMBRE DE UN CAMPO, no el rótulo de una sección.
+
+   Y VAN SIN ICONO (Mario, sep 2026: "vamos a quitar los iconos de las cabezas de
+   tabla"). Los llevaron desde ago 2026 con el argumento de que el glifo identifica
+   el tipo de campo antes de que se lea la palabra, y eso es verdad en una LISTA de
+   campos, donde el nombre viene solo. Aquí no viene solo: debajo de cada cabecera
+   hay treinta filas de ese campo, así que la columna se identifica por SU CONTENIDO
+   mucho antes que por un glifo de 14px, y lo que el icono añadía de verdad era una
+   fila de seis dibujos compitiendo con seis palabras en la única banda que nombra
+   lo que estás mirando. El nombre se queda solo, que es lo que se lee.
+
+   Donde el icono SÍ sigue haciendo su trabajo es en el panel de ajustes de la
+   vista: allí las columnas son una lista de nombres sin nada debajo, y el glifo es
+   lo que dice de qué tipo es cada una.
 --------------------------------------------------------------------------- */
 
 /** Filo vertical entre columnas. El último no lo pinta: ahí ya está el marco. */
@@ -92,8 +103,53 @@ export const FIJA = 'sticky z-10'
  */
 export const TRANSICION_FILA = 'transition-colors duration-[var(--duration-control)]'
 
+/**
+ * EL TAMAÑO DE LETRA DE UNA FILA, DECLARADO UNA VEZ (Mario, sep 2026: "quiero que
+ * las rows de las tablas tengan el mismo tamaño de letra").
+ *
+ * Había CUATRO en la misma fila, y ninguno lo había decidido nadie: el nombre a 14,
+ * el encaje, el teléfono, el estado y la fecha a 13, las etiquetas a 11 y el
+ * contador de mensajes a 12. Bajando la vista por la lista eso no se lee como
+ * jerarquía, se lee como un descuido: cuatro cuerpos en 48px de alto obligan al ojo
+ * a reajustar en cada columna, que es justo lo que una rejilla viene a evitar.
+ *
+ * Gana el 13, y no por votación: es lo que ya usaban cinco de las siete columnas y
+ * es el de la CABECERA, así que la columna entera se lee en un solo cuerpo de
+ * arriba abajo. Subir a 14 habría sido lo contrario de gratis: la pastilla de
+ * estado, el teléfono y la fecha crecen, y con ellos los MÍNIMOS medidos de sus
+ * columnas, o sea que la tabla empezaría a desplazarse en ventanas donde hoy cabe.
+ *
+ * El nombre no pierde su sitio por bajar un píxel: lo dicen su PESO y su TINTA
+ * (medium y `slate-900`, contra normal y `slate-600`), que es lo que esta doctrina
+ * pide siempre antes que el tamaño.
+ *
+ * Y CON ÉL VAN EL PESO Y LA TINTA: medium (500) y `--color-tabla-texto`
+ * (`#17171a`) para todo lo que no sea una cápsula (Mario, sep 2026). El peso pasó
+ * por semibold en la misma sesión y volvió con la lista delante ("en 500 estaban
+ * mejor"), y queda escrito para no reintentarlo: a 600, treinta filas seguidas se
+ * leen como una tabla de titulares, y lo que esta pantalla necesita es un dato que
+ * se pueda barrer, no que se anuncie. El abanico de pesos era todavía más ancho
+ * que el de tamaños (normal el teléfono, la
+ * fecha y las respuestas; medium el nombre y las etiquetas; semibold la pastilla de
+ * estado y "Encaja bien"), y un tamaño único con cuatro pesos sigue leyéndose a
+ * saltos. Lo que se paga, y hay que saberlo: al nombre le queda la TINTA como única
+ * diferencia con sus vecinos (`slate-900` contra `slate-600`), y el encaje pierde su
+ * gradiente de peso y dice sus tres niveles solo con el gris. Sigue siendo uno de
+ * los dos canales que esta doctrina admite; lo que ya no hay es el segundo.
+ *
+ * Se declara AQUÍ, en la fila, para que lo HEREDE todo lo que cuelgue de ella. Es
+ * la parte que hay que respetar: un chip, una pastilla o un contador que escriba su
+ * propio tamaño o su propio peso vuelve a abrir el abanico, así que dentro de una
+ * fila lo que se pinta no elige ni cuerpo ni grosor. Lo que se paga, dicho: las
+ * etiquetas suben de 11 a 13, así que sus chips ensanchan y en la columna caben
+ * menos antes de empezar a desplazarse (que es lo que esa columna ya hace desde que
+ * se ven enteras), y por eso los MÍNIMOS de las columnas que cambiaron de cuerpo o
+ * de peso están vueltos a medir, no heredados.
+ */
+export const TEXTO_FILA = 'text-[13px] font-medium text-tabla-texto'
+
 /** Fila de datos. `group/row` deja que la última celda se quede sin filo inferior. */
-export const ROW = `group/row h-12 ${TRANSICION_FILA}`
+export const ROW = `group/row h-12 ${TEXTO_FILA} ${TRANSICION_FILA}`
 
 /**
  * Celda de datos.
@@ -177,6 +233,17 @@ export const MOBILE_ROW =
  * dentro de la regla: el ultramarine es acción, foco y selección, y esto es un
  * control que se agarra. En reposo no se ve nada, que es lo que impide que seis
  * filos de acento compitan con los datos.
+ *
+ * LA BARRA VA POR DELANTE DE LOS FILOS QUE CRUZA, no por detrás (Mario, sep 2026).
+ * Y no era un problema de apilamiento sino de GEOMETRÍA, que se vio midiendo: el
+ * bloque que la coloca es `absolute`, así que su caja de referencia es la de
+ * RELLENO del `<th>` y `inset-y-0` la deja 1px por encima del filo de la banda (39
+ * de 40 medidos). La barra no pasaba por detrás de esa línea: se quedaba corta y la
+ * línea seguía a la vista justo donde el ojo espera que el control continúe. Con
+ * `-bottom-px` cubre ese píxel, y por delante, porque un descendiente posicionado
+ * pinta encima del borde de su padre. Regla general: **una caja `absolute` no llega
+ * a los bordes de su padre, llega a su caja de relleno**, así que lo que tenga que
+ * tapar un borde tiene que pedirlo con un valor negativo.
  */
 function AsaAncho({ asa }: { asa: AsaColumna }) {
   return (
@@ -193,7 +260,7 @@ function AsaAncho({ asa }: { asa: AsaColumna }) {
       onDoubleClick={asa.onDoubleClick}
       // `touch-none` para que el gesto no se lo lleve el desplazamiento de la
       // tabla, y `select-none` para no ir seleccionando texto al arrastrar.
-      className="group/asa absolute inset-y-0 -right-1 z-10 flex w-2 cursor-col-resize touch-none select-none items-stretch justify-center focus-visible:outline-none"
+      className="group/asa absolute top-0 -bottom-px -right-1 z-10 flex w-2 cursor-col-resize touch-none select-none items-stretch justify-center focus-visible:outline-none"
     >
       <span
         aria-hidden
@@ -217,26 +284,7 @@ type Sort = {
  * encima o al enfocar: con seis columnas, seis flechitas grises permanentes hacen
  * más ruido que la propia cabecera, y la que SÍ ordena ahora mismo se ve siempre.
  */
-/**
- * EL GLIFO QUE NOMBRA UNA COLUMNA: 14px y trazo COMPENSADO (Mario, sep 2026).
- *
- * El trazo de la casa es uno solo (`--stroke-icon`, 1,75) y está pensado para un
- * icono de 16. A 14 el glifo encoge pero el trazo no, así que la misma línea pesa
- * proporcionalmente menos y la cabecera se lee fina al lado de su etiqueta en
- * semibold. Se compensa con la razón exacta de las dos tallas (16/14), que
- * devuelve 2 y deja el glifo con el MISMO peso óptico que uno de 16: no es un
- * icono más gordo, es el mismo icono a otro tamaño.
- *
- * Va con `[stroke-width:]` y relativo al token, nunca con la prop `strokeWidth`
- * de lucide: la regla global de `index.css` es CSS y le gana al atributo del SVG,
- * así que la prop no pinta. Y escrito con `calc()` para que el día que se mueva
- * el grosor de la casa esto se mueva con él en vez de descolgarse.
- */
-export const ICONO_COLUMNA =
-  'size-3.5 shrink-0 text-slate-500 [stroke-width:calc(var(--stroke-icon)*16/14)]'
-
 export function ColHead({
-  icon: Icon,
   children,
   className = '',
   toneClass = '',
@@ -248,7 +296,6 @@ export function ColHead({
   asa,
   fija,
 }: {
-  icon?: LucideIcon
   children: string
   className?: string
   /** Fondo/estado de la banda (lo decide la pantalla: cambia al despegarse). */
@@ -294,22 +341,30 @@ export function ColHead({
   // (ordenan). Es literalmente la regla de nitidez que ya se aplicó al lateral:
   // lo que se pulsa va en tinta, y el gris de apoyo se queda para lo secundario.
   //
+  // Y LA TINTA ES LA DE LA REJILLA (`--color-tabla-texto`, Mario sep 2026: "los
+  // nombres de columna que sean de nuestro color negro"). Estaba en `slate-700`,
+  // que era un gris de apoyo para nombrar un campo, y encima dejaba la tabla con
+  // DOS negros: el del dato y el de su cabecera. Una rejilla tiene UNA tinta; lo
+  // que separa el nombre del campo de su contenido es el PESO (600 contra 500) y
+  // el filo de la banda, que es como se distinguen en cualquier tabla.
+  //
+  // Eso se lleva por delante el peldaño de tinta que marcaba el hover y la
+  // columna que ordena: desde el negro no se puede ir a más negro. No se pierde
+  // señal, porque las dos ya las decía otra cosa y mejor: el hover ENCIENDE el
+  // glifo de orden (opacidad 0 -> 1) y la columna activa lo lleva puesto, en
+  // acento y apuntando a su sentido.
+  //
   // El icono se queda medio peldaño por debajo de la etiqueta, como en el menú:
   // identifica el tipo de campo antes de que se lea la palabra, pero no compite
   // con ella.
-  const label = (
-    <>
-      {Icon && <Icon className={ICONO_COLUMNA} aria-hidden />}
-      <span className="truncate text-[13px] font-semibold">{children}</span>
-    </>
-  )
+  const label = <span className="truncate text-[13px] font-semibold">{children}</span>
 
   const estilo = ancho !== undefined ? { width: ancho } : undefined
 
   if (!sort) {
     return (
       <th scope="col" data-columna={columna} className={`${base} ${toneClass} ${className}`} style={estilo}>
-        <span className={`${inner} text-slate-700`}>{label}</span>
+        <span className={`${inner} text-tabla-texto`}>{label}</span>
         {asa && <AsaAncho asa={asa} />}
       </th>
     )
@@ -333,9 +388,7 @@ export function ColHead({
         aria-label={active
           ? `${name}: orden ${currentOrder}. Cambiar a ${nextOrder}`
           : `${name}: sin ordenar. Ordenar de forma ascendente`}
-        className={`group ${inner} rounded-sm transition-colors duration-[var(--duration-control)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 motion-reduce:transition-none ${
-          active ? 'text-slate-900' : 'text-slate-700 hover:text-slate-900'
-        }`}
+        className={`group ${inner} rounded-sm text-tabla-texto transition-colors duration-[var(--duration-control)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 motion-reduce:transition-none`}
       >
         {label}
         <span className="grid size-3 shrink-0 place-items-center" aria-hidden>
@@ -422,6 +475,23 @@ export function ColHead({
  * son ELLAS las que estiran la fila. Van juntos o la fila mide dos cosas.
  */
 export const ALTO_FILA = 48
+
+/**
+ * LA CARA DE UNA FILA: 26px, el punto medio.
+ *
+ * Se decidió mirándola en las tres tallas (Mario, sep 2026: "haz más pequeños los
+ * avatares" -> 24, "devuelve el tamaño a como estaba antes" -> 28, "mejor déjalo en
+ * un punto medio" -> 26). A 28 la cara era la pieza más grande de su celda, en una
+ * fila que desde esa misma pasada va a 48px de alto y 13px de letra; a 24 se queda
+ * pequeña para lo que es, que es lo primero por lo que se reconoce a una persona en
+ * la lista. En 26 quedan 11px de aire por lado y la inicial sale a 11px, por encima
+ * del mínimo de 9 que pone `ui/Avatar`.
+ *
+ * Y el número vive AQUÍ y no en cada pantalla: las dos rejillas tienen que envejecer
+ * juntas, y escrito a mano en las dos, la primera que se retoque deja a la otra con
+ * caras de otro tamaño en la misma columna. Es lo mismo que ya hace `ALTO_FILA`.
+ */
+export const AVATAR_FILA = 26
 
 /** Filas de más que se pintan por encima y por debajo de lo que se ve. 12 son
  *  672px de margen a cada lado: bastante para que un desplazamiento normal no

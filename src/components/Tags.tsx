@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { Pencil, Plus, Settings2, Tag as TagIcon, Trash2, X } from 'lucide-react'
 import type { Tag } from '../lib/types'
 import { useStore, normalizeTagName } from '../lib/store'
-import { tagTone } from '../lib/format'
 import { colocarFlotante } from '../lib/flotante'
 import { useEsMovil, useEsTactil } from '../lib/media'
 import { useToast } from './ui/Toast'
@@ -15,17 +14,39 @@ import { BTN_PRIMARY_SM, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 // ---------------------------------------------------------------------------
 // Etiquetas: clasificación libre del empresario. El candidato nunca las ve.
 //
-// **Tienen COLOR desde ago 2026, y eso invierte la regla anterior.** Antes era
-// "siempre gris neutro, nunca los colores de estado, así se evita el arcoíris".
-// Mario lo cambió con su diseño delante y el motivo es bueno: en gris, una columna
-// de etiquetas obliga a LEER cada una para saber cómo está clasificada una
-// persona; con color se reconocen de un vistazo y el nombre pasa a confirmar en
-// vez de a informar. El arcoíris que aquella regla temía no aparece porque el tono
-// no lo elige nadie: sale del id (`tagTone`), así que no hay dos empresas pintando
-// lo mismo de distinto ni un usuario decorando su tablero.
+// **VUELVEN AL GRIS, como el chip de documento** (Mario, sep 2026: "las etiquetas
+// que vuelvan a ser grises como los documentos"). Tuvieron color desde ago 2026,
+// con un argumento que era bueno para lo que había: en gris hay que LEER cada una
+// para saber cómo está clasificada una persona, y con color se reconocían de un
+// vistazo. Lo que cambió debajo es la letra de la fila: al pasar el chip de 11 a
+// 13px (ver `TEXTO_FILA`), la misma columna dejó de ser una tira de marcas
+// pequeñas y pasó a ser una pila de cápsulas teñidas del tamaño del texto, o sea
+// la parte más ruidosa de una pantalla cuya doctrina es sobria y de un solo
+// acento. Con la etiqueta grande, el nombre ya se lee de un vistazo y el color
+// dejó de comprar lo que costaba.
 //
-// El color NO informa por sí solo: el nombre va siempre escrito al lado, así que
-// quien no distingue tonos no pierde nada. Doctrina: ver CLAUDE.md.
+// El gris es el del chip de DOCUMENTO de la propia fila, un peldaño más marcado:
+// relleno `--color-etiqueta-fondo` y texto `slate-700` (Mario, sep 2026: "más
+// grises", después "el texto un poco más oscuro" y por último "el fondo un poco
+// menos gris"). El
+// peldaño no es un gusto, es la medida que este proyecto ya se ha encontrado dos
+// veces: `slate-100` sobre el blanco de la fila da **1,09:1**, y por debajo de ahí
+// una cápsula deja de leerse como FORMA (es lo que subió la cápsula de estado del
+// puesto del 50 al 200 y la pastilla de la tabla del 50 al 100). Con el 200 la
+// cápsula existe (1,15:1) y el nombre encima se lee en 9,0:1. Lo APAGADO es el
+// relleno, no la letra: es lo que hace que la columna se lea como una tira de
+// marcas y no como seis colores, mientras el nombre, que es el dato, se lee sin
+// esfuerzo. Por abajo hay suelo y está cerca: `slate-500` sobre ese mismo relleno
+// da 3,9:1, por debajo del mínimo de la casa para texto con significado.
+// El chip de documento se queda donde está a propósito: dice si HAY o no hay un
+// fichero, aparece una vez por fila y no tiene hermanos al lado con los que
+// formar una columna de cápsulas.
+//
+// LO QUE SE PIERDE, DICHO: dos etiquetas ya no se distinguen sin leerlas, que era
+// justo lo que el color compraba. Si vuelve a hacer falta, el reparto de tonos
+// sigue escrito y probado (`tagTone` y `repartirTonos` en `lib/format.ts`, con su
+// guardián en `etiquetas.test.ts`): hoy se queda SIN CONSUMIDOR a propósito, para
+// no tener que reescribir la parte difícil, que es repartir sin repetir.
 // ---------------------------------------------------------------------------
 
 export const TAG_LIMIT_PER_CANDIDATE = 25 // límite blando por candidato
@@ -46,41 +67,57 @@ const COPY = {
 }
 
 /**
- * Chip de etiqueta (diseño de Figma, ago 2026): relleno teñido, texto del mismo
- * tono más oscuro, **rectángulo de 4px** y sin borde.
+ * LA PIEL DE UN CHIP, declarada una vez (sep 2026). La comparten la etiqueta y el
+ * "+N" de la celda: Mario los quiso iguales ("el +x tiene que tener el mismo estilo
+ * que las etiquetas"), y con la clase escrita dos veces se separan al primer retoque,
+ * que es lo que este proyecto lleva media doctrina evitando.
+ *
+ * El PESO sí lo declara el chip (y no lo hereda como el tamaño): dentro de una fila
+ * coincide con el suyo, y fuera de ella (la ficha, la tarjeta del tablero) es lo que
+ * impide que la misma etiqueta se lea en un grosor distinto según en qué pantalla
+ * estés. Se cazó en el tablero, donde la línea de una tarjeta va en normal y los
+ * chips se quedaron en normal con ella.
+ */
+const PIEL_CHIP = 'inline-flex min-w-0 items-center gap-1 rounded-sm bg-etiqueta-fondo font-medium text-slate-700'
+/** El relleno de un chip dentro de una fila: más apretado que el del chip suelto. */
+const PAD_CHIP_FILA = 'py-0.5 pl-1.5 pr-1.5'
+
+/**
+ * Chip de etiqueta: relleno gris, texto grafito, **rectángulo de 4px** y sin borde.
  *
  * El radio es la parte que hay que respetar aunque la doctrina general diga
  * "pills/chips 999px": es lo que separa una etiqueta de una pastilla de ESTADO,
- * que es redonda y lleva punto. Con los dos redondos y los dos teñidos, un ámbar
- * de "entrevista" y un ámbar de "Recontactar" se leerían igual en la misma fila.
- * Aquí la forma es la que carga con el significado, no el tono.
+ * que es redonda. Ahora que la etiqueta no lleva color, esa forma es LO ÚNICO que
+ * las separa en la misma fila, así que no se toca.
  *
- * Sin `ring`: el diseño es relleno limpio, y un hairline del mismo tono sobre un
- * relleno tan claro solo ensucia el filo. El tono lo pone `tagTone(id)`; sin id
- * (nunca debería pasar) cae al primero de la paleta en vez de romperse.
+ * Sin `ring`: relleno limpio, y un hairline sobre un relleno tan claro solo ensucia
+ * el filo.
  */
+// `id` y `vocabulario` siguen en la firma y NO se leen: eran la semilla del color y
+// la lista con la que se repartían los tonos sin repetir. Se quedan porque los pasa
+// ya todo el que pinta un chip, así que devolver el color es volver a leerlos aquí y
+// no recorrer media app; y porque una prop que desaparece y vuelve es una migración
+// de ida y otra de vuelta por una decisión que este proyecto ya ha cambiado dos veces.
 export function TagChip({
-  id,
   name,
-  vocabulario,
   onRemove,
   glyph = false,
   size = 'sm',
   entera = false,
 }: {
-  /** Semilla del color. Es el id, no el nombre: renombrar no repinta. */
+  /** Semilla del color, cuando lo había. Es el id y no el nombre: renombrar no repinta. */
   id?: string
   name: string
   /**
-   * Todas las etiquetas de la empresa. Va por prop y no por `useStore()` a
-   * propósito: hay cientos de chips en la tabla del puesto y suscribir cada uno al
-   * store lo repintaría todo con cada cambio, justo en la pantalla cuya doctrina
-   * más cuida los repintados. Quien pinta chips ya tiene la lista a mano.
+   * Todas las etiquetas de la empresa, para repartir los tonos sin repetir. Va por
+   * prop y no por `useStore()` a propósito: hay cientos de chips en la tabla del
+   * puesto y suscribir cada uno al store lo repintaría todo con cada cambio, justo
+   * en la pantalla cuya doctrina más cuida los repintados.
    */
   vocabulario?: readonly { id: string }[]
   onRemove?: () => void
   glyph?: boolean
-  size?: 'xs' | 'sm'
+  size?: 'fila' | 'sm'
   /**
    * No recortes el nombre ni dejes que el chip encoja. Es lo que pide una tira que
    * se desplaza (la celda de la tabla): ahí el sitio lo da el scroll, no el recorte.
@@ -88,13 +125,19 @@ export function TagChip({
    */
   entera?: boolean
 }) {
-  const pad = size === 'xs' ? 'py-0.5 pl-1.5 pr-1.5 text-[11px]' : 'py-1 pl-2 pr-2 text-[12px]'
-  const tono = tagTone(id ?? name, vocabulario)
+  // LA TALLA `fila` NO DICE DE QUÉ TAMAÑO VA, y eso es el punto (Mario, sep 2026).
+  // Dentro de una fila de la rejilla (y de una línea de una tarjeta del tablero, que
+  // es su hermana) el cuerpo lo declara la fila una sola vez, así que un chip que
+  // escriba el suyo vuelve a abrir el abanico de tamaños que aquello vino a cerrar.
+  // Lo que sí es suyo es el RELLENO, que sigue siendo más apretado que el del chip
+  // suelto: ahí el chip vive en una tira que se desplaza y cada píxel de más son
+  // etiquetas que dejan de verse.
+  const pad = size === 'fila' ? PAD_CHIP_FILA : 'py-1 pl-2 pr-2 text-[12px]'
   return (
     <span
-      className={`inline-flex min-w-0 items-center gap-1 rounded-sm font-medium ${tono.bg} ${tono.text} ${
+      className={`${PIEL_CHIP} ${
         entera ? 'shrink-0' : 'max-w-full'
-      } ${onRemove ? (size === 'xs' ? 'pr-0.5' : 'pr-1') : ''} ${pad}`}
+      } ${onRemove ? (size === 'fila' ? 'pr-0.5' : 'pr-1') : ''} ${pad}`}
     >
       {glyph && <TagIcon className="size-3 shrink-0 opacity-70" aria-hidden />}
       {/* title: donde el chip sí se recorta (contenedores que envuelven), sin esto no
@@ -117,41 +160,161 @@ export function TagChip({
 }
 
 /**
- * Celda de etiquetas de la tabla: TODAS, ENTERAS y en una sola línea que se
- * desplaza en horizontal (Mario, ago 2026).
+ * Celda de etiquetas: las que CABEN, enteras, y un "+N" con las que no (Mario, sep
+ * 2026: "en vez de permitir overflow en etiquetas, que se ponga un +x y al pulsarlo
+ * saque el menú de las etiquetas").
  *
- * Antes enseñaba dos y escondía el resto tras un "+N" que abría un desplegable, y
- * además recortaba el nombre de las que sí enseñaba. Eso convertía la columna en un
- * acertijo: dos etiquetas a medias y un número no dicen cómo está clasificada una
- * persona, y para saberlo había que pulsar fila por fila. Una etiqueta o se lee
- * entera o no sirve, porque "Documentación OK" y "Documentación pendiente" empiezan
- * igual.
+ * Esto devuelve un "+N" que esta casa había retirado en ago 2026, así que conviene
+ * saber qué ha cambiado para que ahora sí valga. **Aquel escondía información en un
+ * callejón**: enseñaba dos etiquetas recortadas y un número, y para saber cuáles
+ * eran había que pulsar fila por fila un desplegable que solo listaba nombres. Este
+ * no esconde nada nuevo: la celda ENTERA ya abre la lista de etiquetas desde ago
+ * 2026, y esa lista enseña el vocabulario completo con lo que esta persona tiene
+ * marcado, o sea la respuesta entera y no un trozo. El "+N" solo dice cuántas no
+ * caben; el clic que las enseña es el que ya había.
  *
- * Por qué scroll y no varias líneas: la fila de una rejilla tiene alto fijo (es lo
- * que deja bajar la vista por una columna); si las etiquetas la estiran, cada fila
- * mide una cosa distinta y se pierde la rejilla. El chip cortado por el filo de la
- * columna es la señal de que hay más, igual que en cualquier tira de chips.
+ * Lo que se gana frente a la tira que se desplazaba: **el desplazamiento horizontal
+ * dentro de una celda no se ve**. No hay barra (en una tira de 20px sería una trama
+ * de rayas en 142 filas), en táctil no hay hover que lo insinúe, y el gesto se
+ * peleaba con el desplazamiento de la propia tabla, que también es horizontal. Un
+ * chip cortado por el filo de la columna decía "hay más" solo si te fijabas; "+3"
+ * lo dice contando.
  *
- * Sin barra de desplazamiento visible: en una tira de 20px de alto ocuparía casi
- * tanto como los chips, y en las 142 filas de un puesto sería una trama de rayas.
- * No hace falta `tabindex`: los navegadores hacen foco en un contenedor con scroll
- * que no tiene hijos enfocables, y el lector de pantalla lee todos los chips estén
- * o no a la vista (están en el DOM, no ocultos).
+ * Sigue en pie lo que aquella decisión protegía: **una etiqueta o se lee entera o no
+ * sirve** ("Documentación OK" y "Documentación pendiente" empiezan igual), así que
+ * las que caben van enteras y nunca recortadas, y **nunca en dos líneas**, porque la
+ * fila de una rejilla tiene alto fijo.
+ *
+ * CÓMO SE DECIDE CUÁNTAS CABEN, y por qué así: se miden los chips UNA vez (con la
+ * lista pintada entera, en un efecto de layout, o sea antes de que se pinte nada) y
+ * el ancho se guarda. A partir de ahí, cambiar el ancho de la columna solo LEE el
+ * ancho de la celda y recalcula la cuenta: ni una escritura en el DOM ni una
+ * remedida. Es deliberado, porque el ancho de una columna se ajusta arrastrando y
+ * ahí no puede haber trabajo de layout por fotograma y por fila (es la misma razón
+ * por la que el arrastre escribe el ancho directo en el `<th>` y no re-renderiza).
  */
 export function TagCell({ tagIds, tags }: { tagIds: string[]; tags: Tag[] }) {
   const resolved = useMemo(
     () => tagIds.map((id) => tags.find((t) => t.id === id)).filter((t): t is Tag => !!t),
     [tagIds, tags],
   )
+  const caja = useRef<HTMLDivElement>(null)
+  /** Lo medido: ancho de cada chip, ancho del "+N" y el hueco entre ellos. */
+  const medidas = useRef<{ chips: number[]; mas: number; hueco: number } | null>(null)
+  /** Cuántas se pintan y si la primera va apretada. `null` = sin medir (todo). */
+  const [caben, setCaben] = useState<{ n: number; apretado: boolean } | null>(null)
+
+  // Si cambia la lista, lo medido ya no vale: se vuelve a pintar entera y se mide.
+  // Se ajusta DURANTE EL RENDER y no en un efecto, que es el patrón que esta casa ya
+  // usa para resincronizar (el `AjusteTexto` de Ajustes): en un efecto sería un
+  // render de más con la cuenta vieja pintada, y el linter lo caza.
+  // Lo medido NO se borra aquí: un ref no se toca durante el render (lo caza el
+  // linter, y con razón: un render descartado lo dejaría ya borrado). Basta con
+  // volver a `null`, que hace que se pinte la lista entera y que el pase de medida
+  // lo sobrescriba en el mismo commit.
+  const [medida, setMedida] = useState(resolved)
+  if (medida !== resolved) {
+    setMedida(resolved)
+    setCaben(null)
+  }
+
+  // El pase de medida. Solo ocurre con la lista entera pintada.
+  useLayoutEffect(() => {
+    const el = caja.current
+    if (!el || caben !== null || resolved.length === 0) return
+    const hijos = Array.from(el.children) as HTMLElement[]
+    // Los primeros son los chips y el último el "+N", que se pinta también durante
+    // la medida para poder reservarle su sitio.
+    medidas.current = {
+      chips: hijos.slice(0, resolved.length).map((c) => c.offsetWidth),
+      mas: hijos[resolved.length]?.offsetWidth ?? 0,
+      hueco: parseFloat(getComputedStyle(el).columnGap) || 0,
+    }
+    setCaben(cuantasCaben(el.clientWidth, medidas.current))
+  }, [caben, resolved])
+
+  // Y al cambiar el ancho de la columna, la cuenta se rehace SIN volver a medir.
+  useLayoutEffect(() => {
+    const el = caja.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      const m = medidas.current
+      if (m) setCaben((prev) => {
+        const k = cuantasCaben(el.clientWidth, m)
+        return prev && prev.n === k.n && prev.apretado === k.apretado ? prev : k
+      })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   if (resolved.length === 0) return null
 
+  const total = resolved.length
+  const midiendo = caben === null
+  const n = midiendo ? total : caben.n
+  const ocultas = total - n
+
   return (
-    <div className="flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {resolved.map((t) => (
-        <TagChip key={t.id} id={t.id} name={t.name} vocabulario={tags} size="xs" entera />
+    // `w-full` NO es decorativo, es lo que hace que la cuenta funcione: sin él, esta
+    // caja es un elemento flex que se encoge hasta su CONTENIDO, así que su
+    // `clientWidth` sería el ancho de lo que acabamos de decidir pintar y no el que
+    // hay disponible. Con eso, ensanchar la columna no devolvía nunca las etiquetas
+    // escondidas: el hueco crecía y la caja seguía midiendo lo mismo.
+    <div ref={caja} className="flex w-full min-w-0 flex-nowrap items-center gap-1 overflow-hidden py-1">
+      {resolved.slice(0, n).map((t) => (
+        // `entera` (no encoge, no recorta) salvo en el caso apretado: ahí la única
+        // que se pinta no cabe junto al "+N", y entre recortar el nombre o recortar
+        // el número gana el número, que es el que dice que hay más. Un "+2" cortado
+        // por el filo no se lee como nada.
+        <TagChip
+          key={t.id}
+          id={t.id}
+          name={t.name}
+          vocabulario={tags}
+          size="fila"
+          entera={!(caben?.apretado ?? false)}
+        />
       ))}
+      {(midiendo || ocultas > 0) && (
+        // NO es un botón, y eso es lo que lo deja entrar en una fila: la celda
+        // entera ya es el disparador de la lista de etiquetas, así que un botón
+        // aquí sería un control dentro de otro (marcado inválido) y una segunda
+        // puerta para lo mismo. Durante la medida se pinta con el número más
+        // grande posible, que es el más ancho: reservar de más nunca recorta un
+        // chip que sí cabía.
+        <span data-mas aria-hidden className={`${PIEL_CHIP} ${PAD_CHIP_FILA} num shrink-0`}>
+          +{midiendo ? total : ocultas}
+        </span>
+      )}
+      {/* Lo que no se pinta no existe para un lector de pantalla, así que se dice.
+          Las que sí se ven ya las lee el chip. */}
+      {ocultas > 0 && (
+        <span className="sr-only">
+          y {ocultas} {ocultas === 1 ? 'etiqueta más' : 'etiquetas más'}: {resolved.slice(n).map((t) => t.name).join(', ')}
+        </span>
+      )}
     </div>
   )
+}
+
+/**
+ * Cuántos chips caben en `ancho`, dejando sitio al "+N" si alguno se queda fuera.
+ *
+ * Siempre se pinta al menos uno: una celda con solo "+3" no dice nada de esa
+ * persona. Cuando ni ese primero cabe junto al "+N", devuelve `apretado`, y
+ * entonces el chip encoge y se recorta para que el número quepa entero.
+ */
+function cuantasCaben(ancho: number, m: { chips: number[]; mas: number; hueco: number }) {
+  let usado = 0
+  for (let i = 0; i < m.chips.length; i++) {
+    const pide = m.chips[i] + (i > 0 ? m.hueco : 0)
+    // Si quedan más detrás, hay que reservar el sitio del "+N".
+    const reserva = i < m.chips.length - 1 ? m.hueco + m.mas : 0
+    if (usado + pide + reserva > ancho) return { n: Math.max(1, i), apretado: i === 0 }
+    usado += pide
+  }
+  return { n: m.chips.length, apretado: false }
 }
 
 // Combobox "Añadir etiqueta" + chips aplicados. Para la ficha del candidato.

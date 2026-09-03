@@ -53,7 +53,7 @@ import { useToast } from '../components/ui/Toast'
 import { Checkbox } from '../components/ui/Checkbox'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { ColHead, TABLE, ROW, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, HEAD_CELL_FLUSH_FIJA, FIJA, TRANSICION_FILA, useFilasALaVista, HuecoFilas } from '../components/ui/DataTable'
+import { ColHead, TABLE, ROW, TEXTO_FILA, AVATAR_FILA, CELL, CELL_FLUSH, HEAD_CELL_FLUSH, HEAD_CELL_FLUSH_FIJA, FIJA, TRANSICION_FILA, useFilasALaVista, HuecoFilas } from '../components/ui/DataTable'
 import { createPortal } from 'react-dom'
 import { colocarFlotante, colocarLateral } from '../lib/flotante'
 import { useColumnasAjustables } from '../lib/columnas'
@@ -81,6 +81,7 @@ import type { Invasion } from '../lib/fila'
 // mismo par punto+texto que exige la doctrina para el estado. Con ella vuelve su
 // ORDEN; lo que sigue retirado es el buscador en lenguaje natural.
 import { MeridianAvatar, FitLabel } from '../components/Meridian'
+import { ChipDocumento } from '../components/ChipDocumento'
 import { candidateFit, hasMeridian } from '../lib/meridian'
 import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
 import { TIPOS_ORDENABLES } from '../lib/types'
@@ -1853,7 +1854,7 @@ function RowSignals({ favorito, comments, soloTexto = false }: { favorito: boole
         </>
       )}
       {comments > 0 && (
-        <span className="flex items-center gap-0.5 text-[12px] text-slate-500">
+        <span className="flex items-center gap-0.5 text-slate-500">
           <MessagesSquare className="size-3.5 text-slate-400" aria-hidden />
           <span className="num">{comments}</span>
           <span className="sr-only">{comments === 1 ? 'mensaje del equipo' : 'mensajes del equipo'}</span>
@@ -1881,7 +1882,7 @@ function FitCell({ candidate }: { candidate: Candidate }) {
   }
   return (
     <span className="block truncate" title={`Ajuste ${Math.round(fit)} sobre 100`}>
-      <FitLabel fit={fit} />
+      <FitLabel fit={fit} enFila />
     </span>
   )
 }
@@ -1892,7 +1893,7 @@ function FitCell({ candidate }: { candidate: Candidate }) {
  * Las columnas del PRODUCTO más una por cada respuesta del formulario, con el
  * prefijo `campo:`. Las segundas nacen apagadas: ver `COLUMNAS_DE`.
  */
-type ColKey = 'candidato' | 'encaje' | 'etiquetas' | 'telefono' | 'estado' | 'recibida' | `campo:${string}`
+type ColKey = 'candidato' | 'estado' | 'encaje' | 'documentos' | 'etiquetas' | 'telefono' | 'recibida' | `campo:${string}`
 
 /**
  * EL ORDEN SE DICE EN LAS PALABRAS DE SU COLUMNA.
@@ -1977,13 +1978,29 @@ function ordenesDe(campaign: Campaign | undefined, showFit: boolean): OpcionOrde
  * Las columnas, en el orden en que el producto las declara. `candidato` es FIJA:
  * es de quién es la fila y además es la que se queda quieta al desplazar, así
  * que tiene que ser la primera o el `sticky` no cuadra.
+ *
+ * EL ORDEN ES EL DE MARIO (sep 2026, con la tabla dibujada delante): quién es ·
+ * en qué punto está · si encaja · qué ha mandado · cómo lo tenéis clasificado ·
+ * cómo se le llama · cuándo llegó. Es el orden en que se MIRA una fila: primero
+ * lo que decide si sigue el proceso y al final lo que hace falta cuando ya has
+ * decidido. Estado sube al segundo puesto en los dos anchos, así que el orden de
+ * móvil deja de ser una excepción y pasa a ser el mismo con menos columnas.
+ *
+ * DOCUMENTOS ES UNA COLUMNA DEL PRODUCTO, ENCENDIDA, aunque el formulario no pida
+ * ningún fichero (Mario, sep 2026). Antes salía de la pregunta de tipo `file`, o
+ * sea que existía solo si alguien la había puesto en su formulario; pero un CV
+ * puede llegar por otras vías (los candidatos que entran de un portal traen el
+ * suyo), así que la pregunta "¿ha mandado algo?" es del CANDIDATO y no de este
+ * formulario. Sin documento la celda dice una raya, que es información: esa
+ * persona no ha mandado nada.
  */
 const COLUMNAS: ColumnaVista<ColKey>[] = [
   { key: 'candidato', label: 'Candidato', fija: true, icon: User },
+  { key: 'estado', label: 'Estado', icon: CircleDot },
   { key: 'encaje', label: 'Encaje', icon: Sparkles },
+  { key: 'documentos', label: 'Documentos', icon: Paperclip },
   { key: 'etiquetas', label: 'Etiquetas', icon: Tag },
   { key: 'telefono', label: 'Teléfono', icon: Phone },
-  { key: 'estado', label: 'Estado', icon: CircleDot },
   { key: 'recibida', label: 'Recibida', icon: Clock },
 ]
 
@@ -2013,11 +2030,14 @@ const COLUMNAS: ColumnaVista<ColKey>[] = [
 function COLUMNAS_DE(campaign: Campaign | undefined): ColumnaVista<ColKey>[] {
   if (!campaign) return []
   return campaign.fields
-    .filter((f) => !CAMPOS_YA_PINTADOS.includes(f.id))
+    // Fuera las de FICHERO: desde sep 2026 "Documentos" es una columna del
+    // producto y sale de si el candidato ha mandado algo, no de si este
+    // formulario lo pedía. Dejándolas, un puesto que pide CV tendría la misma
+    // columna dos veces y con el mismo nombre.
+    .filter((f) => f.type !== 'file' && !CAMPOS_YA_PINTADOS.includes(f.id))
     .map((f) => ({
       key: `campo:${f.id}` as ColKey,
-      // El CV no es una respuesta, es un adjunto, así que se llama por lo que es.
-      label: f.type === 'file' ? 'Documentos' : f.label,
+      label: f.label,
       apagada: true,
       icon: ICONO_CAMPO[f.type],
     }))
@@ -2029,7 +2049,7 @@ function COLUMNAS_DE(campaign: Campaign | undefined): ColumnaVista<ColKey>[] {
  * que se ve sin empujar. Lo que SÍ se respeta allí es lo que has apagado: si has
  * dicho que no te importa el teléfono, tampoco te importa en el móvil.
  */
-const ORDEN_MOVIL: ColKey[] = ['candidato', 'estado', 'encaje', 'etiquetas', 'telefono', 'recibida']
+const ORDEN_MOVIL: ColKey[] = ['candidato', 'estado', 'encaje', 'documentos', 'etiquetas', 'telefono', 'recibida']
 
 /**
  * Lo que mide cada columna en móvil, donde los anchos están medidos al píxel
@@ -2037,7 +2057,7 @@ const ORDEN_MOVIL: ColKey[] = ['candidato', 'estado', 'encaje', 'etiquetas', 'te
  * pinta (`hidden xl:table-cell`).
  */
 const ANCHO_MOVIL: Partial<Record<ColKey, number>> = {
-  candidato: 164, estado: 144, encaje: 136, etiquetas: 0, telefono: 136, recibida: 136,
+  candidato: 164, estado: 144, encaje: 136, documentos: 120, etiquetas: 0, telefono: 136, recibida: 136,
 }
 /**
  * El icono de una columna de respuesta lo dice su TIPO, igual que en las de
@@ -2096,8 +2116,16 @@ const medidasDe = (t: FormField['type'] | undefined) => (t && MEDIDAS_CAMPO[t]) 
  * una letra. `candidato` entra con su MÍNIMO, que es exactamente lo que se le
  * quiere garantizar antes de que la tabla empiece a desplazarse.
  */
+/**
+ * LOS ANCHOS DE FÁBRICA (Mario, sep 2026, con la tabla dibujada delante).
+ *
+ * OJO: cada número está DOS veces, aquí y en el `w-[Npx]` de su `ColHead`, y no
+ * hay forma de tenerlo una sola (una clase de Tailwind compuesta al vuelo no
+ * llega al CSS compilado, que es la lección del `<select>` sin flecha). Si se
+ * mueve uno se mueve el otro, y lo vigila `tabla.test.ts`.
+ */
 const ANCHO_ESCRITORIO: Partial<Record<ColKey, number>> = {
-  candidato: 230, encaje: 136, etiquetas: 160, telefono: 136, estado: 168, recibida: 136,
+  candidato: 230, estado: 168, encaje: 136, documentos: 128, etiquetas: 176, telefono: 168, recibida: 136,
 }
 const anchoEscritorioDe = (k: ColKey, tipo?: FormField['type']) => ANCHO_ESCRITORIO[k] ?? medidasDe(tipo).base
 const anchoMovilDe = (k: ColKey, tipo?: FormField['type']) => ANCHO_MOVIL[k] ?? medidasDe(tipo).base
@@ -2199,7 +2227,8 @@ const CandidateTable = memo(function CandidateTable({
   // no cruce la frontera del `memo` ni obligue a la pantalla a repintarse entera.
   // En móvil está apagado: allí los anchos están medidos al píxel para que quepan
   // nombre y estado sin empujar, y un asa de 9px no es un objetivo de toque.
-  const { col, minTabla } = useColumnasAjustables('puesto', orden, !esMovil)
+  const anchoDeFabrica = useCallback((k: string) => anchoEscritorioDe(k as ColKey, campoDe(k as ColKey)?.type), [campoDe])
+  const { col, minTabla } = useColumnasAjustables('puesto', orden, !esMovil, anchoDeFabrica)
   // Solo se pintan las filas que caben en pantalla, más su colchón (ver
   // `useFilasALaVista` en `DataTable`): colocar 127 filas cuesta 1,4ms cada vez
   // que la página se recalcula, y 593 en Candidatos cuestan 9. Las bloqueadas no
@@ -2260,15 +2289,24 @@ const CandidateTable = memo(function CandidateTable({
   // de estado. Son los anchos que Mario ajustó a ojo, y coinciden con lo medido
   // con Geist de verdad (el relleno de celda son 24, 12 por lado):
   //   · candidato 230 (Mario, ago 2026, ajustado mirándolo en el navegador). La
-  //     cuenta da 208 (24 + 28 de cara + 10 de hueco + el nombre y el primer
+  //     cuenta da 206 (24 + 26 de cara + 10 de hueco + el nombre y el primer
   //     apellido del p90), pero a ese ancho el apellido roza el filo y las señales
   //     que acompañan al nombre (estrella, cuenta de mensajes) lo empujan. Los 22
   //     de más son el aire que hace que se lea como un nombre y no como un nombre
   //     que casi no cabe. Es la excepción declarada a "el mínimo sale de la
   //     cuenta": aquí la cuenta da el suelo y el ojo da el número.
-  //   · encaje 113 = 24 + "Puede encajar" (85) y su glifo.
-  //   · etiquetas 140 = 24 + la etiqueta más ancha del vocabulario demo (115).
-  //   · telefono 111 = 24 + los nueve dígitos agrupados (87).
+  //   · encaje 113 = 24 + "Puede encajar" (88 con la letra de la fila: 13px/500).
+  //   · etiquetas 156 = 24 + la etiqueta más ancha del vocabulario demo, que con la
+  //     letra de la fila (13px/500, sep 2026) mide 132 y no los 115 de cuando el
+  //     chip iba a 11px. VUELTO A MEDIR, y en cada vuelta del peso, no escalado a
+  //     ojo: el mínimo de una columna es una propiedad de LO QUE PINTA, así que lo
+  //     mueven tanto el cuerpo de la letra como su grosor.
+  //   · telefono 111 = 24 + los nueve dígitos agrupados (87; con la letra de la fila
+  //     miden 82, así que el número se queda como estaba y sobra aire).
+  //   · documentos 92 = 24 + el chip "CV" y su aire. El mínimo lo dice el DATO y no
+  //     la cabecera, que se recorta desde antes ("Docume…") igual que en las demás.
+  //     Su techo es 180: el chip no crece, así que pasado ahí solo le quita sitio
+  //     al nombre.
   //   · estado 152 = 24 + la pastilla más ancha MEDIDA, "Contactado" (128). Es el
   //     mismo 128 del que ya salieron los 144 de la columna en móvil.
   //   · recibida 128 = 24 + la FECHA MÁS ANCHA, que no es "Hoy" ni "Ayer" sino la
@@ -2279,7 +2317,7 @@ const CandidateTable = memo(function CandidateTable({
   //     pintar. Los 101 salen de probar los DOCE meses, no el de hoy: "May" es
   //     más ancho que "Ago", y en mayo la columna se habría quedado corta.
   const MINIMOS: Record<ColKey, number> = {
-    candidato: 230, encaje: 113, etiquetas: 140, telefono: 111, estado: 152, recibida: 136,
+    candidato: 230, estado: 152, encaje: 113, documentos: 92, etiquetas: 156, telefono: 111, recibida: 136,
   }
   // Y SU TECHO, con la misma regla del revés: **hasta dónde la columna deja de
   // enseñar algo nuevo**. Tres de las seis tienen contenido de tamaño fijo, así
@@ -2294,7 +2332,7 @@ const CandidateTable = memo(function CandidateTable({
   //     señales, pero los apellidos compuestos de otra empresa piden más).
   //   · etiquetas 480 (la tira más ancha de la demo son 3 etiquetas y 317).
   const MAXIMOS: Record<ColKey, number> = {
-    candidato: 360, encaje: 200, etiquetas: 480, telefono: 180, estado: 240, recibida: 200,
+    candidato: 360, estado: 240, encaje: 200, documentos: 180, etiquetas: 480, telefono: 180, recibida: 200,
   }
   // Ancho mínimo de la tabla en móvil: la suma EXACTA de lo que se pinta. No vale
   // el 852 de escritorio, porque `table-fixed` reparte el sobrante entre las
@@ -2513,25 +2551,27 @@ const CandidateTable = memo(function CandidateTable({
                   // lo que hace crecer el nombre al ensanchar) y en móvil se fija
                   // a 160, porque allí el sobrante no existe y lo que hace falta
                   // es dejarle sitio al estado.
-                  return <ColHead key={k} icon={User} className={esMovil ? 'w-[164px]' : ''} fija={fijaNombre || undefined} toneClass={headTone} sort={sortFor('nombre')} {...col(k, 'Candidato', MINIMOS.candidato, MAXIMOS.candidato)}>Candidato</ColHead>
+                  return <ColHead key={k} className={esMovil ? 'w-[164px]' : ''} fija={fijaNombre || undefined} toneClass={headTone} sort={sortFor('nombre')} {...col(k, 'Candidato', MINIMOS.candidato, MAXIMOS.candidato)}>Candidato</ColHead>
                 case 'encaje':
-                  return showFit ? <ColHead key={k} icon={Sparkles} className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')} {...col(k, 'Encaje', MINIMOS.encaje, MAXIMOS.encaje)}>Encaje</ColHead> : null
+                  return showFit ? <ColHead key={k} className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')} {...col(k, 'Encaje', MINIMOS.encaje, MAXIMOS.encaje)}>Encaje</ColHead> : null
+                case 'documentos':
+                  return <ColHead key={k} className="w-[128px]" toneClass={headTone} {...col(k, 'Documentos', MINIMOS.documentos, MAXIMOS.documentos)}>Documentos</ColHead>
                 case 'etiquetas':
                   // Ya no se esconde sola por debajo de `xl`: eso lo decide el
                   // panel, y con las dos cosas a la vez el interruptor decía
                   // "encendida" mientras la columna no se veía. Y pasa a declarar
                   // ancho, para que la única que absorbe el sobrante sea el nombre.
-                  return showTags ? <ColHead key={k} icon={Tag} className="w-[160px]" toneClass={headTone} {...col(k, 'Etiquetas', MINIMOS.etiquetas, MAXIMOS.etiquetas)}>Etiquetas</ColHead> : null
+                  return showTags ? <ColHead key={k} className="w-[176px]" toneClass={headTone} {...col(k, 'Etiquetas', MINIMOS.etiquetas, MAXIMOS.etiquetas)}>Etiquetas</ColHead> : null
                 case 'telefono':
-                  return <ColHead key={k} icon={Phone} className="w-[136px]" toneClass={headTone} {...col(k, 'Teléfono', MINIMOS.telefono, MAXIMOS.telefono)}>Teléfono</ColHead>
+                  return <ColHead key={k} className="w-[168px]" toneClass={headTone} {...col(k, 'Teléfono', MINIMOS.telefono, MAXIMOS.telefono)}>Teléfono</ColHead>
                 case 'estado':
-                  return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[168px]'} toneClass={headTone} sort={sortFor('estado')} {...col(k, 'Estado', MINIMOS.estado, MAXIMOS.estado)}>Estado</ColHead>
+                  return <ColHead key={k} className={esMovil ? 'w-[144px]' : 'w-[168px]'} toneClass={headTone} sort={sortFor('estado')} {...col(k, 'Estado', MINIMOS.estado, MAXIMOS.estado)}>Estado</ColHead>
                 case 'recibida':
                   // `pr-5` en la cabecera Y en la celda: la fecha va pegada al
                   // filo de la tarjeta, que es el borde de la pantalla de trabajo,
                   // y con los 12px de siempre se leía apretada contra él. Los dos
                   // a la vez o el título y su columna dejan de estar alineados.
-                  return <ColHead key={k} icon={Clock} className="w-[136px] pr-5" align="right" toneClass={headTone} sort={sortFor('fecha')} {...col(k, 'Recibida', MINIMOS.recibida, MAXIMOS.recibida)}>Recibida</ColHead>
+                  return <ColHead key={k} className="w-[136px] pr-5" align="right" toneClass={headTone} sort={sortFor('fecha')} {...col(k, 'Recibida', MINIMOS.recibida, MAXIMOS.recibida)}>Recibida</ColHead>
                 default: {
                   // Una respuesta del formulario. Ordena si se puede comparar, o
                   // sea Sí/No y número (ver `TIPOS_ORDENABLES`): un texto libre o
@@ -2544,7 +2584,6 @@ const CandidateTable = memo(function CandidateTable({
                   return (
                     <ColHead
                       key={k}
-                      icon={ICONO_CAMPO[f.type]}
                       className={m.clase}
                       toneClass={headTone}
                       sort={TIPOS_ORDENABLES.includes(f.type) ? sortFor(k) : undefined}
@@ -2569,7 +2608,7 @@ const CandidateTable = memo(function CandidateTable({
             {lockedDates.map((date, i) => (
               // Sin `group/row`: estas filas nunca son la última de la tabla (debajo
               // vienen las reales), así que conservan su filo inferior siempre.
-              <tr key={`locked-${i}`} className="h-12 bg-tabla-bloqueada">
+              <tr key={`locked-${i}`} className={`h-12 ${TEXTO_FILA} bg-tabla-bloqueada`}>
                 <td className={`${CELL_FLUSH} ${fijaCasilla} ${fijaCasilla && 'bg-tabla-bloqueada'} px-0 text-center leading-none`}>
                   <div aria-hidden className="mx-auto size-4 rounded-[5px] border border-slate-300 bg-white blur-[4px] select-none" />
                 </td>
@@ -2580,31 +2619,37 @@ const CandidateTable = memo(function CandidateTable({
                     case 'candidato':
                       return (
                         <td key={k} className={`${CELL} ${fijaNombre} ${fijaNombre && 'bg-tabla-bloqueada'}`}>
-                          <span aria-hidden className="block truncate text-[14px] font-medium text-slate-700 blur-[4px] select-none">Candidatura bloqueada</span>
+                          <span aria-hidden className="block truncate text-slate-700 blur-[4px] select-none">Candidatura bloqueada</span>
                         </td>
                       )
                     case 'encaje':
                       return showFit ? (
                         <td key={k} className={CELL}>
-                          <span aria-hidden className="block truncate text-[13px] text-slate-600 blur-[4px] select-none">Puede encajar</span>
+                          <span aria-hidden className="block truncate text-slate-600 blur-[4px] select-none">Puede encajar</span>
                         </td>
                       ) : null
+                    case 'documentos':
+                      return (
+                        <td key={k} className={CELL}>
+                          <span aria-hidden className="inline-block rounded-sm bg-slate-200 px-1.5 py-0.5 text-slate-600 blur-[4px] select-none">CV</span>
+                        </td>
+                      )
                     case 'etiquetas':
                       return showTags ? (
                         <td key={k} className={CELL}>
-                          <span aria-hidden className="inline-block rounded-full bg-slate-200 px-2 py-0.5 text-[11px] text-slate-600 blur-[4px] select-none">Etiqueta</span>
+                          <span aria-hidden className="inline-block rounded-full bg-slate-200 px-2 py-0.5 text-slate-600 blur-[4px] select-none">Etiqueta</span>
                         </td>
                       ) : null
                     case 'telefono':
                       return (
                         <td key={k} className={CELL}>
-                          <span aria-hidden className="num block truncate text-[13px] text-slate-600 blur-[4px] select-none">612 345 678</span>
+                          <span aria-hidden className="num block truncate text-slate-600 blur-[4px] select-none">612 345 678</span>
                         </td>
                       )
                     case 'estado':
                       return (
                         <td key={k} className={`${CELL} whitespace-nowrap`}>
-                          <span aria-hidden className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-300 blur-[4px] select-none">
+                          <span aria-hidden className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-slate-600 ring-1 ring-slate-300 blur-[4px] select-none">
                             <span className="size-1.5 rounded-full bg-slate-400" /> Bloqueada
                           </span>
                         </td>
@@ -2612,7 +2657,7 @@ const CandidateTable = memo(function CandidateTable({
                     case 'recibida':
                       return (
                         <td key={k} className={`${CELL} whitespace-nowrap pr-5 text-right`}>
-                          <time dateTime={date} aria-hidden className="num text-[13px] text-slate-500 blur-[4px] select-none">{fechaCorta(date)}</time>
+                          <time dateTime={date} aria-hidden className="num text-slate-500 blur-[4px] select-none">{fechaCorta(date)}</time>
                         </td>
                       )
                     default:
@@ -2621,7 +2666,7 @@ const CandidateTable = memo(function CandidateTable({
                       // `table-fixed` descuadraría las dos.
                       return (
                         <td key={k} className={CELL}>
-                          <span aria-hidden className="block truncate text-[13px] text-slate-600 blur-[4px] select-none">Respuesta</span>
+                          <span aria-hidden className="block truncate text-slate-600 blur-[4px] select-none">Respuesta</span>
                         </td>
                       )
                   }
@@ -2683,7 +2728,7 @@ const CandidateTable = memo(function CandidateTable({
                       return (
                         <td key={k} className={`${CELL} ${fijaNombre} ${fondoFila}`}>
                           <div className="flex items-center gap-2.5">
-                            <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={28} />
+                            <MeridianAvatar name={name} fit={c.ai && !c.ai.error ? c.ai.fit : undefined} size={AVATAR_FILA} />
                             <div className="flex min-w-0 flex-1 items-center gap-1.5">
                               {/* Sin subrayado permanente (se probó, ago 2026): la fila
                                   ENTERA abre la ficha, así que subrayar solo el nombre
@@ -2694,7 +2739,7 @@ const CandidateTable = memo(function CandidateTable({
                               <button
                                 type="button"
                                 onClick={() => onOpen(c.id)}
-                                className="block min-w-0 truncate rounded-sm text-left text-[14px] font-medium text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+                                className="block min-w-0 truncate rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
                                 title={name}
                               >
                                 {name}
@@ -2708,10 +2753,17 @@ const CandidateTable = memo(function CandidateTable({
                       )
                     case 'encaje':
                       return showFit ? (
-                        <td key={k} className={`${CELL} text-[13px]`}>
+                        <td key={k} className={CELL}>
                           <FitCell candidate={c} />
                         </td>
                       ) : null
+                    case 'documentos':
+                      return (
+                        <td key={k} className={CELL}>
+                          {c.cvPath ? <ChipDocumento /> : <span className="text-slate-500" aria-hidden>–</span>}
+                          {!c.cvPath && <span className="sr-only">Sin documentos</span>}
+                        </td>
+                      )
                     case 'etiquetas':
                       return showTags ? (
                         <td key={k} className={CELL}>
@@ -2736,13 +2788,13 @@ const CandidateTable = memo(function CandidateTable({
                             flotante
                             triggerClass="flex w-full min-w-0 items-center rounded-md -mx-1 px-1 py-0.5 text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 max-sm:-mx-2 max-sm:min-h-12 max-sm:w-[calc(100%+1rem)] max-sm:rounded-lg max-sm:px-2"
                           >
-                            {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} /> : <span className="text-[13px] text-slate-600">–</span>}
+                            {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} /> : <span className="text-slate-600">–</span>}
                           </BulkTagMenu>
                         </td>
                       ) : null
                     case 'telefono':
                       return (
-                        <td key={k} className={`${CELL} text-[13px] text-slate-600`}>
+                        <td key={k} className={CELL}>
                           <span className="num block truncate">
                             {maskPhone && answerStr(c, 'telefono')
                               ? <MaskedPhone value={formatPhone(answerStr(c, 'telefono'))} />
@@ -2758,7 +2810,7 @@ const CandidateTable = memo(function CandidateTable({
                       )
                     case 'recibida':
                       return (
-                        <td key={k} className={`${CELL} whitespace-nowrap pr-5 text-right text-[13px] text-slate-500`}>
+                        <td key={k} className={`${CELL} whitespace-nowrap pr-5 text-right`}>
                           <time dateTime={c.submittedAt} title={fullDateTime(c.submittedAt)} className="num">{fechaCorta(c.submittedAt)}</time>
                         </td>
                       )
@@ -2766,7 +2818,7 @@ const CandidateTable = memo(function CandidateTable({
                       const f = campoDe(k)
                       if (!f) return null
                       return (
-                        <td key={k} className={`${CELL} text-[13px] text-slate-600`}>
+                        <td key={k} className={CELL}>
                           <RespuestaCelda candidate={c} field={f} />
                         </td>
                       )
@@ -2852,21 +2904,25 @@ function RangeSlider({ min, max, from, to, onChange }: {
  * vivir en dos sitios.
  */
 function RespuestaCelda({ candidate, field }: { candidate: Candidate; field: FormField }) {
-  if (field.type === 'file') {
-    return candidate.cvPath ? (
-      <span className="inline-flex items-center gap-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[12px] font-medium text-slate-600">
-        <Paperclip className="size-3 shrink-0 text-slate-500" aria-hidden /> CV
-      </span>
-    ) : (
-      <span className="text-slate-500">–</span>
-    )
-  }
+  // Aquí había una rama para las preguntas de FICHERO. Se fue con la columna
+  // Documentos, que desde sep 2026 es del producto y no de una pregunta: estas
+  // celdas ya no pueden recibir un `file`, y una rama inalcanzable es una copia
+  // esperando a separarse de la buena.
   const texto = answerStr(candidate, field.id)
   if (!texto) return <span className="text-slate-500">–</span>
   // UN CORREO ES UN ENLACE (Mario, ago 2026). Es el único dato de la fila que se
   // puede USAR desde aquí, y escribirle a alguien es a lo que se viene. No rompe
   // la regla de "en una fila solo controles imprescindibles" porque esta columna
   // no está de serie: si la ves es porque la has pedido.
+  //
+  // PERO SE PINTA COMO UN DATO, NO COMO UN ENLACE (Mario, sep 2026: "email se va a
+  // ver en negro como el resto, y el underline solo se verá al hacer hover"). Es la
+  // consecuencia de que la fila sea de un solo cuerpo, un solo peso y una sola
+  // tinta: un azul en mitad de una columna de datos negros no se lee como "esto se
+  // puede pulsar", se lee como que ESE dato es distinto de los demás. Lo que se
+  // puede pulsar lo dice el subrayado al pasar por encima, que es lo que se busca
+  // cuando se busca un enlace, y el cursor. Y lo que no cambia: sigue siendo un `a`
+  // de verdad, así que el teclado lo alcanza y su foco se ve.
   //
   // Y no hace falta parar la propagación: `clickDeFila` ya ignora lo que caiga
   // dentro de un control de verdad, y un `<a>` lo es. Pulsas el correo y se abre
@@ -2876,7 +2932,7 @@ function RespuestaCelda({ candidate, field }: { candidate: Candidate; field: For
       <a
         href={`mailto:${texto}`}
         title={texto}
-        className="block truncate rounded-sm text-indigo-600 hover:text-indigo-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+        className="block truncate rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
       >
         {texto}
       </a>
@@ -3216,7 +3272,7 @@ function SkeletonRows({ showFit }: { showFit: boolean }) {
 // Gris siempre: no es un estado, solo un origen; se borra cuando ya no hace falta.
 function TestChip() {
   return (
-    <span className="inline-flex shrink-0 items-center rounded-full bg-slate-50 px-1.5 py-0.5 text-[11px] font-semibold text-slate-500 ring-1 ring-inset ring-slate-200">
+    <span className="inline-flex shrink-0 items-center rounded-full bg-slate-50 px-1.5 py-0.5 text-slate-500 ring-1 ring-inset ring-slate-200">
       Prueba
     </span>
   )

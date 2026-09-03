@@ -109,13 +109,28 @@ function AvatarConAnillo({ name, fit, size }: { name: string; fit?: number | nul
 // Etiqueta CUALITATIVA del ajuste (Encaja bien / Puede encajar / A valorar).
 // Texto grafito, NUNCA una pastilla con punto de color (para no confundirse con los
 // chips de estado). El énfasis por peso/oscuridad, jamás por tono de color.
-export function FitLabel({ fit, className = '' }: { fit: number; className?: string }) {
+//
+// DENTRO DE UNA FILA EL PESO LO PONE LA FILA (`enFila`, Mario sep 2026). Es una
+// variante DECLARADA y no un `font-medium` pegado desde la celda: los dos son la
+// misma utilidad de Tailwind y no se resuelven por el orden en que se escriben, así
+// que la salida es la de siempre, la variante que NO pone la que sobra. Allí los
+// tres niveles se dicen solo con la TINTA, que sigue siendo uno de los dos canales
+// de esta doctrina; fuera de la tabla (el informe de la ficha, el Parte diario) la
+// etiqueta aparece SOLA, sin sus hermanas debajo con las que compararse, y ahí el
+// peso es lo que la separa del texto que la rodea.
+export function FitLabel({ fit, className = '', enFila = false }: { fit: number; className?: string; enFila?: boolean }) {
   const t = fitTier(fit)
-  const tone =
-    t.key === 'bien' ? 'font-semibold text-slate-800'
+  // En una fila NO pinta ni peso ni tinta: los dos los declara la fila (Mario,
+  // sep 2026), así que los tres niveles se dicen con sus palabras, que es lo que
+  // la columna Encaje escribe entero justamente para no tener que decirlo en
+  // clave. Fuera de la tabla la etiqueta aparece SOLA, sin sus hermanas debajo
+  // con las que compararse, y ahí el peso y el gris son lo que la separan del
+  // texto que la rodea.
+  const tono = enFila ? ''
+    : t.key === 'bien' ? 'font-semibold text-slate-800'
     : t.key === 'puede' ? 'font-medium text-slate-600'
     : 'text-slate-500'
-  return <span className={`${tone} ${className}`}>{t.label}</span>
+  return <span className={`${tono} ${className}`}>{t.label}</span>
 }
 
 // Etiqueta de sección del bloque (marca del asistente). El icono es decorativo:
