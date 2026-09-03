@@ -82,6 +82,7 @@ import type { Invasion } from '../lib/fila'
 // ORDEN; lo que sigue retirado es el buscador en lenguaje natural.
 import { MeridianAvatar, FitLabel } from '../components/Meridian'
 import { ChipDocumento } from '../components/ChipDocumento'
+import { PreviewDocumento } from '../components/PreviewDocumento'
 import { candidateFit, hasMeridian } from '../lib/meridian'
 import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
 import { TIPOS_ORDENABLES } from '../lib/types'
@@ -563,6 +564,25 @@ export function Dashboard() {
   const [focoFicha, setFocoFicha] = useState<'nota' | 'etiqueta' | null>(null)
   const abrirEnNota = useCallback((id: string) => { setFocoFicha('nota'); setOpenId(id) }, [setOpenId])
   const abrirEnEtiqueta = useCallback((id: string) => { setFocoFicha('etiqueta'); setOpenId(id) }, [setOpenId])
+  // EL CHIP "CV" DE LA COLUMNA ABRE LA FICHA EN EL DOCUMENTO (Mario, sep 2026:
+  // "los documentos deben ser clickeables desde la columna").
+  //
+  // Y abre la FICHA, no el documento a pelo, que es lo que mantiene en pie la
+  // regla vieja ("el CV no es un control"): verlo pide una URL firmada y esa
+  // lógica no puede vivir en dos sitios. Lo que se gana es el clic que faltaba:
+  // antes había que abrir la ficha y buscar el bloque; ahora se aterriza en él.
+  const navegarFicha = useCallback((id: string) => { setFocoFicha(null); setOpenId(id) }, [setOpenId])
+  // EL CHIP "CV" DE LA COLUMNA ABRE EL VISOR, Y SOLO EL VISOR (Mario, sep 2026:
+  // "los documentos deben ser clickeables desde la columna", "que solo abra el
+  // preview no la ficha"). Se ha pulsado un documento, así que lo que tiene que
+  // aparecer es ese documento: abrir la persona entera detrás sería contestar otra
+  // pregunta y dejar la ficha abierta al cerrarlo.
+  //
+  // No rompe la regla vieja ("el CV no es un control de la fila"): lo que aquella
+  // protegía es que el camino de un documento no se escriba dos veces, y ese
+  // camino vive desde hoy en `useDocumento`, que usan las dos superficies.
+  const [docAbierto, setDocAbierto] = useState<string | null>(null)
+  const abrirDocumento = useCallback((id: string) => setDocAbierto(id), [])
   const toggleSeleccion = useCallback((id: string) => {
     setSelected((prev) => {
       const n = new Set(prev)
@@ -1485,6 +1505,7 @@ export function Dashboard() {
               selected={selected}
               setSelected={setSelected}
               onOpen={setOpenId}
+              onOpenDocumento={abrirDocumento}
               maskPhone={maskPhone}
             />
           )}
@@ -1524,8 +1545,21 @@ export function Dashboard() {
         // Las flechas recorren lo que se está viendo, no toda la base: si has
         // filtrado por "entrevista", "siguiente" es el siguiente de esa lista.
         siblings={filtered}
-        onNavigate={setOpenId}
+        // Al pasar al siguiente se OLVIDA a qué se vino: el chip de un CV abre el
+        // visor de ESA persona, y dejando el foco puesto la ficha del siguiente se
+        // abriría con su documento encima sin que nadie lo haya pedido.
+        onNavigate={navegarFicha}
       />
+
+      {/* EL DOCUMENTO A PANTALLA COMPLETA, sin ficha detrás. Cuelga de la pantalla
+          y no de la tabla porque la tabla está memoizada: un estado suyo aquí
+          arriba no la despierta, y así el visor no re-renderiza 142 filas. */}
+      {docAbierto && (() => {
+        const c = all.find((x) => x.id === docAbierto)
+        return c?.cvPath ? (
+          <PreviewDocumento campaign={campaign} candidate={c} onClose={() => setDocAbierto(null)} />
+        ) : null
+      })()}
 
       <InterestCheckDialog
         open={interestDialogOpen}
@@ -2164,6 +2198,7 @@ const CandidateTable = memo(function CandidateTable({
   selected,
   setSelected,
   onOpen,
+  onOpenDocumento,
   maskPhone,
   lockedDates,
   onLockedClick,
@@ -2189,6 +2224,10 @@ const CandidateTable = memo(function CandidateTable({
   selected: Set<string>
   setSelected: (s: Set<string>) => void
   onOpen: (id: string) => void
+  /** Abre la ficha CON EL DOCUMENTO delante. Va por prop y con identidad estable
+   *  (un `useCallback` en la pantalla) porque esta tabla está memoizada: una
+   *  función escrita en línea en el JSX apaga el memo en silencio. */
+  onOpenDocumento: (id: string) => void
   maskPhone: boolean
 }) {
   const { setStatus, commentCounts } = useStore()
@@ -2295,7 +2334,10 @@ const CandidateTable = memo(function CandidateTable({
   //     de más son el aire que hace que se lea como un nombre y no como un nombre
   //     que casi no cabe. Es la excepción declarada a "el mínimo sale de la
   //     cuenta": aquí la cuenta da el suelo y el ojo da el número.
-  //   · encaje 113 = 24 + "Puede encajar" (88 con la letra de la fila: 13px/500).
+  //   · encaje 85 = 24 + "Excelente" (61), que es la más ancha de las CUATRO
+  //     palabras desde sep 2026 ("Puede encajar" pedía 88, y por eso el mínimo era
+  //     113). Su cabecera pide más, porque lleva la marca "IA" al lado, pero el
+  //     mínimo lo dice el DATO: el título se recorta desde antes, como en el resto.
   //   · etiquetas 156 = 24 + la etiqueta más ancha del vocabulario demo, que con la
   //     letra de la fila (13px/500, sep 2026) mide 132 y no los 115 de cuando el
   //     chip iba a 11px. VUELTO A MEDIR, y en cada vuelta del peso, no escalado a
@@ -2317,7 +2359,7 @@ const CandidateTable = memo(function CandidateTable({
   //     pintar. Los 101 salen de probar los DOCE meses, no el de hoy: "May" es
   //     más ancho que "Ago", y en mayo la columna se habría quedado corta.
   const MINIMOS: Record<ColKey, number> = {
-    candidato: 230, estado: 152, encaje: 113, documentos: 92, etiquetas: 156, telefono: 111, recibida: 136,
+    candidato: 230, estado: 152, encaje: 85, documentos: 92, etiquetas: 156, telefono: 111, recibida: 136,
   }
   // Y SU TECHO, con la misma regla del revés: **hasta dónde la columna deja de
   // enseñar algo nuevo**. Tres de las seis tienen contenido de tamaño fijo, así
@@ -2326,13 +2368,13 @@ const CandidateTable = memo(function CandidateTable({
   //   · estado 240, y la pastilla más ancha mide 128: el resto es aire.
   //   · telefono 180 para nueve dígitos que siempre ocupan lo mismo.
   //   · recibida 200 para una fecha que como mucho es "19 ago 2026" (95).
-  //   · encaje 200 para tres etiquetas fijas, la mayor "Puede encajar" (104).
+  //   · encaje 160 para cuatro palabras fijas, la mayor "Excelente" (61).
   // Las otras dos sí crecen con los datos y llevan techo generoso, no ajustado:
   //   · candidato 360 (el nombre entero más largo de la demo pide 241 con cara y
   //     señales, pero los apellidos compuestos de otra empresa piden más).
   //   · etiquetas 480 (la tira más ancha de la demo son 3 etiquetas y 317).
   const MAXIMOS: Record<ColKey, number> = {
-    candidato: 360, estado: 240, encaje: 200, documentos: 180, etiquetas: 480, telefono: 180, recibida: 200,
+    candidato: 360, estado: 240, encaje: 160, documentos: 180, etiquetas: 480, telefono: 180, recibida: 200,
   }
   // Ancho mínimo de la tabla en móvil: la suma EXACTA de lo que se pinta. No vale
   // el 852 de escritorio, porque `table-fixed` reparte el sobrante entre las
@@ -2553,7 +2595,7 @@ const CandidateTable = memo(function CandidateTable({
                   // es dejarle sitio al estado.
                   return <ColHead key={k} className={esMovil ? 'w-[164px]' : ''} fija={fijaNombre || undefined} toneClass={headTone} sort={sortFor('nombre')} {...col(k, 'Candidato', MINIMOS.candidato, MAXIMOS.candidato)}>Candidato</ColHead>
                 case 'encaje':
-                  return showFit ? <ColHead key={k} className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')} {...col(k, 'Encaje', MINIMOS.encaje, MAXIMOS.encaje)}>Encaje</ColHead> : null
+                  return showFit ? <ColHead key={k} ia className="w-[136px]" toneClass={headTone} sort={sortFor('encaje')} {...col(k, 'Encaje', MINIMOS.encaje, MAXIMOS.encaje)}>Encaje</ColHead> : null
                 case 'documentos':
                   return <ColHead key={k} className="w-[128px]" toneClass={headTone} {...col(k, 'Documentos', MINIMOS.documentos, MAXIMOS.documentos)}>Documentos</ColHead>
                 case 'etiquetas':
@@ -2625,7 +2667,7 @@ const CandidateTable = memo(function CandidateTable({
                     case 'encaje':
                       return showFit ? (
                         <td key={k} className={CELL}>
-                          <span aria-hidden className="block truncate text-slate-600 blur-[4px] select-none">Puede encajar</span>
+                          <span aria-hidden className="block truncate text-slate-600 blur-[4px] select-none">Bueno</span>
                         </td>
                       ) : null
                     case 'documentos':
@@ -2760,8 +2802,25 @@ const CandidateTable = memo(function CandidateTable({
                     case 'documentos':
                       return (
                         <td key={k} className={CELL}>
-                          {c.cvPath ? <ChipDocumento /> : <span className="text-slate-500" aria-hidden>–</span>}
-                          {!c.cvPath && <span className="sr-only">Sin documentos</span>}
+                          {c.cvPath ? (
+                            // El chip ES el botón, como en la ficha: lo que se pulsa
+                            // para ver un documento es su nombre, no una lupa al lado.
+                            // Sin documento no hay botón, porque uno que no puede
+                            // hacer nada es peor que ninguno.
+                            <button
+                              type="button"
+                              onClick={() => onOpenDocumento(c.id)}
+                              aria-label={`Ver los documentos de ${name}`}
+                              className="rounded-sm outline-none transition-[filter] duration-[var(--duration-control)] hover:brightness-[0.96] focus-visible:ring-2 focus-visible:ring-indigo-500/40 motion-reduce:transition-none"
+                            >
+                              <ChipDocumento />
+                            </button>
+                          ) : (
+                            <>
+                              <span className="text-slate-500" aria-hidden>–</span>
+                              <span className="sr-only">Sin documentos</span>
+                            </>
+                          )}
                         </td>
                       )
                     case 'etiquetas':

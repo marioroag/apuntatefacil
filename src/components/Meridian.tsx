@@ -102,7 +102,7 @@ function AvatarConAnillo({ name, fit, size }: { name: string; fit?: number | nul
   )
 }
 
-// Etiqueta CUALITATIVA del ajuste (Encaja bien / Puede encajar / A valorar).
+// Etiqueta CUALITATIVA del ajuste (Excelente / Bueno / Medio / Bajo).
 // Texto grafito, NUNCA una pastilla con punto de color (para no confundirse con los
 // chips de estado). El énfasis por peso/oscuridad, jamás por tono de color.
 //
@@ -122,9 +122,14 @@ export function FitLabel({ fit, className = '', enFila = false }: { fit: number;
   // clave. Fuera de la tabla la etiqueta aparece SOLA, sin sus hermanas debajo
   // con las que compararse, y ahí el peso y el gris son lo que la separan del
   // texto que la rodea.
+  // Fuera de una fila, los cuatro niveles se dicen además con PESO y TINTA, y la
+  // escala tiene que ser monótona: cuanto mejor encaja, más oscuro y más pesado.
+  // Nunca con TONO de color, que es lo que confundiría esta etiqueta con una
+  // pastilla de estado.
   const tono = enFila ? ''
-    : t.key === 'bien' ? 'font-semibold text-slate-800'
-    : t.key === 'puede' ? 'font-medium text-slate-600'
+    : t.key === 'excelente' ? 'font-semibold text-slate-900'
+    : t.key === 'bueno' ? 'font-semibold text-slate-800'
+    : t.key === 'medio' ? 'font-medium text-slate-600'
     : 'text-slate-500'
   return <span className={`${tono} ${className}`}>{t.label}</span>
 }

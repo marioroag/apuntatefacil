@@ -61,7 +61,7 @@ Deno.test('buscar: ordena por ajuste y etiqueta en cualitativo', () => {
   ])
   const r = buscarCandidatos(c, {})
   assertEquals(r.mostrados.map((x) => x.id), ['bueno', 'medio', 'flojo'])
-  assertEquals(r.mostrados.map((x) => x.etiqueta), ['Encaja bien', 'Puede encajar', 'A valorar'])
+  assertEquals(r.mostrados.map((x) => x.etiqueta), ['Bueno', 'Medio', 'Bajo'])
 })
 
 Deno.test('buscar: un análisis con error no cuenta como ajuste', () => {

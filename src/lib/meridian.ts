@@ -38,16 +38,23 @@ export function hasMeridian(plan: string | undefined | null): boolean {
 }
 
 // Etiqueta cualitativa del ajuste. Mario: se muestra la ETIQUETA, no la nota cruda,
-// para que no se sienta como "calificar" a personas. "A valorar" (no "encaja poco"):
-// descartar es rutina y reversible, nunca un veredicto.
+// para que no se sienta como "calificar" a personas.
 //
-// Los cortes 70/45 son ESPEJO de FIT_BIEN/FIT_PUEDE en _shared/triaje.ts (el
+// CUATRO NIVELES DESDE SEP 2026: **Bajo · Medio · Bueno · Excelente** (Mario). Eran
+// tres y con frase ("Encaja bien / Puede encajar / A valorar"), y el cambio no es
+// solo de número: una escala se lee mejor cuando sus peldaños son UNA palabra del
+// mismo tipo, porque entonces se comparan sin leerlas enteras. Es el mismo
+// paralelismo que esta casa ya exige en el menú de estado de un puesto.
+//
+// "Bajo" y no "encaja poco" ni un rojo: sigue siendo una LECTURA, no un veredicto.
+// Descartar es una decisión de la persona, siempre, y ningún nivel descarta a nadie.
+//
+// Los cortes son ESPEJO de FIT_EXCELENTE/FIT_BIEN/FIT_PUEDE en _shared/triaje.ts (el
 // servidor, que es quien fabrica el número): si se mueven, se mueven en los dos
-// sitios. Desde la triada (ago 2026) el significado del número cambió sin tocar
-// los cortes: "no_consta" ya no diluye (sale del denominador) y cada criterio
-// pesa según su nivel; un criterio clave incumplido hunde el número por peso,
-// nunca por una categoría eliminatoria (que Mario vetó por subjetiva).
-export type FitTierKey = 'bien' | 'puede' | 'valorar'
+// sitios. Los dos viejos no se tocaron al añadir el cuarto nivel, porque están
+// calibrados contra candidaturas reales; el 85 es nuevo y parte en dos lo que era
+// una banda de treinta puntos.
+export type FitTierKey = 'bajo' | 'medio' | 'bueno' | 'excelente'
 
 export interface FitTier {
   key: FitTierKey
@@ -55,9 +62,10 @@ export interface FitTier {
 }
 
 export function fitTier(fit: number): FitTier {
-  if (fit >= 70) return { key: 'bien', label: 'Encaja bien' }
-  if (fit >= 45) return { key: 'puede', label: 'Puede encajar' }
-  return { key: 'valorar', label: 'A valorar' }
+  if (fit >= 85) return { key: 'excelente', label: 'Excelente' }
+  if (fit >= 70) return { key: 'bueno', label: 'Bueno' }
+  if (fit >= 45) return { key: 'medio', label: 'Medio' }
+  return { key: 'bajo', label: 'Bajo' }
 }
 
 /** Ajuste utilizable de una candidatura, o null si no está analizada (o falló). */

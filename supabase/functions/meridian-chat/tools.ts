@@ -15,7 +15,7 @@
 // Meridian no puede hablar de personas.
 // De Supabase solo se necesita `rpc`, así que se declara aquí en vez de importar
 // el SDK: este módulo queda comprobable y testeable por su cuenta.
-import { FIT_BIEN, FIT_PUEDE } from '../_shared/triaje.ts'
+import { FIT_BIEN, FIT_EXCELENTE, FIT_PUEDE } from '../_shared/triaje.ts'
 
 export interface RpcClient {
   rpc(name: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }>
@@ -77,7 +77,15 @@ const fitOf = (ai: CandidateAI | null): number | null =>
  *  Los cortes vienen de _shared/triaje.ts, que es quien fabrica el número:
  *  aquí estaban duplicados a mano y una recalibración los habría dejado atrás. */
 const fitLabel = (fit: number | null): string =>
-  fit == null ? 'Sin analizar' : fit >= FIT_BIEN ? 'Encaja bien' : fit >= FIT_PUEDE ? 'Puede encajar' : 'A valorar'
+  fit == null
+    ? 'Sin analizar'
+    : fit >= FIT_EXCELENTE
+      ? 'Excelente'
+      : fit >= FIT_BIEN
+        ? 'Bueno'
+        : fit >= FIT_PUEDE
+          ? 'Medio'
+          : 'Bajo'
 
 function nameOf(answers: Answers, fields: Field[]): string {
   for (const f of fields) {

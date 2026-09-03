@@ -1,5 +1,5 @@
 import { startTransition, useLayoutEffect, useState } from 'react'
-import type { RefObject } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import { ArrowUp, ArrowUpDown } from 'lucide-react'
 import type { AsaColumna } from '../../lib/columnas'
 
@@ -284,12 +284,42 @@ type Sort = {
  * encima o al enfocar: con seis columnas, seis flechitas grises permanentes hacen
  * más ruido que la propia cabecera, y la que SÍ ordena ahora mismo se ve siempre.
  */
+/**
+ * LA MARCA "IA" DE UNA COLUMNA (Mario, sep 2026, con una referencia delante).
+ *
+ * Dice QUIÉN escribe ese dato, que en una tabla de datos que manda el candidato es
+ * lo que hay que saber de la única columna que no manda él: el encaje lo calcula
+ * Meridian. No es el icono de tipo que estas cabeceras acaban de perder (aquello
+ * decía de qué CLASE es el campo, y eso ya lo dicen las treinta filas de debajo);
+ * esto dice de dónde sale.
+ *
+ * VA EN GRIS Y NO EN COLOR, aunque la referencia use un lavanda: en esta casa el
+ * acento es acción y los tonos son estados, así que un color nuevo aquí sería un
+ * quinto idioma en una fila que acaba de quedarse con uno. Es la misma regla por la
+ * que el icono de Meridian va en grafito y nunca en el acento.
+ *
+ * Su texto visible es `aria-hidden` y al lado va la frase entera: leído en voz alta,
+ * "IA" son dos letras sueltas y lo que hace falta oír es qué significan.
+ */
+function MarcaIA() {
+  return (
+    <span
+      className="shrink-0 rounded-sm bg-etiqueta-fondo px-1 py-px text-[11px] font-semibold tracking-[0.02em] text-slate-600"
+      title="Lo calcula Meridian"
+    >
+      <span aria-hidden>IA</span>
+      <span className="sr-only">, lo calcula la inteligencia artificial</span>
+    </span>
+  )
+}
+
 export function ColHead({
   children,
   className = '',
   toneClass = '',
   align = 'left',
   flush = false,
+  ia = false,
   sort,
   columna,
   ancho,
@@ -297,6 +327,8 @@ export function ColHead({
   fija,
 }: {
   children: string
+  /** Esta columna la escribe la IA, no el candidato (hoy solo Encaje). */
+  ia?: boolean
   className?: string
   /** Fondo/estado de la banda (lo decide la pantalla: cambia al despegarse). */
   toneClass?: string
@@ -332,7 +364,17 @@ export function ColHead({
 }) {
   const base = `${fija ?? 'relative'} ${flush ? HEAD_BASE_FLUSH : HEAD_BASE}`
   const active = sort?.active ?? false
-  const inner = `flex w-full min-w-0 items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`
+  // `flex-1` y no `w-full`: al lado puede ir la marca de IA, y un hijo al 100% del
+  // ancho la empujaría fuera de la celda.
+  const inner = `flex min-w-0 flex-1 items-center gap-1.5 ${align === 'right' ? 'justify-end' : ''}`
+  /** El título y, si la hay, de quién sale el dato. La marca va FUERA del botón de
+   *  ordenar: no es parte del control, es una nota sobre la columna. */
+  const conMarca = (contenido: ReactNode) => (
+    <span className="flex w-full min-w-0 items-center gap-1.5">
+      {contenido}
+      {ia && <MarcaIA />}
+    </span>
+  )
   // LA CABECERA ES EL NOMBRE DE UN CAMPO, NO UN PIE DE FOTO (Mario, ago 2026).
   //
   // Estaba en `slate-500` a peso medio con el icono en `slate-400`, o sea la
@@ -364,7 +406,7 @@ export function ColHead({
   if (!sort) {
     return (
       <th scope="col" data-columna={columna} className={`${base} ${toneClass} ${className}`} style={estilo}>
-        <span className={`${inner} text-tabla-texto`}>{label}</span>
+        {conMarca(<span className={`${inner} text-tabla-texto`}>{label}</span>)}
         {asa && <AsaAncho asa={asa} />}
       </th>
     )
@@ -382,6 +424,7 @@ export function ColHead({
       style={estilo}
       aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
     >
+      {conMarca(
       <button
         type="button"
         onClick={sort.onToggle}
@@ -402,7 +445,8 @@ export function ColHead({
             <ArrowUpDown className="size-3 text-slate-300 opacity-0 transition-opacity duration-[var(--duration-control)] group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none" />
           )}
         </span>
-      </button>
+      </button>,
+      )}
       {asa && <AsaAncho asa={asa} />}
     </th>
   )

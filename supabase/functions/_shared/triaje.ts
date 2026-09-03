@@ -101,14 +101,25 @@ export interface TrayectoriaCv {
 }
 
 // ----------------------------------------------------------------------------
-// Bandas y pesos. Las bandas 70/45 son las mismas que pinta la interfaz
-// (fitTier en src/lib/meridian.ts): si se mueven, se mueven en los dos sitios.
+// Bandas y pesos. Las bandas son las mismas que pinta la interfaz (fitTier en
+// src/lib/meridian.ts): si se mueven, se mueven en los dos sitios.
 // Lo que cambió en ago 2026 no son los cortes sino el SIGNIFICADO del número:
 // "no_consta" ya no diluye (sale del denominador) y los criterios pesan según
 // su nivel, así que un "clave" incumplido hunde el número por peso, no por
 // ninguna regla eliminatoria.
+//
+// SON CUATRO NIVELES DESDE SEP 2026 (Mario: "los niveles de encaje van a ser
+// Bajo, Medio, Bueno, Excelente"). Los dos cortes que ya existían NO se tocan:
+// están calibrados contra candidaturas reales y mover uno recalifica de golpe a
+// todo el mundo. Lo único nuevo es el techo, 85, que parte en dos lo que antes
+// era una sola banda ancha ("encaja bien" cubría del 70 al 100, o sea a un
+// candidato correcto y a uno que cumple todo lo clave). Ese 85 es el único
+// número de aquí que NO viene de mirar datos, así que se dice: es el punto
+// medio alto de la banda, y cuando haya volumen suficiente se recalibra con
+// candidaturas de verdad, como se hizo con los otros dos.
 // ----------------------------------------------------------------------------
 
+export const FIT_EXCELENTE = 85
 export const FIT_BIEN = 70
 export const FIT_PUEDE = 45
 

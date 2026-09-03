@@ -52,6 +52,7 @@ import { MeridianAvatar, MeridianPanelBlock } from '../components/Meridian'
 import { MERIDIAN_NAME, candidateFit, citasDelAnalisis, type CitaCv } from '../lib/meridian'
 import { CvViewer, type CitaActiva } from '../components/CvViewer'
 import { CvLightbox } from '../components/CvLightbox'
+import { ERROR_DESCARGA, useDocumento } from '../lib/documento'
 
 /**
  * Detalle del candidato: pop-up con pestañas.
@@ -205,6 +206,7 @@ export function CandidateModal({
   const documentosRef = useRef<HTMLDivElement>(null)
   const dosColumnas = useDosColumnas()
   const esMovil = useEsMovil()
+
 
   /**
    * La barra del pulgar: llamar, escribir y el `···`, flotando sobre la columna.
@@ -2012,18 +2014,13 @@ function Cv({
   onQuitar?: () => void | Promise<void>
   quitando?: boolean
 }) {
-  const [url, setUrl] = useState<string | null>(null)
-  const [error, setError] = useState(false)
-  const [peso, setPeso] = useState<string | null>(null)
-  const [bytes, setBytes] = useState<ArrayBuffer | null>(null)
-  const [visorFallo, setVisorFallo] = useState(false)
+  // Firmar, bajar los bytes, leer el peso y reintentar viven en `useDocumento`
+  // (lib/documento.ts) desde sep 2026: la columna Documentos abre el mismo visor
+  // sin la ficha, y ese camino no puede estar escrito dos veces.
+  const { url, bytes, peso, error, esPdf, visorFallo, fallarVisor, reintentar: recargar, descargar: bajar } = useDocumento(path)
   // El documento a pantalla completa (CvLightbox): se abre pinchando sobre
   // cualquier página del incrustado.
   const [ampliado, setAmpliado] = useState(false)
-  // "Reintentar" tras un fallo ocasional (la red, una firma caducada, un chunk
-  // que no cargó a la primera): vuelve a empezar el camino ENTERO, con firma
-  // nueva incluida, en vez de obligar a cerrar la ficha y reabrirla.
-  const [intento, setIntento] = useState(0)
   // SE CONFIRMA EN LA PROPIA FILA, no en un diálogo encima: esto ya vive dentro
   // de un modal y dos capas apiladas se pelean por el Escape (lo mismo que
   // decidieron `SedesDialog` y el borrado de una nota). De regalo, el documento
@@ -2038,86 +2035,9 @@ function Cv({
     // puede borrar un documento.
     if (confirmando) cancelarRef.current?.focus()
   }, [confirmando])
-  const reintentar = () => {
-    setUrl(null)
-    setError(false)
-    setBytes(null)
-    setVisorFallo(false)
-    setIntento((n) => n + 1)
-  }
   const toast = useToast()
-  const esPdf = path.toLowerCase().endsWith('.pdf')
-  // Ruta que se usa TAL CUAL, sin firmar: los assets de la demo (`/demo/...`) y
-  // el object URL de un documento recién añadido en la demostración.
-  const esAssetDemo = path.startsWith('/') || path.startsWith('blob:')
-
-  useEffect(() => {
-    let vivo = true
-    // Sin reiniciar url/error aquí: el visor se remonta por `key` al cambiar de
-    // candidato (y `reintentar` deja el estado limpio), así que el estado
-    // inicial ya es el correcto.
-    if (esAssetDemo) {
-      setUrl(path)
-      return () => {
-        vivo = false
-      }
-    }
-    // La firma caduca: se pide al abrir la pestaña y se renueva al reintentar.
-    void supabase.storage
-      .from('cvs')
-      .createSignedUrl(path, 600)
-      .then(({ data, error: e }) => {
-        if (!vivo) return
-        if (e || !data?.signedUrl) setError(true)
-        else setUrl(data.signedUrl)
-      })
-    // El tamaño es un extra: si Storage no lo da, simplemente no se pinta.
-    const dir = path.split('/').slice(0, -1).join('/')
-    const file = path.split('/').pop() ?? ''
-    void supabase.storage
-      .from('cvs')
-      .list(dir, { search: file })
-      .then(({ data }) => {
-        if (!vivo) return
-        const size = data?.find((f) => f.name === file)?.metadata?.size
-        if (typeof size === 'number') setPeso(`${Math.max(1, Math.round(size / 1024))} KB`)
-      })
-    return () => {
-      vivo = false
-    }
-  }, [path, esAssetDemo, intento])
-
-  // Los BYTES del PDF, para el visor con subrayados: una sola descarga sirve
-  // para renderizar y para buscar las citas. Si la descarga falla se cae al
-  // iframe con la URL firmada, que es lo que había.
-  useEffect(() => {
-    if (!esPdf || !url || visorFallo) return
-    let vivo = true
-    void fetch(url)
-      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((buf) => {
-        if (vivo) setBytes(buf)
-      })
-      .catch((e) => {
-        console.error('[apuntatefacil] no se pudo descargar el CV para el visor:', e)
-        if (vivo) setVisorFallo(true)
-      })
-    return () => {
-      vivo = false
-    }
-  }, [esPdf, url, visorFallo])
-
-  const descargar = async () => {
-    if (esAssetDemo) {
-      window.open(path, '_blank', 'noopener')
-      return
-    }
-    const { data, error: e } = await supabase.storage.from('cvs').createSignedUrl(path, 120, { download: true })
-    if (e || !data?.signedUrl) {
-      toast.error('No se pudo descargar el CV.')
-      return
-    }
-    window.open(data.signedUrl, '_blank', 'noopener')
+  const descargarConAviso = async () => {
+    if (!(await bajar())) toast.error(ERROR_DESCARGA)
   }
 
   // Dentro de la tarjeta de Documentos, así que aquí NO se pinta ni marco ni
@@ -2205,7 +2125,7 @@ function Cv({
         {accion ? (
           <button
             type="button"
-            onClick={() => (accion === 'ampliar' ? setAmpliado(true) : void descargar())}
+            onClick={() => (accion === 'ampliar' ? setAmpliado(true) : void descargarConAviso())}
             title={cvName || 'CV'}
             aria-label={
               accion === 'ampliar'
@@ -2260,7 +2180,7 @@ function Cv({
         <div className={`min-h-[240px] ${banda}`}>
           <div>
             <p className="max-w-[42ch] text-sm leading-6 text-slate-500">No se pudo abrir el CV. Prueba a descargarlo.</p>
-            <button type="button" onClick={reintentar} className={`mt-3 ${BTN_SECONDARY_SM}`}>
+            <button type="button" onClick={recargar} className={`mt-3 ${BTN_SECONDARY_SM}`}>
               Reintentar
             </button>
           </div>
@@ -2275,7 +2195,7 @@ function Cv({
             <p className="max-w-[42ch] text-sm leading-6 text-slate-500">
               Este navegador no puede enseñar el CV aquí dentro. Descárgalo o ábrelo aparte.
             </p>
-            <button type="button" onClick={reintentar} className={`mt-3 ${BTN_SECONDARY_SM}`}>
+            <button type="button" onClick={recargar} className={`mt-3 ${BTN_SECONDARY_SM}`}>
               Reintentar
             </button>
           </div>
@@ -2292,7 +2212,7 @@ function Cv({
             citas={citas}
             citaActiva={citaActiva}
             nota={cvLeido === 'vision' ? `CV escaneado: ${MERIDIAN_NAME} lo leyó transcribiéndolo, sin citas que subrayar.` : undefined}
-            onFallo={() => setVisorFallo(true)}
+            onFallo={fallarVisor}
             onLocalizadas={onLocalizadas}
             onAmpliar={() => setAmpliado(true)}
           />
@@ -2313,7 +2233,7 @@ function Cv({
           data={bytes}
           citas={citas}
           onClose={() => setAmpliado(false)}
-          onDescargar={() => void descargar()}
+          onDescargar={() => void descargarConAviso()}
           urlAparte={url}
         />
       )}
