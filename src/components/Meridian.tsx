@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Briefcase, ChevronRight, RefreshCw, Sparkles } from 'lucide-react'
 import type { Candidate } from '../lib/types'
-import { initials, candidateName } from '../lib/format'
+import { candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
 import { BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
 import { ANILLO_AJUSTE, MERIDIAN_NAME, candidateFit, fitTier } from '../lib/meridian'
@@ -34,7 +34,7 @@ export function MeridianAvatar({ name, fit, size = 40 }: { name: string; fit?: n
   // guardián de `hooks.test.ts` para un corte como este. Un `return` temprano con
   // los hooks del anillo debajo rompía la regla de React (los cazó él, no yo), y
   // su mensaje dice justo esto: no subas el return, parte el componente.
-  if (!ANILLO_AJUSTE) return <Avatar name={name} size={size} />
+  if (!ANILLO_AJUSTE) return <Avatar name={name} silueta size={size} />
   return <AvatarConAnillo name={name} fit={fit} size={size} />
 }
 
@@ -66,9 +66,10 @@ function AvatarConAnillo({ name, fit, size }: { name: string; fit?: number | nul
   // encogía que Meridian hubiera hablado de ella.
   const carril = stroke + (size >= 40 ? 2 : 1.5)
   const inner = size - 2 * carril
-  // Misma proporción y mismo suelo que `ui/Avatar`, la primitiva de las caras del
-  // equipo: dos iniciales al 40% del círculo y nunca por debajo de 9px.
-  const fontSize = Math.max(9, Math.round(inner * 0.4))
+  // La cara la pinta la primitiva, no este componente: aquí solo se decide el
+  // CARRIL del anillo y cuánto le queda a la cara por dentro. Llegó a repintar su
+  // propio círculo con iniciales, o sea una segunda forma de pintar una cara que
+  // se quedó atrás en cuanto la de verdad cambió (la silueta de sep 2026).
   return (
     <span
       className="relative grid shrink-0 place-items-center"
@@ -95,12 +96,7 @@ function AvatarConAnillo({ name, fit, size }: { name: string; fit?: number | nul
           />
         </svg>
       )}
-      <span
-        className="grid place-items-center rounded-full bg-slate-100 font-bold leading-none text-slate-600"
-        style={{ width: inner, height: inner, fontSize }}
-      >
-        {initials(name)}
-      </span>
+      <Avatar name={name} silueta size={inner} />
       {has && <span className="sr-only">Ajuste de {MERIDIAN_NAME}: {Math.round(pct)} sobre 100</span>}
     </span>
   )

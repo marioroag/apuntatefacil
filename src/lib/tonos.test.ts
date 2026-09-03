@@ -63,6 +63,40 @@ describe('el guardián del color de una persona', () => {
     }
   })
 
+  /**
+   * EL HUE NUMÉRICO ES EL MISMO COLOR QUE LAS CLASES. Desde sep 2026 hay una
+   * TERCERA superficie, la silueta con volumen del candidato (`ui/Avatar`), y sus
+   * degradados viven dentro de un SVG, así que no se pueden pintar con una clase:
+   * la entrada lleva el hue como número. El fallo que esto vigila es el de
+   * siempre y es invisible: reordenar la tabla o añadir un tono y dejarse el
+   * número deja a una persona con el disco de un color y la silueta de otro, y
+   * cada superficie por separado se sigue viendo bien.
+   *
+   * La referencia está puesta a mano contra cada rampa de Tailwind, con una
+   * tolerancia ancha (±25) porque las rampas van en OKLCH y su hue se mueve entre
+   * peldaños: aquí no se persigue el número exacto, se persigue que nadie ponga
+   * el de otra familia.
+   */
+  it('el hue numérico es el de su familia de Tailwind', () => {
+    const REF: Record<string, number> = {
+      lime: 85, sky: 200, teal: 174, violet: 262, amber: 40,
+      rose: 348, emerald: 158, orange: 25, cyan: 190, fuchsia: 292,
+    }
+    // Distancia en un círculo de 360: 350 y 10 están a 20, no a 340.
+    const vuelta = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
+    for (const e of entradas) {
+      const familia = hue(e, 'bg')!
+      const n = Number(/hue: (-?\d+)/.exec(e)?.[1] ?? NaN)
+      const sat = Number(/sat: (-?\d+)/.exec(e)?.[1] ?? NaN)
+      expect(REF[familia], `no hay hue de referencia para "${familia}": añádelo aquí`).toBeDefined()
+      expect(Number.isFinite(n), `falta "hue" en ${e}`).toBe(true)
+      expect(vuelta(n, REF[familia]), `hue ${n} no es un ${familia} (referencia ${REF[familia]})`).toBeLessThanOrEqual(25)
+      // Sin saturación no hay color: por debajo de 40 la silueta sale gris, y por
+      // encima de 90 se va al fluorescente, que en una lista de cien caras cansa.
+      expect(sat >= 40 && sat <= 90, `"sat" fuera de 40..90 en ${e}`).toBe(true)
+    }
+  })
+
   /** La misma semilla, el mismo tono, siempre: es lo que lo hace una identidad. */
   it('la misma persona sale siempre del mismo color', () => {
     expect(memberAvatarTone('laura@apuntatefacil.com')).toBe(memberAvatarTone('LAURA@apuntatefacil.com '))
