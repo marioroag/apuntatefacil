@@ -131,7 +131,22 @@ export type AsaColumna = {
  *                 que quepan nombre y estado sin empujar, y un asa de 8px es
  *                 además un objetivo de toque imposible.
  */
-export function useColumnasAjustables(tablaId: string, orden: string[], activo: boolean) {
+export function useColumnasAjustables(
+  tablaId: string,
+  orden: string[],
+  activo: boolean,
+  /**
+   * Lo que mide de fábrica una columna que NADIE ha ajustado. Solo se usa para el
+   * suelo de la tabla, y existe por un fallo real: los anchos guardados son los de
+   * las columnas que había el día del arrastre, así que cuando aparece una NUEVA
+   * (la columna Documentos de sep 2026, o una respuesta que enciendes después) no
+   * está en el mapa. Contándola como 0, el suelo se quedaba corto y `table-fixed`
+   * tenía que estrujar a alguien: se vio en pantalla con "Recibida" reducida a 8px.
+   * Con su ancho de fábrica, el suelo vuelve a decir la verdad y la tabla se
+   * DESPLAZA en vez de matar una columna.
+   */
+  baseDe?: (k: string) => number,
+) {
   // La fuente de verdad es la cuenta (`preferencias.ts`), no un estado local:
   // así la tabla se recoloca sola cuando la respuesta del servidor trae lo que
   // dejaste puesto en el otro ordenador.
@@ -427,7 +442,7 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
   const ultima = orden[orden.length - 1]
   const minTabla = congelado
     ? orden.reduce(
-        (t, k) => t + (k === ultima ? (minimosRef.current[k] ?? ANCHO_MINIMO) : (anchos[k] ?? 0)),
+        (t, k) => t + (k === ultima ? (minimosRef.current[k] ?? ANCHO_MINIMO) : (anchos[k] ?? baseDe?.(k) ?? 0)),
         anchos[FIJO] ?? 0,
       ) || undefined
     : undefined

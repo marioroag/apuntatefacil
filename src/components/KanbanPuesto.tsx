@@ -15,10 +15,11 @@ import {
 import { createPortal } from 'react-dom'
 import type { CollisionDetection, KeyboardCoordinateGetter } from '@dnd-kit/core'
 import type { LucideIcon } from 'lucide-react'
-import { MessageSquareText, MoreHorizontal, Paperclip, Star, StickyNote, Tag as TagIcon, UserMinus, UserPlus } from 'lucide-react'
+import { MessageSquareText, MoreHorizontal, Star, StickyNote, Tag as TagIcon, UserMinus, UserPlus } from 'lucide-react'
 import { MeridianAvatar, FitLabel } from './Meridian'
 import { Checkbox } from './ui/Checkbox'
 import { TagCell } from './Tags'
+import { ChipDocumento } from './ChipDocumento'
 import { MaskedPhone } from './MaskedPhone'
 import { candidateFit } from '../lib/meridian'
 import { useDesvanecido } from '../lib/desvanecido'
@@ -488,10 +489,13 @@ function LineaCampo({ campo, candidato: c, pinta }: { campo: CampoTarjeta; candi
   const contenido = (() => {
     if (campo.key === 'encaje') {
       const fit = candidateFit(c.ai)
-      return fit == null ? VACIO : <FitLabel fit={fit} />
+      return fit == null ? VACIO : <FitLabel fit={fit} enFila />
     }
     if (campo.key === 'etiquetas') {
       return c.tagIds.length === 0 ? VACIO : <TagCell tagIds={c.tagIds} tags={pinta.tags} />
+    }
+    if (campo.key === 'documentos') {
+      return c.cvPath ? <ChipDocumento /> : VACIO
     }
     if (campo.key === 'telefono') {
       const tel = answerStr(c, 'telefono')
@@ -519,27 +523,23 @@ function LineaCampo({ campo, candidato: c, pinta }: { campo: CampoTarjeta; candi
         </time>
       )
     }
-    // Una respuesta del formulario. El adjunto se dice como en la tabla (chip
-    // "CV"); el resto, el texto pelado.
+    // Una respuesta del formulario, el texto pelado. Los adjuntos ya no llegan por
+    // aquí: desde sep 2026 son la columna `documentos`, que es del producto y no de
+    // una pregunta (ver el registro de columnas en `Dashboard`).
     const field = pinta.campaign.fields.find((f) => `campo:${f.id}` === campo.key)
     if (!field) return VACIO
-    if (field.type === 'file') {
-      return c.cvPath ? (
-        <span className="inline-flex items-center gap-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[12px] font-medium text-slate-600">
-          <Paperclip className="size-3 shrink-0 text-slate-500" aria-hidden /> CV
-        </span>
-      ) : VACIO
-    }
     const texto = answerStr(c, field.id)
     if (!texto) return VACIO
-    // El correo es un enlace, como su columna: es el único dato que se puede
-    // USAR desde aquí, y si se ve es porque se ha pedido.
+    // El correo es un enlace, como su columna: es el único dato que se puede USAR
+    // desde aquí, y si se ve es porque se ha pedido. Y como en la columna, se pinta
+    // en la tinta de la tarjeta y no en azul: el subrayado al pasar por encima es
+    // lo que dice que se pulsa (ver la nota larga en `RespuestaCelda`).
     if (field.type === 'email') {
       return (
         <a
           href={`mailto:${texto}`}
           title={`${field.label}: ${texto}`}
-          className="block truncate rounded-sm text-indigo-600 hover:text-indigo-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+          className="block truncate rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
         >
           {texto}
         </a>

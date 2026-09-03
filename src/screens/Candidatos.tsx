@@ -1,11 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Briefcase, CircleDot, Clock, ContactRound, Phone, SearchX, Star, Tag, User } from 'lucide-react'
+import { Briefcase, CircleDot, ContactRound, SearchX, Star, Tag } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
 import { StatusSelect } from '../components/ui/StatusPill'
-import { ColHead, TABLE, ROW, CELL, FIJA, TRANSICION_FILA, useFilasALaVista, HuecoFilas } from '../components/ui/DataTable'
+import { ColHead, TABLE, ROW, AVATAR_FILA, CELL, FIJA, TRANSICION_FILA, useFilasALaVista, HuecoFilas } from '../components/ui/DataTable'
 import { CandidateModal } from './CandidateModal'
 import { fechaCorta, fullDateTime, formatPhone, candidateName, miles } from '../lib/format'
 import { clickDeFila } from '../lib/fila'
@@ -100,11 +100,15 @@ const ListaCandidatos = memo(function ListaCandidatos({
   // MAYORÍA, no todos a cualquier precio, porque cada píxel de más aquí sale de
   // la columna del candidato.
   const MINIMOS: Record<ColKeyCandidatos, number> = {
-    candidato: 230, puesto: 184, telefono: 111, estado: 152, recibida: 136,
+    // `puesto 192` = 24 + la cápsula de "Oficial de 1ª (albañil)" (168), que es el
+    // quinto título más largo de la demo: la regla de siempre, que se vea la
+    // MAYORÍA y no todos a cualquier precio. Eran 184 cuando la cápsula iba a 12px;
+    // con la letra de la fila (13px/500, sep 2026) hubo que volver a medirla.
+    candidato: 230, puesto: 192, telefono: 111, estado: 152, recibida: 136,
   }
   // El techo, con la regla del revés: hasta dónde deja de enseñar algo nuevo. Los
   // mismos números que en el panel donde la columna es la misma; Puesto lleva 360
-  // porque su cápsula sí crece con el título (el más largo de la demo pide 205).
+  // porque su cápsula sí crece con el título (el más largo de la demo pide 215).
   const MAXIMOS: Record<ColKeyCandidatos, number> = {
     candidato: 360, puesto: 360, telefono: 180, estado: 240, recibida: 200,
   }
@@ -143,17 +147,17 @@ const ListaCandidatos = memo(function ListaCandidatos({
                     // declara nadie (absorbe el sobrante, que es lo que hace crecer
                     // el nombre) y en movil se fija, porque alli el sobrante no
                     // existe y hay que dejarle sitio al estado.
-                    return <ColHead key={k} icon={User} className={esMovil ? 'w-[196px]' : ''} fija={fijaNombre || undefined} toneClass="bg-tabla-banda" {...col(k, 'Candidato', MINIMOS.candidato, MAXIMOS.candidato)}>Candidato</ColHead>
+                    return <ColHead key={k} className={esMovil ? 'w-[196px]' : ''} fija={fijaNombre || undefined} toneClass="bg-tabla-banda" {...col(k, 'Candidato', MINIMOS.candidato, MAXIMOS.candidato)}>Candidato</ColHead>
                   case 'puesto':
-                    return <ColHead key={k} icon={Briefcase} className={esMovil ? 'w-[180px]' : ''} {...col(k, 'Puesto', MINIMOS.puesto, MAXIMOS.puesto)}>Puesto</ColHead>
+                    return <ColHead key={k} className={esMovil ? 'w-[180px]' : ''} {...col(k, 'Puesto', MINIMOS.puesto, MAXIMOS.puesto)}>Puesto</ColHead>
                   case 'telefono':
-                    return <ColHead key={k} icon={Phone} className="hidden w-[150px] lg:table-cell" {...col(k, 'Teléfono', MINIMOS.telefono, MAXIMOS.telefono)}>Teléfono</ColHead>
+                    return <ColHead key={k} className="hidden w-[150px] lg:table-cell" {...col(k, 'Teléfono', MINIMOS.telefono, MAXIMOS.telefono)}>Teléfono</ColHead>
                   case 'estado':
-                    return <ColHead key={k} icon={CircleDot} className={esMovil ? 'w-[144px]' : 'w-[148px]'} {...col(k, 'Estado', MINIMOS.estado, MAXIMOS.estado)}>Estado</ColHead>
+                    return <ColHead key={k} className={esMovil ? 'w-[144px]' : 'w-[148px]'} {...col(k, 'Estado', MINIMOS.estado, MAXIMOS.estado)}>Estado</ColHead>
                   case 'recibida':
                     // `pr-5` aquí y en la celda, como en el panel: la fecha es lo
                     // último de la fila y se apoyaba en el filo de la tarjeta.
-                    return <ColHead key={k} icon={Clock} align="right" className="w-[136px] pr-5" {...col(k, 'Recibida', MINIMOS.recibida, MAXIMOS.recibida)}>Recibida</ColHead>
+                    return <ColHead key={k} align="right" className="w-[136px] pr-5" {...col(k, 'Recibida', MINIMOS.recibida, MAXIMOS.recibida)}>Recibida</ColHead>
                 }
               })}
             </tr>
@@ -179,7 +183,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
                           // un tono distinto sería una costura vertical.
                           <td key={k} className={`${CELL} ${fijaNombre} ${fijaNombre && `${TRANSICION_FILA} bg-white group-hover:bg-slate-50`}`}>
                             <div className="flex items-center gap-2.5">
-                              <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={28} />
+                              <MeridianAvatar name={name} fit={candidateFit(c.ai)} size={AVATAR_FILA} />
                               {/* UN BOTON DE VERDAD, no un `<span>` subrayado al
                                   pasar por encima. Los unicos elementos enfocables
                                   de la fila eran el enlace del puesto y el selector
@@ -194,7 +198,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
                                 type="button"
                                 onClick={() => onOpen(c.id)}
                                 title={name}
-                                className="block min-w-0 truncate rounded-sm text-left text-[14px] font-medium text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+                                className="block min-w-0 truncate rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
                               >
                                 {name}
                               </button>
@@ -207,19 +211,19 @@ const ListaCandidatos = memo(function ListaCandidatos({
                             {camp ? (
                               <Link
                                 to={`${base}/puestos/${camp.id}`}
-                                className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-200"
+                                className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-slate-100 py-1 pl-2 pr-2.5 text-slate-600 transition-colors hover:bg-slate-200"
                               >
                                 <Briefcase className="size-3.5 shrink-0 text-slate-500" aria-hidden />
                                 <span className="truncate">{camp.title}</span>
                               </Link>
                             ) : (
-                              <span className="text-[12px] text-slate-500">–</span>
+                              <span className="text-slate-500">–</span>
                             )}
                           </td>
                         )
                       case 'telefono':
                         return (
-                          <td key={k} className={`${CELL} num hidden text-[13px] text-slate-600 lg:table-cell`}>
+                          <td key={k} className={`${CELL} num hidden lg:table-cell`}>
                             <span className="block truncate">
                               {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
                             </span>
@@ -233,7 +237,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
                         )
                       case 'recibida':
                         return (
-                          <td key={k} className={`${CELL} whitespace-nowrap pr-5 text-right text-[13px] text-slate-500`}>
+                          <td key={k} className={`${CELL} whitespace-nowrap pr-5 text-right`}>
                             <time dateTime={c.submittedAt} title={fullDateTime(c.submittedAt)} className="num">{fechaCorta(c.submittedAt)}</time>
                           </td>
                         )

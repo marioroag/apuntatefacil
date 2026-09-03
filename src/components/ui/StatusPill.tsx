@@ -231,7 +231,13 @@ export function StatusSelect({
           que descontar. REGLA: cuando una cápsula acaba en un glifo, el relleno de
           ese lado se mide hasta la TINTA, no hasta la caja. */}
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full py-0.5 pl-2.5 pr-1.5 text-[13px] font-semibold transition-colors ${m.chip} group-hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
+        // EN LA TABLA, EL PESO LO PONE LA FILA (Mario, sep 2026). Fuera de ella la
+        // pastilla va en semibold, que es lo que la separa del texto que la rodea;
+        // dentro, una cápsula en semibold al lado de un chip de etiqueta en medium
+        // eran dos cápsulas del mismo tamaño con dos grosores. Es una variante y no
+        // un `font-medium` pegado desde la celda: son la misma utilidad y no se
+        // resuelven por el orden en que se escriben.
+        className={`inline-flex items-center gap-1.5 rounded-full py-0.5 pl-2.5 pr-1.5 text-[13px] ${celda ? '' : 'font-semibold'} transition-colors ${m.chip} group-hover:brightness-[0.97] ${celebrate ? 'animate-[pop-pulse_0.42s_ease-out]' : ''}`}
       >
         {/* EN LA TABLA, SIN PUNTO (Mario, sep 2026). No rompe la regla de que un
             estado nunca se dice solo con color: lo que se lee es su NOMBRE, y el

@@ -139,6 +139,48 @@
   --color-tabla-banda: #ffffff;
   --color-tabla-selec: #f3f6fe;      /* era indigo-50/70 (fila seleccionada) */
   --color-tabla-bloqueada: #fbfcfc;  /* era slate-50/70 (fila bloqueada) */
+  /* LA TINTA DE UNA FILA (Mario, sep 2026: "los textos que no son etiquetas,
+     etapas o documentos a: 17171a"). Es la tercera pata de la misma decisión que
+     dejó la fila en un solo cuerpo y un solo peso (ver `TEXTO_FILA`): un dato de
+     la rejilla no elige ni tamaño, ni grosor, ni tinta.
+     Es un negro un pelo más NEUTRO que la tinta de la casa (`#131822`, que va
+     hacia el azul) y no la sustituye: sigue mandando fuera de la tabla. Aquí
+     manda esta porque una columna de datos no acompaña a nada, es lo que se lee.
+     Lo que se paga, dicho: los tres niveles de Encaje dejan de tener gradiente de
+     gris y se distinguen solo por sus palabras. Las CÁPSULAS quedan fuera a
+     propósito (etiqueta, estado y documento traen su propio par relleno/texto), y
+     también la raya de "no hay dato": a tinta plena, un dato que falta gritaría
+     más que los que están. */
+  --color-tabla-texto: #17171a;
+
+  /* EL RELLENO DE UNA ETIQUETA: medio peldaño de la rampa (Mario, sep 2026).
+     La rampa solo ofrece dos vecinos y ninguno servía: `slate-100` (#f4f5f7) se
+     queda en 1,09:1 contra el blanco de la fila, que es la zona donde esta casa ya
+     ha declarado DOS veces que una cápsula deja de leerse como forma (la pastilla
+     de estado del puesto y la de la tabla); y `slate-200` era "más gris" de lo que
+     la columna pide una vez que la letra subió a 13. Este valor está EN MEDIO de
+     los dos (1,15:1 contra la fila, con el nombre encima en 9,0:1): la cápsula
+     existe y no pesa. Se declara con nombre en vez de escribirse a mano en el chip
+     porque un color sin token es el que nadie vuelve a encontrar el día que haya
+     que moverlo. */
+  --color-etiqueta-fondo: #edeff2;
+
+  /* EL RELLENO DE UNA PASTILLA DE ESTADO: el punto medio entre el 50 y el 100 de
+     su rampa (Mario, sep 2026: "el tinte de los estados que sea más sutil", y con
+     el 50 puesto, "un punto medio").
+     Los cuatro están COMPUESTOS y declarados en vez de escribirse como un
+     `color-mix` dentro de la clase, por lo mismo que `--color-tabla-selec`: lo que
+     se pinta en una fila tiene que ser un valor opaco y estable, y un color sin
+     nombre es el que nadie encuentra el día que haya que moverlo. La receta queda
+     escrita aquí para poder rehacerlos: mezcla al 50% de los pasos 50 y 100.
+     Medido contra el blanco de la fila: azul 1,15:1, gris 1,07, ámbar 1,07 y verde
+     1,07; con el texto encima entre 6,6 y 9,7. Son cuatro y no cinco porque el
+     relleno lo pone el TONO: "nuevo" y "descartado" comparten el gris y se separan
+     por su tinta y por su punto. */
+  --color-estado-gris: #f7f7f9;
+  --color-estado-azul: #e5f0ff;
+  --color-estado-ambar: #fff7d8;
+  --color-estado-verde: #e6fded;
 
   /* --- "HAY ALGO NUEVO" (Mario, ago 2026) ----------------------------------
      TINTA. Y es la segunda vez que este punto cambia de color, así que quedan

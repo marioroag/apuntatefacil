@@ -650,19 +650,42 @@ export const STATUS_META: Record<
   CandidateStatus,
   { label: string; dot: string; chip: string }
 > = {
-  // SIN anillo (Mario, ago 2026): la pastilla es un relleno teñido y ya está,
-  // igual que las etiquetas. Con el borde puesto, una columna de 142 filas era una
-  // columna de 142 cápsulas perfiladas y el perfil pesaba más que la palabra.
-  // Los rellenos suben del paso 50 al 100 al quitarlo: el 50 sobre el blanco de la
-  // fila se queda en ~1,05:1 y sin borde la cápsula dejaba de leerse como forma
-  // (lo mismo que ya se midió en la cápsula de estado del puesto).
-  nuevo: { label: 'Nuevo', dot: 'bg-slate-500', chip: 'bg-slate-100 text-slate-700' },
-  contactado: { label: 'Contactado', dot: 'bg-blue-500', chip: 'bg-blue-100 text-blue-800' },
-  entrevista: { label: 'Entrevista', dot: 'bg-amber-500', chip: 'bg-amber-100 text-amber-800' },
-  contratado: { label: 'Contratado', dot: 'bg-green-500', chip: 'bg-green-100 text-green-800' },
+  // SIN anillo (Mario, ago 2026): la pastilla es un relleno teñido y ya está. Con el
+  // borde puesto, una columna de 142 filas era una columna de 142 cápsulas
+  // perfiladas y el perfil pesaba más que la palabra.
+  //
+  // EL RELLENO ES EL PUNTO MEDIO ENTRE EL 50 Y EL 100 (Mario, sep 2026: "el tinte
+  // de los estados que sea más sutil", y con el 50 delante, "un punto medio").
+  // Los tokens viven en `index.css` (`--color-estado-*`) porque un valor compuesto
+  // necesita nombre; aquí está el porqué.
+  //
+  // Subió de 50 a 100 al quitar el anillo, con el argumento de que a 1,05:1 la
+  // cápsula deja de leerse como forma. **Medido con los cinco delante, ese
+  // argumento no se sostiene para un relleno de COLOR**: en el paso 100 el ámbar
+  // daba 1,11, el verde 1,10 y el gris 1,09, o sea que ninguno se leía tampoco por
+  // luminancia. Lo que hace visible una pastilla teñida es el TONO, no cuánto más
+  // oscura es que el papel; la regla del 1,05 se midió sobre grises y se aplicó a
+  // colores sin volver a mirarla. Y en el otro extremo, el 50 dejaba la cápsula en
+  // 1,04-1,09, o sea casi solo palabra de color. El medio (1,07-1,15) es donde el
+  // tinte se ve sin ser lo más ruidoso de una fila que ya no tiene ningún otro
+  // color: el dato va en tinta plana y las etiquetas volvieron al gris en esta
+  // misma pasada.
+  //
+  // LOS CINCO SE MUEVEN A LA VEZ, como cuando subieron: con unos en un peldaño y
+  // otros en otro, dos parecerían de otra familia.
+  nuevo: { label: 'Nuevo', dot: 'bg-slate-500', chip: 'bg-estado-gris text-slate-700' },
+  contactado: { label: 'Contactado', dot: 'bg-blue-500', chip: 'bg-estado-azul text-blue-800' },
+  entrevista: { label: 'Entrevista', dot: 'bg-amber-500', chip: 'bg-estado-ambar text-amber-800' },
+  contratado: { label: 'Contratado', dot: 'bg-green-500', chip: 'bg-estado-verde text-green-800' },
   // "Descartado" sigue siendo el apagado: mismo relleno neutro que "nuevo" pero
   // con la tinta y el punto más flojos. Es rutina y es reversible, nunca rojo.
-  descartado: { label: 'Descartado', dot: 'bg-slate-300', chip: 'bg-slate-100 text-slate-500' },
+  //
+  // Su tinta sube de `slate-500` a `slate-600` y eso ARREGLA algo que venía roto:
+  // sobre el relleno de antes daba 4,40:1, por debajo del suelo de la casa para
+  // texto con significado, y sobre este se quedaba en 4,49. Con el 600 son 7,08 y
+  // sigue estando un peldaño por debajo de "nuevo" (9,70), que es lo que hace que
+  // se lea apagado; lo apagado no puede costar la legibilidad.
+  descartado: { label: 'Descartado', dot: 'bg-slate-300', chip: 'bg-estado-gris text-slate-600' },
 }
 
 // La estrella de FAVORITO, en un solo sitio: ficha, tabla, tarjeta de móvil y
