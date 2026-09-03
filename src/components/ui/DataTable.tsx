@@ -490,6 +490,10 @@ export const ALTO_FILA = 48
  * Y el número vive AQUÍ y no en cada pantalla: las dos rejillas tienen que envejecer
  * juntas, y escrito a mano en las dos, la primera que se retoque deja a la otra con
  * caras de otro tamaño en la misma columna. Es lo mismo que ya hace `ALTO_FILA`.
+ *
+ * OJO SI ALGÚN DÍA BAJA MÁS: la cara de un candidato es una SILUETA desde sep 2026
+ * (la inicial se quedó en las del equipo, que son cinco personas cuyos nombres te
+ * sabes), y una figura pierde su forma antes de lo que la pierde una letra.
  */
 export const AVATAR_FILA = 26
 
