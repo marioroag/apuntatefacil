@@ -305,32 +305,23 @@ export function initials(name: string): string {
  * rosa se lee como un problema. Aquí TODOS los bloques van teñidos, así que uno
  * rosa es otra persona más y no una alarma.
  *
- * **Y DESDE SEP 2026 CADA ENTRADA LLEVA SU HUE, porque llegó una TERCERA
- * superficie**: la silueta con volumen del candidato (`ui/Avatar` con `silueta`).
- * Ahí el color no se puede pintar con una clase de Tailwind, porque lo que hay
- * son degradados dentro de un SVG, así que hace falta el número. Lo que NO puede
- * pasar es que el hue viva en su propia tabla: la cara de una persona sería de un
- * color en la lista y de otro en el calendario, que es exactamente lo que esta
- * entrada lleva evitando desde que tuvo dos consumidores. Un hue, tres pesos
- * según dónde se pinte.
- *
- * Los valores están puestos A OJO contra su rampa de Tailwind, no calculados: las
- * rampas van en OKLCH y su hue se mueve un poco entre peldaños, así que el número
- * exacto no existe. Lo que tiene que cumplirse es que el `lime` se vea lima y que
- * dos entradas no se acerquen tanto como para confundirse, y eso se comprueba
- * mirando las diez juntas.
+ * **ESTA TABLA ES DEL EQUIPO Y NO DE LOS CANDIDATOS** (sep 2026). La silueta con
+ * volumen de un candidato tiene su propia rueda, mucho más ancha, porque no le
+ * debe nada a ninguna otra superficie: ver `siluetaHue` más abajo. Aquí las diez
+ * entradas están limitadas por lo que sí tienen que hacer, que es existir también
+ * como clases de Tailwind para teñir un bloque del calendario.
  */
 const MEMBER_AVATAR_TONES = [
-  { bg: 'bg-lime-700', text: 'text-white', name: 'text-lime-700', suave: 'bg-lime-100', canto: 'ring-lime-200' , hue: 85, sat: 60 },
-  { bg: 'bg-sky-700', text: 'text-white', name: 'text-sky-700', suave: 'bg-sky-100', canto: 'ring-sky-200' , hue: 200, sat: 78 },
-  { bg: 'bg-teal-700', text: 'text-white', name: 'text-teal-700', suave: 'bg-teal-100', canto: 'ring-teal-200' , hue: 174, sat: 62 },
-  { bg: 'bg-violet-700', text: 'text-white', name: 'text-violet-700', suave: 'bg-violet-100', canto: 'ring-violet-200' , hue: 262, sat: 62 },
-  { bg: 'bg-amber-700', text: 'text-white', name: 'text-amber-800', suave: 'bg-amber-100', canto: 'ring-amber-200' , hue: 40, sat: 76 },
-  { bg: 'bg-rose-700', text: 'text-white', name: 'text-rose-700', suave: 'bg-rose-100', canto: 'ring-rose-200' , hue: 348, sat: 68 },
-  { bg: 'bg-emerald-700', text: 'text-white', name: 'text-emerald-700', suave: 'bg-emerald-100', canto: 'ring-emerald-200' , hue: 158, sat: 60 },
-  { bg: 'bg-orange-700', text: 'text-white', name: 'text-orange-700', suave: 'bg-orange-100', canto: 'ring-orange-200' , hue: 25, sat: 78 },
-  { bg: 'bg-cyan-800', text: 'text-white', name: 'text-cyan-800', suave: 'bg-cyan-100', canto: 'ring-cyan-200' , hue: 190, sat: 64 },
-  { bg: 'bg-fuchsia-800', text: 'text-white', name: 'text-fuchsia-800', suave: 'bg-fuchsia-100', canto: 'ring-fuchsia-200' , hue: 292, sat: 62 },
+  { bg: 'bg-lime-700', text: 'text-white', name: 'text-lime-700', suave: 'bg-lime-100', canto: 'ring-lime-200' },
+  { bg: 'bg-sky-700', text: 'text-white', name: 'text-sky-700', suave: 'bg-sky-100', canto: 'ring-sky-200' },
+  { bg: 'bg-teal-700', text: 'text-white', name: 'text-teal-700', suave: 'bg-teal-100', canto: 'ring-teal-200' },
+  { bg: 'bg-violet-700', text: 'text-white', name: 'text-violet-700', suave: 'bg-violet-100', canto: 'ring-violet-200' },
+  { bg: 'bg-amber-700', text: 'text-white', name: 'text-amber-800', suave: 'bg-amber-100', canto: 'ring-amber-200' },
+  { bg: 'bg-rose-700', text: 'text-white', name: 'text-rose-700', suave: 'bg-rose-100', canto: 'ring-rose-200' },
+  { bg: 'bg-emerald-700', text: 'text-white', name: 'text-emerald-700', suave: 'bg-emerald-100', canto: 'ring-emerald-200' },
+  { bg: 'bg-orange-700', text: 'text-white', name: 'text-orange-700', suave: 'bg-orange-100', canto: 'ring-orange-200' },
+  { bg: 'bg-cyan-800', text: 'text-white', name: 'text-cyan-800', suave: 'bg-cyan-100', canto: 'ring-cyan-200' },
+  { bg: 'bg-fuchsia-800', text: 'text-white', name: 'text-fuchsia-800', suave: 'bg-fuchsia-100', canto: 'ring-fuchsia-200' },
 ] as const
 
 /** Lo que un tono de miembro sabe pintar: la cara (bg/text/name) y un relleno claro. */
@@ -346,6 +337,63 @@ export function memberAvatarTone(seed: string | null | undefined): MemberTone {
   const key = (seed ?? '').trim().toLowerCase()
   if (!key) return MEMBER_AVATAR_TONES[0]
   return MEMBER_AVATAR_TONES[hashSeed(key) % MEMBER_AVATAR_TONES.length]
+}
+
+/**
+ * EL TONO DE UN CANDIDATO: UNA RUEDA DE 79, NO LAS DIEZ DEL EQUIPO (Mario, sep
+ * 2026: "¿podríamos tener más variedad de colores?").
+ *
+ * **Puede ser mucho más ancha porque no le debe nada a nadie.** La tabla de
+ * arriba tiene diez entradas por un motivo que aquí no existe: cada una tiene que
+ * ser además una clase de Tailwind, porque el mismo tono tiñe el bloque de una
+ * cita en el calendario. El color de un candidato tiene UN solo consumidor, su
+ * silueta, que se pinta con degradados dentro de un SVG. Con diez tonos, una
+ * lista de seiscientas personas repetía color cada seis filas.
+ *
+ * **VA EN OKLCH Y NO EN HSL, y no es preciosismo.** En HSL la misma luminosidad
+ * pesa distinto según el hue (un amarillo al 72% deslumbra y un azul al 72% se
+ * queda a media luz), así que una rueda entera saldría con unas caras lavadas y
+ * otras plomizas. En OKLCH la L es perceptual: se fija una vez y las 79 salen con
+ * el mismo peso. Es la escala en la que ya están las rampas de Tailwind v4.
+ *
+ * **LOS ARCOS VETADOS ESTÁN MEDIDOS EN OKLCH, y esa es la parte que se olvida:**
+ * el ultramarine de marca está en el hue **270** y el rojo de error en el **27**,
+ * mientras que en HSL esos mismos colores caen en 232 y en 0. Un veto escrito con
+ * los números de HSL habría dejado pasar avatares del color de la marca creyendo
+ * que los estaba prohibiendo (pasó, y lo cazó medirlo antes de aplicarlo). Fuera,
+ * entonces, 252-290 y 20-35. Los extremos se afinaron con el guardián delante:
+ * el arco frío empezaba en 288 y eso deja el primer tono a 17,9 grados del
+ * ultramarine, o sea dentro del margen que la propia prueba exige. Su guardián lee el
+ * acento de `colors.ts` y vuelve a hacer la cuenta, así que el día que la marca
+ * cambie de color la prueba avisa de que la rueda se le ha metido dentro.
+ *
+ * **CADA ARCO SE MUESTREA A SU PASO, y esto se cazó en pantalla.** Con un paso
+ * único de 4 grados, las primeras doce filas de la lista salían casi todas entre
+ * el 90 y el 175, o sea verdes y turquesas, y no era mala suerte: **en OKLCH esa
+ * familia sola ocupa unos 90 grados del círculo**, casi un tercio de lo que
+ * queda tras los vetos, mientras que los azules o los naranjas caben en la mitad.
+ * Un muestreo uniforme en GRADOS no es un muestreo uniforme en COLORES. La banda
+ * verde va a 7 grados de paso y el resto a 4, así que las familias salen
+ * repartidas y no proporcionales a su trozo de rueda. Por debajo de 4 grados dos
+ * tonos vecinos ya no se distinguen y la variedad sería solo aritmética.
+ */
+const SILUETA_ARCOS = [
+  [35, 110, 4], // naranjas, ámbares y olivas
+  [110, 200, 7], // verdes y turquesas: la familia más ancha, muestreada más suelta
+  [200, 252, 4], // azules, hasta donde empieza el veto de la marca
+  [290, 380, 4], // violetas, magentas y rosas (cruza el 360)
+] as const
+export const SILUETA_TONOS: readonly number[] = SILUETA_ARCOS.flatMap(([desde, hasta, paso]) => {
+  const tramo: number[] = []
+  for (let h = desde; h < hasta; h += paso) tramo.push(h % 360)
+  return tramo
+})
+
+/** El hue OKLCH de una persona. Misma semilla, mismo color, siempre. */
+export function siluetaHue(seed: string | null | undefined): number {
+  const key = (seed ?? '').trim().toLowerCase()
+  if (!key) return SILUETA_TONOS[0]
+  return SILUETA_TONOS[hashSeed(key) % SILUETA_TONOS.length]
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { initials, memberAvatarTone } from '../../lib/format'
+import { initials, memberAvatarTone, siluetaHue } from '../../lib/format'
 
 /**
  * La cara de una persona. Foto si la tiene; si no, una de las dos caras
@@ -54,7 +54,6 @@ export function Avatar({
   // `useId` trae dos puntos o comillas angulares según la versión de React, y un
   // id de SVG se referencia desde un atributo: se limpia para no depender de eso.
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '')
-  const tone = memberAvatarTone(seed ?? name)
   const px = `${size}px`
 
   if (src && !failed) {
@@ -73,13 +72,14 @@ export function Avatar({
     )
   }
 
-  if (silueta) return <Silueta hue={tone.hue} sat={tone.sat} size={size} uid={uid} className={className} />
+  if (silueta) return <Silueta hue={siluetaHue(seed ?? name)} size={size} uid={uid} className={className} />
 
   // El tamaño de letra sigue al del círculo. El 44% (antes 40) es porque desde
   // ago 2026 la inicial es UNA: dos letras tenían que caber a lo ancho y por eso
   // se quedaban pequeñas; una sola puede ocupar lo que le corresponde. El suelo de
   // 9px se mantiene para los avatares de 20px del hilo.
   const fontSize = Math.max(9, Math.round(size * 0.44))
+  const tone = memberAvatarTone(seed ?? name)
   return (
     <span
       aria-hidden
@@ -131,13 +131,11 @@ export function Avatar({
  */
 function Silueta({
   hue,
-  sat,
   size,
   uid,
   className,
 }: {
   hue: number
-  sat: number
   size: number
   uid: string
   className: string
@@ -151,11 +149,14 @@ function Silueta({
   // la cara se pinta a 28px en una columna de tabla, donde un tono claro se lava
   // contra el disco. Y dos, el volumen de una esfera lo hace la CAÍDA hacia el
   // borde: con poco recorrido entre el centro y el rim, la cabeza se lee como un
-  // disco liso con una mancha clara encima. 72 -> 38 de luminosidad, y el disco de
-  // fondo quieto en 94, que es lo que deja que la figura se despegue sin que el
-  // avatar entero se convierta en una mancha.
-  const claro = (d: number) => `hsl(${hue + 6} ${sat}% ${72 - d}%)`
-  const oscuro = (d: number) => `hsl(${hue - 4 - d} ${sat}% ${38 - d}%)`
+  // disco liso con una mancha clara encima.
+  //
+  // Las tres luminosidades son OKLCH y por eso son NÚMEROS FIJOS para los 79
+  // tonos de la rueda: en esa escala la L es perceptual, así que 0,79 pesa igual
+  // en un amarillo que en un azul. En HSL habría que corregir tono a tono, que es
+  // justo la mano que nadie mantiene. El cuerpo va un peldaño por debajo de la
+  // cabeza (0,76/0,49 contra 0,79/0,53) porque le da menos luz de frente.
+  const luz = (L: number, C: number) => `oklch(${L} ${C} ${hue})`
   return (
     <svg
       aria-hidden
@@ -170,15 +171,15 @@ function Silueta({
           <circle cx="50" cy="50" r="50" />
         </clipPath>
         <radialGradient id={cara} cx="0.36" cy="0.36" r="0.78">
-          <stop offset="0" stopColor={claro(0)} />
-          <stop offset="1" stopColor={oscuro(0)} />
+          <stop offset="0" stopColor={luz(0.79, 0.13)} />
+          <stop offset="1" stopColor={luz(0.53, 0.15)} />
         </radialGradient>
         <radialGradient id={cuerpo} cx="0.36" cy="0.34" r="0.8">
-          <stop offset="0" stopColor={claro(3)} />
-          <stop offset="1" stopColor={oscuro(4)} />
+          <stop offset="0" stopColor={luz(0.76, 0.14)} />
+          <stop offset="1" stopColor={luz(0.49, 0.15)} />
         </radialGradient>
       </defs>
-      <circle cx="50" cy="50" r="50" fill={`hsl(${hue} ${sat * 0.85}% 94%)`} />
+      <circle cx="50" cy="50" r="50" fill={luz(0.955, 0.03)} />
       <g clipPath={`url(#${recorte})`}>
         <path d="M21 100V84.2A29 20.2 0 0 1 79 84.2V100Z" fill={`url(#${cuerpo})`} />
       </g>

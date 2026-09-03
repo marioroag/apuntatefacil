@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { memberAvatarTone } from './format'
+import { SILUETA_TONOS, memberAvatarTone, siluetaHue } from './format'
+import { ACENTO_MARCA } from './colors'
 import { INTERVIEW_STATUS_META, type InterviewStatus } from './types'
 import fuenteFormat from './format.ts?raw'
 
@@ -64,37 +65,61 @@ describe('el guardián del color de una persona', () => {
   })
 
   /**
-   * EL HUE NUMÉRICO ES EL MISMO COLOR QUE LAS CLASES. Desde sep 2026 hay una
-   * TERCERA superficie, la silueta con volumen del candidato (`ui/Avatar`), y sus
-   * degradados viven dentro de un SVG, así que no se pueden pintar con una clase:
-   * la entrada lleva el hue como número. El fallo que esto vigila es el de
-   * siempre y es invisible: reordenar la tabla o añadir un tono y dejarse el
-   * número deja a una persona con el disco de un color y la silueta de otro, y
-   * cada superficie por separado se sigue viendo bien.
+   * LA RUEDA DEL CANDIDATO NO PUEDE PISAR NI LA MARCA NI EL ROJO DE ERROR.
    *
-   * La referencia está puesta a mano contra cada rampa de Tailwind, con una
-   * tolerancia ancha (±25) porque las rampas van en OKLCH y su hue se mueve entre
-   * peldaños: aquí no se persigue el número exacto, se persigue que nadie ponga
-   * el de otra familia.
+   * Y esto NO se puede comprobar a ojo ni escribir de memoria: el ultramarine
+   * está en el hue 270 de OKLCH y en el 232 de HSL, así que un veto pensado con
+   * los números de HSL deja pasar avatares del color de la marca creyendo que los
+   * prohíbe. La prueba vuelve a hacer la cuenta desde `ACENTO_MARCA`, que es la
+   * fuente del color de marca: si algún día cambia, aquí se avisa de que la rueda
+   * se le ha metido dentro, en vez de descubrirlo en una lista de candidatos.
    */
-  it('el hue numérico es el de su familia de Tailwind', () => {
-    const REF: Record<string, number> = {
-      lime: 85, sky: 200, teal: 174, violet: 262, amber: 40,
-      rose: 348, emerald: 158, orange: 25, cyan: 190, fuchsia: 292,
+  describe('la rueda de tonos del candidato', () => {
+    /** sRGB -> OKLCH. Solo hace falta el hue, pero se calcula entero por claridad. */
+    const hueOklch = (hex: string) => {
+      const n = parseInt(hex.slice(1), 16)
+      const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+      const r = lin(((n >> 16) & 255) / 255)
+      const g = lin(((n >> 8) & 255) / 255)
+      const b = lin((n & 255) / 255)
+      const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+      const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+      const s2 = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+      const A = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s2
+      const B = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s2
+      const h = (Math.atan2(B, A) * 180) / Math.PI
+      return h < 0 ? h + 360 : h
     }
-    // Distancia en un círculo de 360: 350 y 10 están a 20, no a 340.
     const vuelta = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
-    for (const e of entradas) {
-      const familia = hue(e, 'bg')!
-      const n = Number(/hue: (-?\d+)/.exec(e)?.[1] ?? NaN)
-      const sat = Number(/sat: (-?\d+)/.exec(e)?.[1] ?? NaN)
-      expect(REF[familia], `no hay hue de referencia para "${familia}": añádelo aquí`).toBeDefined()
-      expect(Number.isFinite(n), `falta "hue" en ${e}`).toBe(true)
-      expect(vuelta(n, REF[familia]), `hue ${n} no es un ${familia} (referencia ${REF[familia]})`).toBeLessThanOrEqual(25)
-      // Sin saturación no hay color: por debajo de 40 la silueta sale gris, y por
-      // encima de 90 se va al fluorescente, que en una lista de cien caras cansa.
-      expect(sat >= 40 && sat <= 90, `"sat" fuera de 40..90 en ${e}`).toBe(true)
-    }
+
+    it('ninguno se acerca al acento de marca', () => {
+      const marca = hueOklch(ACENTO_MARCA)
+      for (const h of SILUETA_TONOS) {
+        expect(vuelta(h, marca), `el tono ${h} está a menos de 18 grados del ultramarine (${marca.toFixed(0)})`)
+          .toBeGreaterThan(18)
+      }
+    })
+
+    it('ninguno se acerca al rojo de error', () => {
+      // El rojo destructivo de la casa es el `red-600` de Tailwind (#dc2626), que
+      // no tiene token propio en `index.css`: por eso va escrito aquí y no leído.
+      const rojo = hueOklch('#dc2626')
+      for (const h of SILUETA_TONOS) {
+        expect(vuelta(h, rojo), `el tono ${h} está a menos de 5 grados del rojo de error (${rojo.toFixed(0)})`)
+          .toBeGreaterThan(5)
+      }
+    })
+
+    /** Si la rueda encoge, vuelve el problema que vino a resolver. */
+    it('tiene bastantes tonos como para que una lista larga no repita cada pocas filas', () => {
+      expect(SILUETA_TONOS.length).toBeGreaterThanOrEqual(48)
+      expect(new Set(SILUETA_TONOS).size).toBe(SILUETA_TONOS.length)
+    })
+
+    it('la misma persona sale siempre del mismo tono', () => {
+      expect(siluetaHue('laura@apuntatefacil.com')).toBe(siluetaHue('LAURA@apuntatefacil.com '))
+      expect(SILUETA_TONOS).toContain(siluetaHue('quien sea'))
+    })
   })
 
   /** La misma semilla, el mismo tono, siempre: es lo que lo hace una identidad. */
