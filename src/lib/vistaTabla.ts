@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
+import { guardarSeccion, leerSeccion, usePreferencia } from './preferencias'
 import type { LucideIcon } from 'lucide-react'
 
 /* ---------------------------------------------------------------------------
@@ -8,6 +9,7 @@ import type { LucideIcon } from 'lucide-react'
    propósito: un ancho se ajusta con la ventana que tienes delante y se toca a
    diario; qué columnas te importan es una preferencia de fondo y casi no cambia.
    Mezclarlas en la misma clave obligaría a borrar una para restablecer la otra.
+   Los dos cajones viajan con TU CUENTA desde sep 2026: ver `preferencias.ts`.
 
    TRES REGLAS QUE NO SON NEGOCIABLES, y las tres salen de doctrina ya escrita:
 
@@ -72,28 +74,18 @@ type Guardado = {
   cambiadas?: string[]
 }
 
-const CLAVE = 'apuntatefacil.vista-tabla.v1'
+const SECCION = 'vistaTabla'
 
-function leer(): Record<string, Guardado> {
-  try {
-    const raw = localStorage.getItem(CLAVE)
-    return raw ? (JSON.parse(raw) as Record<string, Guardado>) : {}
-  } catch {
-    // Un ajuste de presentación no puede tumbar la pantalla: modo incógnito con
-    // el almacenamiento capado, o una versión anterior con otra forma.
-    return {}
-  }
-}
+/** Referencia estable para "esta tabla está de fábrica" (ver `columnas.ts`). */
+const DE_FABRICA: Guardado = {}
+
+const leer = (): Record<string, Guardado> => leerSeccion<Record<string, Guardado>>(SECCION) ?? {}
 
 function escribir(tablaId: string, valor: Guardado | null) {
-  try {
-    const todo = leer()
-    if (valor) todo[tablaId] = valor
-    else delete todo[tablaId]
-    localStorage.setItem(CLAVE, JSON.stringify(todo))
-  } catch {
-    /* sin persistencia, la sesión sigue funcionando */
-  }
+  const todo = { ...leer() }
+  if (valor) todo[tablaId] = valor
+  else delete todo[tablaId]
+  guardarSeccion(SECCION, Object.keys(todo).length ? todo : undefined)
 }
 
 /**
@@ -142,7 +134,9 @@ export type VistaTabla<K extends string> = {
  *                   sale una prop de una tabla memoizada.
  */
 export function useVistaTabla<K extends string>(tablaId: string, columnas: ColumnaVista<K>[]): VistaTabla<K> {
-  const [guardado, setGuardado] = useState<Guardado>(() => leer()[tablaId] ?? {})
+  // La fuente de verdad es la cuenta (`preferencias.ts`) y no un estado local:
+  // el panel se recoloca solo cuando llega lo que dejaste en el otro ordenador.
+  const guardado = usePreferencia<Record<string, Guardado>>(SECCION)?.[tablaId] ?? DE_FABRICA
 
   const lista = useMemo(() => aplicarOrden(columnas, guardado.orden), [columnas, guardado.orden])
 
@@ -160,7 +154,6 @@ export function useVistaTabla<K extends string>(tablaId: string, columnas: Colum
   // que deja que la lista guardada siga siendo legible cuando mañana cambien las
   // columnas disponibles.
   const guardar = useCallback((siguiente: Guardado) => {
-    setGuardado(siguiente)
     const vacio = !siguiente.orden?.length && !siguiente.cambiadas?.length
     escribir(tablaId, vacio ? null : siguiente)
   }, [tablaId])
@@ -168,15 +161,13 @@ export function useVistaTabla<K extends string>(tablaId: string, columnas: Colum
   const alternar = useCallback((key: K) => {
     const col = columnas.find((c) => c.key === key)
     if (col?.fija) return
-    setGuardado((prev) => {
-      const set = new Set(prev.cambiadas ?? [])
-      set.has(key) ? set.delete(key) : set.add(key)
-      const siguiente = { ...prev, cambiadas: [...set] }
-      const vacio = !siguiente.orden?.length && !siguiente.cambiadas.length
-      escribir(tablaId, vacio ? null : siguiente)
-      return siguiente
-    })
-  }, [columnas, tablaId])
+    // Se lee lo guardado AHORA y no un `prev` del render: el cajón vive fuera de
+    // React, así que dos pulsaciones seguidas ven las dos lo que dejó la anterior.
+    const prev = leer()[tablaId] ?? DE_FABRICA
+    const set = new Set(prev.cambiadas ?? [])
+    set.has(key) ? set.delete(key) : set.add(key)
+    guardar({ ...prev, cambiadas: [...set] })
+  }, [columnas, guardar, tablaId])
 
   const colocar = useCallback((desde: number, hasta: number) => {
     const claves = lista.map((c) => c.key)
