@@ -1,11 +1,22 @@
 import { useSyncExternalStore } from 'react'
 
 /* ---------------------------------------------------------------------------
-   TUS PREFERENCIAS DE PRESENTACIÓN, GUARDADAS EN LA CUENTA (Mario, sep 2026)
+   TUS PREFERENCIAS DE PRESENTACIÓN (Mario, sep 2026)
    ---------------------------------------------------------------------------
-   Qué columnas ves, en qué orden y con qué anchos. Vivía suelto en tres claves
-   de `localStorage`, o sea en UNA máquina; ahora viaja con tu cuenta
-   (`profiles.ui_prefs`) y el navegador se queda de CACHÉ.
+   Qué columnas ves, en qué orden, con qué anchos y si miras el puesto en tabla o
+   en tablero. Vivía suelto en tres claves de `localStorage`, o sea en UNA
+   máquina; ahora casi todo viaja con tu cuenta (`profiles.ui_prefs`) y el
+   navegador se queda de CACHÉ.
+
+   **CASI TODO: LOS ANCHOS NO VIAJAN, Y ESA ES LA FRONTERA.** No es una excepción
+   caprichosa, es la pregunta que separa las dos clases de preferencia: ¿esto
+   depende de la PANTALLA que tienes delante o de CÓMO TRABAJAS? Un ancho depende
+   de la pantalla (los anchos que te caben en un monitor de 27 pulgadas no son los
+   que te caben en un portátil, y heredarlos del otro sitio es peor que no
+   guardarlos); el orden de las columnas, cuáles te importan y si tríasen tablero
+   dependen de ti, y son las mismas en las dos máquinas. Por eso `DE_LA_CUENTA`
+   se declara aquí arriba y no se decide en cada consumidor: es UNA decisión, y
+   escrita en tres sitios se separaría al primer añadido.
 
    La caché no es un lujo: sin ella, cada recarga pintaría la tabla de fábrica y
    la recolocaría al llegar la respuesta del servidor, o sea un salto en la
@@ -41,6 +52,13 @@ import { useSyncExternalStore } from 'react'
    depende de la pantalla que tienes delante (es lo que dice su propio módulo), y
    además no es la mesa de trabajo, es el chrome que la rodea.
 --------------------------------------------------------------------------- */
+
+/**
+ * QUÉ VIAJA CON LA CUENTA. Lo que no esté aquí se guarda igual, pero solo en este
+ * navegador: ver la frontera de arriba. Hoy los anchos (`columnas`) son lo único
+ * que se queda; antes de meter una sección nueva, la pregunta es de qué depende.
+ */
+const DE_LA_CUENTA = new Set(['vistaTabla', 'panelModo'])
 
 /** La caché de este navegador. Una sola clave: dentro dice de quién es. */
 const ESPEJO = 'apuntatefacil.prefs.v1'
@@ -107,6 +125,13 @@ function borrarLegado() {
 }
 
 const tamano = (datos: Preferencias) => JSON.stringify(datos).length
+
+/** Lo que se manda a la cuenta. */
+const soloCuenta = (d: Preferencias): Preferencias =>
+  Object.fromEntries(Object.entries(d).filter(([k]) => DE_LA_CUENTA.has(k)))
+/** Lo que se queda en este navegador y por lo tanto no lo pisa una respuesta. */
+const soloLocal = (d: Preferencias): Preferencias =>
+  Object.fromEntries(Object.entries(d).filter(([k]) => !DE_LA_CUENTA.has(k)))
 
 /**
  * Deja el cajón por debajo del tope, tirando primero lo que menos duele.
@@ -182,11 +207,15 @@ let temporizador: ReturnType<typeof setTimeout> | null = null
 const oyentes = new Set<() => void>()
 const emitir = () => oyentes.forEach((f) => f())
 
-function escribirEspejo() {
+/** `false` si no se pudo escribir (ventana privada): lo usa la adopción del
+ *  legado, que no puede borrar las claves viejas sin haberlas puesto a salvo. */
+function escribirEspejo(): boolean {
   try {
     localStorage.setItem(ESPEJO, JSON.stringify({ uid, datos, pendiente } satisfies Espejo))
+    return true
   } catch {
     /* sin caché, el ajuste vale para esta sesión y sube igual */
+    return false
   }
 }
 
@@ -197,7 +226,7 @@ function programarSubida() {
     temporizador = null
     const enVuelo = datos
     const eraDeLegado = deLegado
-    void subir?.(enVuelo).then((ok) => {
+    void subir?.(soloCuenta(enVuelo)).then((ok) => {
       if (!ok) return // se queda pendiente: lo reintenta el próximo cambio o la próxima visita
       // Si mientras subía has vuelto a tocar algo, sigue habiendo pendiente.
       if (datos !== enVuelo) return
@@ -228,10 +257,19 @@ export function guardarSeccion(nombre: string, valor: unknown) {
   if (valor === undefined || valor === null) delete siguiente[nombre]
   else siguiente[nombre] = valor
   datos = recortar(siguiente)
-  pendiente = true
+  // Una sección que no viaja NO deja nada pendiente: `pendiente` es lo que le
+  // dice a la próxima visita "no adoptes lo de arriba, que aquí hay algo sin
+  // subir", y ajustar un ancho no puede bloquear que llegue el orden que dejaste
+  // puesto en el otro ordenador.
+  if (DE_LA_CUENTA.has(nombre)) {
+    pendiente = true
+    escribirEspejo()
+    emitir()
+    programarSubida()
+    return
+  }
   escribirEspejo()
   emitir()
-  programarSubida()
 }
 
 /** Suscripción para `useSyncExternalStore`. */
@@ -282,25 +320,36 @@ export function sincronizar(
   if (identidad) uid = identidad
   if (!identidad || !escritor) return
 
-  const hayRemoto = !!remoto && Object.keys(remoto).length > 0
+  const hayRemoto = !!remoto && Object.keys(soloCuenta(remoto)).length > 0
   if (hayRemoto && !pendiente) {
-    // Manda el servidor (regla 1). Se compara antes de tocar nada para no
-    // repintar la tabla por una respuesta que dice lo mismo que ya se ve.
-    if (JSON.stringify(remoto) !== JSON.stringify(datos)) {
-      datos = remoto as Preferencias
-      deLegado = false
+    // Manda el servidor (regla 1), pero SOLO sobre lo que viaja: los anchos de
+    // esta máquina no los pisa una respuesta que no los lleva. Se compara antes
+    // de tocar nada para no repintar la tabla por algo que ya se ve igual.
+    if (JSON.stringify(soloCuenta(remoto!)) !== JSON.stringify(soloCuenta(datos))) {
+      datos = { ...soloLocal(datos), ...soloCuenta(remoto!) }
       escribirEspejo()
       emitir()
     }
+    if (deLegado) {
+      // Las claves viejas ya no pintan nada: lo que viaja lo manda la cuenta y lo
+      // que no, está en la caché. Se borran solo si de verdad se guardaron.
+      deLegado = false
+      if (escribirEspejo()) borrarLegado()
+    }
     return
   }
-  // O la cuenta no tiene nada (y aquí sí: adopción de las claves viejas o de lo
-  // que se guardó sin red), o hay cambios locales sin subir. En los dos casos
-  // sube lo de aquí.
-  if (Object.keys(datos).length > 0 && (pendiente || deLegado || !hayRemoto)) {
+  // O la cuenta no tiene nada (adopción de las claves viejas, o de lo que se
+  // guardó sin red), o hay cambios de aquí sin subir. En los dos casos sube lo
+  // que viaja... si es que hay algo que viaje.
+  if (Object.keys(soloCuenta(datos)).length > 0) {
     pendiente = true
     escribirEspejo()
     programarSubida()
+  } else if (deLegado) {
+    // Solo había anchos en las claves viejas: nada que subir, pero ya están a
+    // salvo en la caché, así que se pueden retirar.
+    deLegado = false
+    if (escribirEspejo()) borrarLegado()
   }
 }
 

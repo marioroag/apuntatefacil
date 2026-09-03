@@ -56,15 +56,17 @@ import { guardarSeccion, leerSeccion, usePreferencia } from './preferencias'
       que Home, que es lo que la gente ya intenta. La doctrina de accesibilidad
       exige alternativa de teclado en todo lo que se arrastra.
 
-   SE GUARDA EN LA CUENTA (sep 2026), no en el navegador. Estuvo en
-   `localStorage` con el argumento de que "el ancho cómodo depende de la pantalla
-   que tienes delante, no de quién eres", y Mario lo cambió: lo que de verdad
-   pesa es que al cambiar de máquina la mesa esté como la dejaste. Lo que aquel
-   argumento protegía sigue cubierto por tres cosas que ya existían: en móvil
-   esto está APAGADO (`activo`), así que un teléfono no hereda los anchos de un
-   monitor; lo que no cabe saca el desplazamiento horizontal en vez de romper
-   nada; y devolverlo todo a fábrica es un doble clic en cualquier filo. El
-   navegador sigue guardando una copia, pero como CACHÉ (ver `preferencias.ts`).
+   SE GUARDA EN ESTE NAVEGADOR, y es lo ÚNICO de la mesa que no viaja con tu
+   cuenta (Mario, sep 2026): el ancho cómodo depende de la PANTALLA que tienes
+   delante, no de quién eres, así que los que te caben en un monitor de 27
+   pulgadas no son los que te caben en un portátil y heredarlos del otro sitio
+   sería peor que no guardarlos. Su hermano `vistaTabla` (el orden y qué columnas
+   ves) sí viaja, porque eso depende de cómo trabajas y es igual en las dos
+   máquinas. Los dos comparten cajón, y quién sube y quién no lo declara una sola
+   vez, en `preferencias.ts` (`DE_LA_CUENTA`).
+
+   Lo que sí se gana del cambio de sep 2026: el cajón lleva de QUIÉN es, así que
+   dos personas que compartan navegador dejan de compartir los anchos.
 --------------------------------------------------------------------------- */
 
 const SECCION = 'columnas'

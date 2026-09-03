@@ -39,71 +39,109 @@ describe('lo que se guarda', () => {
   it('sube a la cuenta con retardo, y una sola vez por ráfaga', async () => {
     const e = escritor()
     sincronizar('u1', null, e.fn)
-    guardarSeccion('columnas', { puesto: { estado: 200 } })
-    guardarSeccion('columnas', { puesto: { estado: 240 } })
+    guardarSeccion('vistaTabla', { puesto: { cambiadas: ['telefono'] } })
+    guardarSeccion('vistaTabla', { puesto: { cambiadas: ['telefono', 'encaje'] } })
     expect(e.subidas).toHaveLength(0)
     await vi.runAllTimersAsync()
-    expect(e.subidas).toEqual([{ columnas: { puesto: { estado: 240 } } }])
+    expect(e.subidas).toEqual([{ vistaTabla: { puesto: { cambiadas: ['telefono', 'encaje'] } } }])
+  })
+})
+
+describe('lo que NO viaja con la cuenta', () => {
+  it('un ancho se guarda pero no sale de este navegador', async () => {
+    const e = escritor()
+    sincronizar('u1', null, e.fn)
+    guardarSeccion('columnas', { puesto: { estado: 200 } })
+    await vi.runAllTimersAsync()
+    expect(leerSeccion('columnas')).toEqual({ puesto: { estado: 200 } })
+    expect(e.subidas).toHaveLength(0)
+  })
+
+  it('lo que sube NO lleva los anchos, aunque estén en el mismo cajón', async () => {
+    const e = escritor()
+    sincronizar('u1', null, e.fn)
+    guardarSeccion('columnas', { puesto: { estado: 200 } })
+    guardarSeccion('vistaTabla', { puesto: { cambiadas: ['telefono'] } })
+    await vi.runAllTimersAsync()
+    expect(e.subidas).toEqual([{ vistaTabla: { puesto: { cambiadas: ['telefono'] } } }])
+  })
+
+  it('una respuesta del servidor no puede borrar los anchos de esta máquina', () => {
+    _reiniciar({ datos: { columnas: { puesto: { estado: 200 } } }, uid: 'u1' })
+    sincronizar('u1', { vistaTabla: { puesto: { cambiadas: ['telefono'] } } }, escritor().fn)
+    expect(leerSeccion('columnas')).toEqual({ puesto: { estado: 200 } })
+    expect(leerSeccion('vistaTabla')).toEqual({ puesto: { cambiadas: ['telefono'] } })
+  })
+
+  it('y ajustar un ancho no bloquea que llegue lo que sí viaja', () => {
+    // Un arrastre no puede dejar "pendiente": si lo dejara, la próxima visita se
+    // negaría a adoptar el orden que dejaste puesto en el otro ordenador.
+    sincronizar('u1', null, escritor().fn)
+    guardarSeccion('columnas', { puesto: { estado: 200 } })
+    sincronizar('u1', { panelModo: 'tablero' }, escritor().fn)
+    expect(leerSeccion('panelModo')).toBe('tablero')
   })
 })
 
 describe('quién manda al sincronizar', () => {
   it('manda el servidor cuando aquí no hay nada sin subir', () => {
-    _reiniciar({ datos: { columnas: { puesto: { estado: 200 } } }, uid: 'u1' })
-    sincronizar('u1', { columnas: { puesto: { estado: 320 } } }, escritor().fn)
-    expect(leerSeccion('columnas')).toEqual({ puesto: { estado: 320 } })
+    _reiniciar({ datos: { panelModo: 'tabla' }, uid: 'u1' })
+    sincronizar('u1', { panelModo: 'tablero' }, escritor().fn)
+    expect(leerSeccion('panelModo')).toBe('tablero')
   })
 
   it('NO manda el servidor si aquí hay un cambio sin subir: se sube lo de aquí', async () => {
     const e = escritor()
-    _reiniciar({ datos: { columnas: { puesto: { estado: 200 } } }, uid: 'u1', pendiente: true })
-    sincronizar('u1', { columnas: { puesto: { estado: 320 } } }, e.fn)
-    expect(leerSeccion('columnas')).toEqual({ puesto: { estado: 200 } })
+    _reiniciar({ datos: { panelModo: 'tabla' }, uid: 'u1', pendiente: true })
+    sincronizar('u1', { panelModo: 'tablero' }, e.fn)
+    expect(leerSeccion('panelModo')).toBe('tabla')
     await vi.runAllTimersAsync()
-    expect(e.subidas).toEqual([{ columnas: { puesto: { estado: 200 } } }])
+    expect(e.subidas).toEqual([{ panelModo: 'tabla' }])
   })
 
   it('lo que hay en el navegador se adopta si la cuenta no tiene nada', async () => {
     const e = escritor()
-    _reiniciar({ datos: { columnas: { puesto: { estado: 200 } } }, deLegado: true })
+    _reiniciar({ datos: { panelModo: 'tablero' }, deLegado: true })
     sincronizar('u1', null, e.fn)
     await vi.runAllTimersAsync()
-    expect(e.subidas).toEqual([{ columnas: { puesto: { estado: 200 } } }])
+    expect(e.subidas).toEqual([{ panelModo: 'tablero' }])
   })
 
   it('pero NO pisa a la cuenta que ya tenía algo guardado', () => {
-    _reiniciar({ datos: { columnas: { puesto: { estado: 200 } } }, deLegado: true })
-    sincronizar('u1', { columnas: { puesto: { estado: 320 } } }, escritor().fn)
-    expect(leerSeccion('columnas')).toEqual({ puesto: { estado: 320 } })
+    _reiniciar({ datos: { panelModo: 'tabla' }, deLegado: true })
+    sincronizar('u1', { panelModo: 'tablero' }, escritor().fn)
+    expect(leerSeccion('panelModo')).toBe('tablero')
   })
 
   it('otra persona en el mismo navegador no hereda la mesa de la anterior', () => {
-    _reiniciar({ datos: { columnas: { puesto: { estado: 200 } } }, uid: 'u1' })
+    _reiniciar({ datos: { columnas: { puesto: { estado: 200 } }, panelModo: 'tablero' }, uid: 'u1' })
     sincronizar('u2', null, escritor().fn)
+    // Ni lo que viaja ni lo que se queda: la mesa del anterior no es de nadie más.
+    expect(leerSeccion('panelModo')).toBeUndefined()
     expect(leerSeccion('columnas')).toBeUndefined()
   })
 
   it('un fallo al subir deja el cambio pendiente, y el siguiente lo reintenta', async () => {
     const malo = escritor(false)
     sincronizar('u1', null, malo.fn)
-    guardarSeccion('columnas', { puesto: { estado: 200 } })
+    guardarSeccion('panelModo', 'tablero')
     await vi.runAllTimersAsync()
     expect(malo.subidas).toHaveLength(1)
     // La cuenta tiene otra cosa, pero lo de aquí sigue sin confirmar: no se pisa.
     const bueno = escritor()
-    sincronizar('u1', { columnas: { puesto: { estado: 320 } } }, bueno.fn)
-    expect(leerSeccion('columnas')).toEqual({ puesto: { estado: 200 } })
+    sincronizar('u1', { panelModo: 'tabla' }, bueno.fn)
+    expect(leerSeccion('panelModo')).toBe('tablero')
     await vi.runAllTimersAsync()
-    expect(bueno.subidas).toEqual([{ columnas: { puesto: { estado: 200 } } }])
+    expect(bueno.subidas).toEqual([{ panelModo: 'tablero' }])
   })
 
   it('sin sesión no se sube nada', async () => {
     const e = escritor()
     sincronizar(null, null, null)
-    guardarSeccion('columnas', { puesto: { estado: 200 } })
+    guardarSeccion('vistaTabla', { puesto: { cambiadas: ['telefono'] } })
     await vi.runAllTimersAsync()
     expect(e.subidas).toHaveLength(0)
-    expect(leerSeccion('columnas')).toEqual({ puesto: { estado: 200 } })
+    expect(leerSeccion('vistaTabla')).toEqual({ puesto: { cambiadas: ['telefono'] } })
   })
 })
 
