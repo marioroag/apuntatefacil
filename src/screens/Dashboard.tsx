@@ -1469,6 +1469,7 @@ export function Dashboard() {
             onOpen={setOpenId}
             onOpenEnNota={abrirEnNota}
             onOpenEnEtiqueta={abrirEnEtiqueta}
+            onVerDocumento={abrirDocumento}
             setStatus={setStatus}
           />
         ) : (

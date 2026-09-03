@@ -159,6 +159,8 @@ type Pinta = {
   setFavorito: (id: string, favorito: boolean) => void
   onOpenEnNota: (id: string) => void
   onOpenEnEtiqueta: (id: string) => void
+  /** Abre el documento a pantalla completa, sin la ficha (ver `PreviewDocumento`). */
+  onVerDocumento: (id: string) => void
 }
 
 export function KanbanPuesto({
@@ -174,6 +176,7 @@ export function KanbanPuesto({
   onOpen,
   onOpenEnNota,
   onOpenEnEtiqueta,
+  onVerDocumento,
   setStatus,
 }: {
   /** La lista ya filtrada y ordenada, con los CINCO estados dentro. */
@@ -193,6 +196,8 @@ export function KanbanPuesto({
   /** Abren la ficha con el cursor ya en el campo que se ha pedido. */
   onOpenEnNota: (id: string) => void
   onOpenEnEtiqueta: (id: string) => void
+  /** Abre el documento a pantalla completa, sin la ficha (`PreviewDocumento`). */
+  onVerDocumento: (id: string) => void
   setStatus: (id: string, status: CandidateStatus) => void
 }) {
   const [arrastrada, setArrastrada] = useState<Candidate | null>(null)
@@ -220,7 +225,7 @@ export function KanbanPuesto({
   const carrilRef = useRef<HTMLDivElement>(null)
   const mascara = useDesvanecido(carrilRef, 'x', { senal: rows.length })
 
-  const pinta: Pinta = { campos, campaign, tags, maskPhone, setStatus, setFavorito, onOpenEnNota, onOpenEnEtiqueta }
+  const pinta: Pinta = { campos, campaign, tags, maskPhone, setStatus, setFavorito, onOpenEnNota, onOpenEnEtiqueta, onVerDocumento }
 
   return (
     <DndContext
@@ -495,7 +500,20 @@ function LineaCampo({ campo, candidato: c, pinta }: { campo: CampoTarjeta; candi
       return c.tagIds.length === 0 ? VACIO : <TagCell tagIds={c.tagIds} tags={pinta.tags} />
     }
     if (campo.key === 'documentos') {
-      return c.cvPath ? <ChipDocumento /> : VACIO
+      // Igual que en la columna de la tabla: el chip ES el botón y abre el visor,
+      // sin la ficha detrás (Mario, sep 2026). La tarjeta entera abre la persona,
+      // pero `clickDeTarjeta` deja fuera lo que ya es un control, así que pulsar el
+      // documento no hace las dos cosas.
+      return c.cvPath ? (
+        <button
+          type="button"
+          onClick={() => pinta.onVerDocumento(c.id)}
+          aria-label={`Ver los documentos de ${candidateName(c) || 'este candidato'}`}
+          className="rounded-sm outline-none transition-[filter] duration-[var(--duration-control)] hover:brightness-[0.96] focus-visible:ring-2 focus-visible:ring-indigo-500/40 motion-reduce:transition-none"
+        >
+          <ChipDocumento />
+        </button>
+      ) : VACIO
     }
     if (campo.key === 'telefono') {
       const tel = answerStr(c, 'telefono')
