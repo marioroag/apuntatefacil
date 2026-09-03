@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { supabase, supabaseConfigured } from './supabase'
 import { useAuth } from './auth'
 import { personLabel } from './format'
+import { sincronizar, type Preferencias } from './preferencias'
 
 /**
  * Perfil de la PERSONA: nombre y cara. Antes de esto la app no sabía cómo se
@@ -100,19 +101,29 @@ export function ProfilesProvider({ children }: { children: ReactNode }) {
       // resuelve personLabel desde su email de ejemplo.
       setRows(new Map([['demo-user', { userId: 'demo-user', fullName: 'Marta Ruiz', avatarPath: null, emailPrefs: {} }]]))
       setLoading(false)
+      // Sin escritor: en la demo la mesa se puede recolocar y se queda en este
+      // navegador, como el resto de la visita. No hay dónde escribir.
+      sincronizar('demo', null, null)
       return
     }
     if (!supabaseConfigured || !uid) {
       setRows(new Map())
       setLoading(false)
+      sincronizar(null, null, null)
       return
     }
     const req = ++reqRef.current
-    const { data } = await supabase.from('profiles').select('user_id, full_name, avatar_path, email_prefs')
+    const { data } = await supabase.from('profiles').select('user_id, full_name, avatar_path, email_prefs, ui_prefs')
     // Descartamos la respuesta de un equipo que ya no es el activo.
     if (req !== reqRef.current) return
     const next = new Map<string, Profile>()
-    type Row = { user_id: string; full_name: string; avatar_path: string | null; email_prefs: Record<string, boolean> | null }
+    type Row = {
+      user_id: string
+      full_name: string
+      avatar_path: string | null
+      email_prefs: Record<string, boolean> | null
+      ui_prefs: Preferencias | null
+    }
     for (const r of (data ?? []) as Row[]) {
       next.set(r.user_id, {
         userId: r.user_id,
@@ -123,6 +134,17 @@ export function ProfilesProvider({ children }: { children: ReactNode }) {
     }
     setRows(next)
     setLoading(false)
+    // CÓMO TIENES PUESTA LA MESA viaja con la cuenta (ver `preferencias.ts`), y
+    // llega en esta misma consulta: pedirlo aparte serían dos peticiones para lo
+    // que ya viene en la fila. El escritor toca SOLO su columna, así que no puede
+    // pisar un cambio de nombre o de avatar que vaya por el otro camino.
+    const mio = ((data ?? []) as Row[]).find((r) => r.user_id === uid)
+    sincronizar(uid, mio?.ui_prefs ?? null, async (prefs) => {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ user_id: uid, ui_prefs: prefs }, { onConflict: 'user_id' })
+      return !error
+    })
   }, [demo, uid])
 
   useEffect(() => {

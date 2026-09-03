@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
+import { guardarSeccion, usePreferencia } from './preferencias'
 
 /**
  * CÓMO SE PRESENTA LA LISTA DEL PUESTO: tabla o tablero (Mario, ago 2026, con
@@ -8,23 +9,24 @@ import { useCallback, useState } from 'react'
  * mismos filtros y la misma ficha; lo que cambia es la pregunta que la pantalla
  * contesta de un vistazo (comparar campos contra ver el proceso por fases).
  *
- * Se guarda en `localStorage` y es UNA para todos los puestos, no una por
- * puesto: cómo te gusta trabajar la lista es un hábito tuyo, no un atributo del
- * proceso, y quien tría en tablero lo hace en todos. Mismo razonamiento que la
- * preferencia del lateral contraído; el `try/catch`, por lo de siempre (una
- * ventana privada tira `localStorage`).
+ * Es UNA para todos los puestos, no una por puesto: cómo te gusta trabajar la
+ * lista es un hábito tuyo, no un atributo del proceso, y quien tría en tablero
+ * lo hace en todos. Por eso mismo viaja con TU CUENTA desde sep 2026 y no con el
+ * navegador (`preferencias.ts`): es la primera pregunta del panel de la vista,
+ * así que se guarda donde se guardan las otras dos. El lateral contraído, que
+ * era el otro ejemplo de esta misma familia, se queda en local a propósito: ese
+ * sí depende del monitor que tengas delante.
  */
-const CLAVE = 'apuntatefacil.panel.modo'
+const SECCION = 'panelModo'
 
 export type ModoPanel = 'tabla' | 'tablero'
 
 export function useModoPanel(): [ModoPanel, (m: ModoPanel) => void] {
-  const [modo, setModo] = useState<ModoPanel>(() => {
-    try { return localStorage.getItem(CLAVE) === 'tablero' ? 'tablero' : 'tabla' } catch { return 'tabla' }
-  })
+  const modo: ModoPanel = usePreferencia<ModoPanel>(SECCION) === 'tablero' ? 'tablero' : 'tabla'
   const cambiar = useCallback((m: ModoPanel) => {
-    setModo(m)
-    try { localStorage.setItem(CLAVE, m) } catch { /* sin persistencia, la sesión manda */ }
+    // 'tabla' es el valor de fábrica, así que no se guarda: la sección
+    // desaparece y el cajón queda como el de quien nunca lo ha tocado.
+    guardarSeccion(SECCION, m === 'tablero' ? m : undefined)
   }, [])
   return [modo, cambiar]
 }

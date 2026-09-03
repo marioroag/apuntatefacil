@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useRef } from 'react'
+import { guardarSeccion, leerSeccion, usePreferencia } from './preferencias'
 
 /* ---------------------------------------------------------------------------
    COLUMNAS AJUSTABLES · el ancho de una columna es del USUARIO
@@ -55,12 +56,22 @@ import { useCallback, useRef, useState } from 'react'
       que Home, que es lo que la gente ya intenta. La doctrina de accesibilidad
       exige alternativa de teclado en todo lo que se arrastra.
 
-   Se guarda en `localStorage` y no en el servidor: el ancho cómodo depende de la
-   pantalla que tienes delante, no de quién eres, así que viajar de portátil a
-   monitor con los anchos del otro sitio sería peor que no guardarlos.
+   SE GUARDA EN LA CUENTA (sep 2026), no en el navegador. Estuvo en
+   `localStorage` con el argumento de que "el ancho cómodo depende de la pantalla
+   que tienes delante, no de quién eres", y Mario lo cambió: lo que de verdad
+   pesa es que al cambiar de máquina la mesa esté como la dejaste. Lo que aquel
+   argumento protegía sigue cubierto por tres cosas que ya existían: en móvil
+   esto está APAGADO (`activo`), así que un teléfono no hereda los anchos de un
+   monitor; lo que no cabe saca el desplazamiento horizontal en vez de romper
+   nada; y devolverlo todo a fábrica es un doble clic en cualquier filo. El
+   navegador sigue guardando una copia, pero como CACHÉ (ver `preferencias.ts`).
 --------------------------------------------------------------------------- */
 
-const CLAVE = 'apuntatefacil.columnas.v1'
+const SECCION = 'columnas'
+
+/** Referencia estable para "esta tabla no tiene ningún ancho puesto": devolver
+ *  un `{}` nuevo en cada render despertaría a todo lo que dependa de él. */
+const SIN_ANCHOS: Record<string, number> = {}
 
 /**
  * Suelo de última instancia, para una columna que no declare el suyo. El bueno es
@@ -93,24 +104,10 @@ const PASO_LARGO = 48
 
 type Guardado = Record<string, Record<string, number>>
 
-function leer(): Guardado {
-  try {
-    const raw = localStorage.getItem(CLAVE)
-    return raw ? (JSON.parse(raw) as Guardado) : {}
-  } catch {
-    // Ventana privada, almacenamiento lleno o bloqueado: se sigue sin anchos
-    // guardados, que es exactamente el estado de fábrica.
-    return {}
-  }
-}
-
-function escribir(g: Guardado) {
-  try {
-    localStorage.setItem(CLAVE, JSON.stringify(g))
-  } catch {
-    /* si no se puede guardar, el ajuste vale para esta sesión y ya está */
-  }
-}
+const leer = (): Guardado => leerSeccion<Guardado>(SECCION) ?? {}
+/** Sin ninguna tabla ajustada la sección desaparece: un cajón vacío guardado es
+ *  ruido que hay que interpretar, y su ausencia ya significa "de fábrica". */
+const escribir = (g: Guardado) => guardarSeccion(SECCION, Object.keys(g).length ? g : undefined)
 
 /** Lo que `ColHead` necesita para pintar y gobernar su asa. */
 export type AsaColumna = {
@@ -135,7 +132,11 @@ export type AsaColumna = {
  *                 además un objetivo de toque imposible.
  */
 export function useColumnasAjustables(tablaId: string, orden: string[], activo: boolean) {
-  const [anchos, setAnchos] = useState<Record<string, number>>(() => (activo ? leer()[tablaId] ?? {} : {}))
+  // La fuente de verdad es la cuenta (`preferencias.ts`), no un estado local:
+  // así la tabla se recoloca sola cuando la respuesta del servidor trae lo que
+  // dejaste puesto en el otro ordenador.
+  const guardadas = usePreferencia<Guardado>(SECCION)
+  const anchos = (activo ? guardadas?.[tablaId] : undefined) ?? SIN_ANCHOS
   // El arrastre vive en una ref y no en el estado: nada de lo que pasa mientras
   // se arrastra tiene que provocar un render (ver la decisión 1 de arriba).
   const arrastre = useRef<{
@@ -174,7 +175,6 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
       if (ancho === null) delete next[key]
       else next[key] = ancho
       anchosRef.current = next
-      setAnchos(next)
       const g = leer()
       if (Object.keys(next).length === 0) delete g[tablaId]
       else g[tablaId] = next
@@ -236,7 +236,6 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
         el.style.width = k === ultima ? 'auto' : `${next[k]}px`
       }
       anchosRef.current = next
-      setAnchos(next)
       const g = leer()
       g[tablaId] = next
       escribir(g)
@@ -251,8 +250,7 @@ export function useColumnasAjustables(tablaId: string, orden: string[], activo: 
    * signifique nada. Un solo gesto, un solo resultado.
    */
   const restablecer = useCallback(() => {
-    anchosRef.current = {}
-    setAnchos({})
+    anchosRef.current = SIN_ANCHOS
     const g = leer()
     delete g[tablaId]
     escribir(g)
