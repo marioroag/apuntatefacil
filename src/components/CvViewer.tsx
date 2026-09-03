@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import { cargarPdfjs, type PDFDocumentProxy } from '../lib/pdf'
 import { ajustarAPalabras, fraccionAvance, localizarCita, type TramoCita } from '../lib/citas'
 import { MERIDIAN_NAME, type CitaCv } from '../lib/meridian'
@@ -195,15 +196,7 @@ export function CvViewer({
 
   const lienzo = aspecto === 'lienzo'
 
-  if (!paginas) {
-    return (
-      <div className={`grid min-h-[240px] place-items-center px-6 text-center ${lienzo ? '' : 'bg-slate-50'}`}>
-        <p className={`text-sm ${lienzo ? 'text-slate-300' : 'text-slate-500'}`} role="status">
-          Abriendo el CV…
-        </p>
-      </div>
-    )
-  }
+  if (!paginas) return <EsperaDocumento lienzo={lienzo} />
 
   return (
     <div ref={rootRef}>
@@ -369,5 +362,28 @@ function PaginaCanvas({
       className="block h-auto w-full"
       aria-hidden
     />
+  )
+}
+
+/**
+ * LA ESPERA DE UN DOCUMENTO, EN UNA SOLA PIEZA (sep 2026).
+ *
+ * La pintaban dos: esta, mientras pdf.js abre el PDF, y `CvLightbox`, mientras
+ * bajan los bytes. Se pasaban el turno con DOS pinturas distintas (una con
+ * molinillo y el nombre del fichero, otra sin molinillo y con otro gris), así que
+ * un documento que tarda enseñaba dos esperas seguidas y eso se lee como un
+ * parpadeo: **dos estados de espera consecutivos tienen que ser el mismo dibujo,
+ * o el relevo se ve.**
+ *
+ * No nombra el fichero a propósito: en el visor grande lo dice la barra de
+ * arriba, y repetirlo era la misma información dos veces.
+ */
+export function EsperaDocumento({ lienzo = false }: { lienzo?: boolean }) {
+  return (
+    <div className={`grid min-h-[240px] place-items-center px-6 text-center ${lienzo ? 'h-full' : 'bg-slate-50'}`}>
+      <p className={`flex items-center gap-2 text-sm ${lienzo ? 'text-slate-300' : 'text-slate-500'}`} role="status">
+        <Loader2 className="size-4 shrink-0 animate-spin text-slate-400" aria-hidden /> Abriendo el documento…
+      </p>
+    </div>
   )
 }

@@ -1,6 +1,4 @@
 import { useEffect } from 'react'
-import { createPortal } from 'react-dom'
-import { Loader2 } from 'lucide-react'
 import { CvLightbox } from './CvLightbox'
 import { useToast } from './ui/Toast'
 import { ERROR_DESCARGA, useDocumento } from '../lib/documento'
@@ -17,8 +15,11 @@ import type { Campaign, Candidate } from '../lib/types'
  *
  * Y no es una copia de aquello: el camino de un documento (firmar, bajar los
  * bytes, reintentar, descargar) vive en `useDocumento`, y el visor es la misma
- * pieza. Lo que esta añade es lo que la fila no tiene: la ESPERA, porque desde una
- * tabla no hay ningún incrustado cargando que la explique.
+ * pieza. Lo que esta añade es la ESPERA, porque desde una tabla no hay ningún
+ * incrustado cargando que explique el segundo que tarda la firma; pero esa espera
+ * la pinta el VISOR (`cargando`) y no una capa propia, que es lo que hacía antes:
+ * con su telón y su mensaje aparte, un clic encadenaba dos capas seguidas y el
+ * relevo se veía como un parpadeo.
  *
  * LO QUE NO ES UN PDF NO SE PREVISUALIZA, SE DESCARGA. Es la misma regla que la
  * fila de la ficha ("un PDF lo amplía y lo demás lo descarga"): un visor que no
@@ -68,27 +69,17 @@ export function PreviewDocumento({
   }, [fuera])
 
   if (fuera) return null
-  // Se espera a los bytes (los que subrayan las citas) mientras puedan llegar; si
-  // se sabe que no van a llegar, se abre ya con el plan B en vez de seguir dando
-  // vueltas a un molinillo.
-  if (!doc.bytes && !doc.visorFallo) {
-    // LA ESPERA ES UNA CAPA, no un cambio en la fila: se ha pulsado para ver un
-    // documento, así que lo que tiene que pasar es que se abra algo. Sin esto, el
-    // clic se quedaba mudo el segundo que tarda la firma más la descarga.
-    return createPortal(
-      <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-900/70" role="status" aria-live="polite">
-        <p className="flex items-center gap-2 text-sm font-medium text-white">
-          <Loader2 className="size-4 animate-spin" aria-hidden /> Abriendo {cvName || 'el documento'}…
-        </p>
-      </div>,
-      document.body,
-    )
-  }
 
+  // La capa se monta en el CLIC, no cuando llegan los bytes: se ha pulsado para
+  // ver un documento, así que lo que tiene que pasar es que se abra algo. Se
+  // espera a los bytes (los que subrayan las citas) mientras puedan llegar; si se
+  // sabe que no van a llegar (`visorFallo`), se enseña ya el plan B en vez de
+  // seguir dando vueltas a un molinillo.
   return (
     <CvLightbox
       nombre={cvName || 'CV'}
       data={doc.bytes}
+      cargando={!doc.bytes && !doc.visorFallo}
       citas={citas}
       onClose={onClose}
       onDescargar={() => void doc.descargar().then((ok) => { if (!ok) toast.error(ERROR_DESCARGA) })}

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Download, ExternalLink, X } from 'lucide-react'
-import { CvViewer } from './CvViewer'
+import { CvViewer, EsperaDocumento } from './CvViewer'
 import { BTN_SUPERFICIE } from '../lib/buttons'
 import { DUR, EASE } from '../lib/motion'
 import type { CitaCv } from '../lib/meridian'
@@ -33,6 +33,21 @@ import type { CitaCv } from '../lib/meridian'
  * mudo. La regla es la de siempre: **un visor que no puede pintar el documento
  * enseña lo que pueda y lo dice; nunca se cierra solo.**
  *
+ * EL PLAN B TIENE LA FORMA DE UNA PÁGINA, NO VA A SANGRE (Mario, sep 2026: "el
+ * fondo ya no se queda medio transparente"). Nació como un iframe de pared a
+ * pared, y eso TAPA el telón: la pantalla dejaba de leerse como un documento
+ * apoyado sobre la app y pasaba a leerse como que la app había desaparecido, con
+ * el clic para cerrar sin sitio donde caer. Va en la misma columna centrada de
+ * 880px que las páginas del visor propio, con su mismo canto y su misma sombra,
+ * así que las dos ramas se ven iguales: lo único que cambia es quién pinta el
+ * PDF, y eso no tiene por qué notarse en la maqueta.
+ *
+ * Y LA ESPERA VIVE AQUÍ DENTRO (`cargando`), no en una capa aparte. La columna
+ * Documentos tenía la suya, con otro telón y otro mensaje, así que un clic
+ * encadenaba dos capas y dos esperas distintas antes de enseñar nada. Ahora la
+ * capa se monta UNA vez, con su barra puesta, y lo que se rellena es el centro:
+ * primero el continente y después el contenido, que es la regla de la casa.
+ *
  * Vive en un PORTAL sobre la ficha (que ya es un Modal), y por eso sus teclas
  * van EN CAPTURA sobre `document` con stopPropagation: el Modal de la ficha
  * escucha el mismo evento en el mismo nodo en fase de burbuja, y sin el corte
@@ -46,6 +61,7 @@ export function CvLightbox({
   onClose,
   onDescargar,
   urlAparte,
+  cargando,
   docs,
 }: {
   nombre: string
@@ -58,6 +74,9 @@ export function CvLightbox({
   onDescargar: () => void
   /** URL para "Abrir fuera" (la firmada, o la del asset en la demo). */
   urlAparte: string | null
+  /** Los bytes todavía pueden llegar: se espera en vez de caer al plan B. Sin
+   *  esto, `data` a null significa "no va a haber bytes". */
+  cargando?: boolean
   /** Varios documentos: índice actual, total y cómo moverse. Sin esto (o con
    *  uno solo), las flechas no existen. */
   docs?: { indice: number; total: number; onIr: (n: number) => void }
@@ -155,8 +174,10 @@ export function CvLightbox({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {data && !visorFallo ? (
+      {data && !visorFallo ? (
+        // El visor propio, que subraya las citas. Scrollea él, porque apila las
+        // páginas a su alto natural.
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <CvViewer
             data={data}
             titulo={nombre}
@@ -166,20 +187,35 @@ export function CvLightbox({
             // cae al plan B, que es lo que ya hacía el incrustado de la ficha.
             onFallo={() => setVisorFallo(true)}
           />
-        ) : urlAparte && !sinVisorNativo ? (
-          // Plan B: el visor del navegador. Enseña el documento sin subrayados;
-          // las citas siguen enteras, en texto, en el informe de Meridian.
-          <iframe src={urlAparte} title={nombre} className="h-full w-full bg-slate-100" />
-        ) : (
-          <div className="grid h-full place-items-center px-6 text-center">
-            <p className="max-w-[42ch] text-sm leading-6 text-white/70">
-              {sinVisorNativo
-                ? 'Este navegador no puede enseñar el documento aquí dentro. Descárgalo o ábrelo aparte.'
-                : 'No se pudo abrir el documento aquí dentro. Prueba a descargarlo.'}
-            </p>
-          </div>
-        )}
-      </div>
+        </div>
+      ) : cargando ? (
+        <div className="min-h-0 flex-1">
+          <EsperaDocumento lienzo />
+        </div>
+      ) : urlAparte && !sinVisorNativo ? (
+        // Plan B: el visor del navegador. Enseña el documento sin subrayados;
+        // las citas siguen enteras, en texto, en el informe de Meridian.
+        //
+        // El relleno lo pone LA CAJA y el alto lo coge el iframe de ella (`h-full`
+        // sobre una caja sin scroll): con el relleno dentro de un contenedor que
+        // desplaza, el iframe medía el alto entero y sobraban 48px de barra que no
+        // llevan a ninguna parte.
+        <div className="min-h-0 flex-1 p-4 sm:p-6">
+          <iframe
+            src={urlAparte}
+            title={nombre}
+            className="mx-auto block h-full w-full max-w-[880px] rounded-sm bg-white shadow-card"
+          />
+        </div>
+      ) : (
+        <div className="grid min-h-0 flex-1 place-items-center px-6 text-center">
+          <p className="max-w-[42ch] text-sm leading-6 text-white/70">
+            {sinVisorNativo
+              ? 'Este navegador no puede enseñar el documento aquí dentro. Descárgalo o ábrelo aparte.'
+              : 'No se pudo abrir el documento aquí dentro. Prueba a descargarlo.'}
+          </p>
+        </div>
+      )}
 
       {docs && docs.total > 1 && (
         <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between px-3">
