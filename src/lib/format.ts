@@ -304,6 +304,12 @@ export function initials(name: string): string {
  * etiquetas: aquella regla es para un chip suelto en una tabla gris, donde el
  * rosa se lee como un problema. Aquí TODOS los bloques van teñidos, así que uno
  * rosa es otra persona más y no una alarma.
+ *
+ * **ESTA TABLA ES DEL EQUIPO Y NO DE LOS CANDIDATOS** (sep 2026). La silueta con
+ * volumen de un candidato tiene su propia rueda, mucho más ancha, porque no le
+ * debe nada a ninguna otra superficie: ver `siluetaHue` más abajo. Aquí las diez
+ * entradas están limitadas por lo que sí tienen que hacer, que es existir también
+ * como clases de Tailwind para teñir un bloque del calendario.
  */
 const MEMBER_AVATAR_TONES = [
   { bg: 'bg-lime-700', text: 'text-white', name: 'text-lime-700', suave: 'bg-lime-100', canto: 'ring-lime-200' },
@@ -331,6 +337,63 @@ export function memberAvatarTone(seed: string | null | undefined): MemberTone {
   const key = (seed ?? '').trim().toLowerCase()
   if (!key) return MEMBER_AVATAR_TONES[0]
   return MEMBER_AVATAR_TONES[hashSeed(key) % MEMBER_AVATAR_TONES.length]
+}
+
+/**
+ * EL TONO DE UN CANDIDATO: UNA RUEDA DE 79, NO LAS DIEZ DEL EQUIPO (Mario, sep
+ * 2026: "¿podríamos tener más variedad de colores?").
+ *
+ * **Puede ser mucho más ancha porque no le debe nada a nadie.** La tabla de
+ * arriba tiene diez entradas por un motivo que aquí no existe: cada una tiene que
+ * ser además una clase de Tailwind, porque el mismo tono tiñe el bloque de una
+ * cita en el calendario. El color de un candidato tiene UN solo consumidor, su
+ * silueta, que se pinta con degradados dentro de un SVG. Con diez tonos, una
+ * lista de seiscientas personas repetía color cada seis filas.
+ *
+ * **VA EN OKLCH Y NO EN HSL, y no es preciosismo.** En HSL la misma luminosidad
+ * pesa distinto según el hue (un amarillo al 72% deslumbra y un azul al 72% se
+ * queda a media luz), así que una rueda entera saldría con unas caras lavadas y
+ * otras plomizas. En OKLCH la L es perceptual: se fija una vez y las 79 salen con
+ * el mismo peso. Es la escala en la que ya están las rampas de Tailwind v4.
+ *
+ * **LOS ARCOS VETADOS ESTÁN MEDIDOS EN OKLCH, y esa es la parte que se olvida:**
+ * el ultramarine de marca está en el hue **270** y el rojo de error en el **27**,
+ * mientras que en HSL esos mismos colores caen en 232 y en 0. Un veto escrito con
+ * los números de HSL habría dejado pasar avatares del color de la marca creyendo
+ * que los estaba prohibiendo (pasó, y lo cazó medirlo antes de aplicarlo). Fuera,
+ * entonces, 252-290 y 20-35. Los extremos se afinaron con el guardián delante:
+ * el arco frío empezaba en 288 y eso deja el primer tono a 17,9 grados del
+ * ultramarine, o sea dentro del margen que la propia prueba exige. Su guardián lee el
+ * acento de `colors.ts` y vuelve a hacer la cuenta, así que el día que la marca
+ * cambie de color la prueba avisa de que la rueda se le ha metido dentro.
+ *
+ * **CADA ARCO SE MUESTREA A SU PASO, y esto se cazó en pantalla.** Con un paso
+ * único de 4 grados, las primeras doce filas de la lista salían casi todas entre
+ * el 90 y el 175, o sea verdes y turquesas, y no era mala suerte: **en OKLCH esa
+ * familia sola ocupa unos 90 grados del círculo**, casi un tercio de lo que
+ * queda tras los vetos, mientras que los azules o los naranjas caben en la mitad.
+ * Un muestreo uniforme en GRADOS no es un muestreo uniforme en COLORES. La banda
+ * verde va a 7 grados de paso y el resto a 4, así que las familias salen
+ * repartidas y no proporcionales a su trozo de rueda. Por debajo de 4 grados dos
+ * tonos vecinos ya no se distinguen y la variedad sería solo aritmética.
+ */
+const SILUETA_ARCOS = [
+  [35, 110, 4], // naranjas, ámbares y olivas
+  [110, 200, 7], // verdes y turquesas: la familia más ancha, muestreada más suelta
+  [200, 252, 4], // azules, hasta donde empieza el veto de la marca
+  [290, 380, 4], // violetas, magentas y rosas (cruza el 360)
+] as const
+export const SILUETA_TONOS: readonly number[] = SILUETA_ARCOS.flatMap(([desde, hasta, paso]) => {
+  const tramo: number[] = []
+  for (let h = desde; h < hasta; h += paso) tramo.push(h % 360)
+  return tramo
+})
+
+/** El hue OKLCH de una persona. Misma semilla, mismo color, siempre. */
+export function siluetaHue(seed: string | null | undefined): number {
+  const key = (seed ?? '').trim().toLowerCase()
+  if (!key) return SILUETA_TONOS[0]
+  return SILUETA_TONOS[hashSeed(key) % SILUETA_TONOS.length]
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { memberAvatarTone } from './format'
+import { SILUETA_TONOS, memberAvatarTone, siluetaHue } from './format'
+import { ACENTO_MARCA } from './colors'
 import { INTERVIEW_STATUS_META, type InterviewStatus } from './types'
 import fuenteFormat from './format.ts?raw'
 
@@ -61,6 +62,64 @@ describe('el guardián del color de una persona', () => {
     for (const e of entradas) {
       expect(vetados, `${hue(e, 'bg')} ya significa otra cosa en esta app`).not.toContain(hue(e, 'bg'))
     }
+  })
+
+  /**
+   * LA RUEDA DEL CANDIDATO NO PUEDE PISAR NI LA MARCA NI EL ROJO DE ERROR.
+   *
+   * Y esto NO se puede comprobar a ojo ni escribir de memoria: el ultramarine
+   * está en el hue 270 de OKLCH y en el 232 de HSL, así que un veto pensado con
+   * los números de HSL deja pasar avatares del color de la marca creyendo que los
+   * prohíbe. La prueba vuelve a hacer la cuenta desde `ACENTO_MARCA`, que es la
+   * fuente del color de marca: si algún día cambia, aquí se avisa de que la rueda
+   * se le ha metido dentro, en vez de descubrirlo en una lista de candidatos.
+   */
+  describe('la rueda de tonos del candidato', () => {
+    /** sRGB -> OKLCH. Solo hace falta el hue, pero se calcula entero por claridad. */
+    const hueOklch = (hex: string) => {
+      const n = parseInt(hex.slice(1), 16)
+      const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+      const r = lin(((n >> 16) & 255) / 255)
+      const g = lin(((n >> 8) & 255) / 255)
+      const b = lin((n & 255) / 255)
+      const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+      const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+      const s2 = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+      const A = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s2
+      const B = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s2
+      const h = (Math.atan2(B, A) * 180) / Math.PI
+      return h < 0 ? h + 360 : h
+    }
+    const vuelta = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b))
+
+    it('ninguno se acerca al acento de marca', () => {
+      const marca = hueOklch(ACENTO_MARCA)
+      for (const h of SILUETA_TONOS) {
+        expect(vuelta(h, marca), `el tono ${h} está a menos de 18 grados del ultramarine (${marca.toFixed(0)})`)
+          .toBeGreaterThan(18)
+      }
+    })
+
+    it('ninguno se acerca al rojo de error', () => {
+      // El rojo destructivo de la casa es el `red-600` de Tailwind (#dc2626), que
+      // no tiene token propio en `index.css`: por eso va escrito aquí y no leído.
+      const rojo = hueOklch('#dc2626')
+      for (const h of SILUETA_TONOS) {
+        expect(vuelta(h, rojo), `el tono ${h} está a menos de 5 grados del rojo de error (${rojo.toFixed(0)})`)
+          .toBeGreaterThan(5)
+      }
+    })
+
+    /** Si la rueda encoge, vuelve el problema que vino a resolver. */
+    it('tiene bastantes tonos como para que una lista larga no repita cada pocas filas', () => {
+      expect(SILUETA_TONOS.length).toBeGreaterThanOrEqual(48)
+      expect(new Set(SILUETA_TONOS).size).toBe(SILUETA_TONOS.length)
+    })
+
+    it('la misma persona sale siempre del mismo tono', () => {
+      expect(siluetaHue('laura@apuntatefacil.com')).toBe(siluetaHue('LAURA@apuntatefacil.com '))
+      expect(SILUETA_TONOS).toContain(siluetaHue('quien sea'))
+    })
   })
 
   /** La misma semilla, el mismo tono, siempre: es lo que lo hace una identidad. */

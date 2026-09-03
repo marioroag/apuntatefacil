@@ -1,4 +1,4 @@
-import type { Campaign, Candidate, CandidateComment, Tag } from './types'
+import type { Campaign, Candidate, CandidateComment, CandidateDocument, Tag } from './types'
 import { STATUS_META, SOURCE_META } from './types'
 import { fullDateTime, personLabel, candidateName } from './format'
 import { supabase } from './supabase'
@@ -168,51 +168,104 @@ export function exportCandidatesToCsv(
 /** Lo que devuelve el zip de documentos, para que quien llama pueda contarlo. */
 export type ResultadoDocs = { filename: string; incluidos: number; fallidos: number }
 
+/** Cómo se llama un documento DENTRO de la carpeta de su persona. El `nombre` de
+ *  la fila ya es su tipo ("Carnet C.pdf", "Contrato firmado"), así que se le quita
+ *  la extensión que traiga y se le pone la de la RUTA, que es la del fichero de
+ *  verdad: sin ella el sistema no sabría con qué abrirlo. */
+function nombreEnCarpeta(nombre: string, path: string): { base: string; ext: string } {
+  return {
+    base: nombreSeguro(nombre.replace(/\.[a-z0-9]+$/i, '')),
+    ext: (path.match(/\.[a-z0-9]+$/i)?.[0] ?? '').toLowerCase(),
+  }
+}
+
 /**
- * LOS CV DE UNA SELECCIÓN, EN UN ZIP.
+ * TODOS LOS DOCUMENTOS DE UNA SELECCIÓN, UNA CARPETA POR PERSONA.
  *
  * Los ficheros viven en un bucket PRIVADO, así que hay que firmar cada uno. Se
  * firman TODOS DE UNA VEZ (`createSignedUrls`) y no de uno en uno: con ciento
  * cuarenta candidatos eso es una petición en vez de ciento cuarenta.
  *
+ * **SON TODOS, no solo el CV** (sep 2026). Desde ago 2026 una candidatura guarda
+ * sus ficheros en DOS sitios (el primero en `candidates.cv_path` y el resto en
+ * `candidate_documents`) y esto solo se llevaba el primero, mientras la fila del
+ * menú decía "CV y adjuntos": el carnet que pedía el formulario y el contrato que
+ * subió el equipo se quedaban dentro. Los extra se piden en UNA consulta por
+ * lotes (`loadDocumentsFor`), no uno por candidato.
+ *
+ * **UNA CARPETA POR PERSONA, y por eso el fichero ya no se llama como ella.** Con
+ * un solo nivel, tres documentos de Ana serían "Ana Garcia.pdf", "Ana Garcia
+ * (2).pdf" y "Ana Garcia (3).pdf", o sea que para saber cuál es el contrato hay
+ * que abrirlos. Con la carpeta, el nombre de cada uno vuelve a poder decir lo
+ * único que no está escrito en ningún otro sitio: QUÉ documento es. Los repetidos
+ * se numeran dos veces, la carpeta entre personas (dos "Juan García") y el
+ * fichero dentro de ella (dos "Carnet"), porque son dos colisiones distintas.
+ *
  * **Lo que falla no rompe la exportación, se cuenta.** Un CV borrado del bucket o
  * una descarga cortada no puede dejarte sin el zip entero: se salta y quien llama
  * dice cuántos entraron y cuántos no. Un zip con 138 de 140 es útil; un error
  * seco después de esperar, no.
- *
- * El nombre de cada fichero es el de la PERSONA, no el uuid del bucket: un zip de
- * "8f3a-91bc.pdf" no sirve para nada. Los repetidos se numeran.
  */
 export async function exportCandidateDocs(
   campaign: Campaign,
   candidates: Candidate[],
+  cargarDocs: (ids: string[]) => Promise<CandidateDocument[]>,
 ): Promise<ResultadoDocs> {
-  const conCv = candidates.filter((c) => c.cvPath)
-  if (!conCv.length) return { filename: '', incluidos: 0, fallidos: 0 }
+  if (!candidates.length) return { filename: '', incluidos: 0, fallidos: 0 }
 
-  const { data, error } = await supabase.storage
-    .from('cvs')
-    .createSignedUrls(conCv.map((c) => c.cvPath!), 300)
-  if (error || !data) throw new Error('No se pudieron pedir los documentos.')
+  // Los extra, agrupados por candidato. La consulta la hace el store, que es
+  // quien habla con los datos; aquí solo se arma el paquete.
+  const extra = new Map<string, CandidateDocument[]>()
+  for (const d of await cargarDocs(candidates.map((c) => c.id))) {
+    const ya = extra.get(d.candidateId)
+    if (ya) ya.push(d)
+    else extra.set(d.candidateId, [d])
+  }
 
-  const firmadas = new Map(data.map((d) => [d.path ?? '', d.signedUrl]))
-  const usados = new Set<string>()
+  // Qué se lleva cada persona, en el orden en que se ve en su ficha: el CV
+  // primero y los demás por antigüedad, que es como los devuelve el store.
+  const porPersona = candidates
+    .map((c) => ({
+      candidato: c,
+      docs: [
+        ...(c.cvPath ? [{ path: c.cvPath, nombre: 'CV' }] : []),
+        ...(extra.get(c.id) ?? []).map((d) => ({ path: d.path, nombre: d.nombre })),
+      ],
+    }))
+    .filter((x) => x.docs.length > 0)
+  if (!porPersona.length) return { filename: '', incluidos: 0, fallidos: 0 }
+
+  const rutas = porPersona.flatMap((x) => x.docs.map((d) => d.path))
+  // LOS ASSETS DE LA DEMO NO SE FIRMAN: sus rutas son ficheros públicos
+  // (`/demo/...`), no objetos del bucket, y pedir una firma por ellos devolvía un
+  // error que se llevaba por delante la exportación entera.
+  const delBucket = rutas.filter((r) => !r.startsWith('/'))
+  const firmadas = new Map<string, string>()
+  if (delBucket.length) {
+    const { data, error } = await supabase.storage.from('cvs').createSignedUrls(delBucket, 300)
+    if (error || !data) throw new Error('No se pudieron pedir los documentos.')
+    for (const d of data) if (d.path && d.signedUrl) firmadas.set(d.path, d.signedUrl)
+  }
+
+  const carpetasUsadas = new Set<string>()
   const entradas: { nombre: string; datos: Uint8Array<ArrayBuffer> }[] = []
   let fallidos = 0
 
-  for (const c of conCv) {
-    const url = firmadas.get(c.cvPath!)
-    if (!url) { fallidos++; continue }
-    try {
-      const res = await fetch(url)
-      if (!res.ok) { fallidos++; continue }
-      const datos = new Uint8Array(await res.arrayBuffer()) as Uint8Array<ArrayBuffer>
-      // La extensión sale de la ruta guardada, que es la del fichero que subió el
-      // candidato; sin ella el sistema no sabría con qué abrirlo.
-      const ext = (c.cvPath!.match(/\.[a-z0-9]+$/i)?.[0] ?? '').toLowerCase()
-      entradas.push({ nombre: nombreUnico(nombreSeguro(candidateName(c) || 'Sin nombre'), ext, usados), datos })
-    } catch {
-      fallidos++
+  for (const { candidato, docs } of porPersona) {
+    const carpeta = nombreUnico(nombreSeguro(candidateName(candidato) || 'Sin nombre'), '', carpetasUsadas)
+    const usados = new Set<string>()
+    for (const doc of docs) {
+      const url = doc.path.startsWith('/') ? doc.path : firmadas.get(doc.path)
+      if (!url) { fallidos++; continue }
+      try {
+        const res = await fetch(url)
+        if (!res.ok) { fallidos++; continue }
+        const datos = new Uint8Array(await res.arrayBuffer()) as Uint8Array<ArrayBuffer>
+        const { base, ext } = nombreEnCarpeta(doc.nombre, doc.path)
+        entradas.push({ nombre: `${carpeta}/${nombreUnico(base, ext, usados)}`, datos })
+      } catch {
+        fallidos++
+      }
     }
   }
 

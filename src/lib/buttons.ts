@@ -179,6 +179,11 @@ export const BTN_DANGER = botonClase('danger', 'md')
 /** Compacta (h-8) para botones inline en pills o grupos estrechos. */
 export const BTN_PRIMARY_SM = botonClase('primary', 'sm')
 export const BTN_SECONDARY_SM = botonClase('secondary', 'sm')
+/** La confirmación de un borrado que se decide DENTRO de una fila estrecha (el
+ *  documento de una ficha). Es una talla DECLARADA, no `BTN_DANGER` con un `h-8`
+ *  pegado detrás: `h-9` y `h-8` son la misma utilidad y no se resuelven por el
+ *  orden de escritura, así que la salida es la variante que no pone la que sobra. */
+export const BTN_DANGER_SM = botonClase('danger', 'sm')
 
 /** CTA grandes de la landing: mismo lenguaje, más cuerpo. */
 export const BTN_PRIMARY_LG = botonClase('primary', 'lg')

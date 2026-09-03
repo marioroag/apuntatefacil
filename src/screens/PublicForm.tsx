@@ -286,7 +286,6 @@ export function PublicForm() {
       .filter((x): x is { campo: typeof x.campo; file: File } => !!x.file)
     if (adjuntos.length > 0) {
       setSubmitPhase('uploading')
-      const subidos: string[] = []
       for (const { campo, file } of adjuntos) {
         const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf'
         const path = `${campaign.slug}/${crypto.randomUUID()}.${ext}`
@@ -304,7 +303,6 @@ export function PublicForm() {
           formTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
           return
         }
-        subidos.push(up.data.path)
         if (cvPath === null) cvPath = up.data.path
         else docs.push({ path: up.data.path, nombre: file.name, bytes: file.size, campo_id: campo.id })
       }

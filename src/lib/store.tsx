@@ -607,14 +607,18 @@ interface Store {
   /** Los documentos de una candidatura, SIN el CV (que vive en `cvPath`). Se
    *  piden al abrir la ficha, como el hilo y el historial. */
   loadCandidateDocuments: (candidateId: string) => Promise<CandidateDocument[]>
+  /** Los de VARIAS candidaturas de una vez. Lo pide el ZIP de documentos, que
+   *  con uno por candidato serían ciento cuarenta peticiones para un botón. */
+  loadDocumentsFor: (candidateIds: string[]) => Promise<CandidateDocument[]>
   /** Añade un documento ya subido al bucket. Lo usa el "+" de la ficha. */
   addCandidateDocument: (
     candidateId: string,
     doc: { path: string; nombre: string; bytes?: number },
   ) => Promise<CandidateDocument | null>
-  /** Lo quita de la lista. NO borra el fichero del bucket: eso lo hace la
-   *  edge function de limpieza, y un borrado de storage desde el cliente es
-   *  irreversible desde una pantalla que no lo puede confirmar. */
+  /** Lo quita de la lista Y borra su fichero del bucket, en ese orden (ver la
+   *  implementación: el permiso de borrado se deriva de la fila). Desde
+   *  `20260902130000_borrar_documentos.sql` el bucket tiene política de DELETE;
+   *  antes de ella este `remove()` contestaba 200 sin borrar nada. */
   removeCandidateDocument: (id: string) => Promise<boolean>
   // Sube con cada ping realtime del chat de candidatos: un detalle abierto lo usa
   // para refrescar su hilo sin sondear.
@@ -805,8 +809,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<CompanyMember[]>([])
   // Hilos de candidato en DEMO (en real se cargan perezosos, sin estado global).
   const [demoCandidateComments, setDemoCandidateComments] = useState<CandidateComment[]>([])
-  // Arranca con los del seed (hoy, el DNI de Joaquín) y no vacío: la ficha que
-  // enseña el hero necesita DOS documentos, y el CV no es una fila de éstas.
+  // Los del seed, que HOY no son ninguno: el DNI que traía Joaquín lo retiró
+  // Mario para que la ficha del hero se leyera de un vistazo (el motivo está
+  // escrito en `SEED_CANDIDATE_DOCUMENTS`). El cableado se queda puesto porque es
+  // lo que hace que la demo sepa enseñar más de un documento en cuanto vuelva a
+  // haber uno; el CV no es una fila de éstas, viaja en `cvPath`.
   const [demoCandidateDocuments, setDemoCandidateDocuments] = useState<CandidateDocument[]>(
     () => [...SEED_CANDIDATE_DOCUMENTS],
   )
@@ -2681,6 +2688,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .order('created_at', { ascending: true })
       if (error || !data) return []
       return (data as CandidateDocumentRow[]).map(toCandidateDocument)
+    },
+
+    /**
+     * EN LOTES, y el tamaño no es decorativo: PostgREST recibe los ids en la
+     * QUERY STRING, así que un puesto con seiscientas candidaturas mandaría una
+     * URL de más de veinte kilobytes y el servidor la corta. Doscientos uuids
+     * son ~7 KB, que aguanta cualquier proxy.
+     *
+     * Lo que falle NO tumba al resto: un lote sin respuesta se salta, y el zip
+     * dirá cuántos documentos entraron. Un error seco después de esperar es
+     * justo lo que esa exportación evita.
+     */
+    loadDocumentsFor: async (candidateIds) => {
+      if (!candidateIds.length) return []
+      if (companyId === 'demo') {
+        const set = new Set(candidateIds)
+        return demoCandidateDocuments.filter((d) => set.has(d.candidateId))
+      }
+      const out: CandidateDocument[] = []
+      for (let i = 0; i < candidateIds.length; i += 200) {
+        const { data, error } = await supabase
+          .from('candidate_documents')
+          .select('id,candidate_id,path,nombre,bytes,origen,campo_id,subido_por,created_at')
+          .in('candidate_id', candidateIds.slice(i, i + 200))
+          .order('created_at', { ascending: true })
+        if (error || !data) continue
+        out.push(...(data as CandidateDocumentRow[]).map(toCandidateDocument))
+      }
+      return out
     },
 
     addCandidateDocument: async (candidateId, doc) => {

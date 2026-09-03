@@ -51,6 +51,29 @@ export const TRIAL_REASSURANCE = `Tu primer proceso gratis ${PRUEBA_DIAS} días.
 /** La frase completa del modelo, para la landing y el formulario de precios. */
 export const PRECIO_FRASE = `${PRECIO_PROCESO} €/mes + IVA por proceso abierto. Primer proceso gratis. Sin permanencia: ciérralo cuando quieras y tus candidatos siguen siendo tuyos.`
 
+/**
+ * Estados en los que Stripe está cobrando de verdad. 'past_due' cuenta como
+ * viva: los reintentos siguen en curso y hay un método de pago detrás. No
+ * cuentan 'canceled', 'unpaid', 'incomplete_expired' ni la AUSENCIA de
+ * suscripción (null), que es donde cae una empresa cuyo plan se puso a mano.
+ */
+const SUSCRIPCION_VIVA = ['active', 'trialing', 'past_due']
+
+/**
+ * ¿Hay una suscripción viva detrás de esta empresa? Se pregunta por el ESTADO
+ * de la suscripción y NUNCA por el nombre del plan, porque las dos cosas se
+ * pueden separar: una empresa con `plan = 'pro'` puesto a mano no ha pasado
+ * nunca por Stripe, así que "gestionar pago y facturas" y "cancelar
+ * suscripción" son dos botones que solo pueden dar error. Pasó en producción
+ * (sep 2026): un cliente con un plan antiguo sin suscripción detrás abría
+ * Facturación y no tenía NINGUNA forma de empezar a pagar.
+ */
+export function hayPagoActivo(
+  company: { subscription_status?: string | null } | null | undefined,
+): boolean {
+  return SUSCRIPCION_VIVA.includes(company?.subscription_status ?? '')
+}
+
 /** Días de prueba restantes (0 si agotada o sin empezar el reloj). */
 export function diasDePruebaRestantes(trialEndsAt: string | null | undefined): number | null {
   if (!trialEndsAt) return null // el reloj arranca al abrir el primer proceso
