@@ -119,6 +119,26 @@ Lo que se aprendió al probarlo:
 - Sin `btree_gist` falla la restricción de exclusión de `interviews`, y sin
   `supabase_admin` falla `search_candidates` por el parámetro de `pg_trgm`.
 
+### La copia de los ficheros (desde el 7-sep-2026)
+
+Cada madrugada (03:30 UTC) un trabajo de la cola copia al bucket privado `copias`
+todo lo nuevo o cambiado de `cvs`, `brand-assets` y `avatars`, en la ruta
+`copias/<bucket>/<ruta>`. Lo que desaparece del origen se mueve a
+`copias/papelera/<bucket>/<ruta>` y se borra de verdad a los treinta días. Solo
+llega el servidor: el bucket no tiene ninguna política para anon ni authenticated.
+
+Para RECUPERAR un fichero borrado por error: en el panel de Supabase (Storage ->
+copias -> papelera) o con la CLI, copiarlo de vuelta a su bucket con la MISMA ruta
+que tenía (la base lo referencia por esa ruta en `candidates.cv_path`,
+`candidate_documents.path`, `brands.logo_path`/`banner_path` o `profiles.avatar_path`):
+
+```bash
+supabase storage cp ss:///copias/papelera/cvs/<slug>/<uuid>.pdf ss:///cvs/<slug>/<uuid>.pdf --linked --experimental
+```
+
+Lo que NO cubre: la pérdida del proyecto entero (la copia vive en el mismo
+almacén). Para eso haría falta copiar `copias` a otro proveedor; hoy no se hace.
+
 ## Gates antes de desplegar (auditoría, sep 2026)
 
 ```bash

@@ -217,11 +217,11 @@ async function detalle(error: unknown): Promise<string> {
 
 /** Borra del bucket, en tandas: `remove` con cientos de rutas es una sola
  *  petición grande, y una que falle se llevaría a todas por delante. */
-async function borrarDelBucket(rutas: string[]): Promise<number> {
+async function borrarDe(bucket: string, rutas: string[]): Promise<number> {
   let borradas = 0
   for (let i = 0; i < rutas.length; i += 100) {
     const tanda = rutas.slice(i, i + 100)
-    const { data, error } = await admin.storage.from('cvs').remove(tanda)
+    const { data, error } = await admin.storage.from(bucket).remove(tanda)
     if (error) throw new Error(`storage.remove: ${error.message}`)
     borradas += data?.length ?? 0
   }
@@ -245,7 +245,7 @@ async function purgarFicheros(job: Job): Promise<{ tipo: 'hecho' } | { tipo: 'ob
   if (error) throw new Error(`rutas_en_uso: ${error.message}`)
   const ocupadas = new Set((enUso as string[] | null) ?? [])
   const borrar = rutas.filter((r) => !ocupadas.has(r))
-  if (borrar.length) await borrarDelBucket(borrar)
+  if (borrar.length) await borrarDe('cvs', borrar)
   return { tipo: 'hecho' }
 }
 
@@ -266,7 +266,7 @@ async function purgarCandidatos(): Promise<{ tipo: 'hecho' }> {
   const pendientes = (data as { id: string; company_id: string; rutas: string[] | null }[] | null) ?? []
   if (pendientes.length) {
     const rutas = pendientes.flatMap((p) => p.rutas ?? [])
-    if (rutas.length) await borrarDelBucket(rutas)
+    if (rutas.length) await borrarDe('cvs', rutas)
     const { data: n, error: e2 } = await admin.rpc('purga_candidatos_borrar', { p_ids: pendientes.map((p) => p.id) })
     if (e2) throw new Error(`purga_candidatos_borrar: ${e2.message}`)
     console.log(`[interview-tick] purga: ${n ?? 0} candidaturas, ${rutas.length} ficheros`)
@@ -283,8 +283,70 @@ async function purgarCandidatos(): Promise<{ tipo: 'hecho' }> {
   if (e3) throw new Error(`documentos_huerfanos: ${e3.message}`)
   const lista = (huerfanos as string[] | null) ?? []
   if (lista.length) {
-    await borrarDelBucket(lista)
+    await borrarDe('cvs', lista)
     console.log(`[interview-tick] purga: ${lista.length} ficheros huérfanos`)
+  }
+  return { tipo: 'hecho' }
+}
+
+/**
+ * LA COPIA DIARIA DE LOS FICHEROS al bucket `copias` (ver la migración
+ * 20260907180000). Tres pasos, y cada uno acotado para que un día con mucho
+ * que copiar no se coma el tick: lo que sobra se encola para dentro de un
+ * minuto.
+ *   1. Copiar lo que no tiene copia o ha cambiado (bytes de aquí a allí,
+ *      descarga y subida con `upsert`).
+ *   2. Mover a `papelera/` las copias cuyo original ya no existe: es la vuelta
+ *      atrás de un borrado por error.
+ *   3. Borrar de la papelera lo que lleve más de treinta días.
+ */
+async function copiarFicheros(): Promise<{ tipo: 'hecho' }> {
+  const LOTE = 150
+  const MAX_BYTES = 200 * 1024 * 1024
+  const { data, error } = await admin.rpc('copia_pendientes', { p_limit: LOTE })
+  if (error) throw new Error(`copia_pendientes: ${error.message}`)
+  const pendientes = (data as { bucket_id: string; name: string; bytes: number }[] | null) ?? []
+  let copiados = 0
+  let bytes = 0
+  let fallos = 0
+  for (const f of pendientes) {
+    if (bytes > MAX_BYTES) break
+    const { data: blob, error: e1 } = await admin.storage.from(f.bucket_id).download(f.name)
+    if (e1 || !blob) { fallos++; console.error(`[interview-tick] copia: no se pudo bajar ${f.bucket_id}/${f.name}: ${e1?.message}`); continue }
+    const { error: e2 } = await admin.storage.from('copias').upload(`${f.bucket_id}/${f.name}`, blob, {
+      upsert: true,
+      contentType: blob.type || 'application/octet-stream',
+    })
+    if (e2) { fallos++; console.error(`[interview-tick] copia: no se pudo subir ${f.bucket_id}/${f.name}: ${e2.message}`); continue }
+    copiados++
+    bytes += blob.size
+  }
+
+  const { data: huerfanas, error: e3 } = await admin.rpc('copias_sin_origen', { p_limit: 500 })
+  if (e3) throw new Error(`copias_sin_origen: ${e3.message}`)
+  let aPapelera = 0
+  for (const nombre of (huerfanas as string[] | null) ?? []) {
+    const { error: e4 } = await admin.storage.from('copias').move(nombre, `papelera/${nombre}`)
+    if (e4) { fallos++; console.error(`[interview-tick] copia: no se pudo mover ${nombre}: ${e4.message}`); continue }
+    aPapelera++
+  }
+
+  const { data: caducadas, error: e5 } = await admin.rpc('copias_caducadas', { p_limit: 500 })
+  if (e5) throw new Error(`copias_caducadas: ${e5.message}`)
+  const lista = (caducadas as string[] | null) ?? []
+  if (lista.length) await borrarDe('copias', lista)
+
+  console.log(`[interview-tick] copia: ${copiados} copiados (${Math.round(bytes / 1024)} KB), ${aPapelera} a la papelera, ${lista.length} caducados, ${fallos} fallos`)
+  // Un fallo de bajada o subida no es "hecho": se reintenta con el backoff de
+  // la cola, y lo que ya se copió no se vuelve a copiar (updated_at manda).
+  if (fallos) throw new Error(`copia: ${fallos} ficheros no se pudieron copiar`)
+  if (pendientes.length === LOTE || bytes > MAX_BYTES) {
+    await admin.rpc('enqueue_interview_job', {
+      p_kind: 'copiar_ficheros',
+      p_payload: {},
+      p_run_at: new Date(Date.now() + 60_000).toISOString(),
+      p_dedupe_key: `copia:cont:${Date.now()}`,
+    })
   }
   return { tipo: 'hecho' }
 }
@@ -399,6 +461,13 @@ Deno.serve(async (req) => {
           await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: null, p_error: r.motivo })
           cancelados++
         }
+        continue
+      }
+
+      if (job.kind === 'copiar_ficheros') {
+        await copiarFicheros()
+        await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: true })
+        ok++
         continue
       }
 

@@ -289,7 +289,7 @@ export const PRIVACY_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Pasados esos plazos, bloqueamos los datos de los que somos responsables mientras puedan derivarse responsabilidades legales y después los suprimimos de forma segura. Los datos de candidatos se suprimen cuando lo ordena la empresa responsable (desde su panel o por el borrado automático que haya activado), sin bloqueo intermedio por nuestra parte: si tu empresa necesita conservar una copia bloqueada, expórtala antes de eliminar. Lo suprimido puede permanecer en las copias de seguridad de nuestro proveedor de infraestructura durante un máximo de siete días, y después desaparece también de ellas."
+          "text": "Pasados esos plazos, bloqueamos los datos de los que somos responsables mientras puedan derivarse responsabilidades legales y después los suprimimos de forma segura. Los datos de candidatos se suprimen cuando lo ordena la empresa responsable (desde su panel o por el borrado automático que haya activado), sin bloqueo intermedio por nuestra parte: si tu empresa necesita conservar una copia bloqueada, expórtala antes de eliminar. Lo suprimido puede permanecer en las copias de seguridad durante un máximo de treinta días (siete en las copias de la base de datos de nuestro proveedor, treinta en la copia de los archivos que mantenemos para poder deshacer un borrado por error), y después desaparece también de ellas."
         }
       ]
     },
