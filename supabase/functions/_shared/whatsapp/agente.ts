@@ -19,7 +19,7 @@
 //   * El puesto. Si lo pausaron o lo cerraron, se para: seguir citando gente
 //     para un puesto que ya no existe es peor que no hacer nada.
 
-import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { whatsappMeta } from '../channels/whatsappMeta.ts'
 import type { MensajeSaliente, Sender } from '../channels/types.ts'
 import {

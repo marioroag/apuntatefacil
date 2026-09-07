@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSheet } from './export'
+import { buildSheet, celdaCsv } from './export'
 import type { Campaign, Candidate, CandidateComment } from './types'
 
 // El export es el único sitio donde los datos del cliente salen de la app. Dos
@@ -97,5 +97,29 @@ describe('buildSheet', () => {
     expect(bloqueada[cab.indexOf('Conversación')]).toMatch(/Añade tu método de pago/)
     // Y nada de datos personales en las columnas del formulario.
     expect(bloqueada[1]).toBe('•••')
+  })
+})
+
+/* ---------------------------------------------------------------------------
+   INYECCIÓN DE FÓRMULAS EN EL CSV. Una respuesta del formulario público que
+   empiece por `=`, `+`, `-` o `@` NO puede llegar a la celda tal cual: abierto
+   en Excel o en Google Sheets se evaluaría. Probado rompiéndolo a propósito:
+   devolviendo `v` sin la comilla, fallan los cuatro primeros.
+--------------------------------------------------------------------------- */
+describe('celdaCsv', () => {
+  it('neutraliza una celda que empieza por un carácter de fórmula', () => {
+    expect(celdaCsv('=1+1')).toBe('"\'=1+1"')
+    expect(celdaCsv('+34 600 000 000')).toBe('"\'+34 600 000 000"')
+    expect(celdaCsv('-5')).toBe('"\'-5"')
+    expect(celdaCsv('@usuario')).toBe('"\'@usuario"')
+    expect(celdaCsv('\tfórmula')).toBe('"\'\tfórmula"')
+  })
+  it('deja el texto normal como estaba, y entrecomilla solo lo que el RFC pide', () => {
+    expect(celdaCsv('Juan García')).toBe('Juan García')
+    expect(celdaCsv('dice "hola", y sigue')).toBe('"dice ""hola"", y sigue"')
+    expect(celdaCsv('dos\nlíneas')).toBe('"dos\nlíneas"')
+  })
+  it('conserva las comillas de dentro también cuando neutraliza', () => {
+    expect(celdaCsv('=HYPERLINK("https://malo.example")')).toBe('"\'=HYPERLINK(""https://malo.example"")"')
   })
 })

@@ -12,7 +12,7 @@
 // verify_jwt = true. Quién puede escribir en qué conversación lo decide RLS con
 // el JWT del usuario; el service_role solo entra DESPUÉS, para leer el contexto
 // de envío y dejar constancia.
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { whatsappMeta } from '../_shared/channels/whatsappMeta.ts'
 

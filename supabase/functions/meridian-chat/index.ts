@@ -21,7 +21,7 @@
 //
 // Secrets: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
 //          OPENAI_API_KEY, OPENAI_MODEL?
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { planHasMeridian } from '../_shared/plans.ts'
 import { OPENAI_API_KEY, OPENAI_BASE, OPENAI_MODEL, openaiError, tuning } from '../_shared/openai.ts'

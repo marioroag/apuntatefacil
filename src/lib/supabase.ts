@@ -56,6 +56,15 @@ export const supabase = createClient(url ?? 'http://127.0.0.1:54321', anonKey ??
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    // PKCE y no el flujo implícito (que es el que supabase-js usa si no se
+    // dice nada): con el implícito, el access token y el REFRESH token vuelven
+    // de Google y del enlace de reset en el fragmento de la URL, y se quedan en
+    // el historial del navegador y al alcance de cualquier extensión. Con PKCE
+    // solo viaja un `code` de un uso, que se canjea con el verificador guardado
+    // en este mismo storage. Consecuencia que hay que saber: el enlace de reset
+    // tiene que abrirse en el navegador que lo pidió, porque el verificador vive
+    // aquí. (Auditoría de seguridad, sep 2026.)
+    flowType: 'pkce',
     storage: sessionStorageAdapter,
   },
 })

@@ -30,6 +30,19 @@ dist-ssr
 # Documento de trabajo local (no se versiona)
 CONTEXTO-PRODUCTO.md
 
+# Los .env de la RAÍZ (Vite lee .env, .env.production y .env.development
+# además de .env.local, y `*.local` solo cubría el último). El de ejemplo sí
+# se versiona: no lleva nada que no sea público.
+.env
+.env.*
+!.env.example
+
+# Estado de herramientas locales (servidor de brainstorm de superpowers): su
+# token y su puerto no son de nadie más que de esta máquina.
+.superpowers/**/.last-token
+.superpowers/**/.last-port
+.superpowers/**/state/
+
 # Secrets de las edge functions en local. `*.local` de arriba NO cubre este
 # nombre, y aquí es donde viven el token de WhatsApp y la clave de la app.
 supabase/functions/.env

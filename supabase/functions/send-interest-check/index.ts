@@ -1,7 +1,7 @@
 // Envía una comprobación manual de interés a candidatos seleccionados.
 // verify_jwt = true. Autoriza candidatos con el JWT y escribe con service_role
 // solo después de que RLS haya confirmado su visibilidad.
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { esc, renderEmail } from '../_shared/email.ts'
 import { whatsappMeta } from '../_shared/channels/whatsappMeta.ts'

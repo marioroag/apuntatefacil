@@ -34,6 +34,13 @@
 //
 // Lo invoca el formulario público al entrar la candidatura (verify_jwt=false)
 // y el panel a demanda. Guardas de coste/abuso (endpoint público):
+//  - QUIÉN LLAMA DECIDE QUÉ PUEDE PEDIR (auditoría, sep 2026). Sin sesión solo
+//    se admite el disparo automático (`auto: true`), que es el único que
+//    respeta el interruptor de Ajustes y la idempotencia; `force` y el análisis
+//    manual exigen una persona con sesión que VEA al candidato por RLS. Antes,
+//    el navegador del candidato (que recibe su propio id al enviar) podía
+//    llamar con `force: true` en bucle y pagar un análisis nuevo por vuelta.
+//    El servidor (la cola, con la clave service_role) puede todo.
 //  - Solo analiza si la empresa es Pro/Multi (fail-closed, planHasMeridian).
 //  - Idempotente: si ya hay un análisis correcto, no vuelve a llamar a OpenAI.
 //    Un análisis con `error` sí se puede reintentar.
@@ -44,7 +51,7 @@
 //  - Sin OPENAI_API_KEY: no-op silencioso (listo para enchufar la clave).
 //
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY, OPENAI_MODEL?
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { getDocumentProxy } from 'npm:unpdf@0.12.1'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { planHasMeridian } from '../_shared/plans.ts'
@@ -58,11 +65,43 @@ import {
   type Baremo, type FuenteJuicio, type ItemTexto, type Juicio, type Valor,
 } from '../_shared/triaje.ts'
 
-const admin = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-)
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 const MAX_CV_CHARS = 15000
+
+type Quien =
+  | { tipo: 'servidor' }
+  | { tipo: 'usuario'; cliente: ReturnType<typeof createClient> }
+  | { tipo: 'anonimo' }
+
+/** Comparación por huella: el tiempo no depende de en qué byte difieren. */
+async function mismoSecreto(a: string, b: string): Promise<boolean> {
+  const h = async (t: string) => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))
+  const [x, y] = await Promise.all([h(a), h(b)])
+  let d = 0
+  for (let i = 0; i < x.length; i++) d |= x[i] ^ y[i]
+  return d === 0
+}
+
+/**
+ * Quién está llamando, en tres clases. La cola de la base viene con la clave
+ * service_role (es el servidor y puede todo). Una persona del panel viene con
+ * su sesión: se resuelve con getUser y se le exige, más abajo, que el candidato
+ * le sea visible por RLS. Lo demás (el formulario público, la anon key, un
+ * script) es anónimo y solo puede pedir el disparo automático.
+ */
+async function quienLlama(req: Request): Promise<Quien> {
+  const cabecera = req.headers.get('Authorization') ?? ''
+  const jwt = cabecera.replace(/^Bearer\s+/i, '').trim()
+  if (!jwt) return { tipo: 'anonimo' }
+  if (await mismoSecreto(jwt, SERVICE_ROLE_KEY)) return { tipo: 'servidor' }
+  if (!ANON_KEY) return { tipo: 'anonimo' }
+  const cliente = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: cabecera } } })
+  const { data } = await cliente.auth.getUser(jwt)
+  return data?.user?.id ? { tipo: 'usuario', cliente } : { tipo: 'anonimo' }
+}
 /** Un análisis nunca debería tardar tanto: pasado esto, el reclamo se considera muerto. */
 const CLAIM_TTL_MS = 5 * 60 * 1000
 /** Modelo SOLO para la transcripción de visión, por si el principal no admite
@@ -262,7 +301,15 @@ Deno.serve(async (req) => {
     // idempotencia: el plan, el reclamo atómico y el resto de guardas de coste
     // se aplican igual, y las llamadas automáticas no lo usan nunca.
     const { candidate_id, auto, force } = await req.json()
-    if (!candidate_id) return json({ error: 'Falta candidate_id' }, 400)
+    if (!candidate_id || typeof candidate_id !== 'string') return json({ error: 'Falta candidate_id' }, 400)
+
+    // Sin sesión, lo único que se puede pedir es el disparo automático. Se
+    // decide ANTES de leer nada: un anónimo tampoco tiene que poder saber si un
+    // id existe.
+    const quien = await quienLlama(req)
+    if (quien.tipo === 'anonimo' && (auto !== true || force === true)) {
+      return json({ error: 'No autorizado' }, 401)
+    }
 
     const { data: cand } = await admin
       .from('candidates')
@@ -270,6 +317,14 @@ Deno.serve(async (req) => {
       .eq('id', candidate_id)
       .single()
     if (!cand) return json({ ok: true, analyzed: false, skipped: 'candidato no encontrado' })
+
+    // Una persona solo analiza a quien ve: la RLS de `candidates` (puesto
+    // visible, no bloqueado) es la autorización, y se pregunta con SU sesión.
+    if (quien.tipo === 'usuario') {
+      const { data: visible } = await quien.cliente
+        .from('candidates').select('id').eq('id', candidate_id).maybeSingle()
+      if (!visible) return json({ error: 'No autorizado' }, 403)
+    }
 
     // Gating de plan (fail-closed): la IA es diferenciador de Pro/Multi.
     const { data: comp } = await admin

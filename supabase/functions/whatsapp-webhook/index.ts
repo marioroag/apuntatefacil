@@ -18,7 +18,7 @@
 //      firma deja de cuadrar.
 //
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN.
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { json } from '../_shared/cors.ts'
 import { whatsappMeta } from '../_shared/channels/whatsappMeta.ts'
 import { NORMAL, esperaSegundos } from '../_shared/interviews/ritmo.ts'

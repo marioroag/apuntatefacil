@@ -11,8 +11,8 @@
 //
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, RESEND_WEBHOOK_SECRET (firma Svix),
 // RESEND_API_KEY, NOTIFY_FROM, SUPPORT_TO, APP_URL.
-import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { Webhook } from 'npm:svix'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
+import { Webhook } from 'npm:svix@1.99.1'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { renderPlainEmail, esc, SUPPORT_INBOX } from '../_shared/email.ts'
 

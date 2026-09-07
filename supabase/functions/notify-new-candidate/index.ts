@@ -2,7 +2,7 @@
 // Lo invoca el formulario público tras enviar (con el candidate_id). verify_jwt = false.
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, NOTIFY_FROM (ej. "Apúntate Fácil <avisos@apuntatefacil.com>"),
 // APP_URL (ej. https://apuntatefacil.com) para el enlace al panel.
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { esc, renderEmail } from '../_shared/email.ts'
 import { conPreferencia } from '../_shared/prefs.ts'

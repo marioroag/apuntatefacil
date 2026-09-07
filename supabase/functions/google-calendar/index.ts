@@ -13,7 +13,7 @@
 //
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, GOOGLE_CLIENT_ID,
 // GOOGLE_CLIENT_SECRET (y GOOGLE_REDIRECT_URI solo para desarrollo local).
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { accessTokenDe, configurado, freeBusy, revocar, urlConsentimiento } from '../_shared/google/calendar.ts'
 import { fundirOcupado, type Ocupado } from '../_shared/schedule/slots.ts'

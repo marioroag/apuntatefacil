@@ -134,8 +134,20 @@ function descargar(blob: Blob, filename: string) {
  * (el hilo del equipo tiene varios): entre comillas son válidos y cualquier
  * lector serio los entiende.
  */
-function celdaCsv(v: string): string {
-  return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
+export function celdaCsv(v: string): string {
+  // INYECCIÓN DE FÓRMULAS. Lo que va en estas celdas lo escribe el candidato
+  // anónimo (sus respuestas) y el equipo (las notas), y Excel, LibreOffice y
+  // Google Sheets evalúan como fórmula cualquier celda de un CSV que empiece
+  // por `=`, `+`, `-` o `@` (y por tabulador o retorno, que son la forma de
+  // colar el prefijo). Con `=HYPERLINK(...)` o un DDE eso es sacar datos de la
+  // hoja o ejecutar un comando en el ordenador de la empresa al abrir el
+  // fichero. Se neutraliza con una comilla simple delante, que es lo que hacen
+  // los propios programas de hoja de cálculo para "esto es texto", y la celda
+  // se entrecomilla siempre en ese caso. El XLSX no lo necesita: SheetJS
+  // escribe las cadenas como texto, nunca como fórmula. (Auditoría, sep 2026.)
+  const peligrosa = /^[=+\-@\t\r]/.test(v)
+  const texto = peligrosa ? `'${v}` : v
+  return peligrosa || /[",\n\r]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto
 }
 
 /**

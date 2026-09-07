@@ -12,8 +12,8 @@
 //
 // Los prices de los tiers retirados (Esencial/Pro/Multi) se siguen mapeando
 // mientras queden suscripciones antiguas vivas.
-import Stripe from 'npm:stripe@18'
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import Stripe from 'npm:stripe@18.5.0'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil' })
 const admin = createClient(

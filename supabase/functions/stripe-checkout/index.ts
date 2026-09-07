@@ -23,8 +23,8 @@
 //    los tiers retirados (Esencial/Pro/Multi).
 // Auto-reparación: si la suscripción/cliente guardados no existen en el modo
 // actual, se limpian y se trata como alta nueva, en vez de dar error.
-import Stripe from 'npm:stripe@18'
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import Stripe from 'npm:stripe@18.5.0'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil' })

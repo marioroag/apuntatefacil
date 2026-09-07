@@ -22,7 +22,7 @@
 // cada candidato convierte el producto en una fuente de ruido.
 //
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, INTERVIEW_TICK_SECRET.
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { ejecutarTrabajoDeCanal, TRABAJOS_DE_CANAL, type Job as JobCanal } from '../_shared/whatsapp/agente.ts'
 import { sincronizarCalendario } from '../_shared/google/sync.ts'

@@ -13,7 +13,7 @@
 //
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, RESEND_API_KEY, NOTIFY_FROM, APP_URL.
 // Sin RESEND_API_KEY es no-op silencioso.
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { esc, renderEmail } from '../_shared/email.ts'
 import { conPreferencia } from '../_shared/prefs.ts'

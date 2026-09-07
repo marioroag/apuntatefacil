@@ -9,7 +9,7 @@
 // a alguien que acaba de dar permiso a su calendario.
 //
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, APP_URL.
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { canjearCodigo } from '../_shared/google/calendar.ts'
 
 const admin = createClient(

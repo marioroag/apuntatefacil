@@ -3,7 +3,7 @@
 // verify_jwt = false (la landing es anónima). No-op silencioso si falta RESEND_API_KEY.
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, NOTIFY_FROM, SUPPORT_TO (opcional,
 // sobreescribe el destinatario por defecto), APP_URL (para el enlace al panel).
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { renderPlainEmail, esc, SUPPORT_INBOX } from '../_shared/email.ts'
 

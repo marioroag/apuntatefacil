@@ -5,7 +5,7 @@
 //
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY (auto), RESEND_API_KEY,
 // SUPPORT_TO (buzón base, ej. soporte@apuntatefacil.com).
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { renderPlainEmail, esc } from '../_shared/email.ts'
 

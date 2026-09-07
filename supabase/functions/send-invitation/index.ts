@@ -3,7 +3,7 @@
 // Autoriza dentro: el llamante debe ser OWNER de la empresa de la invitación.
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY, RESEND_API_KEY, NOTIFY_FROM, APP_URL.
 // Sin RESEND_API_KEY es no-op silencioso: el panel siempre muestra el enlace copiable.
-import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { renderEmail } from '../_shared/email.ts'
 
