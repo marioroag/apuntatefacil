@@ -6,7 +6,7 @@ import {
 
 // El guardián del consentimiento. Lo que hay aquí no es estilo: cada regla
 // corresponde a algo que, si se rompe, deja una candidatura sin poder demostrar
-// qué aceptó esa persona, o al asistente escribiendo sin permiso.
+// qué aceptó esa persona.
 describe('consentimiento', () => {
   it('ninguna versión se repite', () => {
     const ids = CONSENT_VERSIONS.map((v) => v.id)
@@ -21,10 +21,14 @@ describe('consentimiento', () => {
     for (const v of CONSENT_VERSIONS) expect(v.id.length).toBeLessThanOrEqual(40)
   })
 
-  it('toda versión avisa de WhatsApp', () => {
-    // Es la razón de existir de esta pieza: si el texto no lo dice, el
-    // consentimiento guardado no ampara escribirle por WhatsApp.
-    for (const v of CONSENT_VERSIONS) expect(v.texto).toMatch(/WhatsApp/)
+  // AQUÍ SE EXIGÍA QUE TODA VERSIÓN NOMBRARA WHATSAPP, porque sin eso el permiso
+  // guardado no amparaba escribirle por ahí. Retirado el asistente (sep 2026) la
+  // regla se da la vuelta: lo que no se puede es PEDIR permiso para un canal que
+  // no existe. Se comprueba sobre la VIGENTE y no sobre todas, porque las
+  // versiones publicadas no se tocan: la 2026-08-02 lo nombra y tiene que seguir
+  // resolviendo tal cual para quien la aceptó.
+  it('el texto vigente no pide permiso para un canal que ya no existe', () => {
+    expect(consentimientoVigente('Transportes Peña')).not.toMatch(/WhatsApp/)
   })
 
   it('toda versión lleva dentro la frase que se enlaza', () => {

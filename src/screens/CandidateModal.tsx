@@ -44,10 +44,8 @@ import { InfoTooltip } from '../components/ui/Tooltip'
 import { TAGS_ENABLED } from '../lib/pricing'
 import { AgendarManualDialog, CambiarCitaDialog } from '../components/InterviewAction'
 import { currentInterview } from '../lib/interviews'
-import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import { useEsMovil } from '../lib/media'
 import { colocarFlotante } from '../lib/flotante'
-import { InterviewConversation } from '../components/InterviewConversation'
 import { MeridianAvatar, MeridianPanelBlock } from '../components/Meridian'
 import { MERIDIAN_NAME, candidateFit, citasDelAnalisis, type CitaCv } from '../lib/meridian'
 import { CvViewer, type CitaActiva } from '../components/CvViewer'
@@ -59,16 +57,16 @@ import { ERROR_DESCARGA, useDocumento } from '../lib/documento'
  *
  * Sustituye al SlideOver de 460 px (jul 2026). El panel lateral protegía una
  * cosa buena, que la lista filtrada siguiera a la vista, pero obligaba a apilar
- * en una columna estrecha todo lo que hay que saber de una persona, y no tenía
- * sitio para una conversación. El pop-up conserva la lista detrás (el telón es
- * translúcido), da dos columnas y añade lo que faltaba: pasar de un candidato al
- * siguiente sin cerrar, y un hilo donde el equipo habla del caso.
+ * en una columna estrecha todo lo que hay que saber de una persona. El pop-up
+ * conserva la lista detrás (el telón es translúcido), da dos columnas y añade lo
+ * que faltaba: pasar de un candidato al siguiente sin cerrar, y un hilo donde el
+ * equipo habla del caso.
  *
  * Reparto: a la izquierda lo que DICE el candidato y se lee de arriba abajo
  * (el informe de Meridian, sus respuestas y sus documentos); a la derecha, en
  * un raíl SIN pestañas, lo que necesitas para actuar sobre él (sus datos, sus
  * etiquetas y el hilo de tu equipo). Las otras dos superficies largas, la
- * Conversación y el Historial, son pestañas de la izquierda.
+ * Trayectoria y el Historial, son pestañas de la izquierda.
  *
  * ESTO CAMBIÓ EN AGO 2026, con un diseño de Mario delante, y el motivo se veía
  * en pantalla: los HECHOS de una persona (su teléfono, su correo, cuándo entró,
@@ -90,10 +88,12 @@ import { ERROR_DESCARGA, useDocumento } from '../lib/documento'
  *   - "Notas" como nombre del hilo: son el chat del equipo desde jul 2026, con
  *     autor, fecha y menciones. Las notas internas ya no existen.
  *
- * Conversación es la superficie principal de la entrevista: se invita desde
- * ahí, se ve lo hablado y se toma el control. No hay bandeja global de
- * WhatsApp a propósito: obligaría a saltar entre dos sitios para entender a
- * una sola persona.
+ * LA PESTAÑA "CONVERSACIÓN" SE RETIRÓ CON EL ASISTENTE DE WHATSAPP (sep 2026).
+ * Era la superficie del canal: se invitaba desde ahí, se veía lo hablado y se
+ * tomaba el control. Sin canal no queda hilo que enseñar, y una pestaña que solo
+ * puede decir que todavía no escribimos es un destino que no lleva a ninguna
+ * parte. Lo que se hace con una cita (agendarla, moverla, cancelarla) vive donde
+ * se decide: en las acciones, encima de sus datos.
  */
 
 /**
@@ -103,38 +103,37 @@ import { ERROR_DESCARGA, useDocumento } from '../lib/documento'
  * En escritorio, las tres primeras se apilan en la columna izquierda y las dos
  * últimas son pestañas; en móvil, las cinco comparten un grupo de pastillas.
  * Con dos estados (uno por superficie) la ficha se descuadraba al girar el
- * teléfono y "ver la entrevista" acertaba en un tamaño y fallaba en el otro, que
+ * teléfono y "ver la trayectoria" acertaba en un tamaño y fallaba en el otro, que
  * es exactamente el fallo que ya tuvo la versión de pestañas anidadas.
  */
-type Vista = 'respuestas' | 'meridian' | 'documentos' | 'trayectoria' | 'conversacion' | 'historial'
+type Vista = 'respuestas' | 'meridian' | 'documentos' | 'trayectoria' | 'historial'
 
 /** Las tres que en escritorio se leen seguidas en la columna. */
 const ES_FICHA = ['respuestas', 'meridian', 'documentos'] as const
 const esFicha = (v: Vista) => (ES_FICHA as readonly string[]).includes(v)
 
-/** Las vistas que se LEEN (columna con scroll y relleno), frente a las dos
- *  superficies de conversación, que mandan su propio alto. La Trayectoria es
- *  lectura: una ficha del CV, no un hilo. */
+/** Las vistas que se LEEN (columna con scroll y relleno), frente al Historial,
+ *  que manda su propio alto. La Trayectoria es lectura: una ficha del CV, no un
+ *  hilo. */
 const esLectura = (v: Vista) => esFicha(v) || v === 'trayectoria'
 
 /**
  * El registro del grupo de pastillas de móvil. Respuestas la primera y por
  * defecto (es lo que se mira siempre); Documentos detrás de Meridian porque
  * muchas veces está vacío, y la Trayectoria (la línea de tiempo del CV) con él,
- * que es su hermano; y al final las dos superficies largas, que son a donde se
- * entra a propósito.
+ * que es su hermano; y al final el Historial, que es a donde se entra a
+ * propósito.
  */
 const VISTAS: TabItem<Vista>[] = [
   { value: 'respuestas', label: 'Respuestas' },
   { value: 'meridian', label: MERIDIAN_NAME },
   { value: 'documentos', label: 'Documentos' },
   { value: 'trayectoria', label: 'Trayectoria' },
-  { value: 'conversacion', label: 'Conversación' },
   { value: 'historial', label: 'Historial' },
 ]
 
-// 1024px: por debajo, la columna de conversación de 368px dejaría el contenido
-// principal por debajo de un ancho legible.
+// 1024px: por debajo, el raíl de 368px dejaría el contenido principal por debajo
+// de un ancho legible.
 function useDosColumnas(): boolean {
   const [dos, setDos] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
   useEffect(() => {
@@ -211,8 +210,8 @@ export function CandidateModal({
   /**
    * La barra del pulgar: llamar, escribir y el `···`, flotando sobre la columna.
    *
-   * Solo donde no hay raíl y solo en la ficha: en la Conversación y en el
-   * Historial la columna es lo único que hay y ahí manda lo que se lee. Se
+   * Solo donde no hay raíl y solo en la ficha: en el Historial la columna es lo
+   * único que hay y ahí manda lo que se lee. Se
    * declara aquí y no en el JSX porque lo preguntan DOS sitios, la propia barra
    * y el relleno que la columna le reserva al pie; escrito dos veces, el día
    * que cambie la condición uno de los dos se queda mintiendo.
@@ -222,7 +221,7 @@ export function CandidateModal({
   const canManageTags = role !== 'encargado'
   // Con el pago por proceso todo el producto está incluido: las notas del equipo
   // y las entrevistas ya no se cortan por plan. En demo lo que cambia es que
-  // llamar y escribir por WhatsApp avisan en vez de salir.
+  // llamar y escribir avisan en vez de salir.
 
   // Al cambiar de candidato se vuelve a Información: cada persona se abre por
   // lo que ha contestado. Se ajusta DURANTE el render (patrón de React para
@@ -235,9 +234,6 @@ export function CandidateModal({
     setCitaActiva(null)
     setCitasLocalizadas(null)
   }
-
-  // Lleva DIRECTO a la conversación, a cualquier ancho: una sola pieza de estado.
-  const abrirConversacion = () => setVista('conversacion')
 
   const open = !!candidate
   const name = candidate ? candidateName(candidate) || 'Sin nombre' : ''
@@ -278,24 +274,12 @@ export function CandidateModal({
   // manda un único control, el de las pastillas, con las cinco vistas dentro.
   // La TRAYECTORIA es pestaña propia (Mario, ago 2026: "el timeline del
   // trabajador"): es la lectura del CV, no un apartado de Información, y junto
-  // a Conversación e Historial porque también es una superficie a la que se
-  // entra a propósito.
-  const tabsIzq: TabItem<'info' | 'trayectoria' | 'conversacion' | 'historial'>[] = [
+  // al Historial porque también es una superficie a la que se entra a propósito.
+  const tabsIzq: TabItem<'info' | 'trayectoria' | 'historial'>[] = [
     { value: 'info', label: 'Información' },
     { value: 'trayectoria', label: 'Trayectoria' },
-    { value: 'conversacion', label: 'Conversación' },
     { value: 'historial', label: 'Historial' },
   ]
-
-
-  const panelConversacion = (
-    <InterviewConversation
-      key={candidate.id}
-      candidate={candidate}
-      campaign={campaign}
-      onScheduleManually={() => setAgendarManual(true)}
-    />
-  )
 
   // Los datos y las etiquetas: en el raíl si lo hay, y si no, arriba del todo de
   // Información. Es el MISMO objeto en las dos superficies, no dos copias: en
@@ -368,7 +352,7 @@ export function CandidateModal({
       onAvisoDemo={avisoDemo}
       esMovil={esMovil}
       onAgendar={() => setAgendarManual(true)}
-      onVerEntrevista={WHATSAPP_LISTO ? abrirConversacion : () => setCambiarCita(true)}
+      onVerEntrevista={() => setCambiarCita(true)}
       onEstado={cambiarEstado}
     />
   )
@@ -504,7 +488,7 @@ export function CandidateModal({
 
         {/* SIN RAÍL, LAS ACCIONES VIVEN ENCIMA DE LAS PESTAÑAS (Mario, ago 2026).
             Dentro de Información eran un apartado más, así que desaparecían al
-            abrir la Conversación o el Historial, y lo que se puede HACER con una
+            abrir la Trayectoria o el Historial, y lo que se puede HACER con una
             persona no depende de qué estés mirando de ella. Arriba hacen el mismo
             trabajo que el raíl en escritorio: están siempre, y la columna de
             debajo se queda entera para leer. Van en la banda de chrome, entre el
@@ -531,7 +515,7 @@ export function CandidateModal({
             {!esMovil && (
               <Tabs
                 items={tabsIzq}
-                value={esFicha(vista) ? 'info' : (vista as 'trayectoria' | 'conversacion' | 'historial')}
+                value={esFicha(vista) ? 'info' : (vista as 'trayectoria' | 'historial')}
                 onChange={(v) => setVista(v === 'info' ? 'respuestas' : v)}
                 idPrefix="cand"
                 label="Secciones del candidato"
@@ -578,7 +562,7 @@ export function CandidateModal({
                       {/* LAS CINCO VISTAS EN UN GRUPO DE PASTILLAS (referencia de
                           JOIN, Mario ago 2026). Las tres de la ficha suman 614px de
                           los 623 que se ven en un teléfono, o sea que empujaban las
-                          notas a la tercera pantalla; y la Conversación y el
+                          notas a la tercera pantalla; y la Trayectoria y el
                           Historial vivían en una segunda barra de navegación arriba.
                           Juntas ocupan lo que ocupe UNA, con un solo control, y el
                           rótulo de cada apartado deja de hacer falta: lo dice la
@@ -601,13 +585,12 @@ export function CandidateModal({
                           : vista === 'meridian' ? contenidoMeridian
                           : vista === 'documentos' ? contenidoDocumentos
                           : vista === 'trayectoria' ? contenidoTrayectoria
-                          // La conversación y el historial mandan su propio alto
-                          // (son columnas flex con scroll), así que dentro de una
-                          // columna que ya scrollea hay que dárselo declarado o se
-                          // quedan en cero.
+                          // El historial manda su propio alto (es una columna flex
+                          // con scroll), así que dentro de una columna que ya
+                          // scrollea hay que dárselo declarado o se queda en cero.
                           : (
                             <div className="flex h-[420px] max-h-[60vh] flex-col overflow-hidden rounded-xl filo bg-slate-50/60">
-                              {vista === 'conversacion' ? panelConversacion : contenidoHistorial}
+                              {contenidoHistorial}
                             </div>
                           )}
                       </TabPanel>
@@ -640,7 +623,6 @@ export function CandidateModal({
                 </div>
               )}
               {!esMovil && vista === 'trayectoria' && contenidoTrayectoria}
-              {!esMovil && vista === 'conversacion' && panelConversacion}
               {!esMovil && vista === 'historial' && contenidoHistorial}
             </Envoltorio>
           </section>
@@ -651,7 +633,7 @@ export function CandidateModal({
               repartido entre cuatro pestañas (dos a la izquierda y dos más
               dentro del panel de la derecha), así que leer un teléfono o ver si
               alguien había apuntado algo costaba clics; ahora está puesto, y no
-              se va cuando abres la Conversación o el Historial.
+              se va cuando abres la Trayectoria o el Historial.
 
               LAS NOTAS VAN INTEGRADAS EN LA COLUMNA, no en un panel aparte con
               su barra de scroll y su campo pegado abajo (Mario, ago 2026: "más
@@ -1127,13 +1109,12 @@ function Bloque({
  *      icono+texto, así que el RÓTULO queda descentrado (12px medidos en "Crear
  *      puesto"). Un botón de bloque va con la etiqueta sola.
  *
- * PENDIENTE, y por eso el botón dice hoy "Agendar entrevista" y no "Invitar":
- * la invitación con la disponibilidad del calendario de quien invita no existe
- * todavía (hace falta la integración con Google Calendar, una página pública
- * donde el candidato elija hueco y el correo que la lleva). Mientras tanto, la
- * acción que se ofrece es la que funciona ENTERA, que es apuntar la cita a mano;
- * es la misma regla que aplica `WHATSAPP_LISTO` en el resto de la ficha: nunca
- * se ofrece una acción que acabe en un mensaje que no sale.
+ * EL BOTÓN DICE "AGENDAR ENTREVISTA", y desde que se retiró el asistente de
+ * WhatsApp (sep 2026) esa es la única forma que hay: la cita se apunta a mano y
+ * avisas tú por el canal que quieras. Llegó a haber un "Invitar a entrevista"
+ * previsto, que le escribía al candidato para que eligiera hueco; se fue con el
+ * canal. La regla que queda es la de siempre: se ofrece la acción que funciona
+ * ENTERA, nunca una que acabe en un mensaje que no sale.
  */
 /**
  * El teléfono en el formato que pide `wa.me`. Vive aquí y no escrito dos veces
@@ -1145,9 +1126,9 @@ const waNumero = (phone: string) => (phone ? '34' + phone.replace(/\D/g, '') : '
 /**
  * UN CONTACTO QUE EN LA DEMO NO SALE DEL NAVEGADOR.
  *
- * Llamar y escribir por WhatsApp son ENLACES (`tel:` y `wa.me`), que es lo que
- * hace que funcionen hoy aunque el canal de WhatsApp nuestro siga apagado: ese
- * WhatsApp es el del empresario y se abre en su móvil. Pero en la demo los
+ * Llamar y escribir por WhatsApp son ENLACES (`tel:` y `wa.me`), y por eso
+ * sobrevivieron a la retirada del asistente: ese WhatsApp es el DEL EMPRESARIO y
+ * se abre en su móvil, no sale nada nuestro. Pero en la demo los
  * teléfonos están tapados y no llevan a nadie, así que ahí el mismo control es un
  * `<button>` que lo dice, y no un enlace muerto.
  *
@@ -1279,10 +1260,10 @@ function AccionesCandidato({
             justo el trabajo que esta pantalla existe para quitar.
 
             Lo que se asume, y conviene tenerlo escrito: se anota haber ABIERTO
-            el chat, no haber enviado el mensaje, que es lo único que se puede
-            saber desde aquí mientras el canal propio de WhatsApp siga apagado
-            (ver `WHATSAPP_LISTO`). Se acepta porque el estado es reversible y
-            se cambia en el selector que tiene justo debajo. */}
+            el chat, no haber enviado el mensaje. Es lo único que se puede saber
+            desde aquí, porque el enlace abre el WhatsApp DEL EMPRESARIO y lo que
+            pase dentro ya no es nuestro. Se acepta porque el estado es
+            reversible y se cambia en el selector que tiene justo debajo. */}
         <AccionContacto
           href={`https://wa.me/${waPhone}`}
           externo
@@ -1441,8 +1422,9 @@ function FichaDatos({
               natural (de dónde vino y en qué punto está), y con los dos botones
               de acción justo encima, que son quienes lo mueven. Ocupa el hueco
               que tenía "Interés actual", que se retiró de la ficha: esa señal se
-              sigue viendo en la fila de la lista, y con el canal de WhatsApp
-              apagado casi siempre decía "sin comprobar". */}
+              sigue viendo en la fila de la lista, y en una ficha cualquiera casi
+              siempre decía "sin comprobar", porque la comprobación se manda desde
+              un puesto y sobre una selección. */}
           <Dato label="Estado">
             <StatusSelect status={candidate.status} onChange={onEstado} />
           </Dato>

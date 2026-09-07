@@ -1,5 +1,11 @@
 // Documentos legales de Apúntate Fácil (privacidad y términos).
 //
+// Revisión (sep 2026): retirado META de la lista de subencargados. Se apoyaba
+// en el asistente de WhatsApp, que ya no existe, así que la plataforma no le
+// manda nada. Un subencargado listado que no trata ningún dato es una lista de
+// proveedores que no dice la verdad, y el Anexo de Encargo (art. 28) tampoco lo
+// nombraba: ahora los dos dicen lo mismo.
+//
 // PENDIENTE al registrar la empresa (jul 2026): firmar el DPA de OpenAI y
 // añadir aquí la frase de que está suscrito. Hoy NO se afirma, porque todavía
 // no hay entidad que pueda firmarlo. Lo que sí se afirma es verdad por defecto
@@ -227,7 +233,6 @@ export const PRIVACY_DOC: LegalDoc = {
             "Supabase (Supabase, Inc.): es la infraestructura. Aloja la base de datos con las tablas de empresas, candidatos, puestos y campañas, gestiona la autenticación y las sesiones, y almacena los CV y documentos adjuntos en un espacio de archivos privado. Los datos se alojan en la región eu-west-3 (París, Francia).",
             "Vercel (Vercel, Inc.): aloja y sirve la aplicación web, es decir, las páginas que se cargan en el navegador, incluido el formulario público que rellenan los candidatos. Como cualquier servidor web, procesa datos técnicos de conexión (dirección IP, navegador) para entregar las páginas, y nos proporciona la medición de audiencia y rendimiento sin cookies descrita en el apartado 4, con datos agregados.",
             "Google (Google LLC): interviene en dos funciones opcionales. Si eliges entrar con tu cuenta de Google, trata tu email conforme a sus propias políticas, como responsable independiente de ese dato de inicio de sesión. Y si conectas tu Google Calendar, tratamos los datos de tu calendario según se detalla en el apartado 15. Si entras con email y contraseña y no conectas ningún calendario, Google no interviene.",
-            "Meta (Meta Platforms Ireland Limited): solo si tu empresa usa el asistente de WhatsApp para invitar a entrevistas. Es el canal por el que se escribe al candidato: le llega la invitación, la elección de horario, la confirmación y los recordatorios. Para poder enviarlos, Meta trata el teléfono del candidato, su nombre de pila, el nombre de tu empresa, el puesto al que se apuntó y, cuando hay cita cerrada, su fecha, hora y lugar, además del contenido de los mensajes que se intercambien en la conversación. El candidato acepta este contacto al enviar su candidatura, se le dice en el propio formulario antes de enviarlo, y puede cortarlo en cualquier momento respondiendo BAJA o STOP, lo que detiene todos los mensajes y queda registrado. A los candidatos que se apuntaron antes de que el formulario avisara de esto no se les escribe por WhatsApp.",
             "OpenAI (OpenAI Ireland Ltd.): solo en los planes Pro y Multi, y solo si tu empresa usa Meridian. Es el modelo de lenguaje que resume cada candidatura, calcula su ajuste al puesto y responde a lo que le preguntas en el panel. Le enviamos las respuestas del formulario y, cuando el candidato lo adjunta, el texto de su CV, que puede contener datos de contacto y trayectoria. NO le enviamos el correo ni el teléfono que el candidato escribe en el formulario, ni el archivo del CV en sí. Meridian nunca decide ni descarta por su cuenta: solo resume y ordena, y cualquier acción la confirmas tú. Estos datos no se usan para entrenar los modelos de OpenAI. OpenAI conserva las llamadas hasta 30 días en registros de detección de abusos y después las elimina, salvo que la ley le obligue a guardarlas más tiempo."
           ]
         },

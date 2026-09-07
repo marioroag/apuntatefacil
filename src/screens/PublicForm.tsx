@@ -309,7 +309,7 @@ export function PublicForm() {
     }
 
     setSubmitPhase('submitting')
-    const { data: candidateId, error } = await supabase.rpc('submit_application', {
+    const { error } = await supabase.rpc('submit_application', {
       p_slug: campaign.slug,
       p_answers: values,
       p_source: isTest ? 'prueba' : 'enlace',
@@ -342,13 +342,19 @@ export function PublicForm() {
       formTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
-    // Aviso al merchant por email + triaje de Meridian (ambos best-effort, no
-    // bloquean la pantalla de gracias). La función gatea por plan y clave: si la
-    // empresa no es Pro/Multi, es un no-op silencioso.
-    if (candidateId) {
-      supabase.functions.invoke('notify-new-candidate', { body: { candidate_id: candidateId } }).catch(() => {})
-      supabase.functions.invoke('analyze-candidate', { body: { candidate_id: candidateId, auto: true } }).catch(() => {})
-    }
+    // AQUÍ NO SE LLAMA A NADA, Y ESA ES LA DECISIÓN (sep 2026). Este punto tuvo
+    // dos inquilinos, el triaje de Meridian y el aviso por correo a la empresa,
+    // y los dos se fueron por el mismo motivo: LO QUE NO SALE DEL NAVEGADOR NO
+    // PASA. Una pestaña que se cierra al enviar, una red mala, un móvil que
+    // suspende la página o un bloqueador se llevaban por delante la llamada, y
+    // el fallo era silencioso y del lado del CANDIDATO, que es justo quien no
+    // puede arreglarlo ni sabe que ha ocurrido.
+    //
+    // Ahora los dos los encola un trigger al entrar la candidatura y los ejecuta
+    // la cola con sus reintentos (`analizar_candidato` y `avisar_candidatura`
+    // en `interview-tick`). Lo vigilan `analisis.test.ts` y `aviso.test.ts`:
+    // devolver una de las dos llamadas aquí es tener dos caminos para lo mismo,
+    // y el segundo sin nadie que lo reintente.
     setDone(true)
   }
 

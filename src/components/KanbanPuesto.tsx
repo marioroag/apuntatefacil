@@ -21,7 +21,7 @@ import { Checkbox } from './ui/Checkbox'
 import { TagCell } from './Tags'
 import { ChipDocumento } from './ChipDocumento'
 import { MaskedPhone } from './MaskedPhone'
-import { candidateFit } from '../lib/meridian'
+import { candidateFit, estaAnalizando } from '../lib/meridian'
 import { useDesvanecido } from '../lib/desvanecido'
 import { colocarFlotante } from '../lib/flotante'
 import { answerStr, candidateName, fechaCorta, formatPhone, fullDateTime } from '../lib/format'
@@ -494,7 +494,13 @@ function LineaCampo({ campo, candidato: c, pinta }: { campo: CampoTarjeta; candi
   const contenido = (() => {
     if (campo.key === 'encaje') {
       const fit = candidateFit(c.ai)
-      return fit == null ? VACIO : <FitLabel fit={fit} enFila />
+      // La misma señal que la columna Encaje de la tabla, con el mismo barrido
+      // (sep 2026): mientras el servidor lo analiza se dice, en vez de la raya
+      // de "no hay dato".
+      if (fit == null) {
+        return estaAnalizando(c) ? <span className="shimmer-text truncate">Analizando</span> : VACIO
+      }
+      return <FitLabel fit={fit} enFila />
     }
     if (campo.key === 'etiquetas') {
       return c.tagIds.length === 0 ? VACIO : <TagCell tagIds={c.tagIds} tags={pinta.tags} />

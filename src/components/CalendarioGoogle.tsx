@@ -11,13 +11,16 @@ import { relativeDate } from '../lib/format'
  * Conectar tu Google Calendar. Hace dos cosas y las dos se dicen aquí, porque
  * son las dos razones por las que alguien daría permiso a su calendario:
  *
- *   * RESTA: no te ofrecemos horas que ya tienes ocupadas. Tu disponibilidad
- *     sigue siendo la de arriba; el calendario solo quita.
+ *   * LEE lo que ya tienes ocupado, para AVISARTE al apuntar una cita encima.
+ *     Avisa, no bloquea: solaparse a propósito es legítimo.
  *   * PONE: la entrevista te aparece en él, con su sitio o con su enlace.
  *
- * Va justo debajo de "Cuándo puedes entrevistar" porque su único trabajo es
- * afinar esa respuesta: primero dices tus horas, y luego conectas el calendario
- * para que no te ofrezcamos las que ya no tienes.
+ * LA PRIMERA MITAD DECÍA ANTES OTRA COSA, y conviene saber qué cambió: mientras
+ * existió el asistente de WhatsApp, esas horas ocupadas se restaban de los
+ * huecos que se le OFRECÍAN al candidato. Retirado el asistente (sep 2026) no se
+ * ofrece ninguno, así que lo que queda de esa lectura es el aviso de solape del
+ * diálogo de agendar (`lib/ocupado.ts`), que es real y se usa. Lo que no puede
+ * hacer esta pantalla es seguir prometiendo que ofrecemos huecos.
  *
  * SIN CREDENCIALES NO SE PINTA NADA. Un botón que no puede conectar es peor que
  * ninguno, y quien no tiene esto montado tampoco necesita ver el concepto. Es
@@ -132,8 +135,8 @@ export function CalendarioGoogle() {
     <section className="rounded-xl filo bg-white p-4 shadow-card sm:p-5">
       <h2 className="text-[15px] font-semibold text-slate-900">Tu calendario</h2>
       <p className="mt-0.5 text-[13px] text-slate-500">
-        Conéctalo y no te ofreceremos horas que ya tengas ocupadas. Las entrevistas que
-        confirmes aparecerán en él.
+        Conéctalo y te avisaremos si citas a alguien a una hora que ya tienes ocupada.
+        Las entrevistas que confirmes aparecerán en él.
       </p>
 
       {demo ? (

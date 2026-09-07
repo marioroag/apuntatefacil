@@ -1,4 +1,4 @@
-import { AtSign, Building2, Inbox, Mail, MessageCircle, Sparkles, Users } from 'lucide-react'
+import { AtSign, Building2, CalendarDays, Inbox, Mail, Sparkles, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { AjustesCalendario } from '../screens/AjustesCalendario'
@@ -109,11 +109,15 @@ export interface SeccionAjustes {
   grupos: GrupoAjustes[]
   nota?: string
   /**
-   * TEMPORAL (ago 2026): pantalla propia en vez de grupos de interruptores.
-   * La agenda del asistente de WhatsApp son días, tramos, duración, descanso y
-   * dirección; nada de eso es un booleano. Cuando se rehaga, esto se va y sus
-   * ajustes vuelven a declararse como los demás. No usarlo para nada más: es la
-   * puerta por la que se cuela volver a tener pantallas a mano.
+   * Pantalla propia en vez de grupos de interruptores. Lo que queda dentro no
+   * es un booleano: la MODALIDAD es una elección entre tres con su pista, y la
+   * conexión con Google Calendar es un OAuth con su estado y su desconexión.
+   * (Hasta sep 2026 el motivo era más gordo: la sección traía además la agenda
+   * semanal y cinco números de la generación de huecos, que se fueron con el
+   * asistente de WhatsApp.) La DIRECCIÓN sí cabría hoy en un `AjusteTexto`;
+   * mientras viva pegada a la modalidad que la enseña o la esconde, se queda
+   * aquí. No usar esta escotilla para nada más: es la puerta por la que se
+   * cuela volver a tener pantallas a mano.
    */
   componente?: ReactNode
 }
@@ -127,12 +131,6 @@ export const EMAIL_KEYS = {
   tablon: 'tablon',
   candidatoNuevo: 'candidato_nuevo',
 } as const
-
-// El asistente de WhatsApp ya está aquí (fusionado ago 2026), así que su sección
-// se enciende. Lo que NO se ha hecho todavía es declarar su agenda como ajustes
-// del registro: de momento la sección se trae su pantalla entera (`componente`).
-// Rehacerlo es lo que queda pendiente.
-export const WHATSAPP_ASSISTANT_ENABLED = true
 
 // --- Atajos ------------------------------------------------------------------
 
@@ -250,13 +248,20 @@ export const SECCIONES: SeccionAjustes[] = [
     ],
     nota: 'Es una lectura asistida, no un veredicto: nadie se descarta solo.',
   },
+  // SE LLAMABA "ASISTENTE DE WHATSAPP" y pasa a llamarse por lo que de verdad
+  // hay dentro (sep 2026). Lo que se retiró es el asistente; esta pantalla nunca
+  // fue suya: la modalidad y la dirección son con lo que viene puesta CUALQUIER
+  // cita, también la que apuntas a mano, y aquí vive la conexión con Google
+  // Calendar. Borrar la sección con la feature habría dejado sin puerta a las
+  // dos cosas. (En sep 2026 perdió además la agenda semanal y los números de
+  // "cómo proponemos las citas": eran del asistente y no los leía ya nadie.)
   {
-    id: 'whatsapp',
-    label: 'Asistente de WhatsApp',
-    icon: MessageCircle,
-    titulo: 'Asistente de WhatsApp',
-    descripcion: 'Invitar a entrevista y cuadrar la cita hablando con el candidato.',
-    disponible: () => WHATSAPP_ASSISTANT_ENABLED,
+    id: 'entrevistas',
+    label: 'Entrevistas',
+    icon: CalendarDays,
+    titulo: 'Entrevistas',
+    descripcion: 'Cómo y dónde entrevistas, y tu calendario de Google.',
+    disponible: () => true,
     grupos: [],
     // Ver el comentario de `componente`: temporal hasta declarar la agenda como
     // ajustes de verdad.
@@ -266,7 +271,7 @@ export const SECCIONES: SeccionAjustes[] = [
 
 /** Iconos de apoyo del registro, para que quien añada una sección tenga a mano
  *  los que ya se usan y no aparezca un quinto estilo de icono. */
-export const ICONOS_AJUSTES = { AtSign, Inbox, Mail, MessageCircle, Sparkles, Users }
+export const ICONOS_AJUSTES = { AtSign, CalendarDays, Inbox, Mail, Sparkles, Users }
 
 /** El contexto del registro, armado de una sola manera. Lo usan la pantalla de
  *  Ajustes y el buscador de la barra (que deriva de aquí sus resultados de ajuste):

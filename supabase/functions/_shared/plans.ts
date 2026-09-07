@@ -4,7 +4,7 @@
 // por procesos abiertos, no por capacidades. Estos gates ya no diferencian
 // tiers; quedan como lista de PLANES CONOCIDOS y siguen fail-closed: un plan
 // desconocido o ausente no ejecuta nada que cueste dinero (Meridian llama a
-// OpenAI; una conversación de WhatsApp también cuesta). El control de coste de
+// OpenAI). El control de coste de
 // la prueba es su tope (25 candidaturas visibles y 15 días).
 
 const PLANES_CONOCIDOS = new Set(['trial', 'proceso', 'esencial', 'pro', 'multi'])

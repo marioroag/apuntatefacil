@@ -122,9 +122,9 @@ function Seccion({ seccion, ctx, salto }: { seccion: SeccionAjustes; ctx: Ajuste
         <p className="mt-0.5 max-w-[62ch] text-[13px] leading-5 text-slate-500">{seccion.descripcion}</p>
       </header>
 
-      {/* TEMPORAL (ago 2026). No todo lo configurable es un interruptor: la
-          agenda del asistente de WhatsApp son días, tramos, duración, descanso
-          y dirección, y eso no cabe en un `get`/`set` booleano. Hasta rehacerlo,
+      {/* No todo lo configurable es un interruptor: la modalidad de entrevista
+          es una elección entre tres y conectar Google Calendar es un OAuth, y
+          eso no cabe en un `get`/`set` booleano. Por eso
           una sección puede traerse su propia pantalla. Es la ÚNICA excepción a
           "esta pantalla no conoce ningún ajuste", y sigue sin conocerlo: pinta
           lo que le den, no sabe qué es. */}

@@ -8,7 +8,7 @@
 //
 // El módulo es PURO a propósito: sin Deno, sin red, sin imports. Así lo puede
 // cargar vitest desde src/lib/triaje.test.ts (su guardián) igual que hace
-// guion.test.ts con _shared/interviews/guion.
+// schedule.test.ts con _shared/schedule/slots.
 //
 // Las tres piezas, y qué decide cada una:
 //  * BAREMO: se genera UNA VEZ por puesto a partir del título + sector +
@@ -118,6 +118,21 @@ export interface TrayectoriaCv {
 // medio alto de la banda, y cuando haya volumen suficiente se recalibra con
 // candidaturas de verdad, como se hizo con los otros dos.
 // ----------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------
+// EL RECLAMO DE UN ANÁLISIS: cuánto se espera antes de darlo por muerto.
+// ----------------------------------------------------------------------------
+// `analyze-candidate` marca `candidates.ai_claimed_at` antes de llamar a
+// OpenAI, para que dos invocaciones simultáneas no paguen el mismo análisis dos
+// veces. Pasado esto, el reclamo se considera muerto y otro puede tomarlo.
+//
+// VIVE AQUÍ Y NO EN LA FUNCIÓN porque desde sep 2026 lo preguntan DOS runtimes
+// que no se hablan: el servidor, para decidir si puede reclamar, y el cliente,
+// para decidir si pinta "Analizando…" en la fila. Escrito dos veces, el día que
+// se afine uno la pantalla se quedaría diciendo que analiza algo que ya nadie
+// analiza (o al revés). Es el mismo motivo por el que `paredAUtc` se cargó a
+// propósito desde los dos lados.
+export const RECLAMO_TTL_MS = 5 * 60 * 1000
 
 export const FIT_EXCELENTE = 85
 export const FIT_BIEN = 70

@@ -1,0 +1,5 @@
+# Los worktrees de Claude Code (uno por tarea) viven dentro del repo y NO están
+# ignorados por git, así que Vercel intentaba subirlos: 18.754 ficheros y 5,2 GB
+# para un proyecto que son 436. El deploy se cayó con "should NOT have more than
+# 15000 items". Aquí no hay nada que el build necesite: Vite compila desde src/.
+.claude

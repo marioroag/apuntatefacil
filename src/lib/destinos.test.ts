@@ -44,6 +44,8 @@ const RUTAS_SIN_DESTINO: Record<string, string> = {
   sedes:
     'Ruta retirada (ago 2026): redirige. Una sede no es un sitio al que ir. Se encuentra escribiendo "sede", pero como ACCIÓN ("Gestionar sedes", registrada por el shell), porque lo que abre es un diálogo y no una URL.',
   marcas: 'Ruta retirada (ago 2026): redirige. La identidad se encuentra y lleva al constructor, que es donde se edita.',
+  'candidatos/contratados':
+    'Ruta vieja (sep 2026, Mario): Contratados dejó de colgar de Candidatos y ahora vive en "/contratados", que es la que SÍ tiene destino. Esta redirige para que un enlace guardado siga llegando.',
   bandeja:
     'Ruta retirada (ago 2026, Mario): redirige a Candidatos, que es lo que la sustituye. "Bandeja" SÍ se encuentra escribiéndola (es una clave del destino "Candidatos"), así que quien la busque por su nombre viejo llega igual.',
   meridian:
@@ -52,8 +54,8 @@ const RUTAS_SIN_DESTINO: Record<string, string> = {
 
 /** Secciones de ajustes que se traen su propia pantalla y por eso no se pueden buscar por dentro. */
 const SECCIONES_A_MANO: Record<string, string> = {
-  whatsapp:
-    'La agenda del asistente son días y tramos, no interruptores: hasta declararla en el registro, sus ajustes no son buscables uno a uno (ver el comentario de `componente` en settings.tsx).',
+  entrevistas:
+    'Se trae su propia pantalla: la modalidad es una elección entre tres y el calendario un OAuth, no interruptores, así que sus ajustes no son buscables uno a uno (ver el comentario de `componente` en settings.tsx).',
 }
 
 // --- Un contexto con todo abierto ---------------------------------------------

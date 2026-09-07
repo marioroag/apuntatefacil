@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, CheckCheck, MapPin, Phone, Video } from 'lucide-react'
+import { CheckCheck, MapPin, Phone, Video } from 'lucide-react'
 import { bloquesDelDia, franja, reloj, partesClave, type Bloque } from '../lib/agenda'
 import { INTERVIEW_STATUS_META, type Interview } from '../lib/types'
 import { isLive } from '../lib/interviews'
@@ -32,7 +32,6 @@ export function AgendaGrid({
   ahoraMin,
   nombreDe,
   puestoDe,
-  atencionDe,
   tonoDe,
   onDia,
   onAbrir,
@@ -46,7 +45,6 @@ export function AgendaGrid({
   ahoraMin: number
   nombreDe: (i: Interview) => string
   puestoDe: (i: Interview) => string
-  atencionDe: (candidateId: string) => string | null
   /**
    * El tono del ANFITRIÓN, o null si teñir no diría nada (una sola agenda en la
    * empresa). Lo decide quien monta la rejilla, que es quien sabe cuántas hay.
@@ -249,7 +247,6 @@ export function AgendaGrid({
                       top={y(b.desde)}
                       nombre={nombreDe(b.entrevista)}
                       puesto={puestoDe(b.entrevista)}
-                      atencion={atencionDe(b.entrevista.candidateId)}
                       tono={tonoDe(b.entrevista)}
                       pasada={dia < hoy || (dia === hoy && b.hasta <= ahoraMin)}
                       holgado={dias.length === 1 && b.columnas === 1}
@@ -280,7 +277,6 @@ function BloqueCita({
   top,
   nombre,
   puesto,
-  atencion,
   tono,
   pasada,
   holgado,
@@ -290,7 +286,6 @@ function BloqueCita({
   top: number
   nombre: string
   puesto: string
-  atencion: string | null
   tono: MemberTone | null
   pasada: boolean
   /** Un día entero para él solo: cabe el puesto en la misma línea del nombre. */
@@ -326,7 +321,7 @@ function BloqueCita({
     <button
       type="button"
       onClick={() => onAbrir(i.candidateId)}
-      title={`${inicio}${fin ? ` a ${fin}` : ''}, ${nombre}. ${puesto}. ${meta.label}${atencion ? `. ${atencion}` : ''}`}
+      title={`${inicio}${fin ? ` a ${fin}` : ''}, ${nombre}. ${puesto}. ${meta.label}`}
       style={{
         top,
         height: altura,
@@ -347,11 +342,12 @@ function BloqueCita({
           su cara, sobre el claro del relleno.
           EL ESTADO NO SE PIERDE, cambia de canal: una cita caída se queda en gris
           ENTERA (arriba), una pasada baja a 60% de opacidad, la lista lo escribe
-          con su palabra y el `title` de aquí lo dice. Lo que hoy no tiene canal
-          propio es "la hora aún no está cerrada" (invitada, eligiendo), y no se
-          echa en falta porque con WhatsApp apagado no existe ninguna. Cuando
-          exista, su canal es la FORMA (un bloque a rayas, el idioma de siempre
-          para una cita tentativa), nunca otro tono: el hue ya es de la persona. */}
+          con su palabra y el `title` de aquí lo dice. Lo que no tiene canal propio
+          es "la hora aún no está cerrada" (invitada, eligiendo), y no se echa en
+          falta porque retirado el asistente de WhatsApp (sep 2026) una cita nace
+          con su hora puesta. Si algún día vuelve a haberlas, su canal es la FORMA
+          (un bloque a rayas, el idioma de siempre para una cita tentativa), nunca
+          otro tono: el hue ya es de la persona. */}
       <span className={`absolute inset-y-0 left-0 w-[3px] ${suyo ? suyo.bg : meta.dot}`} aria-hidden />
 
       <span className="flex items-center gap-1 leading-none">
@@ -363,7 +359,6 @@ function BloqueCita({
             aria-label={`Confirmó que viene, el ${fullDateTimeInZone(i.reconfirmedAt, i.timezone)}`}
           />
         )}
-        {atencion && <AlertCircle className="size-3 shrink-0 text-slate-900" aria-label={atencion} />}
         {!dosLineas && <span className="truncate text-[12px] font-semibold text-slate-900">{nombre}</span>}
       </span>
 

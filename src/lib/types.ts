@@ -100,15 +100,6 @@ export type CandidateSource = 'milanuncios' | 'enlace' | 'qr' | 'prueba'
 
 export type CandidateInterestResponse = 'interested' | 'not_interested'
 
-/**
- * Por dónde se le preguntó. La PREGUNTA es la misma en los dos canales, y por
- * eso la respuesta vive en la misma tabla y `deriveInterestState` no necesita
- * saber esto: si cada canal formulara la suya, las respuestas dejarían de poder
- * compararse. Esto solo dice por dónde salió, para poder enseñarlo y para saber
- * qué hace falta comprobar antes de enviar (un correo, o teléfono y permiso).
- */
-export type InterestChannel = 'email' | 'whatsapp'
-
 export type CandidateInterestState =
   | 'never'
   | 'sent'
@@ -226,8 +217,6 @@ export interface CandidateInterestSummary {
   respondedAt: string | null
   reminderSentAt: string | null
   expiresAt: string
-  /** Por dónde salió. Las comprobaciones anteriores a WhatsApp son de correo. */
-  channel: InterestChannel
 }
 
 /**
@@ -289,23 +278,31 @@ export interface CandidateEvent {
 }
 
 /**
- * Una entrevista. UNA entidad, venga de donde venga: creada a mano, conseguida
- * por el agente de WhatsApp o, más adelante, por la publicación multicanal.
- * `origin` es procedencia, no tipo: no cambia ninguna regla ni ningún permiso.
+ * Una entrevista. UNA entidad, venga de donde venga: creada a mano o, más
+ * adelante, por la publicación multicanal. `origin` es procedencia, no tipo: no
+ * cambia ninguna regla ni ningún permiso.
  *
  * La hora se guarda en UTC (ISO) y `timezone` dice en qué zona hay que pintarla:
  * una entrevista en Las Palmas se lee igual desde Madrid que desde allí.
+ *
+ * CINCO DE ESTOS ESTADOS YA NO SE PRODUCEN (los marcados abajo). Eran los de una
+ * cita que el asistente de WhatsApp estaba negociando con el candidato, y el
+ * asistente se retiró en sep 2026: hoy una cita nace confirmada, con su hora
+ * puesta. Se quedan en el vocabulario porque la base los sigue admitiendo y
+ * porque `INTERVIEW_STATUS_META` tiene que saber pintar CUALQUIER fila que
+ * llegue; un estado sin entrada dejaría la agenda en blanco, que es peor que
+ * enseñar una palabra que ya nadie escribe.
  */
 export type InterviewStatus =
-  | 'invitada'       // invitación mandada, sin respuesta todavía
-  | 'proponiendo'    // aceptó, horarios ofrecidos, esperando que elija
+  | 'invitada'       // (retirado) invitación mandada, sin respuesta todavía
+  | 'proponiendo'    // (retirado) aceptó, horarios ofrecidos, esperando que elija
   | 'confirmada'     // hueco reservado
-  | 'reprogramando'  // se pidió mover; conserva el hueco viejo hasta cerrar el nuevo
+  | 'reprogramando'  // (retirado) se pidió mover; conservaba el hueco viejo
   | 'realizada'
   | 'cancelada'
-  | 'rechazada'      // el candidato dijo que no
-  | 'sin_respuesta'
-  | 'fallida'        // no se pudo entregar (sin WhatsApp, número no válido)
+  | 'rechazada'      // (retirado) el candidato dijo que no
+  | 'sin_respuesta'  // (retirado)
+  | 'fallida'        // (retirado) no se pudo entregar el mensaje
 
 /**
  * 'telefonica' es al revés que las otras dos: presencial y videollamada son
@@ -321,6 +318,8 @@ export interface Interview {
   candidateId: string
   hostUserId: string
   status: InterviewStatus
+  /** De dónde salió. Hoy solo 'manual': 'whatsapp' lo escribía el asistente
+   *  retirado en sep 2026 y se conserva porque la base lo sigue admitiendo. */
   origin: 'manual' | 'whatsapp'
   /** ISO en UTC. Null mientras no haya hueco elegido. */
   startsAt: string | null
@@ -403,68 +402,6 @@ export const INTERVIEW_MODE_META: Record<InterviewMode, { label: string; pista: 
 /** El orden en que se ofrecen. Mandarlo desde aquí evita que dos pantallas lo pinten distinto. */
 export const INTERVIEW_MODES: InterviewMode[] = ['presencial', 'telefonica', 'videollamada']
 
-/**
- * La conversación de la entrevista. Pertenece al CANDIDATO y vive en su ficha,
- * al lado del chat de equipo y del historial. No hay bandeja global: obligaría
- * a saltar entre dos sitios para entender a una sola persona.
- */
-export type ConversationAgentState =
-  | 'preparando'
-  | 'contactando'
-  | 'esperando_respuesta'
-  | 'proponiendo_horarios'
-  | 'entrevista_confirmada'
-  | 'necesita_intervencion'
-  | 'cerrada'
-
-export interface CandidateConversation {
-  id: string
-  candidateId: string
-  interviewId: string | null
-  agentState: ConversationAgentState
-  /** 'agente' = automática. 'persona' = alguien del equipo la ha tomado. */
-  handover: 'agente' | 'persona'
-  attentionReason: string | null
-  /** Fuera de la ventana de 24 h de WhatsApp solo se pueden mandar plantillas. */
-  windowExpiresAt: string | null
-  optedOut: boolean
-  createdAt: string
-}
-
-export type MessageAuthor = 'agente' | 'persona' | 'candidato' | 'sistema'
-
-export interface ConversationMessage {
-  id: string
-  conversationId: string
-  direction: 'entrante' | 'saliente'
-  author: MessageAuthor
-  authorUserId: string | null
-  body: string
-  payload: Record<string, unknown>
-  deliveryStatus: 'pendiente' | 'enviado' | 'entregado' | 'leido' | 'fallido' | 'recibido'
-  errorText: string | null
-  createdAt: string
-}
-
-/**
- * Qué se le dice al empresario en cada estado. El texto es de resultado, no de
- * mecánica: le importa si tiene que hacer algo, no en qué paso interno estamos.
- * Ámbar solo cuando de verdad hace falta una persona; el resto es slate o azul,
- * porque "el agente está trabajando" no es una alerta.
- */
-export const CONVERSATION_STATE_META: Record<
-  ConversationAgentState,
-  { label: string; hint: string; dot: string }
-> = {
-  preparando:            { label: 'Preparando',        hint: 'Estamos a punto de escribirle.', dot: 'bg-slate-400' },
-  contactando:           { label: 'Contactando',       hint: 'Mensaje en camino.', dot: 'bg-blue-500' },
-  esperando_respuesta:   { label: 'Esperando respuesta', hint: 'Le hemos escrito y aún no ha contestado.', dot: 'bg-blue-500' },
-  proponiendo_horarios:  { label: 'Eligiendo horario', hint: 'Le hemos pasado horarios y está eligiendo.', dot: 'bg-blue-500' },
-  entrevista_confirmada: { label: 'Entrevista confirmada', hint: 'Cita cerrada y recordatorios programados.', dot: 'bg-green-500' },
-  necesita_intervencion: { label: 'Necesita que entres', hint: 'Hay algo que no podemos resolver solos.', dot: 'bg-amber-500' },
-  cerrada:               { label: 'Cerrada',            hint: 'Esta conversación ya no está activa.', dot: 'bg-slate-300' },
-}
-
 /** Miembro del equipo, tal y como lo devuelve el RPC `list_company_members`. */
 export interface CompanyMember {
   userId: string
@@ -496,10 +433,11 @@ export interface Candidate {
   cvPath?: string // ruta del CV en Supabase Storage (bucket cvs), si lo adjuntó
   tagIds: string[] // ids de las etiquetas que el empresario le ha puesto (ver Tag)
   /**
-   * Cuándo aceptó que le escribamos, al enviar la candidatura. Null = no consta,
-   * y entonces NO se le puede escribir por WhatsApp. Las candidaturas anteriores
-   * a que existiera la casilla se quedan en null a propósito: nunca se les dijo
-   * nada, y rellenarlo sería fabricar la prueba de algo que no ocurrió.
+   * Cuándo aceptó la política de privacidad, al enviar la candidatura. Null = no
+   * consta: las candidaturas anteriores a que existiera la casilla se quedan así
+   * a propósito, porque nunca se les dijo nada y rellenarlo sería fabricar la
+   * prueba de algo que no ocurrió. El texto exacto que aceptó cada una se
+   * recupera por su `consent_version` (ver `lib/consent.ts`).
    */
   consentAt?: string | null
   /**
@@ -512,6 +450,15 @@ export interface Candidate {
   interest?: CandidateInterestSummary
   /** Triaje de IA (Meridian). Ausente = nunca analizado. */
   ai?: CandidateAI
+  /**
+   * Cuándo se puso a analizarla el servidor (`candidates.ai_claimed_at`), o
+   * null si no hay ninguno en marcha. Es el RECLAMO que impide que dos
+   * invocaciones paguen el mismo análisis; el cliente lo lee para una sola
+   * cosa, distinguir "todavía no la ha mirado nadie" de "la está mirando ahora
+   * mismo", que hasta sep 2026 se pintaban igual (una raya). Caduca:
+   * `estaAnalizando` en lib/meridian.ts es quien decide, nunca la presencia.
+   */
+  analizandoDesde?: string | null
 }
 
 // Etiqueta: clasificación libre que pone el empresario sobre los candidatos. Es

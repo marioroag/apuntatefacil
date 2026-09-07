@@ -21,7 +21,6 @@ import type {
   TeamRequestComment,
 } from './types'
 import { partesClave, sumarDias } from './agenda'
-import { WHATSAPP_LISTO } from './whatsapp'
 // La agregación REAL del triaje (la de la edge function): la demo no puede
 // tener otra vara, o el anillo contradiría al desglose que pinta la ficha.
 import { agregarJuicios } from '../../supabase/functions/_shared/triaje'
@@ -1606,9 +1605,10 @@ markProposed(preparadores[1], 'contactado', ['tag_recontactar'])
 //      oficina. Un delta como el de freshenDemoData no vale aquí: un
 //      calendario se lee por la posición, y desplazar por milisegundos dejaría
 //      citas a las 03:40 de un domingo.
-//   2. "Da a entender que se manda un WhatsApp real": todas son `origin:
-//      'manual'`, es decir, cuadradas a mano; ninguna trae conversación. Y los
-//      candidatos son de dominios reservados por la RFC 2606, como el resto.
+//   2. "Da a entender que le escribimos al candidato": todas son `origin:
+//      'manual'`, es decir, cuadradas a mano; desde aquí no sale ningún
+//      mensaje. Y los candidatos son de dominios reservados por la RFC 2606,
+//      como el resto.
 //
 // El plan fija QUIÉN y CÓMO (estable entre visitas); las fechas las pone el
 // reloj de quien mira.
@@ -1623,14 +1623,6 @@ interface PlanCita {
   host: 'demo-user' | 'demo-laura'
   /** El candidato contestó al aviso de la víspera: "ahí estaré". */
   viene?: boolean
-  /**
-   * Solo tiene sentido con el canal encendido. "Invitada" y "Proponiendo" son
-   * estados de una conversación por WhatsApp: mientras no haya número (ver
-   * `lib/whatsapp.ts`), enseñarlos sería vender en la demo lo único que el
-   * producto todavía no hace, y además se contradiría con la propia ficha del
-   * candidato, que ahí dice que no escribimos por WhatsApp.
-   */
-  necesitaWhatsapp?: boolean
 }
 
 // A quién se cita NO se decide a dedo: se coge de los que YA están en ese
@@ -1671,9 +1663,11 @@ const PLAN_CITAS: PlanCita[] = [
   { candidato: citables.electricista[1], dia: 3, hora: [11, 0], minutos: 30, status: 'confirmada', mode: 'videollamada', host: 'demo-user' },
   // La semana que viene: al pasar de semana no aparece el desierto.
   { candidato: citables.carretillero[1], dia: 6, hora: [10, 0], minutos: 30, status: 'confirmada', mode: 'presencial', host: 'demo-user' },
-  // Sin hora todavía: esto es la pestaña En marcha.
-  { candidato: citables.preparador[1], dia: null, hora: [0, 0], minutos: 30, status: 'invitada', mode: 'presencial', host: 'demo-user', necesitaWhatsapp: true },
-  { candidato: citables.peon[2], dia: null, hora: [0, 0], minutos: 30, status: 'proponiendo', mode: 'presencial', host: 'demo-laura', necesitaWhatsapp: true },
+  // AQUÍ HUBO DOS CITAS SIN HORA ("Invitada" y "Proponiendo"), y se fueron con
+  // el asistente de WhatsApp (sep 2026): eran estados de una conversación que
+  // el candidato estaba negociando, y sin asistente una cita nace con su hora
+  // puesta. Enseñarlas ahora sería vender en la demo algo que el producto no
+  // hace.
 ]
 
 const MADRID = 'Europe/Madrid'
@@ -1754,7 +1748,6 @@ export function demoInterviews(candidatos: Candidate[], now = Date.now()): Inter
     const semilla = plan.candidato
     const candidato = semilla ? porId.get(semilla.id) : undefined
     if (!candidato) return []
-    if (plan.necesitaWhatsapp && !WHATSAPP_LISTO) return []
     const campaign = campaigns.find((c) => c.id === candidato.campaignId)
     const dia = plan.dia !== null ? diaHabil(hoy, plan.dia) : null
     const startsAt = dia ? instanteEnMadrid(dia, plan.hora[0], plan.hora[1]) : null

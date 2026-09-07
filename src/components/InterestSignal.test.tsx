@@ -24,7 +24,6 @@ function candidate(response: CandidateInterestResponse | null, withCheck = true)
       batchId: 'batch-1',
       response,
       sentAt: '2026-07-20T10:00:00.000Z',
-      channel: 'email',
       respondedAt: response ? '2026-07-21T11:00:00.000Z' : null,
       reminderSentAt: null,
       expiresAt: '2026-09-19T10:00:00.000Z',
@@ -56,39 +55,44 @@ describe('InterestOutcomeIcon', () => {
 })
 
 describe('InterestSignal', () => {
-  // El fallo que motivó esto: sin correo, la chapa decía "Sin correo" y se
-  // tragaba un "sigo interesado" que el candidato había contestado por
-  // WhatsApp. La respuesta estaba en la base de datos y la pantalla la tapaba.
+  // LO QUE YA CONTESTÓ GANA A SI HOY SE LE PUEDE ESCRIBIR. El fallo que motivó
+  // esto: calculando la chapa desde el correo, quien ya había dicho "sigo
+  // interesado" y no tiene correo utilizable se pintaba como "Sin correo". La
+  // respuesta estaba en la base de datos y la pantalla la tapaba.
   it('enseña la respuesta de quien no dejó correo', () => {
-    const soloWhatsapp: Candidate = {
+    const sinCorreo: Candidate = {
       ...candidate('interested'),
       answers: { telefono: '612345678' },
-      consentAt: '2026-07-19T10:00:00.000Z',
-      interest: { ...candidate('interested').interest!, channel: 'whatsapp' },
     }
-    const html = renderToStaticMarkup(<InterestSignal campaign={campaign} candidate={soloWhatsapp} />)
+    const html = renderToStaticMarkup(<InterestSignal campaign={campaign} candidate={sinCorreo} />)
     expect(html).toContain('Sigue interesado/a')
     expect(html).not.toContain('Sin correo')
-    expect(html).not.toContain('Sin forma de preguntarle')
   })
 
-  // Un sobre sobre algo que salió por WhatsApp dice lo que no es.
-  it('el icono dice el canal cuando no ha contestado', () => {
+  // El sobre se reserva para "no contesta", que es lo único que lleva a hacer
+  // algo: perseguir un correo. Esperando manda el reloj.
+  it('el sobre sale cuando no contesta, no mientras se espera', () => {
     const base = candidate(null)
-    const viejo = { ...base.interest!, sentAt: '2026-01-01T10:00:00.000Z' }
-    const porCorreo = renderToStaticMarkup(
-      <InterestSignal campaign={campaign} candidate={{ ...base, interest: viejo }} />)
-    const porWhatsapp = renderToStaticMarkup(
-      <InterestSignal campaign={campaign} candidate={{ ...base, interest: { ...viejo, channel: 'whatsapp' } }} />)
-    expect(porCorreo).toContain('lucide-mail')
-    expect(porWhatsapp).toContain('lucide-message-circle')
-    expect(porWhatsapp).not.toContain('lucide-mail')
+    // El estado se deriva contra el reloj de verdad, así que "esperando" tiene
+    // que enviarse AHORA: con una fecha fija, el test se convierte en
+    // "sin respuesta" en cuanto pasan los 7 días del recordatorio.
+    const recien = new Date().toISOString()
+    const esperando = renderToStaticMarkup(
+      <InterestSignal campaign={campaign} candidate={{ ...base, interest: { ...base.interest!, sentAt: recien } }} />)
+    const sinRespuesta = renderToStaticMarkup(
+      <InterestSignal
+        campaign={campaign}
+        candidate={{ ...base, interest: { ...base.interest!, sentAt: '2026-01-01T10:00:00.000Z' } }}
+      />)
+    expect(esperando).toContain('lucide-clock')
+    expect(esperando).not.toContain('lucide-mail')
+    expect(sinRespuesta).toContain('lucide-mail')
   })
 
-  it('sin nada por donde preguntarle, lo dice sin hablar de correo', () => {
+  it('sin correo al que escribir, lo dice', () => {
     const nadie: Candidate = { ...candidate(null, false), answers: {}, consentAt: null }
     const html = renderToStaticMarkup(<InterestSignal campaign={campaign} candidate={nadie} />)
-    expect(html).toContain('Sin forma de preguntarle')
-    expect(html).not.toContain('lucide-mail')
+    expect(html).toContain('Sin correo')
+    expect(html).toContain('lucide-user-x')
   })
 })

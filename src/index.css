@@ -1290,16 +1290,28 @@
   }
   .word-in { animation: word-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 
-  /* Barrido de luz sobre el texto de estado mientras Meridian piensa. */
+  /* Barrido de luz sobre un texto que está ESPERANDO algo: Meridian pensando en
+     el hilo, y desde sep 2026 una candidatura analizándose en su celda de
+     Encaje. Es el mismo movimiento que el barrido del skeleton y significa lo
+     mismo ("esto está en marcha"), así que se comparte en vez de declarar un
+     segundo: un producto con dos formas de decir "espera" tiene dos vocabularios.
+     Con el barrido puesto, el texto NO lleva puntos suspensivos: el movimiento
+     ya dice lo que decía la elipsis.
+
+     La base subió de `slate-400` a `slate-500` al estrenar el segundo uso: el
+     400 no vale para texto con significado (2,6:1 sobre blanco) y esto lo es en
+     los dos sitios. El 500 cumple el suelo de la casa en todo el ciclo, y es
+     además el color que la propia pieza ya usaba quieta (ver reduced-motion, que
+     ahora coincide con su valle en vez de inventar un tercer gris). */
   @keyframes shimmer-text {
     to { background-position: -100% 0; }
   }
   .shimmer-text {
     background-image: linear-gradient(
       90deg,
-      var(--color-slate-400) 0%, var(--color-slate-400) 40%,
+      var(--color-slate-500) 0%, var(--color-slate-500) 40%,
       var(--color-slate-800) 50%,
-      var(--color-slate-400) 60%, var(--color-slate-400) 100%
+      var(--color-slate-500) 60%, var(--color-slate-500) 100%
     );
     background-size: 200% 100%;
     background-position: 100% 0;

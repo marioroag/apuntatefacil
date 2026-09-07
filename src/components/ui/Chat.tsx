@@ -939,9 +939,9 @@ export function ChatComposer({
   children,
 }: {
   /**
-   * Sin miembros no hay menciones y la caja es un composer normal. Es lo que
-   * necesita la conversación con el candidato: un '@' ahí no avisa a nadie, se
-   * le enviaría tal cual por WhatsApp.
+   * Sin miembros no hay menciones y la caja es un composer normal: un '@' que
+   * no llama a un compañero no puede llevar chapa, o quien lo escribe se queda
+   * creyendo que ha avisado a alguien.
    */
   members?: CompanyMember[]
   onSend: (body: string, mentions: string[]) => Promise<void>

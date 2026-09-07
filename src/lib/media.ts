@@ -34,6 +34,24 @@ export function useMediaQuery(query: string) {
 export const useEsMovil = () => useMediaQuery('(max-width: 639px)')
 
 /**
+ * ¿LA VENTANA LLEGA A `lg` (1024px)?
+ *
+ * Es el umbral en bruto, y existe porque lo preguntan DOS cosas que no tienen
+ * nada que ver entre sí: el anuncio público, para montar su raíl (`useHayDosColumnas`,
+ * que es este mismo con el nombre de lo que decide), y la rejilla de Candidatos,
+ * para MONTAR o no su columna de teléfono.
+ *
+ * Lo segundo se descubrió midiendo (sep 2026), al estrenar la columna Documentos:
+ * el teléfono se escondía con `hidden lg:table-cell`, y una celda en `display:none`
+ * **sigue teniendo su columna en `table-fixed`**. O sea que por debajo de `lg` esa
+ * columna se llevaba su parte del reparto y la dejaba SIN PINTAR: 192px muertos al
+ * final de la tabla, medidos, mientras el nombre y el puesto se estrujaban para
+ * pagarlos. Esconder una columna con CSS no la quita de la rejilla; lo único que
+ * la quita es no declararla.
+ */
+export const useDesdeLg = () => useMediaQuery('(min-width: 1024px)')
+
+/**
  * ¿CABEN DOS COLUMNAS? A partir de `lg` (1024px). Lo usa el anuncio público para
  * MONTAR su raíl o repartir sus piezas en la columna, en vez de pintar las dos
  * cosas y esconder una con `hidden lg:block`: eso deja los mismos enlaces dos
@@ -41,7 +59,7 @@ export const useEsMovil = () => useMediaQuery('(max-width: 639px)')
  * ofertas por duplicado. Es la misma regla que obliga a montar el raíl de la
  * ficha del candidato y la hoja del menú de puesto solo donde se usan.
  */
-export const useHayDosColumnas = () => useMediaQuery('(min-width: 1024px)')
+export const useHayDosColumnas = useDesdeLg
 
 /**
  * ¿HAY TECLADO EN PANTALLA? Se pregunta por el PUNTERO, no por el ancho.

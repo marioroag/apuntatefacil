@@ -1,5 +1,19 @@
 // Avisa por email al dueño de la empresa cuando entra una candidatura nueva.
-// Lo invoca el formulario público tras enviar (con el candidate_id). verify_jwt = false.
+//
+// LA INVOCA LA COLA (`avisar_candidatura` en `interview-tick`), no el navegador
+// del candidato: hasta sep 2026 la llamaba el formulario público nada más
+// enviar, y lo que no sale del navegador no pasa (pestaña cerrada, red mala,
+// móvil suspendido, bloqueador). Un trigger la encola al entrar la candidatura
+// y la cola la reintenta. verify_jwt = false.
+//
+// AQUÍ SE DECIDE TODO LO QUE IMPORTA y la cola no duplica ni una guarda: los dos
+// interruptores (el del puesto y el de la persona), el copy del candidato
+// bloqueado y el reclamo atómico que impide el correo duplicado. Lo que la cola
+// necesita para saber qué hacer es que cada salida se distinga de las demás, y
+// por eso TODA respuesta que no envía dice por qué: `skipped` cuando no procede
+// (se cancela con ese motivo) y `error` cuando ha fallado (se reintenta). Una
+// salida muda las volvería indistinguibles.
+//
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, NOTIFY_FROM (ej. "Apúntate Fácil <avisos@apuntatefacil.com>"),
 // APP_URL (ej. https://apuntatefacil.com) para el enlace al panel.
 import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
@@ -41,10 +55,13 @@ Deno.serve(async (req) => {
     const { data: emailRow } = await admin.rpc('get_company_owner_email', { p_company: cand.company_id })
     const ownerEmail = emailRow as string | null
 
-    if (!RESEND_API_KEY || !ownerEmail) {
-      // Sin clave o sin email: no-op silencioso (queda listo para enchufar la clave).
-      return json({ ok: true, sent: false })
-    }
+    // NO PROCEDE, y se dice CUÁL de los dos casos es. Los dos son permanentes
+    // (no se arreglan reintentando), así que la cola los cancela con su motivo
+    // en vez de gastar seis intentos; y separarlos importa porque no significan
+    // lo mismo: uno es que a este proyecto le falta la clave, y el otro que esa
+    // empresa no tiene dueño con correo.
+    if (!RESEND_API_KEY) return json({ ok: true, sent: false, skipped: 'sin clave de Resend' })
+    if (!ownerEmail) return json({ ok: true, sent: false, skipped: 'sin email del dueño' })
 
     const puesto = camp?.title ?? 'tu puesto'
     const puestoLink = APP_URL ? `${APP_URL}/app/puestos/${cand.campaign_id}` : ''
@@ -116,18 +133,49 @@ Deno.serve(async (req) => {
       return json({ ok: true, sent: false, skipped: 'ya notificado' })
     }
 
-    const res = await fetch('https://api.resend.com/emails', {
-      signal: plazo(PLAZO.api),
-      method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: FROM,
-        to: ownerEmail,
-        subject,
-        html,
-      }),
-    })
-    return json({ ok: true, sent: res.ok })
+    // EL RECLAMO SE SUELTA SIEMPRE QUE NO HAYA SALIDO NADA, y son DOS caminos:
+    // que Resend conteste rechazando, y que no conteste (red caída, DNS, timeout).
+    // El reclamo está puesto desde antes del envío, que es lo que impide el correo
+    // duplicado; pero dejándolo puesto sin haber enviado, el reintento de la cola
+    // se encuentra "ya notificado", CANCELA, y esa empresa no se entera nunca, con
+    // un motivo escrito que además es falso. No reabre el email-bombing que el
+    // reclamo vino a cerrar: solo se suelta cuando NO ha salido ningún correo, así
+    // que una llamada sigue provocando como mucho un envío.
+    //
+    // Va aquí y NO en el `catch` de abajo, que también cubre los fallos ANTERIORES
+    // al reclamo: soltarlo allí borraría el `notified_at` de un envío legítimo
+    // anterior y habilitaría un segundo correo.
+    const soltarReclamo = () => admin.from('candidates').update({ notified_at: null }).eq('id', candidate_id)
+
+    let res: Response
+    try {
+      res = await fetch('https://api.resend.com/emails', {
+        signal: plazo(PLAZO.api),
+        method: 'POST',
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: FROM,
+          to: ownerEmail,
+          subject,
+          html,
+        }),
+      })
+    } catch (e) {
+      // NO CONTESTA: la petición no llegó a completarse, así que no se ha mandado
+      // nada. Este caso caía antes en el `catch` general, que devuelve 500 y NO
+      // suelta el reclamo, o sea que una red que falla un segundo perdía el aviso
+      // igual que lo perdía un rechazo. Mismo agujero, otra puerta.
+      await soltarReclamo()
+      return json({ ok: false, sent: false, error: `Resend inalcanzable: ${e instanceof Error ? e.message : e}` }, 502)
+    }
+
+    if (res.ok) return json({ ok: true, sent: true })
+
+    await soltarReclamo()
+    // 502 y no 200: lo que ha fallado es un servicio de fuera, y así el fallo se
+    // reconoce por el estado además de por el cuerpo.
+    const detalle = (await res.text().catch(() => '')).slice(0, 300)
+    return json({ ok: false, sent: false, error: `Resend ${res.status}${detalle ? `: ${detalle}` : ''}` }, 502)
   } catch (e) {
     return json({ error: String(e instanceof Error ? e.message : e) }, 500)
   }
