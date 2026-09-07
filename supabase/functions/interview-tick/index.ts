@@ -246,6 +246,21 @@ Deno.serve(async (req) => {
   let cancelados = 0
   let analisis = 0
   const aplazados: number[] = []
+
+  // LO RÁPIDO PRIMERO, Y ESO NO ES UNA OPTIMIZACIÓN: es lo que impide que un
+  // correo espere detrás de un modelo de lenguaje. `claim_interview_jobs`
+  // reparte por `run_at`, así que una candidatura que entra encola su análisis y
+  // su aviso con la misma hora y el análisis sale antes (se encola primero, así
+  // que tiene id menor). Ejecutándolos en ese orden, el aviso de una tanda con
+  // tres análisis por delante sale del orden del MINUTO en vez de al instante
+  // (un triaje son cuatro llamadas encadenadas a OpenAI), y si el tick muere por
+  // el camino se queda esperando los cinco minutos del arriendo.
+  //
+  // Un aviso es un POST a Resend: décimas de segundo. Puestos delante, los
+  // correos salen ya y los análisis no pierden nada, porque los que no quepan se
+  // devuelven a la cola igual que antes.
+  const LENTOS = new Set(['analizar_candidato'])
+  jobs.sort((a, b) => Number(LENTOS.has(a.kind)) - Number(LENTOS.has(b.kind)))
   // En serie y no en paralelo: son pocos y tocan la misma conversación con
   // frecuencia. Paralelizar aquí solo compraría carreras que luego hay que
   // arbitrar, y el trabajo que sobra espera al tick siguiente, que es dentro

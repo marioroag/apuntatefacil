@@ -105,6 +105,29 @@ describe('el disparo del aviso de candidatura nueva', () => {
     ).toEqual([])
   })
 
+  it('el reclamo se suelta por los DOS caminos: rechazo y red caída', () => {
+    // El primer arreglo solo cubrió "Resend contesta rechazando". Faltaba
+    // "Resend NO contesta" (red caída, DNS, timeout): ahí el `fetch` LANZA, caía
+    // en el catch general, que devuelve 500 sin soltar nada, y el reintento se
+    // encontraba "ya notificado" y cancelaba. Mismo agujero, otra puerta.
+    // Comprobado en local apuntando a un host que no resuelve.
+    const fn = Object.values(FUNCION)[0] ?? ''
+    const veces = (fn.match(/soltarReclamo\(\)/g) ?? []).length
+    expect(
+      veces,
+      'notify-new-candidate tiene que soltar el reclamo en los DOS caminos que no envían ' +
+      `nada (Resend rechaza y Resend no contesta), y se llama ${veces} vez/veces. Si el fetch ` +
+      'lanza y nadie suelta `notified_at`, el reintento cancela con "ya notificado" y ese ' +
+      'aviso se pierde para siempre.',
+    ).toBeGreaterThanOrEqual(2)
+
+    expect(
+      /try\s*\{[\s\S]{0,400}fetch\('https:\/\/api\.resend\.com/.test(fn),
+      'el fetch a Resend ya no está dentro de su propio try: un fallo de red caería en el ' +
+      'catch general, que no suelta el reclamo.',
+    ).toBe(true)
+  })
+
   it('un envío que falla suelta el reclamo, o el aviso se pierde para siempre', () => {
     // `notified_at` se reclama ANTES de llamar a Resend, que es lo que impide el
     // correo duplicado. Si Resend rechaza y el reclamo se queda puesto, el

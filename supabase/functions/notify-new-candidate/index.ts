@@ -132,28 +132,44 @@ Deno.serve(async (req) => {
       return json({ ok: true, sent: false, skipped: 'ya notificado' })
     }
 
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: FROM,
-        to: ownerEmail,
-        subject,
-        html,
-      }),
-    })
+    // EL RECLAMO SE SUELTA SIEMPRE QUE NO HAYA SALIDO NADA, y son DOS caminos:
+    // que Resend conteste rechazando, y que no conteste (red caída, DNS, timeout).
+    // El reclamo está puesto desde antes del envío, que es lo que impide el correo
+    // duplicado; pero dejándolo puesto sin haber enviado, el reintento de la cola
+    // se encuentra "ya notificado", CANCELA, y esa empresa no se entera nunca, con
+    // un motivo escrito que además es falso. No reabre el email-bombing que el
+    // reclamo vino a cerrar: solo se suelta cuando NO ha salido ningún correo, así
+    // que una llamada sigue provocando como mucho un envío.
+    //
+    // Va aquí y NO en el `catch` de abajo, que también cubre los fallos ANTERIORES
+    // al reclamo: soltarlo allí borraría el `notified_at` de un envío legítimo
+    // anterior y habilitaría un segundo correo.
+    const soltarReclamo = () => admin.from('candidates').update({ notified_at: null }).eq('id', candidate_id)
+
+    let res: Response
+    try {
+      res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: FROM,
+          to: ownerEmail,
+          subject,
+          html,
+        }),
+      })
+    } catch (e) {
+      // NO CONTESTA: la petición no llegó a completarse, así que no se ha mandado
+      // nada. Este caso caía antes en el `catch` general, que devuelve 500 y NO
+      // suelta el reclamo, o sea que una red que falla un segundo perdía el aviso
+      // igual que lo perdía un rechazo. Mismo agujero, otra puerta.
+      await soltarReclamo()
+      return json({ ok: false, sent: false, error: `Resend inalcanzable: ${e instanceof Error ? e.message : e}` }, 502)
+    }
+
     if (res.ok) return json({ ok: true, sent: true })
 
-    // EL RECLAMO SE SUELTA SI NO SE HA MANDADO NADA. Está puesto desde antes del
-    // envío, que es lo que impide el correo duplicado; pero dejándolo puesto tras
-    // un rechazo de Resend, el reintento de la cola se encontraría "ya notificado"
-    // y cancelaría el trabajo, o sea que un fallo pasajero del proveedor dejaría
-    // a esa empresa sin enterarse PARA SIEMPRE, con "ya notificado" escrito como
-    // motivo, que además es falso. Soltarlo no reabre el email-bombing que el
-    // reclamo vino a cerrar: solo se suelta cuando NO ha salido ningún correo,
-    // así que el número de correos que puede provocar una llamada sigue siendo
-    // como mucho uno.
-    await admin.from('candidates').update({ notified_at: null }).eq('id', candidate_id)
+    await soltarReclamo()
     // 502 y no 200: lo que ha fallado es un servicio de fuera, y así el fallo se
     // reconoce por el estado además de por el cuerpo.
     const detalle = (await res.text().catch(() => '')).slice(0, 300)
