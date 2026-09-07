@@ -109,11 +109,15 @@ export interface SeccionAjustes {
   grupos: GrupoAjustes[]
   nota?: string
   /**
-   * TEMPORAL (ago 2026): pantalla propia en vez de grupos de interruptores.
-   * La agenda de entrevistas son días, tramos, duración, descanso y dirección;
-   * nada de eso es un booleano. Cuando se rehaga, esto se va y sus ajustes
-   * vuelven a declararse como los demás. No usarlo para nada más: es la puerta
-   * por la que se cuela volver a tener pantallas a mano.
+   * Pantalla propia en vez de grupos de interruptores. Lo que queda dentro no
+   * es un booleano: la MODALIDAD es una elección entre tres con su pista, y la
+   * conexión con Google Calendar es un OAuth con su estado y su desconexión.
+   * (Hasta sep 2026 el motivo era más gordo: la sección traía además la agenda
+   * semanal y cinco números de la generación de huecos, que se fueron con el
+   * asistente de WhatsApp.) La DIRECCIÓN sí cabría hoy en un `AjusteTexto`;
+   * mientras viva pegada a la modalidad que la enseña o la esconde, se queda
+   * aquí. No usar esta escotilla para nada más: es la puerta por la que se
+   * cuela volver a tener pantallas a mano.
    */
   componente?: ReactNode
 }
