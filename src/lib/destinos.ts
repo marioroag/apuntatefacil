@@ -9,6 +9,7 @@ import {
   Palette,
   SlidersHorizontal,
   Star,
+  UserCheck,
   Users,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -103,7 +104,7 @@ export const DESTINOS: Destino[] = [
     claves: ['inicio', 'resumen', 'panel', 'cifras', 'estadisticas'],
     to: (c) => `${c.base}/resumen`,
   },
-  // Las cuatro vistas de Candidatos son cuatro destinos, no uno con opciones: a
+  // Cada vista de la lista de gente es un destino, no una con opciones: a
   // "contratados" se va escribiendo esa palabra, que es de lo que va el buscador.
   // Sus rutas y sus nombres salen del mismo sitio que el menú (`lib/candidatos.ts`),
   // así que no pueden decir cosas distintas.
@@ -114,14 +115,6 @@ export const DESTINOS: Destino[] = [
     icon: ContactRound,
     claves: ['activos', 'nuevos', 'sin leer', 'entradas', 'candidaturas', 'base de datos', 'bandeja'],
     to: (c) => `${c.base}${vistaPor('activos').to}`,
-  },
-  {
-    id: 'candidatos-contratados',
-    label: 'Contratados',
-    hint: 'Quién ya tiene el puesto, de todos tus procesos.',
-    icon: ContactRound,
-    claves: ['contratado', 'fichados', 'altas'],
-    to: (c) => `${c.base}${vistaPor('contratados').to}`,
   },
   {
     id: 'candidatos-favoritos',
@@ -138,6 +131,18 @@ export const DESTINOS: Destino[] = [
     icon: ContactRound,
     claves: ['todos', 'descartados', 'rechazados', 'historial'],
     to: (c) => `${c.base}${vistaPor('todos').to}`,
+  },
+  {
+    // FUERA DEL BLOQUE DE ARRIBA (sep 2026): Contratados dejó de colgar de
+    // Candidatos, así que aquí tampoco va con ellos, y su icono es el de su fila
+    // del menú y no el de la lista de la que ya no forma parte. Un resultado del
+    // buscador tiene que verse igual que la fila a la que lleva.
+    id: 'contratados',
+    label: 'Contratados',
+    hint: 'Quién ya tiene el puesto, de todos tus procesos.',
+    icon: UserCheck,
+    claves: ['contratado', 'fichados', 'altas', 'candidatos contratados'],
+    to: (c) => `${c.base}${vistaPor('contratados').to}`,
   },
   {
     id: 'equipo',

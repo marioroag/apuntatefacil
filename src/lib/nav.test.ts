@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { cifraCorta, navGroups, TOPE_CIFRA, type NavContext } from './nav'
+import { CORTES, VISTAS, VISTAS_RAIZ } from './candidatos'
 
 /**
  * EL GUARDIÁN DEL MENÚ.
@@ -264,5 +265,73 @@ describe('una fila con cortes debajo', () => {
         expect(h.novedadesLabel!(7), `El novedadesLabel de "${h.label}" no dice CUÁNTAS.`).toContain('7')
       }
     }
+  })
+})
+
+describe('una vista que no cuelga de Candidatos tiene su propia fila', () => {
+  // CONTRATADOS SALIÓ DE CANDIDATOS (Mario, sep 2026). El registro de vistas lo
+  // declara con `raiz` y de ahí lo derivan sus tres consumidores; lo que esto
+  // vigila es la única parte que NO se puede derivar, que es la fila del menú:
+  // el icono no sale del registro de vistas (allí no viven los iconos), así que
+  // una vista raíz nueva se quedaría sin fila y sin que nadie lo notara, porque
+  // el sitio donde antes estaba (los cortes de Candidatos) tampoco la pintaría.
+  // Desaparecería del menú entero, que es exactamente el fallo que este guardián
+  // nació para cazar con Ajustes.
+  const del = () => items(ctx({ isStaff: true }))
+  const cortes = () => del().flatMap((i) => i.hijos ?? [])
+
+  it('cada vista raíz se pinta como fila de primer nivel', () => {
+    for (const v of VISTAS_RAIZ) {
+      expect(
+        del().map((i) => i.to),
+        `La vista "${v.label}" es \`raiz\` y no tiene fila en el menú: declárasela en navGroups (con su icono, que es lo único que el registro de vistas no sabe).`,
+      ).toContain(v.to)
+    }
+  })
+
+  it('y no cuelga además de Candidatos', () => {
+    // En los dos sitios a la vez serían dos puertas para la misma pantalla, y el
+    // menú marcaría dos filas al llegar.
+    for (const v of VISTAS_RAIZ) {
+      expect(
+        cortes().map((h) => h.to),
+        `La vista "${v.label}" es \`raiz\` y sigue colgando de Candidatos: sale de los cortes o deja de ser raíz.`,
+      ).not.toContain(v.to)
+    }
+  })
+
+  it('y los cortes siguen colgando de Candidatos y no sueltos', () => {
+    // El reverso: sacar una vista de los cortes sin declararla raíz la dejaría
+    // sin sitio en el menú.
+    for (const v of CORTES) {
+      expect(
+        cortes().map((h) => h.to),
+        `La vista "${v.label}" no es raíz y no aparece como corte de Candidatos: se ha quedado sin sitio en el menú.`,
+      ).toContain(v.to)
+    }
+  })
+
+  it('ninguna fila suelta lleva a donde ya lleva un corte', () => {
+    // ESTE DETECTOR LLEGÓ SEGUNDO, y por eso queda escrito: los tres de arriba
+    // pasaban en verde con la vista quitándose el `raiz` y conservando su fila,
+    // o sea CONTRATADOS PINTADO DOS VECES en el mismo menú, una vez suelto y otra
+    // colgando de Candidatos. Cada uno de los tres miraba su mitad y ninguno
+    // comparaba las dos, que es donde estaba el fallo.
+    //
+    // La madre está exenta a propósito: "Candidatos" lleva a la ruta de su corte
+    // principal, y eso es la regla de arriba, no una duplicación.
+    const sueltas = del().filter((i) => !i.hijos?.length && i.to)
+    for (const it of sueltas) {
+      expect(
+        cortes().map((h) => h.to),
+        `"${it.label}" lleva a ${it.to}, que ya es un corte de otra fila: el menú pintaría dos puertas para la misma pantalla.`,
+      ).not.toContain(it.to)
+    }
+  })
+
+  it('entre las dos listas están todas las vistas, y ninguna dos veces', () => {
+    const rutas = [...cortes().map((h) => h.to), ...VISTAS_RAIZ.map((v) => v.to)]
+    expect(new Set(rutas).size, 'Una vista se pinta dos veces en el menú.').toBe(rutas.length)
+    expect(rutas.length, 'Falta alguna vista en el menú.').toBe(VISTAS.length)
   })
 })

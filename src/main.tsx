@@ -102,6 +102,12 @@ const meridianRoute = <Route path="meridian" element={<Navigate to="../resumen" 
  * de vistas manda (`lib/candidatos.ts`); esto solo las cuelga del router.
  *
  * La principal NO lleva sufijo: "/candidatos" ES Activos.
+ *
+ * Y CONTRATADOS CUELGA DE LA RAÍZ (Mario, sep 2026): dejó de ser un corte de
+ * Candidatos y su ruta lo dice, porque una ruta es también una jerarquía. La
+ * vieja no se borra, redirige, igual que hicieron Bandeja, Sedes y Marcas: el
+ * enlace que alguien tenga guardado aterriza donde está su trabajo y no en la
+ * landing por el comodín del final.
  */
 const rutasCandidatos = (
   <>
@@ -112,9 +118,10 @@ const rutasCandidatos = (
         con la lista de opciones vacia: no habia forma de ver cual estaba marcado.
         Cada vista es una pantalla distinta, asi que se monta como tal. */}
     <Route path="candidatos" element={<Candidatos key="activos" vista="activos" />} />
-    <Route path="candidatos/contratados" element={<Candidatos key="contratados" vista="contratados" />} />
     <Route path="candidatos/favoritos" element={<Candidatos key="favoritos" vista="favoritos" />} />
     <Route path="candidatos/todos" element={<Candidatos key="todos" vista="todos" />} />
+    <Route path="contratados" element={<Candidatos key="contratados" vista="contratados" />} />
+    <Route path="candidatos/contratados" element={<Navigate to="../contratados" replace />} />
     {/* "Bandeja" era la cola de los `nuevo` y ahora es la vista Activos. La ruta
         vieja no se borra, redirige: quien la tuviera guardada aterriza donde
         estaba su trabajo y no en la landing por el comodín del final. */}

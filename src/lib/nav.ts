@@ -1,6 +1,6 @@
-import { Bell, Briefcase, CalendarDays, ContactRound, CreditCard, Gauge, LayoutGrid, MessagesSquare, Search, Settings, Users } from 'lucide-react'
+import { Bell, Briefcase, CalendarDays, ContactRound, CreditCard, Gauge, LayoutGrid, MessagesSquare, Search, Settings, UserCheck, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { VISTAS, VISTA_PRINCIPAL } from './candidatos'
+import { CORTES, VISTA_PRINCIPAL, vistaPor } from './candidatos'
 
 /**
  * Registro de navegación del menú lateral (ago 2026, reescrito con la identidad
@@ -185,6 +185,16 @@ export const contarPuestos = (n: number) => contar(n, 'puesto', 'puestos')
  * de servicio (dónde vuelves y cómo llegas a cualquier sitio), debajo TU
  * empresa, con su nombre de cabecera y todo lo que se hace dentro de ella.
  */
+/**
+ * La vista que tiene fila propia. Se resuelve aquí arriba para que su ruta y su
+ * etiqueta vengan del registro de vistas y no se escriban a mano en el menú.
+ *
+ * Hoy es una sola. Si algún día hay dos, esto se queda corto A PROPÓSITO: el
+ * guardián del menú (`nav.test.ts`) falla si una vista `raiz` no tiene su fila,
+ * porque el icono no se puede derivar y una fila sin icono no se pinta sola.
+ */
+const CONTRATADOS = vistaPor('contratados')
+
 export function navGroups(ctx: NavContext): NavGroup[] {
   const { empresa, isStaff, demo, counts } = ctx
 
@@ -219,7 +229,7 @@ export function navGroups(ctx: NavContext): NavGroup[] {
           // El icono cambia con ella: `Inbox` era la bandeja de entrada, una cosa
           // que se vacía. Esto no se vacía, es tu gente.
           id: 'candidatos',
-          to: VISTAS[0].to,
+          to: vistaPor(VISTA_PRINCIPAL).to,
           label: 'Candidatos',
           Icon: ContactRound,
           // La señal vive en la MADRE plegada y en Activos desplegada, y la pinta
@@ -227,7 +237,11 @@ export function navGroups(ctx: NavContext): NavGroup[] {
           // aunque también los contenga, o el mismo aviso se contaría dos veces.
           novedades: counts.nuevos,
           novedadesLabel: contarNuevas,
-          hijos: VISTAS.map((v) => ({
+          // Los CORTES, no todas las vistas: Contratados se declara en el mismo
+          // registro y no cuelga de aquí (ver `raiz` en `lib/candidatos.ts`). La
+          // lista sale de una sola filtrada, así que sacar una vista de la lista
+          // es cambiar su declaración, nunca acordarse de dos sitios.
+          hijos: CORTES.map((v) => ({
             id: `candidatos-${v.id}`,
             to: v.to,
             label: v.label,
@@ -235,6 +249,26 @@ export function navGroups(ctx: NavContext): NavGroup[] {
               ? { novedades: counts.nuevos, novedadesLabel: contarNuevas }
               : {}),
           })),
+        },
+        {
+          // CONTRATADOS, FUERA DE CANDIDATOS (Mario, sep 2026). Era el segundo de
+          // sus cortes; ahora es una fila propia y va justo detrás, que es el
+          // orden en que pasan las cosas: primero está la gente en proceso y
+          // luego con quién te has quedado. El porqué, en `lib/candidatos.ts`.
+          //
+          // La ruta y la etiqueta salen de la VISTA y no se escriben aquí: el
+          // menú, la pantalla y el buscador la llaman igual porque leen lo mismo.
+          // Lo único que pone el menú es el icono, que es lo que este registro
+          // sabe y aquel no.
+          //
+          // SIN señal de novedad, y es una decisión: contratar no es algo que te
+          // llegue y tengas que mirar, es algo que HACES tú, así que el punto
+          // estaría avisándote de tu propio trabajo y no se apagaría mirando. Es
+          // la misma regla que le quitó la chapa a Entrevistas.
+          id: 'contratados',
+          to: CONTRATADOS.to,
+          label: CONTRATADOS.label,
+          Icon: UserCheck,
         },
         {
           // SIN señal: las citas por venir no son "algo nuevo que no has visto",

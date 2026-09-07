@@ -44,6 +44,8 @@ const RUTAS_SIN_DESTINO: Record<string, string> = {
   sedes:
     'Ruta retirada (ago 2026): redirige. Una sede no es un sitio al que ir. Se encuentra escribiendo "sede", pero como ACCIÓN ("Gestionar sedes", registrada por el shell), porque lo que abre es un diálogo y no una URL.',
   marcas: 'Ruta retirada (ago 2026): redirige. La identidad se encuentra y lleva al constructor, que es donde se edita.',
+  'candidatos/contratados':
+    'Ruta vieja (sep 2026, Mario): Contratados dejó de colgar de Candidatos y ahora vive en "/contratados", que es la que SÍ tiene destino. Esta redirige para que un enlace guardado siga llegando.',
   bandeja:
     'Ruta retirada (ago 2026, Mario): redirige a Candidatos, que es lo que la sustituye. "Bandeja" SÍ se encuentra escribiéndola (es una clave del destino "Candidatos"), así que quien la busque por su nombre viejo llega igual.',
   meridian:
