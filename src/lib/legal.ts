@@ -283,7 +283,7 @@ export const PRIVACY_DOC: LegalDoc = {
           "items": [
             "Datos de tu cuenta de empresa: mientras tengas la cuenta activa. Si te das de baja, eliminamos o anonimizamos los datos de tu cuenta en un plazo máximo de [30 días / 6 meses] desde la cancelación efectiva, salvo lo que debamos conservar por ley.",
             "Datos de facturación y pago: durante los plazos exigidos por la normativa. Con carácter general, 4 años conforme a la Ley General Tributaria (Ley 58/2003) y 6 años conforme al artículo 30 del Código de Comercio, contados desde la última operación o el cierre del ejercicio correspondiente.",
-            "Datos de los candidatos: se conservan mientras prestamos el servicio a la empresa responsable y según las instrucciones de esa empresa. La empresa cliente decide cuándo se borran; cuando finaliza el servicio, te devolvemos o suprimimos los datos de candidatos según tu elección.",
+            "Datos de los candidatos: se conservan mientras prestamos el servicio a la empresa responsable y según las instrucciones de esa empresa. La empresa cliente decide cuándo se borran: puede eliminar cualquier candidatura desde su panel, y eso elimina también el CV y los documentos adjuntos; y puede activar en sus ajustes el borrado automático de las candidaturas de un proceso a los 12 meses de cerrarlo (sin tocar a las personas contratadas). Cuando finaliza el servicio, te devolvemos o suprimimos los datos de candidatos según tu elección.",
             "Datos de soporte y comunicaciones: el tiempo necesario para atender tu consulta y, después, mientras pueda existir responsabilidad derivada de ella, normalmente hasta 5 años conforme al artículo 1964 del Código Civil."
           ]
         },

@@ -766,8 +766,8 @@ export function CandidateModal({
         {/* El deshacer del aviso recupera al candidato, pero NO su conversación:
             los mensajes se borran en cascada y no se pueden reinsertar con su
             autor. Se dice antes, no después. */}
-        Se elimina también lo que haya escrito tu equipo sobre esta persona. Puedes recuperar la candidatura desde el aviso, pero la
-        conversación no.
+        Se elimina también lo que haya escrito tu equipo sobre esta persona, y en unos minutos su CV y sus documentos. Puedes
+        recuperar la candidatura desde el aviso, pero la conversación no.
       </ConfirmDialog>
     </>
   )

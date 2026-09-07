@@ -23,6 +23,13 @@ export interface Company {
   paid_processes: number // procesos abiertos pagados en Stripe (el tope real del plan 'proceso')
   /** Lo que la empresa cuenta de sí misma en sus anuncios. Se escribe en Ajustes. */
   descripcion: string
+  /**
+   * Meses desde que se CIERRA un proceso hasta que sus candidaturas (salvo las
+   * contratadas) se borran solas, ficheros incluidos. `null` es no borrar nada
+   * por su cuenta: la empresa es la responsable de esos datos y decide ella.
+   * Se activa en Ajustes; hoy es 12 o nada.
+   */
+  retencion_meses: number | null
 }
 
 /**
@@ -32,7 +39,7 @@ export interface Company {
  * su `grant update (columna)` en una migración. Si no, el guardado fallaría en
  * silencio.
  */
-export type CompanySettings = Pick<Company, 'meridian_auto' | 'descripcion'>
+export type CompanySettings = Pick<Company, 'meridian_auto' | 'descripcion' | 'retencion_meses'>
 
 // Empresa + el rol del usuario en ella (lo devuelve el RPC my_companies).
 type CompanyWithRole = Company & { role: string }
@@ -454,6 +461,7 @@ export const DEMO_COMPANY: Company = {
   meridian_auto: true,
   trial_ends_at: null,
   paid_processes: 99,
+  retencion_meses: null,
 }
 
 export function DemoAuthProvider({ children }: { children: ReactNode }) {

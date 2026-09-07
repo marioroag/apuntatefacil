@@ -215,6 +215,80 @@ async function detalle(error: unknown): Promise<string> {
   return base
 }
 
+/** Borra del bucket, en tandas: `remove` con cientos de rutas es una sola
+ *  petición grande, y una que falle se llevaría a todas por delante. */
+async function borrarDelBucket(rutas: string[]): Promise<number> {
+  let borradas = 0
+  for (let i = 0; i < rutas.length; i += 100) {
+    const tanda = rutas.slice(i, i + 100)
+    const { data, error } = await admin.storage.from('cvs').remove(tanda)
+    if (error) throw new Error(`storage.remove: ${error.message}`)
+    borradas += data?.length ?? 0
+  }
+  return borradas
+}
+
+/**
+ * LOS FICHEROS DE UNA CANDIDATURA ELIMINADA, pasada la ventana de deshacer.
+ *
+ * El trigger de la base encola este trabajo con las rutas al borrar la fila,
+ * quince minutos más tarde. Antes de borrar se pregunta a la base qué rutas
+ * siguen en uso: una candidatura deshecha vuelve con su mismo cv_path, y ese
+ * fichero tiene que quedarse. Lo demás se va.
+ */
+async function purgarFicheros(job: Job): Promise<{ tipo: 'hecho' } | { tipo: 'obsoleto'; motivo: string }> {
+  const rutas = Array.isArray(job.payload?.rutas)
+    ? (job.payload.rutas as unknown[]).filter((r): r is string => typeof r === 'string' && r !== '')
+    : []
+  if (!rutas.length) return { tipo: 'obsoleto', motivo: 'sin rutas' }
+  const { data: enUso, error } = await admin.rpc('rutas_en_uso', { p_rutas: rutas })
+  if (error) throw new Error(`rutas_en_uso: ${error.message}`)
+  const ocupadas = new Set((enUso as string[] | null) ?? [])
+  const borrar = rutas.filter((r) => !ocupadas.has(r))
+  if (borrar.length) await borrarDelBucket(borrar)
+  return { tipo: 'hecho' }
+}
+
+/**
+ * LA PURGA DIARIA: candidaturas de procesos cerrados hace más de los meses que
+ * la empresa haya puesto en Ajustes, y ficheros huérfanos del bucket.
+ *
+ * Por lotes y con los FICHEROS ANTES QUE LAS FILAS: si el borrado del bucket
+ * falla, la fila sigue existiendo y el intento siguiente vuelve a encontrarla;
+ * al revés, un fichero sin fila es justo el huérfano que el barrido tiene que
+ * perseguir. Si el lote sale lleno, se encola una continuación para dentro de
+ * un minuto en vez de comerse el tick entero.
+ */
+async function purgarCandidatos(): Promise<{ tipo: 'hecho' }> {
+  const LOTE = 100
+  const { data, error } = await admin.rpc('purga_candidatos_pendientes', { p_limit: LOTE })
+  if (error) throw new Error(`purga_candidatos_pendientes: ${error.message}`)
+  const pendientes = (data as { id: string; company_id: string; rutas: string[] | null }[] | null) ?? []
+  if (pendientes.length) {
+    const rutas = pendientes.flatMap((p) => p.rutas ?? [])
+    if (rutas.length) await borrarDelBucket(rutas)
+    const { data: n, error: e2 } = await admin.rpc('purga_candidatos_borrar', { p_ids: pendientes.map((p) => p.id) })
+    if (e2) throw new Error(`purga_candidatos_borrar: ${e2.message}`)
+    console.log(`[interview-tick] purga: ${n ?? 0} candidaturas, ${rutas.length} ficheros`)
+  }
+  if (pendientes.length === LOTE) {
+    await admin.rpc('enqueue_interview_job', {
+      p_kind: 'purgar_candidatos',
+      p_payload: {},
+      p_run_at: new Date(Date.now() + 60_000).toISOString(),
+      p_dedupe_key: `purga:cont:${Date.now()}`,
+    })
+  }
+  const { data: huerfanos, error: e3 } = await admin.rpc('documentos_huerfanos', { p_limit: 500 })
+  if (e3) throw new Error(`documentos_huerfanos: ${e3.message}`)
+  const lista = (huerfanos as string[] | null) ?? []
+  if (lista.length) {
+    await borrarDelBucket(lista)
+    console.log(`[interview-tick] purga: ${lista.length} ficheros huérfanos`)
+  }
+  return { tipo: 'hecho' }
+}
+
 async function ejecutar(job: Job): Promise<'hecho' | 'obsoleto'> {
   switch (job.kind) {
     case 'marcar_realizada': {
@@ -313,6 +387,25 @@ Deno.serve(async (req) => {
           await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: null, p_error: r.motivo })
           cancelados++
         }
+        continue
+      }
+
+      if (job.kind === 'purgar_ficheros') {
+        const r = await purgarFicheros(job)
+        if (r.tipo === 'hecho') {
+          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: true })
+          ok++
+        } else {
+          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: null, p_error: r.motivo })
+          cancelados++
+        }
+        continue
+      }
+
+      if (job.kind === 'purgar_candidatos') {
+        await purgarCandidatos()
+        await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: true })
+        ok++
         continue
       }
 

@@ -1,4 +1,4 @@
-import { AtSign, Building2, CalendarDays, Inbox, Mail, Sparkles, Users } from 'lucide-react'
+import { Archive, AtSign, Building2, CalendarDays, Inbox, Mail, Sparkles, Users } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { AjustesCalendario } from '../screens/AjustesCalendario'
@@ -222,6 +222,38 @@ export const SECCIONES: SeccionAjustes[] = [
     // Sin descripción, el anuncio no pinta el bloque: es mejor no decir nada que
     // decir un hueco. Se dice aquí porque es lo que pasa si lo dejas vacío.
     nota: 'Si lo dejas en blanco, tus anuncios no enseñan este bloque.',
+  },
+  // RETENCIÓN DE CANDIDATOS (sep 2026). La empresa es la responsable de los
+  // datos de sus candidatos, así que el producto no borra nada por su cuenta
+  // hasta que ella lo pida: el valor de partida es "no borrar". Cuando lo
+  // activa, el plazo es uno y fijo (doce meses desde que el proceso se cierra),
+  // porque un plazo declarado en la política de privacidad tiene que ser el
+  // mismo para todos los candidatos de esa empresa; si algún día hace falta
+  // otro, la columna admite el número y el ajuste pasa a ser una elección.
+  {
+    id: 'datos',
+    label: 'Datos de candidatos',
+    icon: Archive,
+    titulo: 'Datos de candidatos',
+    descripcion: 'Cuánto tiempo se guardan las candidaturas de los procesos que ya has cerrado.',
+    disponible: (c) => !!c.company,
+    grupos: [
+      {
+        id: 'retencion',
+        titulo: 'Borrado automático',
+        ajustes: [
+          {
+            id: 'retencion_meses',
+            label: 'Borrar las candidaturas de un proceso a los 12 meses de cerrarlo',
+            hint: 'Se borran la candidatura, sus respuestas, su CV y sus documentos. Los contratados no se tocan, ni nadie de un proceso abierto o pausado. Apagado, las candidaturas se guardan hasta que las elimines tú.',
+            get: (c) => c.company?.retencion_meses != null,
+            set: (c, next) => c.updateCompanySettings({ retencion_meses: next ? 12 : null }),
+            bloqueado: soloGestores,
+          },
+        ],
+      },
+    ],
+    nota: 'Eliminar una candidatura a mano, desde su ficha, borra también sus ficheros: es lo que hay que hacer cuando un candidato pide que se supriman sus datos. Al borrar se puede deshacer durante unos minutos; después, los ficheros ya no están.',
   },
   {
     id: 'meridian',
