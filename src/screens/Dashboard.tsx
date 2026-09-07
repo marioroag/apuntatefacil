@@ -81,7 +81,7 @@ import type { Invasion } from '../lib/fila'
 // mismo par punto+texto que exige la doctrina para el estado. Con ella vuelve su
 // ORDEN; lo que sigue retirado es el buscador en lenguaje natural.
 import { MeridianAvatar, FitLabel } from '../components/Meridian'
-import { ChipDocumento } from '../components/ChipDocumento'
+import { CeldaDocumento } from '../components/ChipDocumento'
 import { PreviewDocumento } from '../components/PreviewDocumento'
 import { candidateFit, hasMeridian } from '../lib/meridian'
 import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
@@ -2803,25 +2803,7 @@ const CandidateTable = memo(function CandidateTable({
                     case 'documentos':
                       return (
                         <td key={k} className={CELL}>
-                          {c.cvPath ? (
-                            // El chip ES el botón, como en la ficha: lo que se pulsa
-                            // para ver un documento es su nombre, no una lupa al lado.
-                            // Sin documento no hay botón, porque uno que no puede
-                            // hacer nada es peor que ninguno.
-                            <button
-                              type="button"
-                              onClick={() => onOpenDocumento(c.id)}
-                              aria-label={`Ver los documentos de ${name}`}
-                              className="rounded-sm outline-none transition-[filter] duration-[var(--duration-control)] hover:brightness-[0.96] focus-visible:ring-2 focus-visible:ring-indigo-500/40 motion-reduce:transition-none"
-                            >
-                              <ChipDocumento />
-                            </button>
-                          ) : (
-                            <>
-                              <span className="text-slate-500" aria-hidden>–</span>
-                              <span className="sr-only">Sin documentos</span>
-                            </>
-                          )}
+                          <CeldaDocumento cvPath={c.cvPath} nombre={name} onAbrir={() => onOpenDocumento(c.id)} />
                         </td>
                       )
                     case 'etiquetas':

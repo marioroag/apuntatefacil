@@ -83,39 +83,86 @@ describe('el guardián de la ventana de filas', () => {
  * que lo que se pinta y `table-fixed` tiene que estrujar a alguien. Se vio en
  * pantalla al estrenar la columna Documentos, con "Recibida" reducida a 8px.
  *
- * `candidato` se queda fuera a propósito: en escritorio no declara ancho (es la
- * que absorbe el sobrante) y su número en el mapa es el mínimo que se le
- * garantiza antes de que la tabla empiece a desplazarse.
+ * LAS ELÁSTICAS SE QUEDAN FUERA a propósito: en escritorio no declaran ancho
+ * (se reparten el sobrante) y su número en el mapa es el mínimo que se les
+ * garantiza antes de que la tabla empiece a desplazarse. En el panel de un
+ * puesto es una (`candidato`); en Candidatos son dos, porque allí el puesto
+ * tampoco declara ancho.
+ *
+ * VIGILA LAS DOS TABLAS, y la segunda entró con la columna Documentos (sep 2026):
+ * Candidatos no tenía mapa de fábrica hasta entonces, así que estrenar allí una
+ * columna reproducía el fallo exacto que este guardián nació para cazar.
  */
 describe('el guardián de los anchos de fábrica', () => {
-  const DASHBOARD = '../screens/Dashboard.tsx'
+  /**
+   * Cada tabla con su mapa, dónde empiezan sus cabeceras y dónde acaban, y qué
+   * columnas son elásticas. El corte final existe porque el panel sigue con
+   * columnas de RESPUESTA detrás del `switch`, que no llevan ancho declarado.
+   */
+  const TABLAS = [
+    {
+      fichero: '../screens/Dashboard.tsx',
+      mapa: 'ANCHO_ESCRITORIO',
+      hasta: 'const f = campoDe(k)',
+      elasticas: ['candidato'],
+    },
+    {
+      fichero: '../screens/Candidatos.tsx',
+      mapa: 'ANCHO_FABRICA',
+      hasta: '</tr>',
+      elasticas: ['candidato', 'puesto'],
+    },
+  ]
 
-  it('la clase de cada cabecera dice lo mismo que ANCHO_ESCRITORIO', () => {
-    const src = FUENTES[DASHBOARD]
-    expect(src, 'no se encuentra Dashboard.tsx').toBeTruthy()
+  it.each(TABLAS)('la clase de cada cabecera dice lo mismo que el mapa ($fichero)', ({ fichero, mapa: nombreMapa, hasta, elasticas }) => {
+    const src = FUENTES[fichero]
+    expect(src, `no se encuentra ${fichero}`).toBeTruthy()
 
-    const mapa = src.match(/const ANCHO_ESCRITORIO[^=]*=\s*\{([^}]*)\}/)?.[1]
-    expect(mapa, 'no se encuentra ANCHO_ESCRITORIO').toBeTruthy()
+    const mapa = src.match(new RegExp(`const ${nombreMapa}[^=]*=\\s*\\{([^}]*)\\}`))?.[1]
+    expect(mapa, `no se encuentra ${nombreMapa}`).toBeTruthy()
     const declarados = new Map<string, number>()
     for (const [, k, v] of (mapa as string).matchAll(/(\w+):\s*(\d+)/g)) declarados.set(k, Number(v))
     expect(declarados.size).toBeGreaterThan(4)
 
-    // El bloque de cabeceras: desde el `switch` de la fila de títulos hasta su
-    // `default`, que es donde empiezan las columnas de respuesta.
-    const cabeceras = src.slice(src.indexOf("<ColHead key={k}"), src.indexOf('const f = campoDe(k)'))
+    // El bloque de cabeceras: desde el `switch` de la fila de títulos hasta donde
+    // esa tabla deja de declararlas.
+    const inicio = src.indexOf('<ColHead key={k}')
+    const cabeceras = src.slice(inicio, src.indexOf(hasta, inicio))
     for (const [columna, ancho] of declarados) {
-      if (columna === 'candidato') continue
+      if (elasticas.includes(columna)) continue
       const desde = cabeceras.indexOf(`case '${columna}':`)
-      expect(desde, `la columna ${columna} no tiene cabecera`).toBeGreaterThanOrEqual(0)
+      expect(desde, `la columna ${columna} no tiene cabecera en ${fichero}`).toBeGreaterThanOrEqual(0)
       const siguiente = cabeceras.indexOf("case '", desde + 6)
       const bloque = cabeceras.slice(desde, siguiente === -1 ? undefined : siguiente)
       // Con ternario de móvil manda la rama de escritorio, que es la del `:`.
       const enClase = bloque.match(/:\s*'w-\[(\d+)px\]'/)?.[1] ?? bloque.match(/w-\[(\d+)px\]/)?.[1]
-      expect(enClase, `la cabecera de ${columna} no declara ancho`).toBeTruthy()
+      expect(enClase, `la cabecera de ${columna} no declara ancho en ${fichero}`).toBeTruthy()
       expect(
         Number(enClase),
-        `la columna ${columna} mide ${enClase}px en su clase y ${ancho} en ANCHO_ESCRITORIO: el suelo de la tabla miente y alguna columna se estruja`,
+        `en ${fichero} la columna ${columna} mide ${enClase}px en su clase y ${ancho} en ${nombreMapa}: el suelo de la tabla miente y alguna columna se estruja`,
       ).toBe(ancho)
+    }
+  })
+
+  it.each(TABLAS)('toda columna con ancho declarado está en el mapa ($fichero)', ({ fichero, mapa: nombreMapa, hasta, elasticas }) => {
+    // EL REVERSO, que es por donde entra el fallo de verdad: una columna NUEVA se
+    // pinta con su `w-[Npx]` y nadie se acuerda del mapa, así que el suelo la
+    // cuenta como cero y `table-fixed` estruja a otra. Es literalmente cómo
+    // "Recibida" acabó en 8px.
+    const src = FUENTES[fichero]
+    const inicio = src.indexOf('<ColHead key={k}')
+    const cabeceras = src.slice(inicio, src.indexOf(hasta, inicio))
+    const mapa = src.match(new RegExp(`const ${nombreMapa}[^=]*=\\s*\\{([^}]*)\\}`))?.[1] ?? ''
+    for (const [, columna] of cabeceras.matchAll(/case '(\w+)':/g)) {
+      if (elasticas.includes(columna)) continue
+      const desde = cabeceras.indexOf(`case '${columna}':`)
+      const siguiente = cabeceras.indexOf("case '", desde + 6)
+      const bloque = cabeceras.slice(desde, siguiente === -1 ? undefined : siguiente)
+      if (!/w-\[\d+px\]/.test(bloque)) continue
+      expect(
+        new RegExp(`\\b${columna}:\\s*\\d+`).test(mapa),
+        `en ${fichero} la columna ${columna} declara ancho y no está en ${nombreMapa}: el suelo la cuenta como cero y otra columna se estruja`,
+      ).toBe(true)
     }
   })
 })

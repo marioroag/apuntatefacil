@@ -18,16 +18,42 @@ import { ManageTagsModal } from '../components/Tags'
 import { FAVORITO_STAR, STATUS_META } from '../lib/types'
 import type { Campaign, Candidate, CandidateStatus } from '../lib/types'
 import { PageHeader } from '../components/ui/PageHeader'
-import { useEsMovil } from '../lib/media'
+import { CeldaDocumento } from '../components/ChipDocumento'
+import { PreviewDocumento } from '../components/PreviewDocumento'
+import { useDesdeLg, useEsMovil } from '../lib/media'
 import { BTN_SECONDARY } from '../lib/buttons'
 import { ChipDimension, MenuAnadirFiltro, type DimensionFiltro } from '../components/FiltroChip'
 import { useDesvanecido } from '../lib/desvanecido'
 import { useColumnasAjustables } from '../lib/columnas'
-import { estadosDe, incluye, traeNuevos, vistaPor, type VistaCandidatos } from '../lib/candidatos'
+import { estadosDe, incluye, tituloDe, traeNuevos, vistaPor, type VistaCandidatos } from '../lib/candidatos'
 import { IconoVacio } from '../components/ui/IconoVacio'
 
 /** Las columnas de la cola. El ORDEN se declara aparte: cambia con el ancho. */
-type ColKeyCandidatos = 'candidato' | 'puesto' | 'telefono' | 'estado' | 'recibida'
+type ColKeyCandidatos = 'candidato' | 'puesto' | 'documentos' | 'telefono' | 'estado' | 'recibida'
+
+/**
+ * LOS ANCHOS DE FÁBRICA, y existen por un fallo conocido (sep 2026).
+ *
+ * Lo guardado son los anchos de las columnas que había el día que alguien
+ * arrastró un filo, así que una columna NUEVA (aquí, Documentos) no está en ese
+ * mapa. Contándola como cero, el SUELO de la tabla se queda corto y `table-fixed`
+ * tiene que estrujar a alguien: en el panel de un puesto se vio en pantalla, con
+ * "Recibida" reducida a 8px. Con su ancho de fábrica, el suelo vuelve a decir la
+ * verdad y la tabla se DESPLAZA en vez de matar una columna.
+ *
+ * OJO: cada número está DOS veces, aquí y en el `w-[Npx]` de su `ColHead`, y no
+ * hay forma de tenerlo una sola (una clase de Tailwind compuesta al vuelo no
+ * llega al CSS compilado). Si se mueve uno se mueve el otro, y lo vigila
+ * `tabla.test.ts`.
+ *
+ * Las dos ELÁSTICAS entran con su MÍNIMO y no con un ancho: en escritorio ni el
+ * nombre ni el puesto declaran ancho (se reparten el sobrante), así que lo que
+ * hay que garantizarles es el suelo por debajo del cual la tabla se desplaza.
+ */
+const ANCHO_FABRICA: Record<ColKeyCandidatos, number> = {
+  candidato: 230, puesto: 192, documentos: 128, telefono: 150, estado: 148, recibida: 136,
+}
+const anchoDeFabrica = (k: string) => ANCHO_FABRICA[k as ColKeyCandidatos] ?? 0
 
 function answer(c: Candidate, id: string): string {
   const v = c.answers[id]
@@ -56,6 +82,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
   getCampaign,
   setStatus,
   onOpen,
+  onOpenDocumento,
   maskPhone,
   base,
   caption,
@@ -64,6 +91,8 @@ const ListaCandidatos = memo(function ListaCandidatos({
   getCampaign: (id: string) => Campaign | undefined
   setStatus: (id: string, status: CandidateStatus) => void
   onOpen: (id: string) => void
+  /** El chip "CV" abre el visor a pantalla completa, sin la ficha detrás. */
+  onOpenDocumento: (id: string) => void
   maskPhone: boolean
   base: string
   /** Qué lista es esta, para quien no la ve. Cambia con la vista. */
@@ -75,13 +104,27 @@ const ListaCandidatos = memo(function ListaCandidatos({
   // lo unico que se ve sin empujar, asi que ESTADO sube a la segunda posicion.
   // Aqui ademas el estado ES por donde se corta la pantalla (Activos, Contratados,
   // Todos), asi que es lo primero que se comprueba de cada fila.
+  // DOCUMENTOS VA DETRÁS DE PUESTO en los dos anchos (Mario, sep 2026), que es
+  // el orden en el que se lee una fila de esta pantalla: quién es, de qué puesto
+  // viene y qué ha mandado. Aquí importa más que en el panel de un puesto: allí
+  // todas las filas comparten formulario, así que o lo pide o no lo pide nadie;
+  // esta lista MEZCLA procesos, y quién trae CV cambia de fila en fila.
+  // EL TELÉFONO SE MONTA, NO SE ESCONDE. Iba con `hidden lg:table-cell`, y eso no
+  // lo quitaba de la rejilla: una celda en `display:none` CONSERVA su columna en
+  // `table-fixed`, así que por debajo de `lg` se llevaba su parte del reparto y la
+  // dejaba sin pintar. Medido: 192px muertos al final de la tabla, pagados por el
+  // nombre y el puesto, que son las dos elásticas. Se vio al estrenar Documentos,
+  // porque con una columna más el nombre caía de 193 a 150.
+  const hayTelefono = useDesdeLg()
   const orden: ColKeyCandidatos[] = esMovil
-    ? ['candidato', 'estado', 'puesto', 'telefono', 'recibida']
-    : ['candidato', 'puesto', 'telefono', 'estado', 'recibida']
+    ? ['candidato', 'estado', 'puesto', 'documentos', 'recibida']
+    : hayTelefono
+      ? ['candidato', 'puesto', 'documentos', 'telefono', 'estado', 'recibida']
+      : ['candidato', 'puesto', 'documentos', 'estado', 'recibida']
   // Igual que la tabla del puesto: el ancho lo pone quien mira. Su propio id, así
   // que ajustar "Puesto" aquí no toca ninguna columna de allí aunque se llamen
   // igual. Apagado en móvil, por lo mismo.
-  const { col, minTabla } = useColumnasAjustables('candidatos', orden, !esMovil)
+  const { col, minTabla } = useColumnasAjustables('candidatos', orden, !esMovil, anchoDeFabrica)
   // La columna del candidato se queda quieta mientras el resto pasa por debajo:
   // sin ella, empujando a la izquierda para llegar al estado o a la fecha se
   // pierde de vista de QUIÉN es la fila. Aquí no hay casilla de selección, así que
@@ -99,24 +142,35 @@ const ListaCandidatos = memo(function ListaCandidatos({
   // pedidos"). Es la misma regla que Mario puso para el nombre: que se vea LA
   // MAYORÍA, no todos a cualquier precio, porque cada píxel de más aquí sale de
   // la columna del candidato.
+  //   · documentos 92 = 24 de celda + el chip "CV" y su aire. Los mismos números
+  //     que en el panel de un puesto, porque es la misma columna: la misma pieza
+  //     leyéndose de dos anchos distintos según en qué pantalla estés es
+  //     exactamente lo que esta doctrina no quiere.
   const MINIMOS: Record<ColKeyCandidatos, number> = {
     // `puesto 192` = 24 + la cápsula de "Oficial de 1ª (albañil)" (168), que es el
     // quinto título más largo de la demo: la regla de siempre, que se vea la
     // MAYORÍA y no todos a cualquier precio. Eran 184 cuando la cápsula iba a 12px;
     // con la letra de la fila (13px/500, sep 2026) hubo que volver a medirla.
-    candidato: 230, puesto: 192, telefono: 111, estado: 152, recibida: 136,
+    candidato: 230, puesto: 192, documentos: 92, telefono: 111, estado: 152, recibida: 136,
   }
   // El techo, con la regla del revés: hasta dónde deja de enseñar algo nuevo. Los
   // mismos números que en el panel donde la columna es la misma; Puesto lleva 360
   // porque su cápsula sí crece con el título (el más largo de la demo pide 215).
   const MAXIMOS: Record<ColKeyCandidatos, number> = {
-    candidato: 360, puesto: 360, telefono: 180, estado: 240, recibida: 200,
+    candidato: 360, puesto: 360, documentos: 180, telefono: 180, estado: 240, recibida: 200,
   }
   // Suma EXACTA de lo que se pinta en movil. Candidato (196) y Estado (144) caben
   // juntos en los 341 de contenido de una pantalla de 375: quien es y en que
   // estado esta se leen sin empujar. Los 144 son la pastilla mas ancha medida
-  // ("Contactado", 128) mas los 16 de relleno de celda en movil.
-  const anchoMovil = 196 + 144 + 180 + 116
+  // ("Contactado", 128) mas los 16 de relleno de celda en movil. Documentos suma
+  // 120, los mismos que en el panel: va la CUARTA, detras de Puesto, asi que no
+  // le quita sitio a lo que se lee sin empujar.
+  //
+  // Y "Recibida" son 136 y no los 116 que ponia aqui: su clase es `w-[136px]` sin
+  // variante de movil, asi que la suma llevaba tiempo 20px corta. No se veia
+  // porque un ancho declarado gana al `min-width` de la tabla, pero esta suma es
+  // un CONTRATO ("exacta") y una que miente deja de servir para lo que existe.
+  const anchoMovil = 196 + 144 + 180 + 120 + 136
 
   // Solo se pintan las filas que caben en pantalla (más su colchón): con las 593
   // de la demo puestas, cualquier recálculo de la página costaba 9ms y la
@@ -150,8 +204,10 @@ const ListaCandidatos = memo(function ListaCandidatos({
                     return <ColHead key={k} className={esMovil ? 'w-[196px]' : ''} fija={fijaNombre || undefined} toneClass="bg-tabla-banda" {...col(k, 'Candidato', MINIMOS.candidato, MAXIMOS.candidato)}>Candidato</ColHead>
                   case 'puesto':
                     return <ColHead key={k} className={esMovil ? 'w-[180px]' : ''} {...col(k, 'Puesto', MINIMOS.puesto, MAXIMOS.puesto)}>Puesto</ColHead>
+                  case 'documentos':
+                    return <ColHead key={k} className={esMovil ? 'w-[120px]' : 'w-[128px]'} {...col(k, 'Documentos', MINIMOS.documentos, MAXIMOS.documentos)}>Documentos</ColHead>
                   case 'telefono':
-                    return <ColHead key={k} className="hidden w-[150px] lg:table-cell" {...col(k, 'Teléfono', MINIMOS.telefono, MAXIMOS.telefono)}>Teléfono</ColHead>
+                    return <ColHead key={k} className="w-[150px]" {...col(k, 'Teléfono', MINIMOS.telefono, MAXIMOS.telefono)}>Teléfono</ColHead>
                   case 'estado':
                     return <ColHead key={k} className={esMovil ? 'w-[144px]' : 'w-[148px]'} {...col(k, 'Estado', MINIMOS.estado, MAXIMOS.estado)}>Estado</ColHead>
                   case 'recibida':
@@ -221,9 +277,15 @@ const ListaCandidatos = memo(function ListaCandidatos({
                             )}
                           </td>
                         )
+                      case 'documentos':
+                        return (
+                          <td key={k} className={CELL}>
+                            <CeldaDocumento cvPath={c.cvPath} nombre={name} onAbrir={() => onOpenDocumento(c.id)} />
+                          </td>
+                        )
                       case 'telefono':
                         return (
-                          <td key={k} className={`${CELL} num hidden lg:table-cell`}>
+                          <td key={k} className={`${CELL} num`}>
                             <span className="block truncate">
                               {maskPhone && phone ? <MaskedPhone value={formatPhone(phone)} /> : formatPhone(phone) || '–'}
                             </span>
@@ -264,8 +326,15 @@ const ListaCandidatos = memo(function ListaCandidatos({
  * `lib/candidatos.ts` y esta pantalla no conoce ninguno por su nombre.
  *
  * La fila sigue siendo DELIBERADAMENTE escueta (Mario, jul 2026): nombre, puesto,
- * estado y cuándo llegó. Sin etiquetas y sin la lectura de encaje, que aquí solo
- * eran ruido: ambas se ven enteras al abrir la ficha del candidato.
+ * documentos, estado y cuándo llegó. Sin etiquetas y sin la lectura de encaje, que
+ * aquí solo eran ruido: ambas se ven enteras al abrir la ficha del candidato.
+ *
+ * DOCUMENTOS ENTRÓ EN SEP 2026 y no contradice esa regla, la aplica: no es un dato
+ * de adorno, es lo primero que se mira de alguien que llega de un portal (traen CV
+ * y no traen respuestas), y aquí pesa más que en el panel de un puesto porque esta
+ * lista MEZCLA procesos: allí el formulario es el mismo para todas las filas, así
+ * que o lo pide o no lo pide nadie. Sin documento la celda dice una raya, que
+ * también es información: esa persona no ha mandado nada.
  */
 export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
   const vista = vistaPor(vistaId)
@@ -277,6 +346,16 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
   const maskPhone = demo
   const canManageTags = role !== 'encargado'
   const [openId, setOpenId] = useState<string | null>(null)
+  // EL CHIP "CV" ABRE EL VISOR, Y SOLO EL VISOR, igual que en el panel de un
+  // puesto: se ha pulsado un documento, así que lo que tiene que aparecer es ese
+  // documento. Abrir la persona entera detrás sería contestar otra pregunta y
+  // dejar la ficha abierta al cerrarlo.
+  //
+  // Es un `useCallback` y no una función escrita en el JSX porque la lista está
+  // memoizada: una función nueva por render apaga el memo en silencio y devuelve
+  // el repintado de las 593 filas cada vez que se abre una ficha.
+  const [docAbierto, setDocAbierto] = useState<string | null>(null)
+  const abrirDocumento = useCallback((id: string) => setDocAbierto(id), [])
   const [manageTagsOpen, setManageTagsOpen] = useState(false)
 
   // MIRAR ESTA LISTA CUENTA COMO HABERLA VISTO, y eso es lo que apaga el punto de
@@ -507,16 +586,19 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
 
   return (
     <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8">
-      {/* El título es el mismo en las tres vistas porque la PANTALLA es la misma:
-          la que cambia es por dónde la cortas, y eso lo dice el subtítulo. Aquí el
-          subtítulo se lo gana (la doctrina dice que tiene que ganárselo): es lo
-          único que arriba distingue Activos de Contratados. Quién está marcado en
-          el menú lo dice la otra mitad.
+      {/* EL TÍTULO LO PONE LA VISTA, y no siempre dice "Candidatos" (sep 2026).
+          Los tres CORTES comparten el nombre de la pantalla que cortan, porque es
+          la misma y lo que cambia es por dónde la miras; ahí el subtítulo se gana
+          el sitio siendo lo único que arriba distingue Activos de Todos. Una vista
+          RAÍZ se llama por su nombre, que es el mismo que lleva su fila del menú:
+          entrando por "Contratados" y aterrizando en una pantalla titulada
+          "Candidatos", lo que se lee es que has pulsado mal. La regla vive en
+          `tituloDe` y no aquí, con el registro que la decide.
 
           El contador es el de la VISTA sin filtrar: es cuánta gente tienes, no
           cuánta se ve ahora. Mismo criterio que el total del panel de un puesto. */}
       <PageHeader
-        titulo="Candidatos"
+        titulo={tituloDe(vista)}
         // EL RECUENTO VA EN LA LÍNEA DE CONTEXTO, CON SU MIDDOT Y SU SUSTANTIVO
         // (Mario, ago 2026: "haz que se vea con un punto y x candidatos como se
         // hace en puesto"). Estaba pegado al título, en gris y sin decir qué
@@ -526,7 +608,7 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
         // que resuelve exactamente lo mismo ("Construcción, Valencia · 97
         // candidaturas"). El sustantivo lo pone la VISTA, así que en Contratados
         // dice "contratados" y en Favoritos "favoritos": el número por sí solo no
-        // distingue los cuatro cortes, que es de lo que va esta pantalla.
+        // distingue una vista de otra, que es de lo que va esta pantalla.
         //
         // Sigue siendo el total de la vista SIN filtrar: es cuánta gente tienes,
         // no cuánta se ve ahora. Lo que cambia al filtrar se dice en la región
@@ -604,6 +686,7 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
             getCampaign={getCampaign}
             setStatus={setStatus}
             onOpen={setOpenId}
+            onOpenDocumento={abrirDocumento}
             maskPhone={maskPhone}
             base={base}
           />
@@ -626,6 +709,22 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
           onNavigate={setOpenId}
         />
       )}
+
+      {/* EL DOCUMENTO A PANTALLA COMPLETA, sin ficha detrás. Cuelga de la pantalla
+          y no de la lista porque la lista está memoizada: un estado suyo aquí
+          arriba no la despierta, y así el visor no repinta las 593 filas.
+
+          El puesto sale del CANDIDATO y no de la pantalla, que es lo único que
+          cambia respecto al panel: esta lista mezcla procesos, y el nombre del
+          fichero es la respuesta a la pregunta de tipo fichero DE SU formulario.
+          Sin puesto no hay con qué nombrarlo, así que no se abre nada. */}
+      {docAbierto && (() => {
+        const c = candidates.find((x) => x.id === docAbierto)
+        const camp = c ? getCampaign(c.campaignId) : undefined
+        return c?.cvPath && camp ? (
+          <PreviewDocumento campaign={camp} candidate={c} onClose={() => setDocAbierto(null)} />
+        ) : null
+      })()}
 
       {TAGS_ENABLED && canManageTags && (
         <ManageTagsModal open={manageTagsOpen} onClose={() => setManageTagsOpen(false)} />
