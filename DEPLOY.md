@@ -83,6 +83,42 @@ Se "hornean" al construir, así que ponlas **antes** del build.
 8. **Sesiones** (auditoría, sep 2026): en Supabase → Authentication → Sessions, pon **Time-box user sessions = 30 días**. Es lo que `config.toml` declara para local (`[auth.sessions] timebox = "720h"`) y NO se despliega solo: el panel manda en producción.
 9. **Informes de la CSP** (auditoría, sep 2026): `vercel.json` manda los bloqueos de la CSP a la función `csp-informe` (sin JWT). Se despliega con las demás y sus informes se leen en los logs de esa función. Si cambia el project ref, cambia la URL en las dos cabeceras (`Reporting-Endpoints` y `report-uri`). Antes de endurecer una directiva, pruébala unos días en `Content-Security-Policy-Report-Only` con el mismo `report-to`.
 
+## Copia de seguridad y restauración (probado el 7-sep-2026)
+
+Supabase hace una copia física de la base cada madrugada (8 días de retención, sin
+recuperación a un punto en el tiempo) y su "Restore" se aplica SOBRE EL PROPIO
+PROYECTO: no sirve para probar. La prueba que sí se puede hacer, y la que conviene
+repetir de vez en cuando, es una copia nuestra restaurada en un Postgres aparte:
+
+```bash
+# 1. Volcar (pide la contraseña de la base si la CLI no la tiene guardada)
+supabase db dump --linked -s public -f esquema.sql
+supabase db dump --linked --data-only --use-copy -s public,auth -f datos.sql
+# 2. Un Postgres limpio con la MISMA imagen que el stack local (trae los roles y
+#    esquemas de Supabase). Restaurar como supabase_admin, que es el superusuario.
+docker run -d --name restauracion -e POSTGRES_PASSWORD=postgres -p 5433:5432 public.ecr.aws/supabase/postgres:17.6.1.127
+docker exec -i restauracion psql -U supabase_admin -d postgres -c "create extension if not exists pg_trgm with schema extensions; create extension if not exists unaccent with schema extensions; create extension if not exists btree_gist with schema extensions; create extension if not exists pg_net with schema extensions; create extension if not exists pg_cron;"
+docker exec -i restauracion psql -U supabase_admin -d postgres -f - < esquema.sql
+{ echo "set session_replication_role = replica;"; cat datos.sql; } | docker exec -i restauracion psql -U supabase_admin -d postgres
+# 3. Comparar recuentos con producción (companies, campaigns, candidates, memberships)
+# 4. Borrar el contenedor Y los volcados: son datos personales de clientes y candidatos.
+```
+
+Lo que se aprendió al probarlo:
+- El esquema `public` y sus datos vuelven completos y en un segundo (esquema de 38
+  tablas y 149 funciones; los recuentos coincidieron con producción).
+- `auth.users` solo se puede restaurar donde GoTrue haya creado ya su esquema (un
+  proyecto de Supabase o el stack local): la imagen limpia trae un `auth.users` sin
+  columnas como `email_confirmed_at`. Probado contra el stack local, con las 26
+  cuentas y sus 15 identidades de Google.
+- `storage` NO se restaura desde un volcado: sus tablas las gestiona el servicio de
+  ficheros y cambian de versión. Y, sobre todo, **los ficheros del bucket (los CV)
+  no están en ninguna copia de la base**: viven en el almacén de objetos del
+  proveedor, sin versionado. Un borrado masivo por error no se recupera. Si eso
+  preocupa, la salida es copiar el bucket periódicamente a otro sitio.
+- Sin `btree_gist` falla la restricción de exclusión de `interviews`, y sin
+  `supabase_admin` falla `search_candidates` por el parámetro de `pg_trgm`.
+
 ## Gates antes de desplegar (auditoría, sep 2026)
 
 ```bash
