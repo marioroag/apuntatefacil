@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /app/
+Disallow: /demo/
+Disallow: /login
+Disallow: /restablecer
+Disallow: /invitacion
+Disallow: /respuesta/
+
+Sitemap: https://apuntatefacil.com/sitemap.xml

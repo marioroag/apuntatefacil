@@ -172,6 +172,34 @@ Las versiones de las edge functions van fijadas en cada `import` (supabase-js, s
 - Un alta de plan con [tarjeta de prueba de Stripe](https://stripe.com/docs/testing) → el plan se activa (lo hace el webhook).
 - Recargar en `/privacidad`, `/app`, `/restablecer` carga sin 404.
 
+## SEO y Google for Jobs (sep 2026)
+
+Cada anuncio activo se sirve ya renderizado para los robots (ver la sección
+"SEO y Google for Jobs" de CLAUDE.md). Comprobaciones después de desplegar:
+
+```bash
+curl -s -A Googlebot https://apuntatefacil.com/robots.txt
+curl -s -A Googlebot https://apuntatefacil.com/sitemap.xml | head -20
+curl -s -A Googlebot https://apuntatefacil.com/a/<slug-de-un-puesto-activo> | grep -oE '<title>[^<]*</title>|<link rel="canonical"[^>]*>|<meta name="robots"[^>]*>|application/ld\+json'
+```
+
+Lo que tiene que salir: `robots.txt` con su línea `Sitemap:`, un `<url>` por
+puesto activo con anuncio, y en la página del puesto su título, la canónica
+legible y el bloque `application/ld+json`. Un puesto pausado o cerrado tiene que
+salir con `<meta name="robots" content="noindex" />` y SIN el bloque.
+
+Validación del JobPosting con Google (manual, una vez por despliegue que toque
+`api/`): https://search.google.com/test/rich-results con la URL de un anuncio
+activo. Tiene que reconocer "Ofertas de empleo" sin errores; las advertencias
+sobre campos opcionales que el puesto no tiene (salario, experiencia) son
+normales y no se rellenan con datos inventados.
+
+Search Console (https://search.google.com/search-console): verificar la
+propiedad `apuntatefacil.com` (registro DNS TXT en Vercel) y enviar
+`https://apuntatefacil.com/sitemap.xml`. Es de Mario: hace falta su cuenta de
+Google. Con eso hecho, Google descubre los anuncios nuevos por el sitemap; la
+Indexing API (avisar al instante) queda para más adelante.
+
 ## Pendientes / follow-ups
 
 - Plantillas de email de Supabase Auth en español (por defecto salen en inglés).
