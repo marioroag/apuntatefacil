@@ -1,11 +1,11 @@
-# Registro de actividades de tratamiento (borrador para revisar)
+# Registro de actividades de tratamiento
 
 > Artículo 30 del RGPD. Apúntate Fácil actúa en dos papeles: **responsable** de los
 > datos de las cuentas de empresa y **encargado** de los datos de los candidatos, que
 > son de cada empresa cliente. Un encargado también tiene que llevar este registro
 > (art. 30.2) cuando el tratamiento no es ocasional, y aquí es diario. Borrador escrito
 > a partir del código y de la política de privacidad el 7 de septiembre de 2026; los
-> corchetes son lo que solo puede rellenar Mario.
+> plazos y responsables los fijó Mario el 7 de septiembre de 2026.
 
 ## Datos del encargado / responsable
 
@@ -15,7 +15,7 @@
 | Domicilio | Calle Quiquirá Bajo, 1, 38300 La Orotava, Santa Cruz de Tenerife |
 | Contacto de privacidad | privacidad@apuntatefacil.com |
 | Delegado de Protección de Datos | No designado (no obligatorio por tamaño y actividad; política, apartado 1) |
-| Representante | [no procede: establecido en la UE] |
+| Representante en la UE | No procede: la entidad está establecida en España |
 
 ## A. Tratamientos como RESPONSABLE
 
@@ -25,7 +25,7 @@
 - **Datos**: nombre, correo, contraseña cifrada (bcrypt, gestionada por Supabase Auth) o identidad de Google, foto opcional, empresa, rol, preferencias de la interfaz, ajustes de correo.
 - **Destinatarios**: Supabase (base de datos y autenticación, región eu-west-3, París), Vercel (alojamiento del frontend y analítica sin cookies), Resend (correos transaccionales), Stripe (cobro; ver A2), Google (solo si la persona conecta su calendario; ver A3).
 - **Transferencias**: Vercel, Resend y Stripe con cláusulas contractuales tipo (política, apartado 7).
-- **Plazo**: mientras la cuenta esté activa; tras la baja, [30 días / 6 meses] salvo obligación legal (política, apartado 8).
+- **Plazo**: mientras la cuenta esté activa. Tras la baja, los datos de candidatos siguen disponibles para exportar durante 30 días, y la cuenta se elimina o anonimiza a los 6 meses, salvo lo que exija la ley (facturación, ver A2). Política, apartado 8.
 - **Medidas**: cifrado en tránsito y en reposo, RLS por empresa en toda tabla, contraseña mínima de 8 con mayúscula, minúscula y número y rechazo de contraseñas filtradas, PKCE en los flujos de acceso, sesiones limitadas a 30 días, registro de auditoría de altas, bajas y cambios de rol.
 
 ### A2. Facturación y pago
@@ -55,7 +55,7 @@
 - **Plazo**: lo decide la empresa. Herramientas que le damos: eliminación de cualquier candidatura desde su panel, que borra también los ficheros (con 15 minutos para deshacer); borrado automático opcional de las candidaturas de un proceso a los 12 meses de cerrarlo, sin tocar a las personas contratadas; exportación completa. Lo suprimido permanece en las copias de seguridad del proveedor hasta 7 días. Al terminar el servicio, devolución o supresión según elija la empresa.
 - **Derechos**: los atiende la empresa responsable; la plataforma le traslada sin demora lo que reciba (política, apartado 9) y le da la herramienta para cumplirlos (eliminar, exportar, editar).
 - **Medidas**: las de A1 más: acceso al formulario solo por RPC (el rol anónimo no lee ninguna tabla), ficheros legibles solo por miembros de la empresa con el puesto visible, tope de tamaño y cuota de altas por puesto y hora, registro de auditoría de las purgas.
-- **Decisiones automatizadas**: ninguna. Meridian es una lectura asistida que no descarta ni ordena por su cuenta; se informa en la política (apartado 10). [Revisar cuando entre en vigor la obligación del Reglamento de IA para sistemas de selección, prevista para diciembre de 2027.]
+- **Decisiones automatizadas**: ninguna. Meridian es una lectura asistida que no descarta ni ordena por su cuenta; se informa en la política (apartado 10). Pendiente de revisión cuando entre en vigor la obligación del Reglamento de IA para sistemas de selección, prevista para diciembre de 2027.
 
 ### B2. Comprobación de interés y entrevistas
 - **Finalidad**: preguntar al candidato si sigue interesado y agendar entrevistas, por cuenta de la empresa. Base del responsable: el mismo proceso de selección.
@@ -66,11 +66,11 @@
 - Cifrado en tránsito (TLS) y en reposo (proveedor). Aislamiento por empresa con políticas de fila en todas las tablas y en el almacenamiento de ficheros.
 - Secretos de integración fuera del repositorio y del cliente; el token de Google en el vault cifrado.
 - Firma verificada en todos los webhooks entrantes (Stripe, Resend, latido interno).
-- Copias de seguridad diarias del proveedor con 7 días de retención (sin recuperación a un punto en el tiempo). [Prueba de restauración: pendiente.]
+- Copias de seguridad diarias del proveedor con 7 días de retención (sin recuperación a un punto en el tiempo). Prueba de restauración: pendiente de hacer una vez en un proyecto aparte.
 - Auditoría de seguridad de septiembre de 2026 con sus doce medidas aplicadas.
 
 ## D. Brechas de seguridad
-Procedimiento de la política (apartado 13): aviso a la empresa responsable sin dilación indebida cuando afecte a candidatos; notificación a la AEPD en 72 horas cuando afecte a datos de los que somos responsables y haya riesgo. [Persona que decide y canal de aviso: rellenar.]
+Procedimiento de la política (apartado 13): aviso a la empresa responsable sin dilación indebida cuando afecte a candidatos; notificación a la AEPD en 72 horas cuando afecte a datos de los que somos responsables y haya riesgo. Decide y notifica Mario Rodríguez Aguado, administrador de SOLERA CANARIAS TÉCNICA, S.L.; el canal de aviso a empresas y a la AEPD es privacidad@apuntatefacil.com. Se deja constancia escrita de cada incidente, se notifique o no (art. 33.5).
 
 ---
-Revisado por última vez: [fecha]. Se revisa al añadir un subencargado, una finalidad o un tipo de dato.
+Revisado por última vez: 7 de septiembre de 2026. Se revisa al añadir un subencargado, una finalidad o un tipo de dato.
