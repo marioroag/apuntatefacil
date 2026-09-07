@@ -25,6 +25,8 @@ interface PublicCampaign extends Campaign {
   otros: OtroPuesto[]
   /** Lo que la empresa cuenta de sí misma (Ajustes). Vacío = el bloque no se pinta. */
   companyDescription: string
+  /** Meses tras cerrar el proceso hasta que la empresa borra las candidaturas; null = hasta que las elimine. Se le dice al candidato. */
+  retencionMeses: number | null
   /** Sale del seed, no de la base: el envío no puede tocar la red. */
   esDemo: boolean
 }
@@ -99,6 +101,7 @@ export function PublicForm() {
         anuncio: d.anuncio,
         companyName: d.companyName,
         companyDescription: d.companyDescription,
+        retencionMeses: d.retencionMeses,
         logoUrl: d.logoUrl,
         bannerUrl: d.bannerUrl,
         otros: d.otros,
@@ -123,7 +126,7 @@ export function PublicForm() {
         id: string; slug: string; title: string; status: Campaign['status']
         fields: Campaign['fields']; branding: Campaign['branding']; company_name: string
         logo_path: string | null; banner_path: string | null
-        anuncio: unknown; location: string | null; company_description: string | null
+        anuncio: unknown; location: string | null; company_description: string | null; retencion_meses: number | null
         others: { slug: string; title: string; location: string | null; brand_label: string; banner_path: string | null }[] | null
       }
       setCampaign({
@@ -135,6 +138,7 @@ export function PublicForm() {
         anuncio: leerAnuncio(d.anuncio),
         companyName: d.company_name,
         companyDescription: d.company_description ?? '',
+        retencionMeses: typeof d.retencion_meses === 'number' ? d.retencion_meses : null,
         logoUrl: brandAssetUrl(d.logo_path),
         bannerUrl: brandAssetUrl(d.banner_path),
         otros: (d.others ?? []).map((o) => ({
@@ -384,6 +388,7 @@ export function PublicForm() {
             onSubmit={submit}
             submitPhase={submitPhase}
             companyName={campaign.companyName}
+            retencionMeses={campaign.retencionMeses}
             logoUrl={campaign.logoUrl}
             bannerUrl={campaign.bannerUrl}
             consent={consent}

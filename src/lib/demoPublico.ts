@@ -28,6 +28,7 @@ export type PuestoPublicoDemo = {
   anuncio: Anuncio
   companyName: string
   companyDescription: string
+  retencionMeses: number | null
   logoUrl: string | null
   bannerUrl: string | null
   location: string
@@ -58,6 +59,7 @@ export function puestoPublicoDemo(slug: string | undefined): PuestoPublicoDemo |
     anuncio: campaign.anuncio ?? anuncioVacio(),
     companyName: nombreDe(campaign),
     companyDescription: DEMO_COMPANY.descripcion,
+    retencionMeses: DEMO_COMPANY.retencion_meses,
     // Las marcas de la demo apuntan a ficheros de `public/brand-demo`, no al
     // bucket: `brandAssetUrl` devuelve las rutas absolutas tal cual, así que la
     // demo enseña su foto de cabecera igual que un puesto de verdad.

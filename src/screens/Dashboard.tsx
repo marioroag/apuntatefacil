@@ -1597,6 +1597,14 @@ export function Dashboard() {
         {company?.plan === 'proceso'
           ? 'El formulario dejará de aceptar candidaturas y este proceso deja de cobrarse (el mes ya empezado no se devuelve). Conservas todos los candidatos, puedes exportarlos y reabrirlo cuando quieras.'
           : 'El formulario dejará de aceptar candidaturas. Conservas todos los candidatos, puedes exportarlos y reabrirlo cuando quieras.'}
+        {/* Qué pasa con los datos de esa gente a partir de aquí. Los candidatos
+            aceptaron que se traten "para este proceso"; guardarlos después es
+            una decisión de la empresa, y hay que decírselo donde la toma. */}
+        <span className="mt-2 block text-slate-500">
+          {company?.retencion_meses != null
+            ? `Sus candidaturas se borrarán solas a los ${company.retencion_meses} meses, salvo las contratadas.`
+            : <>Sus candidaturas se conservan hasta que las elimines. Los candidatos aceptaron que se traten para este proceso: si no vas a volver a contactarlos, bórralas, o activa el borrado automático en <Link to="/app/ajustes/datos?ajuste=retencion_meses" className="font-medium text-indigo-600 underline underline-offset-2 hover:text-indigo-700">Ajustes</Link>.</>}
+        </span>
       </ConfirmDialog>
 
       {/* Reabrir (pago por proceso): se enseña el importe ANTES de cobrar. */}

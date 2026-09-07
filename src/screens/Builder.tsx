@@ -1190,6 +1190,7 @@ function Preview({ campaign }: { campaign: Campaign }) {
       values={values}
       errors={{}}
       onChange={(id, v) => setValues((p) => ({ ...p, [id]: v }))}
+      retencionMeses={company?.retencion_meses ?? null}
       companyName={brand?.name ?? company?.name ?? ''}
       logoUrl={brandAssetUrl(brand?.logoPath)}
       bannerUrl={brandAssetUrl(brand?.bannerPath)}

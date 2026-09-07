@@ -44,6 +44,7 @@ export function ApplicationForm({
   onSubmit,
   submitPhase = 'idle',
   companyName,
+  retencionMeses = null,
   logoUrl,
   bannerUrl,
   consent = false,
@@ -61,6 +62,10 @@ export function ApplicationForm({
   onSubmit?: () => void
   submitPhase?: 'idle' | 'uploading' | 'submitting'
   companyName: string
+  /** Cuánto conserva la empresa las candidaturas de este proceso: meses tras
+   *  cerrarlo, o null si las guarda hasta que las elimine. Se le dice al
+   *  candidato junto al consentimiento (art. 13 RGPD: plazo o criterio). */
+  retencionMeses?: number | null
   logoUrl?: string | null
   bannerUrl?: string | null
   // Consentimiento del candidato (RGPD): obligatorio para enviar. Lo gestiona el padre.
@@ -210,6 +215,9 @@ export function ApplicationForm({
               (alojamiento, correo y, si la empresa lo usa, un asistente
               que resume las candidaturas), que solo la tratan por cuenta de {companyName} y están
               listados en la política de privacidad.
+              {retencionMeses != null
+                ? ` ${companyName} borra las candidaturas de este puesto ${retencionMeses} meses después de cerrarlo, salvo la de quien contrate.`
+                : ` ${companyName} conserva tu candidatura hasta que la elimine.`}{' '}
               Puedes pedir que actualicen o borren tus datos contactando con la empresa.{' '}
               <button type="button" onClick={() => setShowPrivacy(false)} className="underline hover:text-slate-600">
                 Leer menos
