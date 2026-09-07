@@ -4,7 +4,7 @@ import type { Candidate } from '../lib/types'
 import { candidateName } from '../lib/format'
 import { useStore } from '../lib/store'
 import { BTN_SECONDARY, BTN_SECONDARY_SM } from '../lib/buttons'
-import { ANILLO_AJUSTE, MERIDIAN_NAME, candidateFit, fitTier } from '../lib/meridian'
+import { ANILLO_AJUSTE, MERIDIAN_NAME, candidateFit, estaAnalizando, fitTier } from '../lib/meridian'
 import { Avatar } from './ui/Avatar'
 
 /**
@@ -248,10 +248,29 @@ export function MeridianPanelBlock({
     if (ok) setRecienId(candidate.id)
   }
 
+  // LA ESPERA SE LEE IGUAL LA HAYA PEDIDO ESTA PANTALLA O NO (sep 2026). Desde
+  // que el triaje lo encola la llegada de la candidatura, lo normal es abrir una
+  // ficha que el servidor está analizando en ese momento: sin esto, ahí ponía
+  // "Aún no la he analizado" con su botón, o sea que la ficha invitaba a pedir
+  // lo que ya estaba en marcha. `estaAnalizando` mira el reclamo Y su caducidad,
+  // que una espera que no acaba nunca es peor que no decir nada.
+  const enMarcha = busy || estaAnalizando(candidate)
+
+  // Y cuando aterriza, el informe entra con la misma coreografía que si lo
+  // hubieras pedido tú: has estado mirando su skeleton en esta misma ficha. Se
+  // ajusta DURANTE el render y no en un efecto, que es el patrón de esta casa
+  // para derivar estado de un cambio que llega de fuera.
+  const [esperandoId, setEsperandoId] = useState<string | null>(null)
+  if (enMarcha && esperandoId !== candidate.id) setEsperandoId(candidate.id)
+  else if (!enMarcha && esperandoId === candidate.id) {
+    setEsperandoId(null)
+    if (ai && !failed) setRecienId(candidate.id)
+  }
+
   // El skeleton se decide ANTES que el informe: al VOLVER a analizar ya hay un
   // análisis pintable, y sin este orden la espera no se veía (el informe viejo
   // se quedaba quieto hasta aterrizar el nuevo, como si el botón no hiciera nada).
-  if (busy) {
+  if (enMarcha) {
     return (
       <div className={TARJETA_INFORME}>
         <MeridianLabel />

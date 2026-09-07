@@ -1,5 +1,19 @@
 // Avisa por email al dueño de la empresa cuando entra una candidatura nueva.
-// Lo invoca el formulario público tras enviar (con el candidate_id). verify_jwt = false.
+//
+// LA INVOCA LA COLA (`avisar_candidatura` en `interview-tick`), no el navegador
+// del candidato: hasta sep 2026 la llamaba el formulario público nada más
+// enviar, y lo que no sale del navegador no pasa (pestaña cerrada, red mala,
+// móvil suspendido, bloqueador). Un trigger la encola al entrar la candidatura
+// y la cola la reintenta. verify_jwt = false.
+//
+// AQUÍ SE DECIDE TODO LO QUE IMPORTA y la cola no duplica ni una guarda: los dos
+// interruptores (el del puesto y el de la persona), el copy del candidato
+// bloqueado y el reclamo atómico que impide el correo duplicado. Lo que la cola
+// necesita para saber qué hacer es que cada salida se distinga de las demás, y
+// por eso TODA respuesta que no envía dice por qué: `skipped` cuando no procede
+// (se cancela con ese motivo) y `error` cuando ha fallado (se reintenta). Una
+// salida muda las volvería indistinguibles.
+//
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, NOTIFY_FROM (ej. "Apúntate Fácil <avisos@apuntatefacil.com>"),
 // APP_URL (ej. https://apuntatefacil.com) para el enlace al panel.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -40,10 +54,13 @@ Deno.serve(async (req) => {
     const { data: emailRow } = await admin.rpc('get_company_owner_email', { p_company: cand.company_id })
     const ownerEmail = emailRow as string | null
 
-    if (!RESEND_API_KEY || !ownerEmail) {
-      // Sin clave o sin email: no-op silencioso (queda listo para enchufar la clave).
-      return json({ ok: true, sent: false })
-    }
+    // NO PROCEDE, y se dice CUÁL de los dos casos es. Los dos son permanentes
+    // (no se arreglan reintentando), así que la cola los cancela con su motivo
+    // en vez de gastar seis intentos; y separarlos importa porque no significan
+    // lo mismo: uno es que a este proyecto le falta la clave, y el otro que esa
+    // empresa no tiene dueño con correo.
+    if (!RESEND_API_KEY) return json({ ok: true, sent: false, skipped: 'sin clave de Resend' })
+    if (!ownerEmail) return json({ ok: true, sent: false, skipped: 'sin email del dueño' })
 
     const puesto = camp?.title ?? 'tu puesto'
     const puestoLink = APP_URL ? `${APP_URL}/app/puestos/${cand.campaign_id}` : ''
@@ -125,7 +142,22 @@ Deno.serve(async (req) => {
         html,
       }),
     })
-    return json({ ok: true, sent: res.ok })
+    if (res.ok) return json({ ok: true, sent: true })
+
+    // EL RECLAMO SE SUELTA SI NO SE HA MANDADO NADA. Está puesto desde antes del
+    // envío, que es lo que impide el correo duplicado; pero dejándolo puesto tras
+    // un rechazo de Resend, el reintento de la cola se encontraría "ya notificado"
+    // y cancelaría el trabajo, o sea que un fallo pasajero del proveedor dejaría
+    // a esa empresa sin enterarse PARA SIEMPRE, con "ya notificado" escrito como
+    // motivo, que además es falso. Soltarlo no reabre el email-bombing que el
+    // reclamo vino a cerrar: solo se suelta cuando NO ha salido ningún correo,
+    // así que el número de correos que puede provocar una llamada sigue siendo
+    // como mucho uno.
+    await admin.from('candidates').update({ notified_at: null }).eq('id', candidate_id)
+    // 502 y no 200: lo que ha fallado es un servicio de fuera, y así el fallo se
+    // reconoce por el estado además de por el cuerpo.
+    const detalle = (await res.text().catch(() => '')).slice(0, 300)
+    return json({ ok: false, sent: false, error: `Resend ${res.status}${detalle ? `: ${detalle}` : ''}` }, 502)
   } catch (e) {
     return json({ error: String(e instanceof Error ? e.message : e) }, 500)
   }

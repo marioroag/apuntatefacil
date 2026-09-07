@@ -450,6 +450,15 @@ export interface Candidate {
   interest?: CandidateInterestSummary
   /** Triaje de IA (Meridian). Ausente = nunca analizado. */
   ai?: CandidateAI
+  /**
+   * Cuándo se puso a analizarla el servidor (`candidates.ai_claimed_at`), o
+   * null si no hay ninguno en marcha. Es el RECLAMO que impide que dos
+   * invocaciones paguen el mismo análisis; el cliente lo lee para una sola
+   * cosa, distinguir "todavía no la ha mirado nadie" de "la está mirando ahora
+   * mismo", que hasta sep 2026 se pintaban igual (una raya). Caduca:
+   * `estaAnalizando` en lib/meridian.ts es quien decide, nunca la presencia.
+   */
+  analizandoDesde?: string | null
 }
 
 // Etiqueta: clasificación libre que pone el empresario sobre los candidatos. Es

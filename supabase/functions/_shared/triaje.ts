@@ -119,6 +119,21 @@ export interface TrayectoriaCv {
 // candidaturas de verdad, como se hizo con los otros dos.
 // ----------------------------------------------------------------------------
 
+// ----------------------------------------------------------------------------
+// EL RECLAMO DE UN ANÁLISIS: cuánto se espera antes de darlo por muerto.
+// ----------------------------------------------------------------------------
+// `analyze-candidate` marca `candidates.ai_claimed_at` antes de llamar a
+// OpenAI, para que dos invocaciones simultáneas no paguen el mismo análisis dos
+// veces. Pasado esto, el reclamo se considera muerto y otro puede tomarlo.
+//
+// VIVE AQUÍ Y NO EN LA FUNCIÓN porque desde sep 2026 lo preguntan DOS runtimes
+// que no se hablan: el servidor, para decidir si puede reclamar, y el cliente,
+// para decidir si pinta "Analizando…" en la fila. Escrito dos veces, el día que
+// se afine uno la pantalla se quedaría diciendo que analiza algo que ya nadie
+// analiza (o al revés). Es el mismo motivo por el que `paredAUtc` se cargó a
+// propósito desde los dos lados.
+export const RECLAMO_TTL_MS = 5 * 60 * 1000
+
 export const FIT_EXCELENTE = 85
 export const FIT_BIEN = 70
 export const FIT_PUEDE = 45

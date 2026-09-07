@@ -39,8 +39,9 @@
 //    Un análisis con `error` sí se puede reintentar.
 //  - RECLAMO ATÓMICO en candidates.ai_claimed_at antes de llamar a OpenAI, al
 //    estilo de notified_at en notify-new-candidate: dos invocaciones a la vez
-//    no pueden pagar dos análisis. El reclamo caduca (CLAIM_TTL_MS) para que
-//    una función que se muera a mitad no deje la candidatura bloqueada.
+//    no pueden pagar dos análisis. El reclamo caduca (RECLAMO_TTL_MS, que vive
+//    en _shared/triaje.ts porque lo lee también el cliente) para que una
+//    función que se muera a mitad no deje la candidatura bloqueada.
 //  - Sin OPENAI_API_KEY: no-op silencioso (listo para enchufar la clave).
 //
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY, OPENAI_MODEL?
@@ -50,7 +51,8 @@ import { corsHeaders, json } from '../_shared/cors.ts'
 import { planHasMeridian } from '../_shared/plans.ts'
 import { OPENAI_API_KEY, OPENAI_BASE, OPENAI_MODEL, openaiError, tuning } from '../_shared/openai.ts'
 import {
-  ESQUEMA_GENERADOR, ESQUEMA_INFORME, ESQUEMA_TRAYECTORIA, agregarJuicios, criteriosEfectivos,
+  ESQUEMA_GENERADOR, ESQUEMA_INFORME, ESQUEMA_TRAYECTORIA, RECLAMO_TTL_MS,
+  agregarJuicios, criteriosEfectivos,
   esCvIlegible, esquemaEvaluador, esquemaJuez, filtrarTextoVisible, fusionarJuicio, hashPuesto,
   normalizarJuicios, promptEvaluador, promptGenerador, promptJuez, promptRedactor,
   promptTrayectoria, sanearContrastes, sanearCriterios, sanearInforme, sanearTrayectoria,
@@ -63,8 +65,6 @@ const admin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 )
 const MAX_CV_CHARS = 15000
-/** Un análisis nunca debería tardar tanto: pasado esto, el reclamo se considera muerto. */
-const CLAIM_TTL_MS = 5 * 60 * 1000
 /** Modelo SOLO para la transcripción de visión, por si el principal no admite
  *  ficheros como entrada. Sin definir, se usa el mismo. */
 const VISION_MODEL = Deno.env.get('OPENAI_VISION_MODEL') ?? OPENAI_MODEL
@@ -296,7 +296,7 @@ Deno.serve(async (req) => {
     // reclamo está libre, o el anterior ya caducó. El segundo invocante no
     // encuentra fila y se va sin gastar nada.
     const now = new Date().toISOString()
-    const staleBefore = new Date(Date.now() - CLAIM_TTL_MS).toISOString()
+    const staleBefore = new Date(Date.now() - RECLAMO_TTL_MS).toISOString()
     const { data: claimed, error: claimError } = await admin
       .from('candidates')
       .update({ ai_claimed_at: now })

@@ -7,6 +7,7 @@
 // cámbialo aquí y cambia en toda la app (igual que la marca vive solo en brand.ts).
 // -----------------------------------------------------------------------------
 
+import { RECLAMO_TTL_MS } from '../../supabase/functions/_shared/triaje'
 import type { CandidateAI } from './types'
 
 
@@ -66,6 +67,36 @@ export function fitTier(fit: number): FitTier {
   if (fit >= 70) return { key: 'bueno', label: 'Bueno' }
   if (fit >= 45) return { key: 'medio', label: 'Medio' }
   return { key: 'bajo', label: 'Bajo' }
+}
+
+/**
+ * ¿SE ESTÁ ANALIZANDO AHORA MISMO? (sep 2026)
+ *
+ * Hasta ahora la espera y el "nunca se ha analizado" se pintaban igual, con una
+ * raya, y el análisis tarda: son cuatro llamadas encadenadas a OpenAI más la
+ * visión del CV. El dato para distinguirlos existía desde ago 2026 y no salía
+ * de la base: `ai_claimed_at`, el reclamo que impide que dos invocaciones
+ * paguen el mismo análisis.
+ *
+ * LA PRESENCIA DEL RECLAMO NO BASTA, HAY QUE MIRAR SI CADUCÓ. Una función que
+ * muere a mitad lo deja puesto, y sin el TTL la fila se quedaría diciendo
+ * "Analizando…" para siempre, que es peor que la raya: una espera que no acaba
+ * nunca no es una espera, es una mentira. El plazo es el MISMO que usa el
+ * servidor para decidir si puede robar el reclamo (`RECLAMO_TTL_MS`), y por eso
+ * se lee de su módulo en vez de copiarse aquí.
+ *
+ * Y SOLO CUENTA SI NO HAY NADA QUE ENSEÑAR. Al pulsar "Volver a analizar" hay
+ * reclamo Y un informe bueno de antes: ahí el dato que vale es el que ya está,
+ * así que la lista sigue diciendo su encaje en vez de vaciarse mientras otro lo
+ * repasa.
+ */
+export function estaAnalizando(
+  c: { ai?: CandidateAI | null; analizandoDesde?: string | null },
+  ahora: number = Date.now(),
+): boolean {
+  if (c.ai && !c.ai.error) return false
+  const t = c.analizandoDesde ? Date.parse(c.analizandoDesde) : NaN
+  return Number.isFinite(t) && ahora - t < RECLAMO_TTL_MS
 }
 
 /** Ajuste utilizable de una candidatura, o null si no está analizada (o falló). */

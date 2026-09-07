@@ -49,6 +49,7 @@ type CandidateRow = {
   status_changed_at: string | null
   consent_at: string | null
   ai: CandidateAI | null
+  ai_claimed_at: string | null
 }
 
 const toCampaign = (r: CampaignRow): Campaign => ({
@@ -99,6 +100,7 @@ const toCandidate = (r: CandidateRow, tagIds: string[] = []): Candidate => ({
   tagIds,
   consentAt: r.consent_at ?? null,
   ai: r.ai ?? undefined,
+  analizandoDesde: r.ai_claimed_at ?? null,
 })
 
 type InterestOverviewRow = {
@@ -1005,6 +1007,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (payload?.locked) lockedDirty = true
         else if (cid) pending.add(cid)
         if (!timer) timer = window.setTimeout(flush, 500) // amortigua ráfagas
+      })
+      // El triaje ha empezado o ha terminado (sep 2026). Son DOS pings por
+      // análisis y los dos hacen falta: el del reclamo enciende el
+      // "Analizando…" de la fila y el del guardado lo cambia por su encaje.
+      // Sin esto, el trabajo estaba hecho y la pantalla seguía diciendo "sin
+      // analizar" hasta que alguien recargara. No marca a nadie como recién
+      // llegado: `justArrived` mira ids nuevos, y aquí no hay ninguno.
+      .on('broadcast', { event: 'candidate_ai' }, ({ payload }) => {
+        const cid = typeof payload?.campaign_id === 'string' ? payload.campaign_id : null
+        if (cid) pending.add(cid)
+        if (!timer) timer = window.setTimeout(flush, 500)
       })
       .on('broadcast', { event: 'candidate_interest_ping' }, ({ payload }) => {
         const cid = typeof payload?.campaign_id === 'string' ? payload.campaign_id : null
