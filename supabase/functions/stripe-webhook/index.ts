@@ -14,8 +14,9 @@
 // mientras queden suscripciones antiguas vivas.
 import Stripe from 'npm:stripe@18.5.0'
 import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
+import { PLAZO } from '../_shared/red.ts'
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil' })
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil', timeout: PLAZO.api })
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,

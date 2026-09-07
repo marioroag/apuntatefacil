@@ -6,6 +6,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { renderPlainEmail, esc, SUPPORT_INBOX } from '../_shared/email.ts'
+import { PLAZO, plazo } from '../_shared/red.ts'
 
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -49,7 +50,23 @@ Deno.serve(async (req) => {
         ${link ? `<p style="margin:18px 0 0"><a href="${link}" style="color:#374cce;text-decoration:none">Abrir la bandeja &rarr;</a></p>` : ''}`,
     )
 
+    // Idempotencia: reclama el aviso de forma atómica (solo si aún no se
+    // notificó). Es un endpoint público que recibe el ticket_id del cliente,
+    // así que sin esto un id conocido reenviaba el correo al buzón de soporte
+    // tantas veces como se llamara (auditoría, sep 2026; mismo patrón que
+    // candidates.notified_at en notify-new-candidate).
+    const { data: claimed } = await admin
+      .from('support_tickets')
+      .update({ notified_at: new Date().toISOString() })
+      .eq('id', ticket_id)
+      .is('notified_at', null)
+      .select('id')
+    if (!claimed || claimed.length === 0) {
+      return json({ ok: true, sent: false, skipped: 'ya notificado' })
+    }
+
     const res = await fetch('https://api.resend.com/emails', {
+      signal: plazo(PLAZO.api),
       method: 'POST',
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({

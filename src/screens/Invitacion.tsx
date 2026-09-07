@@ -11,11 +11,37 @@ type Inv = { company_name: string; email: string; status: string }
 
 // Página pública para aceptar una invitación de equipo (/invitacion?token=...).
 // Si no hay sesión, manda a /login y vuelve aquí. Exige que el email coincida.
+/**
+ * EL TOKEN NO SE QUEDA EN LA URL. Llega en `?token=` porque es lo que cabe en
+ * un correo, pero en cuanto la página lo lee se guarda en sessionStorage (de
+ * esta pestaña, que es la que sigue el flujo de login) y se limpia la URL con
+ * `replace`: así no queda en el historial, ni en los logs, ni viaja en el
+ * `next=` del login. Si al volver del login no hay token guardado, se pide a
+ * `my_pending_invitations`, que resuelve la invitación por el email de la
+ * sesión. (Auditoría de seguridad, sep 2026.)
+ */
+const TOKEN_KEY = 'af.invitacion'
+
+function leerToken(params: URLSearchParams): string {
+  const enUrl = params.get('token') ?? ''
+  try {
+    if (enUrl) window.sessionStorage.setItem(TOKEN_KEY, enUrl)
+    return enUrl || (window.sessionStorage.getItem(TOKEN_KEY) ?? '')
+  } catch {
+    return enUrl
+  }
+}
+
 export function Invitacion() {
-  const [params] = useSearchParams()
-  const token = params.get('token') ?? ''
+  const [params, setParams] = useSearchParams()
+  const [token, setToken] = useState(() => leerToken(params))
   const { loading, session, user, refreshCompany, signOut } = useAuth()
   const navigate = useNavigate()
+
+  // Fuera de la barra de direcciones en cuanto se ha leído.
+  useEffect(() => {
+    if (params.has('token')) setParams(new URLSearchParams(), { replace: true })
+  }, [params, setParams])
   const [inv, setInv] = useState<Inv | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'invalid'>('loading')
   const [busy, setBusy] = useState(false)
@@ -27,12 +53,9 @@ export function Invitacion() {
       setState('ready') // mostramos el CTA de iniciar sesión
       return
     }
-    if (!token) {
-      setState('invalid')
-      return
-    }
     let alive = true
-    supabase.rpc('get_invitation', { p_token: token }).then(({ data, error }) => {
+    const leer = async (t: string) => {
+      const { data, error } = await supabase.rpc('get_invitation', { p_token: t })
       if (!alive) return
       const d = data as Inv | null
       if (error || !d || !d.company_name || d.status !== 'pending') {
@@ -41,7 +64,21 @@ export function Invitacion() {
       }
       setInv(d)
       setState('ready')
-    })
+    }
+    if (token) {
+      void leer(token)
+    } else {
+      // Sin token (otra pestaña, o el navegador lo perdió): la invitación
+      // pendiente de ESTE correo, si la hay.
+      supabase.rpc('my_pending_invitations').then(({ data }) => {
+        if (!alive) return
+        const lista = (data as { token?: string }[] | null) ?? []
+        const t = lista[0]?.token ?? ''
+        if (!t) { setState('invalid'); return }
+        setToken(t)
+        void leer(t)
+      })
+    }
     return () => {
       alive = false
     }
@@ -56,12 +93,15 @@ export function Invitacion() {
       setError(error.message || 'No se pudo aceptar la invitación.')
       return
     }
+    try { window.sessionStorage.removeItem(TOKEN_KEY) } catch { /* sin almacenamiento */ }
     // Entra directo al equipo recién aceptado (lo pone como empresa activa).
     await refreshCompany((data as { company_id?: string } | null)?.company_id)
     navigate('/app')
   }
 
-  const loginHref = `/login?next=${encodeURIComponent('/invitacion?token=' + token)}`
+  // Sin el token: al volver, la página lo recupera de sessionStorage o por el
+  // correo de la sesión.
+  const loginHref = `/login?next=${encodeURIComponent('/invitacion')}`
   const emailMismatch = !!(inv && user?.email && user.email.toLowerCase() !== inv.email.toLowerCase())
 
   return (

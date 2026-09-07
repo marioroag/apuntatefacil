@@ -329,10 +329,15 @@ export function PublicForm() {
       // El puesto puede haberse llenado o pausado entre que se cargó y se envió.
       const msg = error.message ?? ''
       const full = msg.includes('CANDIDATE_LIMIT_REACHED') || msg.includes('no acepta candidaturas')
+      // La cuota por puesto y hora de submit_application: se dice que espere,
+      // no que reintente, que es lo que haría "inténtalo de nuevo".
+      const cuota = msg.includes('RATE_LIMIT')
       setSubmitError(
         full
           ? 'Esta oferta ya ha cubierto todas sus plazas y no admite más candidaturas.'
-          : 'No pudimos enviar tu candidatura. Inténtalo de nuevo.',
+          : cuota
+            ? 'Este puesto está recibiendo muchas candidaturas ahora mismo. Espera unos minutos y vuelve a enviarla.'
+            : 'No pudimos enviar tu candidatura. Inténtalo de nuevo.',
       )
       formTop.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return

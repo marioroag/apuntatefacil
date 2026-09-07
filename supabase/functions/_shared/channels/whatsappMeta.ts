@@ -8,6 +8,7 @@
 // `clasificar` y `normalizarWebhook` (que es donde están los fallos de verdad)
 // sin levantar nada.
 
+import { PLAZO, plazo } from '../red.ts'
 import type {
   ClaseFallo, EstadoEntrega, EventoEntrante, FalloCanal,
   MensajeSaliente, MessagingProvider, ResultadoEnvio, Sender,
@@ -172,6 +173,7 @@ export const whatsappMeta: MessagingProvider = {
     let res: Response
     try {
       res = await fetch(`${graph()}/${sender.phoneNumberId}/messages`, {
+        signal: plazo(PLAZO.api),
         method: 'POST',
         headers: {
           Authorization: `Bearer ${sender.token}`,

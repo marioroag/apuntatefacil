@@ -23,6 +23,7 @@
 
 import { cuerpoEvento, enlaceMeet, type EventoEntrevista } from './evento.ts'
 import type { Ocupado } from '../schedule/slots.ts'
+import { PLAZO, plazo } from '../red.ts'
 
 export type { EventoEntrevista, Ocupado }
 
@@ -83,6 +84,7 @@ export function urlConsentimiento(state: string): string {
 
 async function pedirToken(cuerpo: Record<string, string>): Promise<Record<string, unknown>> {
   const res = await fetch(OAUTH, {
+    signal: plazo(PLAZO.api),
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, ...cuerpo }),
@@ -155,6 +157,7 @@ export async function revocar(refreshToken: string): Promise<void> {
   // Un fallo aquí no puede impedir desconectar: lo importante es que dejemos de
   // tener la llave, y eso lo hace el borrado de nuestra fila.
   await fetch(REVOCAR, {
+    signal: plazo(PLAZO.api),
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ token: refreshToken }),
@@ -171,6 +174,7 @@ async function llamar(
   init: RequestInit = {},
 ): Promise<Record<string, unknown>> {
   const res = await fetch(`${API}${ruta}`, {
+    signal: plazo(PLAZO.api),
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,

@@ -17,6 +17,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { esc, renderEmail } from '../_shared/email.ts'
 import { conPreferencia } from '../_shared/prefs.ts'
+import { PLAZO, plazo } from '../_shared/red.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -45,6 +46,7 @@ function candidateName(answers: Record<string, unknown> | null): string {
 
 async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
   const res = await fetch('https://api.resend.com/emails', {
+      signal: plazo(PLAZO.api),
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: FROM, to, subject, html }),

@@ -26,8 +26,9 @@
 import Stripe from 'npm:stripe@18.5.0'
 import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
+import { PLAZO } from '../_shared/red.ts'
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil' })
+const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil', timeout: PLAZO.api })
 
 // Cliente service_role SOLO para escribir el estado de facturación (empresa y
 // ciclo de los puestos). Las columnas de billing no son escribibles por el rol

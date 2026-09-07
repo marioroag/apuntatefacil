@@ -21,6 +21,7 @@
 //
 // Secrets: SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
 //          OPENAI_API_KEY, OPENAI_MODEL?
+import { PLAZO, plazo } from '../_shared/red.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { planHasMeridian } from '../_shared/plans.ts'
@@ -130,6 +131,7 @@ interface ChatMessage {
 
 async function callOpenAI(messages: ChatMessage[], forceAnswer = false): Promise<ChatMessage> {
   const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
+    signal: plazo(PLAZO.modelo),
     method: 'POST',
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({

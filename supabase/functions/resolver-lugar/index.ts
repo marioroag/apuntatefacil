@@ -25,10 +25,19 @@
 // El troceo de las URLs vive en `_shared/interviews/mapa.ts`, que es puro y
 // tiene pruebas. Aquí solo queda la parte que habla con la red.
 
+import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders } from '../_shared/cors.ts'
+import { PLAZO, plazo } from '../_shared/red.ts'
 import {
   coordenadasSueltas, hostPermitido, nombreDe, puntoDe,
 } from '../_shared/interviews/mapa.ts'
+
+// `verify_jwt = true` en config.toml solo comprueba la FORMA del token: la anon
+// key pública también es un JWT válido para el gateway, y con ella esto era un
+// seguidor de redirecciones abierto a Internet. Quién llama se resuelve aquí,
+// como en las demás funciones con sesión (auditoría, sep 2026).
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 
 /**
  * Sigue las redirecciones A MANO (`redirect: 'manual'`) para poder comprobar
@@ -45,6 +54,7 @@ async function resolver(inicial: string): Promise<string> {
     let res: Response
     try {
       res = await fetch(actual, {
+        signal: plazo(PLAZO.api),
         method: 'GET',
         redirect: 'manual',
         headers: { 'user-agent': 'Mozilla/5.0 (compatible; ApuntateFacil/1.0)' },
@@ -83,6 +93,13 @@ Deno.serve(async (req) => {
     new Response(JSON.stringify(cuerpo), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
+
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const jwt = authHeader.replace(/^Bearer\s+/i, '').trim()
+  if (!jwt || !ANON_KEY) return new Response('No autorizado', { status: 401, headers: corsHeaders })
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: authHeader } } })
+  const { data: auth } = await userClient.auth.getUser(jwt)
+  if (!auth?.user?.id) return new Response('No autorizado', { status: 401, headers: corsHeaders })
 
   let entrada: { url?: string }
   try { entrada = await req.json() } catch { return responder({ error: 'json' }) }

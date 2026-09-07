@@ -6,6 +6,7 @@ import { corsHeaders, json } from '../_shared/cors.ts'
 import { esc, renderEmail } from '../_shared/email.ts'
 import { whatsappMeta } from '../_shared/channels/whatsappMeta.ts'
 import * as R from '../_shared/whatsapp/render.ts'
+import { PLAZO, plazo } from '../_shared/red.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -503,6 +504,7 @@ Deno.serve(async (req) => {
 
       try {
         const response = await fetch('https://api.resend.com/emails', {
+      signal: plazo(PLAZO.api),
           method: 'POST',
           headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ from: FROM, to: primary.to, subject, html }),

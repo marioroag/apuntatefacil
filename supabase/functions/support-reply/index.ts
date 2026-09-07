@@ -8,6 +8,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { renderPlainEmail, esc } from '../_shared/email.ts'
+import { PLAZO, plazo } from '../_shared/red.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const admin = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -83,6 +84,7 @@ Deno.serve(async (req) => {
       )
       const plain = `${text}\n\nUn saludo,\n${SIGN}\n\n— Puedes responder a este correo y seguimos la conversación por aquí.`
       const res = await fetch('https://api.resend.com/emails', {
+      signal: plazo(PLAZO.api),
         method: 'POST',
         headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({

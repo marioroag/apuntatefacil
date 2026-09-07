@@ -55,6 +55,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { getDocumentProxy } from 'npm:unpdf@0.12.1'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { planHasMeridian } from '../_shared/plans.ts'
+import { PLAZO, plazo } from '../_shared/red.ts'
 import { OPENAI_API_KEY, OPENAI_BASE, OPENAI_MODEL, openaiError, tuning } from '../_shared/openai.ts'
 import {
   ESQUEMA_GENERADOR, ESQUEMA_INFORME, ESQUEMA_TRAYECTORIA, agregarJuicios, criteriosEfectivos,
@@ -70,6 +71,9 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 const MAX_CV_CHARS = 15000
+/** Análisis AUTOMÁTICOS que una empresa puede pagar en un día. Un puesto muy
+ *  vivo trae decenas; trescientos en un día ya no es un puesto, es un script. */
+const MAX_AUTO_POR_DIA = 300
 
 type Quien =
   | { tipo: 'servidor' }
@@ -185,6 +189,7 @@ const ESQUEMA_TRANSCRIPCION = {
 async function transcribirCvVision(bytes: Uint8Array): Promise<string | null> {
   try {
     const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
+    signal: plazo(PLAZO.modelo),
       method: 'POST',
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -231,6 +236,7 @@ const PRIVATE_FIELD_TYPES = new Set(['email', 'phone', 'tel', 'file'])
 /** Una llamada con structured output. Las tres piezas de la triada pasan por aquí. */
 async function chatJSON(system: string, user: string, json_schema: unknown): Promise<Record<string, unknown>> {
   const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
+    signal: plazo(PLAZO.modelo),
     method: 'POST',
     headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -335,6 +341,23 @@ Deno.serve(async (req) => {
     // Triaje automático apagado en Ajustes: no se analiza al entrar.
     if (auto === true && comp?.meridian_auto === false) {
       return json({ ok: true, analyzed: false, skipped: 'triaje automático desactivado' })
+    }
+    // TOPE DIARIO DEL DISPARO AUTOMÁTICO, por empresa. Es el freno de coste
+    // que faltaba detrás del formulario público: la cuota por puesto y hora de
+    // submit_application acota el ritmo, y esto acota lo que se paga en un día
+    // aunque haya muchos puestos. Se cuentan los reclamos de hoy (ai_claimed_at
+    // se pone en cada análisis que se paga). Un análisis manual, que pide una
+    // persona con sesión, no pasa por aquí. (Auditoría, sep 2026.)
+    if (auto === true) {
+      const inicioHoy = new Date(); inicioHoy.setUTCHours(0, 0, 0, 0)
+      const { count } = await admin
+        .from('candidates')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', cand.company_id)
+        .gte('ai_claimed_at', inicioHoy.toISOString())
+      if ((count ?? 0) >= MAX_AUTO_POR_DIA) {
+        return json({ ok: true, analyzed: false, skipped: 'tope diario de análisis automáticos' })
+      }
     }
 
     // Idempotencia: un análisis correcto ya existente no se repite (no gasta OpenAI).

@@ -40,7 +40,9 @@ export function SupportDialog({
   const [errors, setErrors] = useState<{ email?: string; message?: string }>({})
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
-  const [failed, setFailed] = useState(false)
+  // `cuota` es la cuota por correo y hora de submit_support_request: se dice
+  // que espere, no que reintente.
+  const [failed, setFailed] = useState<false | 'generico' | 'cuota'>(false)
 
   // Al abrir: reseteamos a los valores por defecto y enfocamos el primer campo
   // vacío. Nunca arrastramos el estado de una apertura anterior.
@@ -122,7 +124,7 @@ export function SupportDialog({
     })
     if (error) {
       setSending(false)
-      setFailed(true)
+      setFailed((error.message ?? '').includes('RATE_LIMIT') ? 'cuota' : 'generico')
       return
     }
     // Aviso por email al equipo (best-effort: si falla, la consulta ya está guardada).
@@ -241,7 +243,13 @@ export function SupportDialog({
                   </div>
                 </div>
 
-                {failed && (
+                {failed === 'cuota' && (
+                  <p className="mt-3 text-[13px] leading-relaxed text-red-600">
+                    Has enviado varias consultas seguidas. Espera un rato antes de mandar otra, o escríbenos a{' '}
+                    <a href={supportMailto()} className="font-semibold underline underline-offset-2">{SUPPORT_EMAIL}</a>.
+                  </p>
+                )}
+                {failed === 'generico' && (
                   <p className="mt-3 text-[13px] leading-relaxed text-red-600">
                     No hemos podido enviar tu mensaje. Inténtalo de nuevo o escríbenos a{' '}
                     <a href={supportMailto()} className="font-semibold underline underline-offset-2">{SUPPORT_EMAIL}</a>.

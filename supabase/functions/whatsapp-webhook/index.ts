@@ -22,6 +22,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { json } from '../_shared/cors.ts'
 import { whatsappMeta } from '../_shared/channels/whatsappMeta.ts'
 import { NORMAL, esperaSegundos } from '../_shared/interviews/ritmo.ts'
+import { PLAZO, plazo } from '../_shared/red.ts'
 
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -149,6 +150,7 @@ Deno.serve(async (req) => {
   const kick = async () => {
     try {
       const r = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/interview-tick`, {
+        signal: plazo(PLAZO.api),
         method: 'POST',
         headers: {
           'x-interview-tick-secret': Deno.env.get('INTERVIEW_TICK_SECRET') ?? '',

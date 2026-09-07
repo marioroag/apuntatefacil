@@ -10,6 +10,7 @@
 // agotan los intentos (más de una hora después) lo coge alguien. Un hipo de
 // OpenAI no puede costar un candidato.
 
+import { PLAZO, plazo } from '../red.ts'
 import { OPENAI_API_KEY, OPENAI_BASE, OPENAI_MODEL, tuning } from '../openai.ts'
 
 import type { Hechos, Respuesta, Turno } from './guion.ts'
@@ -26,6 +27,7 @@ export async function conversar(
   let res: Response
   try {
     res = await fetch(`${OPENAI_BASE}/chat/completions`, {
+      signal: plazo(PLAZO.modelo),
       method: 'POST',
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({

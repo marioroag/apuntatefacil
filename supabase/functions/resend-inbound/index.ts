@@ -15,6 +15,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { Webhook } from 'npm:svix@1.99.1'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { renderPlainEmail, esc, SUPPORT_INBOX } from '../_shared/email.ts'
+import { PLAZO, plazo } from '../_shared/red.ts'
 
 const admin = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -84,6 +85,7 @@ async function fetchBody(data: Record<string, unknown>): Promise<string> {
   if (typeof data.text === 'string' && data.text.trim()) return data.text as string
   if (!RESEND_API_KEY || !data.email_id) return ''
   const res = await fetch(`https://api.resend.com/emails/receiving/${data.email_id}`, {
+      signal: plazo(PLAZO.api),
     headers: { Authorization: `Bearer ${RESEND_API_KEY}` },
   })
   if (!res.ok) return ''
@@ -102,6 +104,7 @@ async function notifyTeam(fromEmail: string, body: string) {
       ${link ? `<p style="margin:18px 0 0"><a href="${link}" style="color:#374cce;text-decoration:none">Abrir la bandeja &rarr;</a></p>` : ''}`,
   )
   await fetch('https://api.resend.com/emails', {
+      signal: plazo(PLAZO.api),
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({

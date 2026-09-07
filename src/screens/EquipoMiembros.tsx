@@ -137,7 +137,7 @@ export function EquipoMiembros() {
       toast.error('Elige al menos una sede.')
       return
     }
-    const { error } = await supabase.rpc('set_member_access', { p_user_id: userId, p_role: newRole, p_site_ids: siteIds })
+    const { error } = await supabase.rpc('set_member_access', { p_company_id: company?.id, p_user_id: userId, p_role: newRole, p_site_ids: siteIds })
     if (error) {
       toast.error(error.message || 'No se pudo guardar.')
       return
