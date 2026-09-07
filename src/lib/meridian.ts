@@ -17,7 +17,7 @@ export const MERIDIAN_NAME = 'Meridian'
 /**
  * EL ANILLO DE AJUSTE ALREDEDOR DE LA CARA, apagado por ahora (Mario, ago 2026).
  *
- * Una sola bandera, como `MERIDIAN_CHAT_ENABLED` y `WHATSAPP_LISTO`: el código del
+ * Una sola bandera, como `MERIDIAN_CHAT_ENABLED`: el código del
  * anillo (carril reservado, barrido al medir por primera vez, `reduced-motion`) se
  * queda entero y en un solo sitio, así que devolverlo es poner `true`. Apagado,
  * `MeridianAvatar` delega en `ui/Avatar`, la primitiva única de las caras, que es

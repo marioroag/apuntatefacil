@@ -374,8 +374,8 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
    *    carnet C?" no existe en el proceso de al lado, y una lista que mezcla seis
    *    procesos no puede ofrecer un filtro que solo se aplica a uno. Se filtran
    *    dentro del puesto, que es donde significan algo.
-   *  · **Interés**, que se deriva del estado de la conversación de WhatsApp y hoy
-   *    ese canal está apagado.
+   *  · **Interés**, que casi siempre dice "sin comprobar": la comprobación se
+   *    manda desde un puesto, sobre una selección concreta, y no desde aquí.
    */
   const dimensiones = useMemo<DimensionFiltro[]>(() => {
     const d: DimensionFiltro[] = []

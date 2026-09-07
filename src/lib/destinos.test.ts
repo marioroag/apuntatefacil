@@ -52,8 +52,8 @@ const RUTAS_SIN_DESTINO: Record<string, string> = {
 
 /** Secciones de ajustes que se traen su propia pantalla y por eso no se pueden buscar por dentro. */
 const SECCIONES_A_MANO: Record<string, string> = {
-  whatsapp:
-    'La agenda del asistente son días y tramos, no interruptores: hasta declararla en el registro, sus ajustes no son buscables uno a uno (ver el comentario de `componente` en settings.tsx).',
+  entrevistas:
+    'La agenda son días y tramos, no interruptores: hasta declararla en el registro, sus ajustes no son buscables uno a uno (ver el comentario de `componente` en settings.tsx).',
 }
 
 // --- Un contexto con todo abierto ---------------------------------------------

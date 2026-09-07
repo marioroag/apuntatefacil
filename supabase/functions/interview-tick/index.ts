@@ -6,25 +6,21 @@
 // hasta 60 segundos mirando una pantalla quieta.
 //
 // Autorización por secreto compartido y FAIL-CLOSED: sin INTERVIEW_TICK_SECRET
-// no atiende a nadie. Es una función sin JWT que escribe a personas por
-// WhatsApp; dejarla abierta "mientras tanto" es exactamente como se regalan los
-// envíos.
+// no atiende a nadie. Es una función sin JWT que escribe en el calendario de una
+// persona; dejarla abierta "mientras tanto" es como se regalan los accesos.
 //
 // Todo lo que hace es idempotente o está deduplicado en la base, así que dos
 // ticks solapados no duplican trabajo: `claim_interview_jobs` les reparte
 // conjuntos disjuntos.
 //
-// NO MANDA NI UN CORREO, y es a propósito (Mario, agosto de 2026): durante el
-// proceso de cuadrar una entrevista, todo lo que pasa se ve en la conversación
-// del candidato. Los recordatorios pasaron a ser un WhatsApp al candidato (los
-// lleva el agente) y los avisos de "esto lo tienes que mirar tú" se quedan en
-// la propia conversación, marcada y con su motivo. Un correo por cada duda de
-// cada candidato convierte el producto en una fuente de ruido.
+// AQUÍ VIVÍA TAMBIÉN EL AGENTE DE WHATSAPP, que era quien hablaba con el
+// candidato para cuadrar la cita. Se retiró en sep 2026 y con él sus trabajos de
+// canal; queda la sincronización con Google Calendar, que es lo que le dio a
+// esta cola su segundo inquilino. NO MANDA NI UN CORREO, y eso no cambia.
 //
 // Secrets: SUPABASE_SERVICE_ROLE_KEY, INTERVIEW_TICK_SECRET.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { corsHeaders, json } from '../_shared/cors.ts'
-import { ejecutarTrabajoDeCanal, TRABAJOS_DE_CANAL, type Job as JobCanal } from '../_shared/whatsapp/agente.ts'
 import { sincronizarCalendario } from '../_shared/google/sync.ts'
 
 const admin = createClient(
@@ -33,13 +29,14 @@ const admin = createClient(
 )
 const TICK_SECRET = Deno.env.get('INTERVIEW_TICK_SECRET') ?? ''
 
+// Lo que devuelve `claim_interview_jobs`. Trae más columnas de las que se leen
+// (`conversation_id`, `agent_epoch`) porque eran del agente retirado y la tabla
+// las conserva; declarar solo lo que se usa evita que parezcan vivas.
 interface Job {
   id: number
   kind: string
   company_id: string | null
   interview_id: string | null
-  conversation_id: string | null
-  agent_epoch: number | null
   payload: Record<string, unknown>
   attempts: number
 }
@@ -54,32 +51,30 @@ function igualSeguro(a: string, b: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Los trabajos que no son de canal
+// Los trabajos que solo saben decir "va" o "no va"
 // ---------------------------------------------------------------------------
-// Queda uno solo. Todo lo demás o le habla al candidato (y lo lleva el agente)
-// o desapareció con los correos.
+// El calendario del anfitrión no entra aquí: devuelve tres respuestas (hecho /
+// obsoleto / fallo) y se resuelve abajo.
+//
+// EL RESTO DE `kind` QUE LA BASE SIGUE ADMITIENDO YA NO SE ENCOLA: eran los del
+// agente de WhatsApp (retirado en sep 2026) y los avisos por correo (retirados
+// antes). Los que quedaran en cola de un despliegue anterior NO son un fallo, ya
+// no proceden: se cancelan con su motivo en vez de reintentarse seis veces
+// contra un canal que no existe.
 
-async function ejecutar(job: Job): Promise<void> {
+const RETIRADOS = 'el trabajo ya no existe (asistente de WhatsApp retirado)'
+
+async function ejecutar(job: Job): Promise<'hecho' | 'obsoleto'> {
   switch (job.kind) {
     case 'marcar_realizada': {
-      if (!job.interview_id) return
+      if (!job.interview_id) return 'hecho'
       const { error } = await admin.rpc('interview_mark_done', { p_interview: job.interview_id })
       if (error) throw new Error(`interview_mark_done: ${error.message}`)
-      return
+      return 'hecho'
     }
 
-    // El calendario del anfitrión. Devuelve el mismo vocabulario que los
-    // trabajos de canal (hecho / obsoleto / fallo), así que se resuelve arriba
-    // igual que ellos y no aquí: este `switch` es para lo que solo sabe decir
-    // "va" o "no va".
-
-    // Los avisos por correo se retiraron. Los que quedaran en cola de antes del
-    // despliegue no son un fallo: ya no proceden, y la conversación que los
-    // originó lleva su marca desde el momento en que se escaló.
-    case 'avisar_intervencion': return
-
     default:
-      throw new Error(`Trabajo no soportado: ${job.kind}`)
+      return 'obsoleto'
   }
 }
 
@@ -124,33 +119,11 @@ Deno.serve(async (req) => {
         continue
       }
 
-      if (TRABAJOS_DE_CANAL.has(job.kind)) {
-        // El agente decide él si procede, porque solo él tiene el contexto
-        // (epoch, ventana de 24 h, baja, estado del puesto).
-        const r = await ejecutarTrabajoDeCanal(job as unknown as JobCanal)
-        if (r.tipo === 'hecho') {
-          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: true })
-          ok++
-        } else if (r.tipo === 'obsoleto') {
-          // Ni éxito ni fallo: dejó de proceder. Se cancela, y queda dicho por qué.
-          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: null, p_error: r.motivo })
-          cancelados++
-        } else if (r.tipo === 'intervencion') {
-          if (job.conversation_id) {
-            await admin.rpc('escalar_conversacion', {
-              p_conversation: job.conversation_id, p_motivo: r.motivo,
-            })
-          }
-          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: null, p_error: r.motivo })
-          cancelados++
-        } else {
-          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: false, p_error: r.motivo })
-          fallidos++
-        }
+      if (await ejecutar(job) === 'obsoleto') {
+        await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: null, p_error: RETIRADOS })
+        cancelados++
         continue
       }
-
-      await ejecutar(job)
       await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: true })
       ok++
     } catch (e) {

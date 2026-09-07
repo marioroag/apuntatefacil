@@ -1,10 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { AlertCircle, CalendarDays, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, List, MapPin, Phone, Video } from 'lucide-react'
+import { CalendarDays, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, List, MapPin, Phone, Video } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { useProfiles } from '../lib/profiles'
-import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import { ALTO_FRANJA, BTN_SECONDARY_FRANJA } from '../lib/buttons'
 import { Avatar } from '../components/ui/Avatar'
 import { useToast } from '../components/ui/Toast'
@@ -69,7 +68,7 @@ export function Entrevistas() {
 }
 
 function Agenda({ demo }: { demo: boolean }) {
-  const { interviews, candidates, campaigns, members, loading, conversationFor, getCampaign, restoreCandidate } = useStore()
+  const { interviews, candidates, campaigns, members, loading, getCampaign, restoreCandidate } = useStore()
   const toast = useToast()
   const profiles = useProfiles()
   const [params, setParams] = useSearchParams()
@@ -126,17 +125,6 @@ function Agenda({ demo }: { demo: boolean }) {
   )
 
   const buckets = useMemo(() => splitInterviews(visibles), [visibles])
-
-  // El agente se aparta cuando hay algo que solo puede decidir una persona (una
-  // pregunta sobre el puesto, un audio, un número que no recibe WhatsApp). Se
-  // dice en la propia cita, en la rejilla y en el raíl: no mandamos un correo por
-  // cada duda a propósito, así que la pantalla es el único aviso.
-  const atencionDe = (candidateId: string): string | null => {
-    const c = conversationFor(candidateId)
-    return c && c.agentState === 'necesita_intervencion'
-      ? c.attentionReason ?? 'Hay algo que no podemos resolver solos.'
-      : null
-  }
 
   // DOS EJES, DOS CONTROLES, DOS PARÁMETROS (Mario, ago 2026). Antes los tres
   // valores compartían un grupo segmentado, y eso ponía en la misma fila una
@@ -312,14 +300,10 @@ function Agenda({ demo }: { demo: boolean }) {
           es el título repetido, que es el mismo motivo por el que se retiraron
           las de Solicitudes / Tienda / Publicaciones en el panel de un puesto.
 
-          LO QUE SE PAGA, Y HAY QUE SABERLO EL DÍA QUE SE ENCIENDA WHATSAPP: "En
-          marcha" eran las citas SIN FECHA todavía (se está negociando la hora
-          con el candidato), y ésas no pueden salir en una rejilla que coloca por
-          hora. Hoy no se pierde nada porque con `WHATSAPP_LISTO` en false no se
-          crea ninguna: la negociación es justo lo que ese canal hace. Cuando se
-          encienda, esa lista necesita casa otra vez, y su sitio natural es un
-          aviso DENTRO de esta pantalla (no una pestaña), porque lo que pide es
-          atención, no navegación. */}
+          "En marcha" eran las citas SIN FECHA todavía, las que estaba negociando
+          el asistente de WhatsApp con el candidato, y ésas no podían salir en
+          una rejilla que coloca por hora. Retirado el asistente (sep 2026) ya no
+          se crea ninguna: una cita nace con su hora puesta o no nace. */}
       {loading ? (
         <ListaSkeleton />
       ) : (
@@ -442,7 +426,6 @@ function Agenda({ demo }: { demo: boolean }) {
                   lista={buckets.proximas}
                   nombreDe={nombreDe}
                   puestoDe={puestoDe}
-                  atencionDe={atencionDe}
                   onAbrir={setAbierto}
                 />
               )
@@ -490,9 +473,7 @@ function Agenda({ demo }: { demo: boolean }) {
                   <div className="mb-3 rounded-xl filo bg-white px-3.5 py-2.5 text-[13px] text-slate-500 shadow-card">
                     {soloDe
                       ? `${nombreDelFiltro} todavía no tiene ninguna entrevista.`
-                      : WHATSAPP_LISTO
-                        ? 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Invitar a entrevista".'
-                        : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Agendar entrevista".'}
+                      : 'Todavía no hay ninguna entrevista. Las cuadras desde la ficha de un candidato, con "Agendar entrevista".'}
                   </div>
                 )}
                 {compacto ? (
@@ -514,8 +495,7 @@ function Agenda({ demo }: { demo: boolean }) {
                       nombreDe={nombreDe}
                       puestoDe={puestoDe}
                       tonoDe={tonoDe}
-                      atencionDe={atencionDe}
-                      onAbrir={setAbierto}
+                          onAbrir={setAbierto}
                     />
                   </div>
                 ) : (
@@ -528,8 +508,7 @@ function Agenda({ demo }: { demo: boolean }) {
                       ahoraMin={ahoraMin}
                       nombreDe={nombreDe}
                       puestoDe={puestoDe}
-                      atencionDe={atencionDe}
-                      tonoDe={tonoDe}
+                          tonoDe={tonoDe}
                       onDia={(clave) => {
                         setCursor(clave)
                         cambiar({ intervalo: 'dia' })
@@ -553,8 +532,7 @@ function Agenda({ demo }: { demo: boolean }) {
                           nombreDe={nombreDe}
                           puestoDe={puestoDe}
                           tonoDe={tonoDe}
-                          atencionDe={atencionDe}
-                          onAbrir={setAbierto}
+                                  onAbrir={setAbierto}
                         />
                       )}
                     </aside>
@@ -602,7 +580,6 @@ function DiaDelRail({
   lista,
   nombreDe,
   puestoDe,
-  atencionDe,
   tonoDe,
   onAbrir,
   ancho = false,
@@ -612,7 +589,6 @@ function DiaDelRail({
   lista: Interview[]
   nombreDe: (i: Interview) => string
   puestoDe: (i: Interview) => string
-  atencionDe: (candidateId: string) => string | null
   /** El tono del anfitrión, o null si teñir no diría nada (una sola agenda). */
   tonoDe: (i: Interview) => MemberTone | null
   onAbrir: (candidateId: string) => void
@@ -656,7 +632,6 @@ function DiaDelRail({
                   entrevista={i}
                   nombre={nombreDe(i)}
                   puesto={puestoDe(i)}
-                  atencion={atencionDe(i.candidateId)}
                   onAbrir={onAbrir}
                 />
               </li>
@@ -667,7 +642,6 @@ function DiaDelRail({
                   entrevista={i}
                   nombre={nombreDe(i)}
                   puesto={puestoDe(i)}
-                  atencion={atencionDe(i.candidateId)}
                   onAbrir={onAbrir}
                 />
               </li>
@@ -692,14 +666,12 @@ function TarjetaRail({
   entrevista: i,
   nombre,
   puesto,
-  atencion,
   tono,
   onAbrir,
 }: {
   entrevista: Interview
   nombre: string
   puesto: string
-  atencion: string | null
   tono: MemberTone | null
   onAbrir: (candidateId: string) => void
 }) {
@@ -710,7 +682,7 @@ function TarjetaRail({
     <button
       type="button"
       onClick={() => onAbrir(i.candidateId)}
-      title={`${nombre}. ${puesto}. ${meta.label}${atencion ? `. ${atencion}` : ''}`}
+      title={`${nombre}. ${puesto}. ${meta.label}`}
       className="relative flex w-full flex-col overflow-hidden rounded-xl filo bg-white py-2.5 pl-3.5 pr-3 text-left transition-colors duration-[var(--duration-control)] hover:filo-slate-300"
     >
       {/* EL FILO DICE DE QUIÉN ES, no en qué estado está (Mario, ago 2026). Es el
@@ -739,12 +711,6 @@ function TarjetaRail({
         <Icono className="size-3 shrink-0 text-slate-400" aria-hidden />
         <span className="truncate">{sitio ? `${puesto}, ${sitio}` : puesto}</span>
       </span>
-      {atencion && (
-        <span className="mt-1.5 flex items-start gap-1.5 text-[12px] leading-tight text-slate-700">
-          <AlertCircle className="mt-px size-3 shrink-0" aria-hidden />
-          <span className="min-w-0">{atencion}</span>
-        </span>
-      )}
     </button>
   )
 }
@@ -895,13 +861,11 @@ function PorDias({
   lista,
   nombreDe,
   puestoDe,
-  atencionDe,
   onAbrir,
 }: {
   lista: Interview[]
   nombreDe: (i: Interview) => string
   puestoDe: (i: Interview) => string
-  atencionDe: (candidateId: string) => string | null
   onAbrir: (candidateId: string) => void
 }) {
   const dias = useMemo(() => groupByDay(lista), [lista])
@@ -922,7 +886,6 @@ function PorDias({
                   entrevista={i}
                   nombre={nombreDe(i)}
                   puesto={puestoDe(i)}
-                  atencion={atencionDe(i.candidateId)}
                   onAbrir={onAbrir}
                 />
               </li>
@@ -938,14 +901,11 @@ function Fila({
   entrevista,
   nombre,
   puesto,
-  atencion = null,
   onAbrir,
 }: {
   entrevista: Interview
   nombre: string
   puesto: string
-  /** Motivo por el que el agente se apartó, si la conversación te está esperando. */
-  atencion?: string | null
   onAbrir: (candidateId: string) => void
 }) {
   const meta = INTERVIEW_STATUS_META[entrevista.status]
@@ -1030,26 +990,12 @@ function Fila({
         </span>
       )}
 
-      {/* Si la conversación te está esperando, eso sustituye a la chapa de
-          estado en vez de sumarse: la fila no da para dos, y entre "Invitada" y
-          "necesita que entres" lo que hay que hacer lo dice la segunda. El
-          motivo entero va en el title. */}
-      {atencion ? (
-        <span
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[13px] font-semibold text-amber-800"
-          title={atencion}
-        >
-          <span className="size-2 rounded-full bg-amber-500" aria-hidden />
-          Necesita que entres
-        </span>
-      ) : (
-        <span
-          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ${meta.chip}`}
-        >
-          <span className={`size-2 rounded-full ${meta.dot}`} aria-hidden />
-          {meta.label}
-        </span>
-      )}
+      <span
+        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[13px] font-semibold ${meta.chip}`}
+      >
+        <span className={`size-2 rounded-full ${meta.dot}`} aria-hidden />
+        {meta.label}
+      </span>
       </span>
       <ChevronRight className="size-4 shrink-0 text-slate-400" aria-hidden />
     </button>
@@ -1068,12 +1014,10 @@ function Vacio({ filtrado = false }: { filtrado?: boolean }) {
       }
     : {
         titulo: 'No tienes entrevistas por delante',
-        // El consejo tiene que llevar al botón que existe: mientras el canal no
-        // esté de alta, la cabecera de la ficha dice "Agendar entrevista" y no
-        // "Invitar a entrevista" (ver `lib/whatsapp.ts`).
-        cuerpo: WHATSAPP_LISTO
-          ? 'Abre la ficha de un candidato y pulsa "Invitar a entrevista" para cuadrar una cita.'
-          : 'Abre la ficha de un candidato y pulsa "Agendar entrevista" para apuntar la cita.',
+        // El consejo tiene que llevar al botón que existe, y desde que se retiró
+        // el asistente de WhatsApp la cabecera de la ficha dice "Agendar
+        // entrevista" y no "Invitar a entrevista".
+        cuerpo: 'Abre la ficha de un candidato y pulsa "Agendar entrevista" para apuntar la cita.',
       }
 
   return (

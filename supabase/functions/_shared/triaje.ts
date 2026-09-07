@@ -8,7 +8,7 @@
 //
 // El módulo es PURO a propósito: sin Deno, sin red, sin imports. Así lo puede
 // cargar vitest desde src/lib/triaje.test.ts (su guardián) igual que hace
-// guion.test.ts con _shared/interviews/guion.
+// schedule.test.ts con _shared/schedule/slots.
 //
 // Las tres piezas, y qué decide cada una:
 //  * BAREMO: se genera UNA VEZ por puesto a partir del título + sector +

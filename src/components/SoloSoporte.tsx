@@ -7,7 +7,7 @@ import { FullSpinner } from './AuthGate'
  * HOY LA PUERTA ESTÁ ABIERTA (Mario, ago 2026: "deja la puerta abierta de momento
  * aunque no esté conectada a ningún botón, te avisaré cuando la quitemos").
  *
- * Una sola bandera manda, como `WHATSAPP_LISTO` o `ANILLO_AJUSTE`: el código de la
+ * Una sola bandera manda, como `ANILLO_AJUSTE`: el código de la
  * puerta se queda ENTERO, así que cerrarla nunca más es volver a poner `true`. Lo
  * que NO se hace es quitar el `SoloSoporte` de la ruta y guardarlo para luego: un
  * componente que no monta nadie se pudre, y devolverlo sería reescribirlo.

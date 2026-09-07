@@ -4,10 +4,10 @@ import { INTERVIEW_MODES, INTERVIEW_MODE_META, type InterviewMode } from '../lib
 /**
  * Cómo es la entrevista: en persona, por teléfono o por videollamada.
  *
- * Una sola primitiva para los tres sitios donde se decide (los ajustes, la
- * invitación por WhatsApp y el apunte a mano). Si se tocan las opciones, se
- * tocan en los tres a la vez, que es justo lo que no pasaba antes: los dos
- * selectores de invitar ofrecían dos modalidades y la base admitía tres.
+ * Una sola primitiva para los dos sitios donde se decide (los ajustes y el
+ * apunte a mano). Si se tocan las opciones, se tocan en los dos a la vez, que es
+ * justo lo que no pasaba antes: los selectores ofrecían dos modalidades y la
+ * base admitía tres.
  *
  * Van en fila vertical y no en tres pestañas apretadas: "Por teléfono" y
  * "Videollamada" no caben legibles en un tercio de una columna de 36 caracteres,

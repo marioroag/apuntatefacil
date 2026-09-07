@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Brand, Branding, Campaign, Candidate, CandidateAI, CandidateComment, CandidateConversation, CandidateDocument, CandidateEvent, CandidateInterestSummary, CandidateStatus, CompanyMember, ConversationMessage, FormField, InterestChannel, Interview, InterviewMode, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
+import type { Brand, Branding, Campaign, Candidate, CandidateAI, CandidateComment, CandidateDocument, CandidateEvent, CandidateInterestSummary, CandidateStatus, CompanyMember, FormField, Interview, InterviewMode, SavedView, SavedViewPayload, Site, Tag, TeamRequest, TeamRequestComment, TeamRequestStatus } from './types'
 import { leerAnuncio } from './anuncio'
 import type { Anuncio } from './anuncio'
 import { supabase, supabaseConfigured } from './supabase'
@@ -8,7 +8,6 @@ import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
 import { SEED, SEED_BRANDS, SEED_CANDIDATE_COMMENTS, SEED_CANDIDATE_DOCUMENTS, SEED_CANDIDATE_EVENTS, SEED_MEMBERS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, demoInterviews, freshenDemoData } from './seed'
 import { interestEligibility, interestRecipient, type InterestSendResult } from './interest'
-import { WHATSAPP_LISTO, WHATSAPP_WIP } from './whatsapp'
 import { PRECIO_PROCESO } from './pricing'
 
 // Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
@@ -111,7 +110,9 @@ type InterestOverviewRow = {
   responded_at: string | null
   reminder_sent_at: string | null
   expires_at: string
-  channel: InterestChannel | null
+  // El RPC sigue devolviendo `channel` (la columna está en la base), pero ya no
+  // se lee: retirado el asistente de WhatsApp, la pregunta sale por correo y
+  // solo por correo, así que el dato no distingue a nadie.
 }
 const interestByCandidate = (rows: InterestOverviewRow[] | null | undefined) =>
   new Map<string, CandidateInterestSummary>((rows ?? []).map((r) => [r.candidate_id, {
@@ -122,8 +123,6 @@ const interestByCandidate = (rows: InterestOverviewRow[] | null | undefined) =>
     respondedAt: r.responded_at,
     reminderSentAt: r.reminder_sent_at,
     expiresAt: r.expires_at,
-    // Las comprobaciones anteriores a que existiera WhatsApp son de correo.
-    channel: r.channel ?? 'email',
   }]))
 
 type TagRow = { id: string; name: string }
@@ -337,58 +336,6 @@ async function functionErrorMessage(
   return porDefecto
 }
 
-type ConversationRow = {
-  id: string
-  candidate_id: string
-  interview_id: string | null
-  agent_state: CandidateConversation['agentState']
-  handover: CandidateConversation['handover']
-  attention_reason: string | null
-  window_expires_at: string | null
-  opted_out: boolean
-  created_at: string
-}
-const CONVERSATION_SELECT =
-  'id,candidate_id,interview_id,agent_state,handover,attention_reason,window_expires_at,opted_out,created_at'
-const toConversation = (r: ConversationRow): CandidateConversation => ({
-  id: r.id,
-  candidateId: r.candidate_id,
-  interviewId: r.interview_id,
-  agentState: r.agent_state,
-  handover: r.handover,
-  attentionReason: r.attention_reason,
-  windowExpiresAt: r.window_expires_at,
-  optedOut: !!r.opted_out,
-  createdAt: r.created_at,
-})
-
-type ConversationMessageRow = {
-  id: string
-  conversation_id: string
-  direction: ConversationMessage['direction']
-  author: ConversationMessage['author']
-  author_user_id: string | null
-  body: string
-  payload: Record<string, unknown> | null
-  delivery_status: ConversationMessage['deliveryStatus']
-  error_text: string | null
-  created_at: string
-}
-const CONVERSATION_MESSAGE_SELECT =
-  'id,conversation_id,direction,author,author_user_id,body,payload,delivery_status,error_text,created_at'
-const toConversationMessage = (r: ConversationMessageRow): ConversationMessage => ({
-  id: r.id,
-  conversationId: r.conversation_id,
-  direction: r.direction,
-  author: r.author,
-  authorUserId: r.author_user_id,
-  body: r.body ?? '',
-  payload: r.payload ?? {},
-  deliveryStatus: r.delivery_status,
-  errorText: r.error_text,
-  createdAt: r.created_at,
-})
-
 type MemberRow = { user_id: string; email: string; role: CompanyMember['role']; is_self: boolean }
 const toMember = (r: MemberRow): CompanyMember => ({
   userId: r.user_id,
@@ -430,7 +377,7 @@ interface Store {
   // entrar en el panel; esto trae los que llegaron después, sin recargar la página).
   // Devuelve cuántos candidatos NUEVOS trajo (>= 0), o -1 si la recarga falló.
   reloadCandidatesFor: (campaignId: string) => Promise<number>
-  sendInterestCheck: (campaignId: string, candidateIds: string[], idempotencyKey: string, channel?: InterestChannel) => Promise<InterestSendResult>
+  sendInterestCheck: (campaignId: string, candidateIds: string[], idempotencyKey: string) => Promise<InterestSendResult>
   // mutaciones
   setStatus: (candidateId: string, status: CandidateStatus) => Promise<void>
   /** El mismo estado para varios de golpe (la barra de selección). */
@@ -456,8 +403,8 @@ interface Store {
   // ---- La puerta de facturación del pago por proceso (ago 2026) ----
   // Cerrar y reabrir un proceso NUNCA van por updateCampaign: además del estado
   // ajustan la suscripción de Stripe (cantidad = procesos abiertos). La puerta
-  // se cierra AQUÍ, no en la pantalla, igual que con WhatsApp: la interfaz
-  // decide qué se ofrece; estas funciones deciden qué se cobra.
+  // se cierra AQUÍ y no en la pantalla: la interfaz decide qué se ofrece; estas
+  // funciones deciden qué se cobra.
   /** Cierra el proceso: deja de aceptar candidaturas y de cobrarse (sin
    *  devolución del mes empezado). El puesto se conserva entero y exportable. */
   cerrarProceso: (campaignId: string) => Promise<boolean>
@@ -548,29 +495,6 @@ interface Store {
   }) => Promise<{ status: string; interviewId?: string }>
   cancelInterview: (id: string, reason?: string) => Promise<{ status: string }>
   rescheduleInterview: (id: string, startsAt: string, durationMinutes?: number) => Promise<{ status: string }>
-  // Conversación de la entrevista. Las cabeceras se cachean (hay como mucho una
-  // viva por candidato); el hilo se carga al abrir la pestaña, como el del
-  // tablón y el del chat de equipo.
-  conversationFor: (candidateId: string) => CandidateConversation | null
-  loadConversationMessages: (conversationId: string) => Promise<ConversationMessage[]>
-  /** Sube con cada ping realtime: una pestaña abierta recarga su hilo sin sondear. */
-  conversationVersion: number
-  startInvitation: (input: {
-    candidateId: string
-    hostUserId?: string | null
-    durationMinutes?: number
-    bufferMinutes?: number
-    mode?: InterviewMode
-    locationText?: string
-    meetingUrl?: string | null
-  }) => Promise<{ status: string; conversationId?: string; interviewId?: string }>
-  setConversationHandover: (id: string, handover: 'agente' | 'persona') => Promise<boolean>
-  /**
-   * Escribe a mano al WhatsApp del candidato. Enviar es TOMAR EL CONTROL: la
-   * función pasa el volante a la persona antes de mandar nada, así que no hace
-   * falta pulsar el botón primero.
-   */
-  sendConversationMessage: (id: string, body: string) => Promise<boolean>
   // Chat de equipo dentro del candidato (sustituye a las notas internas). Como el
   // hilo del tablón, no se cachea: se carga al abrir el detalle y se refresca con
   // el ping realtime. Un candidato tiene pocos mensajes; el coste es una consulta.
@@ -786,8 +710,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [seen, setSeen] = useState<Record<string, string>>(() => readSeen())
   const [teamRequests, setTeamRequests] = useState<TeamRequest[]>([])
   const [interviews, setInterviews] = useState<Interview[]>([])
-  const [conversations, setConversations] = useState<CandidateConversation[]>([])
-  const [conversationVersion, setConversationVersion] = useState(0)
   // Badge del menú: citas confirmadas pendientes. NO se compara con el reloj
   // aquí. Leer la hora durante el render es impuro, y sobre todo el cliente no
   // es quien decide que una entrevista ya pasó: eso lo hace el servidor, que la
@@ -841,7 +763,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTags([])
       setTeamRequests([])
       setInterviews([])
-      setConversations([])
       setDemoTeamComments([])
       setDemoCandidateComments([])
       setCommentCounts({})
@@ -870,12 +791,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTags(saved?.tags ?? SEED_TAGS)
       setTeamRequests(fresh.teamRequests)
       // La agenda se genera al entrar, nunca se guarda: así las citas caen
-      // siempre en días hábiles alrededor de hoy (ver demoInterviews). Las
-      // CONVERSACIONES siguen vacías a propósito: una cita puesta a mano no le
-      // manda nada a nadie, y fabricar un hilo de WhatsApp sí daría a entender
-      // que en la demo se escribe a alguien.
+      // siempre en días hábiles alrededor de hoy (ver demoInterviews).
       setInterviews(demoInterviews(fresh.candidates))
-      setConversations([])
       setDemoTeamComments(fresh.teamComments)
       setDemoCandidateComments(fresh.candidateComments)
       setDemoCandidateEvents(fresh.candidateEvents)
@@ -891,7 +808,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setLoading(true)
     // Acotamos a la empresa ACTIVA (company_id). La RLS sola no basta: para un usuario en
     // varios equipos devolvería datos de TODOS, sumándolos. Con esto ves solo el equipo activo.
-    const [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14] = await Promise.all([
+    const [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13] = await Promise.all([
       supabase.from('campaigns').select('*').eq('company_id', companyId).order('created_at', { ascending: true }),
       supabase.from('candidates').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
       supabase.from('saved_views').select('id,campaign_id,name,payload').eq('company_id', companyId).order('created_at', { ascending: true }),
@@ -917,9 +834,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // de interviews y la de candidates apliquen solas: un encargado no debe
       // ver las citas de los puestos de otra sede.
       supabase.rpc('interview_overview_for_company', { p_company: companyId }),
-      // Cabeceras de conversación. Son pocas (una viva por candidato como
-      // mucho) y las pinta la lista entera, así que se cachean; el hilo no.
-      supabase.from('candidate_conversations').select(CONVERSATION_SELECT).eq('company_id', companyId),
     ])
     if (seq !== loadSeq.current) return // un cambio de equipo más nuevo ya está cargando
     if (c1.error || c2.error) {
@@ -948,7 +862,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCommentCounts(countByCandidate(!c11.error ? (c11.data as { candidate_id: string }[] | null) : null))
     setMembers(!c12.error && c12.data ? (c12.data as MemberRow[]).map(toMember) : [])
     setInterviews(!c13.error && c13.data ? (c13.data as InterviewRow[]).map(toInterview) : [])
-    setConversations(!c14.error && c14.data ? (c14.data as ConversationRow[]).map(toConversation) : [])
     setLoadedCompanyId(companyId)
     setLoading(false)
   }, [companyId, toast])
@@ -975,17 +888,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [companyId])
   const refreshInterviewsRef = useRef(refreshInterviews)
   refreshInterviewsRef.current = refreshInterviews
-
-  const refreshConversations = useCallback(async () => {
-    if (!companyId || companyId === 'demo') return
-    const { data, error } = await supabase
-      .from('candidate_conversations')
-      .select(CONVERSATION_SELECT)
-      .eq('company_id', companyId)
-    if (!error && data) setConversations((data as ConversationRow[]).map(toConversation))
-  }, [companyId])
-  const refreshConversationsRef = useRef(refreshConversations)
-  refreshConversationsRef.current = refreshConversations
 
   const reloadCandidatesFor = useCallback(async (campaignId: string): Promise<number> => {
     if (!companyId || companyId === 'demo') return 0 // demo: datos en memoria, nada nuevo de red
@@ -1061,7 +963,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let lockedDirty = false
     let boardDirty = false
     let interviewsDirty = false
-    let convDirty = false
     let timer = 0
     const flushBoard = () => {
       void reloadTeamBoardRef.current()
@@ -1083,12 +984,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (interviewsDirty) {
         interviewsDirty = false
         void refreshInterviewsRef.current()
-      }
-      if (convDirty) {
-        convDirty = false
-        void refreshConversationsRef.current()
-        // El hilo abierto se recarga solo mirando este contador, sin sondear.
-        setConversationVersion((v) => v + 1)
       }
       if (chatPending.size) {
         // El recuento sube aquí (lo pinta la lista entera); el hilo que esté
@@ -1130,16 +1025,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (cid) chatPending.add(cid)
         if (!timer) timer = window.setTimeout(flush, 500)
       })
-      .on('broadcast', { event: 'candidate_conversation_ping' }, () => {
-        // Sin filtro por `by`: casi todo lo que pasa aquí lo dispara el
-        // candidato desde WhatsApp o el propio agente, no la persona que mira.
-        convDirty = true
-        if (!timer) timer = window.setTimeout(flush, 500)
-      })
       .on('broadcast', { event: 'interview_ping' }, ({ payload }) => {
-        // Aquí NO se filtra por `by`: una entrevista se confirma sola cuando el
-        // candidato elige hueco desde WhatsApp, y ese ping viene sin actor. Y el
-        // estado del candidato también cambia, así que se recarga su puesto.
+        // Aquí NO se filtra por `by`: una cita se puede mover desde otra sesión
+        // del equipo, y ese ping viene sin actor. Y el estado del candidato
+        // también cambia, así que se recarga su puesto.
         interviewsDirty = true
         const cid = typeof payload?.campaign_id === 'string' ? payload.campaign_id : null
         if (cid) pending.add(cid)
@@ -1239,14 +1128,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     campaignId: string,
     candidateIds: string[],
     idempotencyKey: string,
-    channel: InterestChannel = 'email',
   ): Promise<InterestSendResult> => {
-    // El correo sigue saliendo igual; lo único que se para es el canal que
-    // todavía no existe. La rama demo queda debajo a propósito: simular un
-    // WhatsApp que no podemos mandar es enseñar una función que no hay.
-    if (channel === 'whatsapp' && !WHATSAPP_LISTO) {
-      return { ok: false, sent: 0, failed: 0, omitted: {}, error: WHATSAPP_WIP.linea }
-    }
     if (!companyId) return { ok: false, sent: 0, failed: 0, omitted: {}, error: 'No hay una empresa activa.' }
     if (companyId === 'demo') {
       const campaign = campaigns.find((c) => c.id === campaignId)
@@ -1259,7 +1141,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const grouped = new Map<string, { candidate: Candidate; mode: 'initial' | 'reminder' | 'recheck' }[]>()
       for (const candidate of candidates) {
         if (!ids.has(candidate.id) || candidate.campaignId !== campaignId) continue
-        const { to, reason: falta } = interestRecipient(channel, campaign.fields, candidate)
+        const { to, reason: falta } = interestRecipient(campaign.fields, candidate)
         if (!to) {
           const motivo = falta ?? 'missing_email'
           omitted[motivo] = (omitted[motivo] ?? 0) + 1
@@ -1292,7 +1174,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               respondedAt: null,
               reminderSentAt: null,
               expiresAt,
-              channel,
             }
         for (const item of items) summaries.set(item.candidate.id, summary)
       }
@@ -1312,7 +1193,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         campaign_id: campaignId,
         candidate_ids: candidateIds,
         idempotency_key: idempotencyKey,
-        channel,
       },
     })
     const motivo = await functionErrorMessage(
@@ -2203,102 +2083,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { status: res.status }
     },
 
-    // --- Conversación de la entrevista --------------------------------------
-    conversationFor: (candidateId) =>
-      conversations.find((c) => c.candidateId === candidateId && c.agentState !== 'cerrada') ??
-      conversations.find((c) => c.candidateId === candidateId) ??
-      null,
-    conversationVersion,
-    loadConversationMessages: async (conversationId) => {
-      if (companyId === 'demo') return []
-      const { data, error } = await supabase
-        .from('candidate_messages')
-        .select(CONVERSATION_MESSAGE_SELECT)
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true })
-      if (error || !data) return []
-      return (data as ConversationMessageRow[]).map(toConversationMessage)
-    },
-    startInvitation: async (input) => {
-      // Mientras no haya número de alta no sale ni una invitación, y la puerta
-      // se cierra AQUÍ además de en la pantalla: la interfaz decide qué se
-      // ofrece, pero lo que garantiza que no se escribe a un candidato es que el
-      // único camino hasta el RPC pase por esta línea (ver `lib/whatsapp.ts`).
-      if (!WHATSAPP_LISTO) return { status: 'wip' }
-      if (companyId === 'demo') return { status: 'demo' }
-      const { data, error } = await supabase.rpc('start_interview_invitation', {
-        p_candidate: input.candidateId,
-        p_host: input.hostUserId ?? null,
-        p_duration: input.durationMinutes ?? 30,
-        p_buffer: input.bufferMinutes ?? 15,
-        p_mode: input.mode ?? 'presencial',
-        p_location: input.locationText ?? '',
-        p_meeting_url: input.meetingUrl ?? null,
-      })
-      if (error) {
-        toast.error('No se pudo iniciar la invitación.')
-        return { status: 'error' }
-      }
-      const res = data as { status: string; conversation_id?: string; interview_id?: string }
-      // 'ya_existe' también recarga: la conversación que ya había es justo la
-      // que hay que abrir.
-      if (res.status === 'ok' && res.conversation_id) {
-        // Y ahora que la conversación existe, que salga el mensaje. Va en una
-        // llamada aparte y NO en la anterior a propósito: crear la conversación
-        // es la parte que no puede fallar a medias, y encolar el envío es
-        // idempotente (tiene clave de deduplicado), así que si esta se pierde,
-        // repetirla no manda dos mensajes. Solo en 'ok': con 'ya_existe' la
-        // invitación ya salió y volver a encolarla sería insistirle al candidato.
-        const { error: eKick } = await supabase.rpc('kickoff_invitation', {
-          p_conversation: res.conversation_id,
-        })
-        if (eKick) toast.error('La conversación está creada, pero no se pudo enviar el mensaje.')
-      }
-      if (res.status === 'ok' || res.status === 'ya_existe') {
-        await Promise.all([refreshConversations(), refreshInterviews()])
-      }
-      return { status: res.status, conversationId: res.conversation_id, interviewId: res.interview_id }
-    },
-    setConversationHandover: async (id, handover) => {
-      if (companyId === 'demo') return false
-      const { error } = await supabase.rpc('conversation_set_handover', {
-        p_conversation: id,
-        p_handover: handover,
-      })
-      if (error) {
-        toast.error('No se pudo cambiar quién lleva la conversación.')
-        return false
-      }
-      await refreshConversations()
-      setConversationVersion((v) => v + 1)
-      return true
-    },
-    sendConversationMessage: async (id, body) => {
-      // Sin canal no hay por dónde mandarlo. No debería llegarse aquí (sin
-      // invitación no hay conversación que abrir), y justo por eso se cierra:
-      // los caminos que "no pueden pasar" son los que nadie vuelve a mirar.
-      if (!WHATSAPP_LISTO) return false
-      if (companyId === 'demo') return false
-      const { data, error } = await supabase.functions.invoke('whatsapp-send', {
-        body: { conversation_id: id, body },
-      })
-      // El motivo de un envío rechazado (la ventana de 24 h, la baja) es lo
-      // único que le dice al empresario qué hacer, así que se lee del cuerpo en
-      // vez de enseñar un error genérico.
-      const motivo = await functionErrorMessage(error, data)
-      if (motivo) {
-        toast.error(motivo)
-        // Aunque falle, el intento queda escrito en el hilo y el volante ya ha
-        // cambiado de manos: hay que recargar para que la pantalla lo enseñe.
-        await refreshConversations()
-        setConversationVersion((v) => v + 1)
-        return false
-      }
-      await refreshConversations()
-      setConversationVersion((v) => v + 1)
-      return true
-    },
-
     candidatosNewCount: (() => {
       const since = companyId ? candidatosSeen[companyId] : undefined
       // Sin marca de "visto" (nunca abierta): cuentan todas, igual que hace
@@ -2806,7 +2590,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setTags(SEED_TAGS)
       setTeamRequests(fresh.teamRequests)
       setInterviews(demoInterviews(fresh.candidates))
-      setConversations([])
       setDemoTeamComments(fresh.teamComments)
       setDemoCandidateComments(fresh.candidateComments)
       setDemoCandidateEvents(fresh.candidateEvents)
@@ -2815,7 +2598,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // enseña que el chat avisa a un compañero.
       setMembers(SEED_MEMBERS.map((m) => ({ userId: m.user_id, email: m.email, role: m.role as CompanyMember['role'], isSelf: m.is_self })))
     },
-  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, candidatosSeen, teamRequests, demoTeamComments, demoCandidateComments, demoCandidateEvents, commentCounts, chatVersion, members, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, sendInterestCheck, toast, interviews, interviewUpcomingCount, conversations, conversationVersion, refreshInterviews, refreshConversations, company, refreshCompany])
+  }), [dataLoading, campaigns, candidates, lockedInfo, savedViews, sites, brands, tags, seen, candidatosSeen, teamRequests, demoTeamComments, demoCandidateComments, demoCandidateEvents, commentCounts, chatVersion, members, boardSeen, boardVersion, companyId, userId, user?.email, reload, reloadCandidatesFor, sendInterestCheck, toast, interviews, interviewUpcomingCount, refreshInterviews, company, refreshCompany])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

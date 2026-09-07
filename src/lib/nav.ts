@@ -24,7 +24,7 @@ import { VISTAS, VISTA_PRINCIPAL } from './candidatos'
  * 1. **Lo que no está disponible no se pinta.** Nada de tabs bloqueadas en el
  *    menú: el límite se descubre en su contexto, no con un candado en la
  *    navegación. (Con el pago por proceso ya no hay features por plan, pero la
- *    regla sigue viva para banderas como WHATSAPP_LISTO o el admin.)
+ *    regla sigue viva para las banderas del producto y para el admin.)
  * 2. **Un grupo sin ítems visibles no existe.** Ni cabecera huérfana ni hueco.
  *    Por eso `navGroups()` filtra al final y no hay que acordarse en cada sitio.
  * 3. **Un contador se DICE, no se enseña, y aquí se cumple literalmente.** El

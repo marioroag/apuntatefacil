@@ -7,7 +7,7 @@
 //      desconectar el calendario de un compañero pasando su id.
 //   2. Sin credenciales de Google no se ofrece nada. `estado` devuelve
 //      `configurado: false` y la pantalla no pinta un botón que iba a fallar.
-//      Es lo mismo que hace `WHATSAPP_LISTO` con lo que no puede salir.
+//      Un botón que no puede conectar es peor que ningún botón.
 //   3. El token no pasa por aquí más que de camino a Google. Se pide, se usa
 //      para revocar y se olvida; nunca se devuelve al navegador.
 //

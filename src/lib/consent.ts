@@ -30,6 +30,18 @@ export const CONSENT_VERSIONS: VersionConsentimiento[] = [
       'He leído y acepto la política de privacidad y que {empresa} trate mis datos ' +
       'para este proceso de selección, incluido escribirme por WhatsApp si dejo mi teléfono.',
   },
+  // Retirado el asistente de WhatsApp (sep 2026), la app no le escribe a nadie
+  // por ese canal, así que pedir permiso para hacerlo sería pedir permiso para
+  // algo que no pasa. Versión NUEVA y no una edición de la anterior: quien se
+  // apuntó antes leyó aquel texto y su id tiene que seguir resolviendo a lo que
+  // leyó. Los candidatos que aceptaron la 2026-08-02 conservan su permiso; lo
+  // que ya no existe es el canal.
+  {
+    id: '2026-09-07',
+    texto:
+      'He leído y acepto la política de privacidad y que {empresa} trate mis datos ' +
+      'para este proceso de selección.',
+  },
 ]
 
 /** La vigente. Es la que se guarda con cada candidatura nueva. */

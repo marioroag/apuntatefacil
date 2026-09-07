@@ -123,8 +123,8 @@ function Seccion({ seccion, ctx, salto }: { seccion: SeccionAjustes; ctx: Ajuste
       </header>
 
       {/* TEMPORAL (ago 2026). No todo lo configurable es un interruptor: la
-          agenda del asistente de WhatsApp son días, tramos, duración, descanso
-          y dirección, y eso no cabe en un `get`/`set` booleano. Hasta rehacerlo,
+          agenda de entrevistas son días, tramos, duración, descanso y
+          dirección, y eso no cabe en un `get`/`set` booleano. Hasta rehacerlo,
           una sección puede traerse su propia pantalla. Es la ÚNICA excepción a
           "esta pantalla no conoce ningún ajuste", y sigue sin conocerlo: pinta
           lo que le den, no sabe qué es. */}

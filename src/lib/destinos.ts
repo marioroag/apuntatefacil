@@ -152,7 +152,7 @@ export const DESTINOS: Destino[] = [
     label: 'Entrevistas',
     hint: 'Tus citas y las que faltan por confirmar.',
     icon: CalendarDays,
-    claves: ['agenda', 'citas', 'calendario', 'whatsapp'],
+    claves: ['agenda', 'citas', 'calendario'],
     to: (c) => `${c.base}/entrevistas`,
   },
   {

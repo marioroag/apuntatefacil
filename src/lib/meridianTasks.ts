@@ -152,9 +152,6 @@ export function planInterestSend(
 // también. Sin guion largo, tuteo, glosario congelado.
 const OMISSION_COPY: Record<InterestOmissionReason, (n: number) => string> = {
   missing_email: (n) => (n === 1 ? 'uno no dejó correo' : `${n} no dejaron correo`),
-  missing_phone: (n) => (n === 1 ? 'uno no dejó un teléfono que pueda usar' : `${n} no dejaron un teléfono que pueda usar`),
-  // No es que falte un dato: es que no nos dio permiso para escribirle.
-  no_consent: (n) => (n === 1 ? 'uno no aceptó que le escribamos por WhatsApp' : `${n} no aceptaron que les escribamos por WhatsApp`),
   // Sin "hace unos días": la ventana puede tener 5 minutos o 6 días, y decir un
   // plazo que no es cierto es justo lo que no queremos.
   wait_reminder: (n) => (n === 1 ? 'a uno ya le escribí y sigo esperando su respuesta' : `a ${n} ya les escribí y sigo esperando su respuesta`),
@@ -167,8 +164,6 @@ const OMISSION_COPY: Record<InterestOmissionReason, (n: number) => string> = {
 // una frase que ya va de uno solo suena a plantilla ("a ninguno de los 1").
 const OMISSION_SOLO: Record<InterestOmissionReason, string> = {
   missing_email: 'no dejó correo',
-  missing_phone: 'no dejó un teléfono que pueda usar',
-  no_consent: 'no aceptó que le escribamos por WhatsApp',
   wait_reminder: 'ya le escribí y sigo esperando su respuesta',
   reminder_used: 'ya le insistí una vez',
   wait_recheck: 'ya me dijo que sigue interesado',

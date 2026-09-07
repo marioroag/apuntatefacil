@@ -29,7 +29,6 @@ function summary(patch: Partial<CandidateInterestSummary> = {}): CandidateIntere
     respondedAt: null,
     reminderSentAt: null,
     expiresAt: at(-58),
-    channel: 'email',
     ...patch,
   }
 }
@@ -98,32 +97,32 @@ describe('interest state', () => {
   })
 })
 
-describe('a quién se le puede preguntar por algún sitio', () => {
+describe('a quién se le puede preguntar', () => {
   it('con correo, sí', () => {
     expect(candidateReachable(fields, candidato({ answers: { email: 'ana@example.com' } }))).toBe(true)
   })
 
-  // El caso que se perdía: teléfono y permiso, sin correo. En construcción y
-  // logística mucha gente rellena el teléfono y deja el correo en blanco.
-  it('sin correo pero con teléfono y permiso, también', () => {
-    expect(candidateReachable(fields, candidato({ answers: { telefono: '612345678' } }))).toBe(true)
-  })
-
-  it('con teléfono pero sin permiso, no', () => {
-    expect(candidateReachable(fields, candidato({ answers: { telefono: '612345678' }, consentAt: null }))).toBe(false)
+  // Con el canal de WhatsApp retirado (sep 2026) el teléfono ya no alcanza a
+  // nadie: la pregunta sale por correo y solo por correo.
+  it('con teléfono pero sin correo, no', () => {
+    expect(candidateReachable(fields, candidato({ answers: { telefono: '612345678' } }))).toBe(false)
   })
 
   it('sin nada, no', () => {
     expect(candidateReachable(fields, candidato({ answers: {} }))).toBe(false)
   })
 
-  it('y el estado que pinta el panel lo respeta', () => {
-    const soloWhatsapp = candidato({
+  // LO QUE YA DIJO MANDA SOBRE SI HOY SE LE PUEDE ESCRIBIR, y esto no es un
+  // detalle de orden: calculando el estado desde el correo, quien contestó
+  // "sigo interesado" y hoy no tiene correo utilizable se pintaba como si nunca
+  // se le hubiera podido preguntar. La respuesta estaba guardada y la pantalla
+  // la tapaba.
+  it('una respuesta guardada gana a no poder escribirle hoy', () => {
+    const sinCorreo = candidato({
       answers: { telefono: '612345678' },
-      interest: summary({ channel: 'whatsapp', response: 'interested', respondedAt: at(1) }),
+      interest: summary({ response: 'interested', respondedAt: at(1) }),
     })
-    // Antes decía 'unavailable' ("Sin correo") y se comía el "sigo interesado".
-    expect(candidateInterestState({ fields }, soloWhatsapp)).toBe('interested')
+    expect(candidateInterestState({ fields }, sinCorreo)).toBe('interested')
   })
 })
 
@@ -148,73 +147,34 @@ describe('interest eligibility', () => {
   })
 })
 
-describe('a quién se puede escribir por cada canal', () => {
-  it('por correo basta el correo', () => {
-    expect(interestRecipient('email', fields, candidato())).toEqual({ to: 'ana@example.com' })
+describe('a quién se le escribe', () => {
+  it('basta el correo', () => {
+    expect(interestRecipient(fields, candidato())).toEqual({ to: 'ana@example.com' })
   })
 
-  it('por WhatsApp hace falta teléfono Y permiso', () => {
-    expect(interestRecipient('whatsapp', fields, candidato())).toEqual({ to: '34612345678' })
-  })
-
-  // La puerta que gatea todo el canal. Tener el número no da derecho a usarlo.
-  it('sin consentimiento no se escribe, aunque tengamos el número', () => {
-    expect(interestRecipient('whatsapp', fields, candidato({ consentAt: null })))
-      .toEqual({ to: null, reason: 'no_consent' })
-  })
-
-  it('se comprueba el permiso ANTES que el teléfono', () => {
-    // Si no ha dado permiso, que además falte el número no es lo que hay que
-    // contarle al empresario: lo que le falta a esa candidatura es el permiso.
-    expect(interestRecipient('whatsapp', fields, candidato({ consentAt: null, answers: {} })))
-      .toEqual({ to: null, reason: 'no_consent' })
-  })
-
-  it('distingue no tener teléfono de tenerlo ilegible', () => {
-    expect(interestRecipient('whatsapp', fields, candidato({ answers: {} })))
-      .toEqual({ to: null, reason: 'missing_phone' })
-    expect(interestRecipient('whatsapp', fields, candidato({ answers: { telefono: '612345678 / 698765432' } })))
-      .toEqual({ to: null, reason: 'missing_phone' })
-  })
-
-  it('cada canal ignora lo que le falta al otro', () => {
+  it('sin correo no hay destinatario, aunque haya teléfono', () => {
     const soloTelefono = candidato({ answers: { telefono: '612345678' } })
-    expect(interestRecipient('email', fields, soloTelefono).reason).toBe('missing_email')
-    expect(interestRecipient('whatsapp', fields, soloTelefono).to).toBe('34612345678')
+    expect(interestRecipient(fields, soloTelefono)).toEqual({ to: null, reason: 'missing_email' })
   })
 })
 
-describe('la vista previa por canal', () => {
-  it('dice el motivo real del canal elegido, no "sin correo"', () => {
+describe('la vista previa', () => {
+  it('sin correo no es elegible, y lo dice', () => {
     const sinCorreo = candidato({ answers: { telefono: '612345678' } })
-    const [fila] = previewInterestCandidates([sinCorreo], fields, 'whatsapp', now)
-    expect(fila.to).toBe('34612345678')
-    expect(fila.eligibility).toEqual({ eligible: true, mode: 'initial' })
+    const [fila] = previewInterestCandidates([sinCorreo], fields, now)
+    expect(fila.to).toBeNull()
+    expect(fila.eligibility).toEqual({ eligible: false, reason: 'missing_email' })
   })
 
-  it('sin permiso no es elegible por WhatsApp y sí por correo', () => {
-    const sinPermiso = candidato({ consentAt: null })
-    expect(previewInterestCandidates([sinPermiso], fields, 'whatsapp', now)[0].eligibility)
-      .toEqual({ eligible: false, reason: 'no_consent' })
-    expect(previewInterestCandidates([sinPermiso], fields, 'email', now)[0].eligibility)
-      .toEqual({ eligible: true, mode: 'initial' })
-  })
-
-  // Lo que NO cambia con el canal: la pregunta es la misma, así que un "no"
-  // dicho por correo tampoco se vuelve a preguntar por WhatsApp.
-  it('un "ya no me interesa" vale para los dos canales', () => {
+  it('un "ya no me interesa" corta el envío', () => {
     const dijoQueNo = candidato({ interest: summary({ response: 'not_interested', respondedAt: at(90) }) })
-    for (const canal of ['email', 'whatsapp'] as const) {
-      expect(previewInterestCandidates([dijoQueNo], fields, canal, now)[0].eligibility)
-        .toEqual({ eligible: false, reason: 'not_interested' })
-    }
+    expect(previewInterestCandidates([dijoQueNo], fields, now)[0].eligibility)
+      .toEqual({ eligible: false, reason: 'not_interested' })
   })
 
-  it('los plazos tampoco dependen del canal', () => {
+  it('y los plazos también', () => {
     const reciente = candidato({ interest: summary({ sentAt: at(6) }) })
-    for (const canal of ['email', 'whatsapp'] as const) {
-      expect(previewInterestCandidates([reciente], fields, canal, now)[0].eligibility)
-        .toEqual({ eligible: false, reason: 'wait_reminder' })
-    }
+    expect(previewInterestCandidates([reciente], fields, now)[0].eligibility)
+      .toEqual({ eligible: false, reason: 'wait_reminder' })
   })
 })

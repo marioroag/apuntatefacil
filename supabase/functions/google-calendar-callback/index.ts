@@ -20,7 +20,10 @@ const APP_URL = (Deno.env.get('APP_URL') ?? '').replace(/\/+$/, '')
 
 /** Siempre a la misma pantalla, con el resultado dicho en el parámetro. */
 function volver(resultado: string): Response {
-  const destino = `${APP_URL}/app/ajustes/whatsapp?calendario=${encodeURIComponent(resultado)}`
+  // La sección se llamaba `whatsapp` y pasa a `entrevistas` (sep 2026, con la
+  // retirada del asistente). El id es el trozo de URL, así que si esto se queda
+  // atrás, conectar el calendario devuelve a una sección que ya no existe.
+  const destino = `${APP_URL}/app/ajustes/entrevistas?calendario=${encodeURIComponent(resultado)}`
   return new Response(null, { status: 302, headers: { Location: destino } })
 }
 

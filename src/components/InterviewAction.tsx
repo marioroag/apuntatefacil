@@ -7,29 +7,17 @@ import { SelectorFechaHora } from './ui/DateTimePicker'
 import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM, botonIcono } from '../lib/buttons'
 import { useAnfitrion } from '../lib/anfitrion'
 import { useOcupado } from '../lib/ocupado'
-import { WHATSAPP_LISTO } from '../lib/whatsapp'
 import { ModoEntrevista } from './ModoEntrevista'
 import { candidateName, clockTimeInZone, dayKeyInZone, formatPhone } from '../lib/format'
 import { paredAUtc } from '../../supabase/functions/_shared/schedule/zone'
 import type { Candidate, Interview, InterviewMode } from '../lib/types'
 
-/**
- * Botón de entrevista de la cabecera del candidato. Enseña la ACCIÓN o el
- * RESULTADO, nunca las dos cosas ni un estado intermedio inventado:
- *
- *   sin entrevista  ->  "Invitar a entrevista"   (acento: es LA acción)
- *   negociándose    ->  "Agendando..."
- *   confirmada      ->  "Ver entrevista · mar 12, 10:00"
- *
- * En los tres casos abre la pestaña Conversación. El botón no decide nada por
- * su cuenta: lleva al sitio donde se decide.
- */
-// El botón de cabecera que vivía aquí se borra (ago 2026): no lo montaba NADIE
-// desde que las acciones bajaron al raíl de la ficha, y repetía esta misma
-// decisión (confirmada / negociando / WhatsApp apagado) en una copia que nadie
-// miraba. Dos formas de decidir lo mismo se separan a la primera, y la que no
-// se ve es la que se queda mintiendo. Lo que se pinta hoy es la línea
-// "Entrevista · <cuándo>" de `AccionesCandidato`, que abre `CambiarCitaDialog`.
+// El botón de entrevista de la CABECERA que vivía aquí se borró (ago 2026): no
+// lo montaba NADIE desde que las acciones bajaron al raíl de la ficha, y repetía
+// una decisión que ya se tomaba allí. Dos formas de decidir lo mismo se separan
+// a la primera, y la que no se ve es la que se queda mintiendo. Lo que se pinta
+// hoy es la línea "Entrevista · <cuándo>" de `AccionesCandidato`, que abre
+// `CambiarCitaDialog`.
 
 // Redondea al siguiente cuarto de hora del día siguiente: agendar "para dentro
 // de un rato" casi nunca es lo que se quiere, y proponer una hora en punto
@@ -63,9 +51,8 @@ export function AgendarManualDialog({
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Prerrellenado con su modalidad y su sitio de siempre, igual que al invitar
-  // por WhatsApp: las reglas de cada modalidad no pueden depender de por qué
-  // puerta se entre.
+  // Prerrellenado con su modalidad y su sitio de siempre: las reglas de cada
+  // modalidad no pueden depender de por qué puerta se entre.
   const { modo: modoPorDefecto, sitio: sitioPorDefecto } = useAnfitrion()
   const tocado = useRef(false)
   const modoTocado = useRef(false)
@@ -98,8 +85,8 @@ export function AgendarManualDialog({
       return
     }
     // Apuntar una llamada a alguien que no dejó teléfono es apuntar algo que no
-    // vas a poder hacer. Aquí no hay WhatsApp que lo frene antes, como en la
-    // invitación: esto se guarda directo.
+    // vas a poder hacer, y aquí no hay ningún paso previo que lo frene: esto se
+    // guarda directo.
     if (modo === 'telefonica' && !telefono) {
       setError('Este candidato no dejó teléfono, así que no vas a poder llamarle.')
       return
@@ -149,9 +136,7 @@ export function AgendarManualDialog({
     if (res.status === 'plan') {
       // El RPC sigue devolviendo 'plan' (migración 20260801120000_interviews.sql),
       // pero los tiers murieron con el pago por proceso: hoy este caso solo puede
-      // significar que el proceso no está al día de pago. Las dos superficies que
-      // lo pintan (aquí y `InterviewConversation`) dicen lo MISMO, porque salen
-      // del mismo hecho.
+      // significar que el proceso no está al día de pago.
       setError('Este proceso no está al día de pago. Actívalo en Facturación para agendar entrevistas.')
       return
     }
@@ -322,8 +307,8 @@ export function AgendarManualDialog({
  * Faltaba entera. El backend sabe reprogramar y cancelar desde agosto
  * (`reschedule_interview`, `cancel_interview`) y no lo llamaba ni una pantalla:
  * la única puerta hacia una cita confirmada era el botón "Ver entrevista", que
- * lleva a la Conversación, y con WhatsApp apagado esa conversación está vacía.
- * O sea que una vez agendada, la cita no se podía tocar desde la aplicación.
+ * llevaba a la pestaña Conversación, y esa pestaña se retiró con el asistente de
+ * WhatsApp. O sea que una vez agendada, la cita no se podía tocar.
  *
  * SOLO SE OFRECE LO QUE EL SERVIDOR SABE MOVER: el día, la hora y la duración.
  * `reschedule_interview` no toca la modalidad, ni el sitio, ni el anfitrión, así
@@ -501,14 +486,12 @@ export function CambiarCitaDialog({
           </select>
         </div>
 
-        {/* Lo que NO pasa al cambiar la hora. Con el canal apagado no sale ni un
-            mensaje, y quien mueve una cita da por hecho que se avisa: es la
-            regla de siempre, una nota se gana el sitio cuando avisa de que lo
-            que ves no es lo que el control dice. */}
+        {/* Lo que NO pasa al cambiar la hora. Desde aquí no sale ningún mensaje,
+            y quien mueve una cita da por hecho que se avisa: es la regla de
+            siempre, una nota se gana el sitio cuando avisa de que lo que ves no
+            es lo que el control dice. */}
         <p className="text-[13px] text-slate-500">
-          {WHATSAPP_LISTO
-            ? 'Al guardar se lo decimos al candidato.'
-            : 'Al candidato no le avisamos nosotros: díselo tú por teléfono o por WhatsApp.'}
+          Al candidato no le avisamos nosotros: díselo tú por teléfono o por WhatsApp.
         </p>
 
         {error && (
