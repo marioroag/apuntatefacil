@@ -162,6 +162,18 @@ export function PublicForm() {
     return () => { alive = false }
   }, [slug])
 
+  // El título de la pestaña es el del puesto, no el de la landing. Los robots
+  // ya lo reciben del prerender (api/publico.ts); esto es para la persona y
+  // para cuando se navega de un puesto a otro sin recargar ("Otros puestos
+  // abiertos"). Al salir se devuelve el que tenía el documento.
+  useEffect(() => {
+    if (!campaign) return
+    const anterior = document.title
+    const donde = campaign.location.trim()
+    document.title = `${campaign.title}${donde ? ` en ${donde}` : ''} · ${campaign.companyName}`
+    return () => { document.title = anterior }
+  }, [campaign])
+
   // Atrás en el navegador vuelve al anuncio. Sin esto, `pushState` deja una
   // entrada en el historial que al volver cambia la URL pero no la pantalla.
   useEffect(() => {
