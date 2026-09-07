@@ -47,6 +47,10 @@ function fechaDos(d: Date) {
 
 type Entrada = { nombre: string; datos: Uint8Array<ArrayBuffer> }
 
+/** Los dos límites del formato sin ZIP64: entradas y bytes de 16 y 32 bits. */
+export const ZIP_MAX_ENTRADAS = 0xffff
+export const ZIP_MAX_BYTES = 0xffffffff
+
 /**
  * Devuelve el zip como `Blob`.
  *
@@ -55,8 +59,19 @@ type Entrada = { nombre: string; datos: Uint8Array<ArrayBuffer> }
  *                 comprobar bytes fijos en vez de perseguir el reloj.
  */
 export function crearZip(entradas: Entrada[], ahora = new Date()): Blob {
-  const { hora, fecha } = fechaDos(ahora)
+  // POR ENCIMA DE ESTO EL ZIP SALE CORRUPTO SIN AVISAR: la cuenta de entradas
+  // va en 16 bits y los tamaños y desplazamientos en 32, así que un
+  // descompresor leería otro número del que hay. Mejor un error con sentido
+  // que un fichero que abre en una máquina y en otra no. (Auditoría, sep 2026.)
+  if (entradas.length > ZIP_MAX_ENTRADAS) {
+    throw new Error(`Un zip sin ZIP64 no admite más de ${ZIP_MAX_ENTRADAS} ficheros.`)
+  }
   const codificador = new TextEncoder()
+  const total = entradas.reduce((t, e) => t + 30 + 46 + 2 * codificador.encode(e.nombre).length + e.datos.length, 22)
+  if (total > ZIP_MAX_BYTES) {
+    throw new Error('Un zip sin ZIP64 no puede pasar de 4 GB.')
+  }
+  const { hora, fecha } = fechaDos(ahora)
   const trozos: Uint8Array<ArrayBuffer>[] = []
   const central: Uint8Array<ArrayBuffer>[] = []
   let desplazamiento = 0

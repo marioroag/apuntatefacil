@@ -80,6 +80,21 @@ Se "hornean" al construir, así que ponlas **antes** del build.
 5. **Supabase Auth**: SMTP de Resend, Google, política de contraseña + HIBP, confirmaciones, Site URL y Redirect URLs (sección C).
 6. **Google Cloud**: crea el OAuth client (Web), pon el redirect URI de Supabase, copia client id/secret al provider de Supabase.
 7. **Frontend**: conecta el repo a Vercel (build `npm run build`, output `dist`), pon `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en Environment Variables, despliega y apunta el dominio `apuntatefacil.com`.
+8. **Sesiones** (auditoría, sep 2026): en Supabase → Authentication → Sessions, pon **Time-box user sessions = 30 días**. Es lo que `config.toml` declara para local (`[auth.sessions] timebox = "720h"`) y NO se despliega solo: el panel manda en producción.
+9. **Informes de la CSP** (auditoría, sep 2026): `vercel.json` manda los bloqueos de la CSP a la función `csp-informe` (sin JWT). Se despliega con las demás y sus informes se leen en los logs de esa función. Si cambia el project ref, cambia la URL en las dos cabeceras (`Reporting-Endpoints` y `report-uri`). Antes de endurecer una directiva, pruébala unos días en `Content-Security-Policy-Report-Only` con el mismo `report-to`.
+
+## Gates antes de desplegar (auditoría, sep 2026)
+
+```bash
+npm ci
+npx tsc -b --noEmit
+npm test
+npm run build
+npm run audit          # npm audit --omit=dev --audit-level=high: tiene que salir limpio
+# Con Deno instalado, para las funciones:
+#   cd supabase/functions && deno check */index.ts
+```
+Las versiones de las edge functions van fijadas en cada `import` (supabase-js, stripe, svix, unpdf): subirlas es un cambio a propósito, nunca un efecto del despliegue.
    - *Netlify/Cloudflare Pages*: igual, el `public/_redirects` ya gestiona el fallback del SPA. *Otro host*: asegúrate de reescribir todas las rutas a `/index.html`.
 
 ---

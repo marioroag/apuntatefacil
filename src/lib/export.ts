@@ -177,6 +177,10 @@ export function exportCandidatesToCsv(
   return filename
 }
 
+/** Techo del zip en memoria: por encima, se pide exportar en dos partes. */
+export const ZIP_MAX_BYTES_EXPORT = 1024 * 1024 * 1024
+export const ZIP_MAX_ENTRADAS_EXPORT = 20000
+
 /** Lo que devuelve el zip de documentos, para que quien llama pueda contarlo. */
 export type ResultadoDocs = { filename: string; incluidos: number; fallidos: number }
 
@@ -262,6 +266,7 @@ export async function exportCandidateDocs(
   const carpetasUsadas = new Set<string>()
   const entradas: { nombre: string; datos: Uint8Array<ArrayBuffer> }[] = []
   let fallidos = 0
+  let bytes = 0
 
   for (const { candidato, docs } of porPersona) {
     const carpeta = nombreUnico(nombreSeguro(candidateName(candidato) || 'Sin nombre'), '', carpetasUsadas)
@@ -273,6 +278,15 @@ export async function exportCandidateDocs(
         const res = await fetch(url)
         if (!res.ok) { fallidos++; continue }
         const datos = new Uint8Array(await res.arrayBuffer()) as Uint8Array<ArrayBuffer>
+        // TODO EL ZIP VIVE EN MEMORIA hasta que se descarga, así que tiene un
+        // techo, y se dice antes de que la pestaña se muera: ciento cuarenta
+        // CVs de 8 MiB son más de un giga en un ArrayBuffer. (Auditoría, sep 2026.)
+        bytes += datos.length
+        if (bytes > ZIP_MAX_BYTES_EXPORT || entradas.length >= ZIP_MAX_ENTRADAS_EXPORT) {
+          throw new Error(
+            `Son demasiados documentos para un solo zip (más de ${Math.round(ZIP_MAX_BYTES_EXPORT / 1024 / 1024)} MB). Exporta la selección en dos partes.`,
+          )
+        }
         const { base, ext } = nombreEnCarpeta(doc.nombre, doc.path)
         entradas.push({ nombre: `${carpeta}/${nombreUnico(base, ext, usados)}`, datos })
       } catch {

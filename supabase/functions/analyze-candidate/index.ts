@@ -52,7 +52,7 @@
 //
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY, OPENAI_MODEL?
 import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
-import { getDocumentProxy } from 'npm:unpdf@0.12.1'
+import { getDocumentProxy } from 'npm:unpdf@1.8.1'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { planHasMeridian } from '../_shared/plans.ts'
 import { PLAZO, plazo } from '../_shared/red.ts'
@@ -71,6 +71,11 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 const MAX_CV_CHARS = 15000
+/** Páginas que se leen de un CV; más allá no hay CV, hay otra cosa. */
+const MAX_CV_PAGINAS = 20
+/** Bytes que se mandan al modelo de visión: 8 MiB en base64 son 11 MB de
+ *  prompt por un escaneo; con 4 MiB caben de sobra los escaneos normales. */
+const MAX_VISION_BYTES = 4 * 1024 * 1024
 /** Análisis AUTOMÁTICOS que una empresa puede pagar en un día. Un puesto muy
  *  vivo trae decenas; trescientos en un día ya no es un puesto, es un script. */
 const MAX_AUTO_POR_DIA = 300
@@ -139,9 +144,15 @@ async function cvDescarga(cvPath: string | null): Promise<{ texto: string | null
     const { data, error } = await admin.storage.from('cvs').download(cvPath)
     if (error || !data) return { texto: null, bytes: null }
     const bytes = new Uint8Array(await data.arrayBuffer())
-    const pdf = await getDocumentProxy(bytes)
+    // `isEvalSupported: false`: pdf.js puede ejecutar funciones PostScript de
+    // las fuentes con `eval`; un CV lo sube un anónimo. Sin eval, esas fuentes
+    // se interpretan, más despacio y sin ejecutar nada. (Auditoría, sep 2026.)
+    const pdf = await getDocumentProxy(bytes, { isEvalSupported: false })
     let texto = ''
-    for (let n = 1; n <= pdf.numPages && texto.length < MAX_CV_CHARS; n++) {
+    // TOPE DE PÁGINAS: un PDF escaneado de trescientas páginas sin capa de texto
+    // recorría las trescientas para no sacar nada. Un CV cabe en veinte.
+    const paginas = Math.min(pdf.numPages, MAX_CV_PAGINAS)
+    for (let n = 1; n <= paginas && texto.length < MAX_CV_CHARS; n++) {
       const page = await pdf.getPage(n)
       const contenido = await page.getTextContent()
       const items = (contenido.items as unknown[]).filter(
@@ -187,6 +198,7 @@ const ESQUEMA_TRANSCRIPCION = {
  * (400) o falla, null: se cae al "adjuntó un CV que no puedo leer" de siempre.
  */
 async function transcribirCvVision(bytes: Uint8Array): Promise<string | null> {
+  if (bytes.length > MAX_VISION_BYTES) return null
   try {
     const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
     signal: plazo(PLAZO.modelo),

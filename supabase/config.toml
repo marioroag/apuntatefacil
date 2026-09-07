@@ -269,9 +269,14 @@ max_frequency = "5s"
 # 4152127777 = "123456"
 
 # Configure logged in session timeouts.
-# [auth.sessions]
+# Una sesión robada (XSS, un portátil abierto) no puede valer para siempre:
+# treinta días es lo que dura "Recordarme" en cualquier SaaS serio, y aquí se
+# guardan datos personales de candidatos. EN PRODUCCIÓN ESTO SE PONE EN EL
+# PANEL DE SUPABASE (Authentication -> Sessions), no sale de este fichero:
+# ver DEPLOY.md. (Auditoría de seguridad, sep 2026.)
+[auth.sessions]
 # Force log out after the specified duration.
-# timebox = "24h"
+timebox = "720h"
 # Force log out if the user has been inactive longer than the specified duration.
 # inactivity_timeout = "8h"
 
@@ -458,6 +463,12 @@ verify_jwt = true
 # hace el navegador redirigido por Google, sin nuestra cabecera. Toda la
 # autorización la carga el `state`, que es de un solo uso y caduca.
 [functions.google-calendar-callback]
+verify_jwt = false
+
+# El buzón de los informes de la CSP. Lo llama el navegador de cualquier
+# visitante, sin sesión: no escribe en la base, acota el cuerpo y solo deja una
+# línea en el log por bloqueo.
+[functions.csp-informe]
 verify_jwt = false
 
 # Convierte el enlace de Google Maps que pega el cliente en un punto. Exige JWT:

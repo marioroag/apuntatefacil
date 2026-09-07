@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { crc32, crearZip, nombreSeguro, nombreUnico } from './zip'
+import { ZIP_MAX_ENTRADAS, crc32, crearZip, nombreSeguro, nombreUnico } from './zip'
 
 /* ---------------------------------------------------------------------------
    EL GUARDIÁN DEL ZIP.
@@ -102,5 +102,17 @@ describe('nombres', () => {
     // distinguen: dos ficheros que solo cambien de caja se pisan al
     // descomprimir. Por eso este es el CUARTO con ese nombre, no el segundo.
     expect(nombreUnico('JUAN GARCIA', '.pdf', usados)).toBe('JUAN GARCIA (4).pdf')
+  })
+})
+
+/* Los límites del formato se DICEN, no se truncan en silencio (auditoría, sep 2026). */
+describe('límites de ZIP32', () => {
+  it('rechaza más entradas de las que caben en 16 bits', () => {
+    const muchas = Array.from({ length: ZIP_MAX_ENTRADAS + 1 }, (_, i) => ({ nombre: `f${i}`, datos: new Uint8Array(0) }))
+    expect(() => crearZip(muchas)).toThrow(/ficheros/)
+  })
+  it('una lista normal sigue pasando', () => {
+    const justo = Array.from({ length: 3 }, (_, i) => ({ nombre: `f${i}`, datos: new Uint8Array(1) }))
+    expect(() => crearZip(justo)).not.toThrow()
   })
 })

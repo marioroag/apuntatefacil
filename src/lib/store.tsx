@@ -652,6 +652,30 @@ const Ctx = createContext<Store | null>(null)
 // eventos del futuro y con ellos los dos días vacíos al final de la gráfica.
 const DEMO_KEY = 'apuntatefacil.demo.v24'
 
+/**
+ * TODAS LAS FILAS, no las mil primeras (auditoría de seguridad, sep 2026).
+ *
+ * PostgREST recorta cualquier consulta a `max_rows` (1000) en silencio: sin
+ * paginar, una empresa con mil y una candidaturas veía las mil más recientes,
+ * los recuentos y las exportaciones mentían y nadie recibía un error. Se pide
+ * por páginas hasta que llega una incompleta. El tope de páginas es el
+ * cinturón contra un bucle si el servidor cambiara de criterio.
+ */
+const PAGINA = 1000
+async function todasLasFilas<T>(
+  consulta: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<{ data: T[] | null; error: unknown }> {
+  const filas: T[] = []
+  for (let pagina = 0; pagina < 200; pagina++) {
+    const desde = pagina * PAGINA
+    const { data, error } = await consulta(desde, desde + PAGINA - 1)
+    if (error) return { data: null, error }
+    filas.push(...(data ?? []))
+    if (!data || data.length < PAGINA) break
+  }
+  return { data: filas, error: null }
+}
+
 // "Visto por última vez" por puesto (mapa campaignId -> ISO), local al navegador.
 const SEEN_KEY = 'apuntatefacil.seen.v1'
 function readSeen(): Record<string, string> {
@@ -893,7 +917,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // varios equipos devolvería datos de TODOS, sumándolos. Con esto ves solo el equipo activo.
     const [c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14] = await Promise.all([
       supabase.from('campaigns').select('*').eq('company_id', companyId).order('created_at', { ascending: true }),
-      supabase.from('candidates').select('*').eq('company_id', companyId).order('created_at', { ascending: false }),
+      todasLasFilas((desde, hasta) => supabase.from('candidates').select('*').eq('company_id', companyId).order('created_at', { ascending: false }).range(desde, hasta)),
       supabase.from('saved_views').select('id,campaign_id,name,payload').eq('company_id', companyId).order('created_at', { ascending: true }),
       supabase.from('sites').select('id,name,city').eq('company_id', companyId).order('name', { ascending: true }),
       supabase.from('brands').select('id,name,accent,welcome,thanks,show_logo,logo_path,banner_path').eq('company_id', companyId).order('name', { ascending: true }),
@@ -990,11 +1014,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const reloadCandidatesFor = useCallback(async (campaignId: string): Promise<number> => {
     if (!companyId || companyId === 'demo') return 0 // demo: datos en memoria, nada nuevo de red
     const [{ data, error }, { data: interestData }] = await Promise.all([
-      supabase
+      todasLasFilas((desde, hasta) => supabase
         .from('candidates')
         .select('*')
         .eq('campaign_id', campaignId)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .range(desde, hasta)),
       supabase.rpc('candidate_interest_overview', { p_campaign: campaignId }),
     ])
     if (error || !data) return -1
