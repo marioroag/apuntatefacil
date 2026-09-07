@@ -88,7 +88,7 @@ export function mapAuthError(message: string): string {
   if (m.includes('email not confirmed')) return 'Tienes que confirmar tu email antes de entrar. Revisa tu bandeja.'
   if (m.includes('already registered') || m.includes('already been registered')) return 'Ese email ya tiene una cuenta. Inicia sesión o recupera tu contraseña.'
   if (m.includes('pwned') || m.includes('leaked') || m.includes('known to be weak') || m.includes('compromised')) return 'Esa contraseña aparece en filtraciones conocidas. Elige otra distinta.'
-  if (m.includes('at least') || m.includes('should contain') || m.includes('password should') || m.includes('weak')) return 'La contraseña no cumple los requisitos: mínimo 10 caracteres con mayúsculas, minúsculas y números.'
+  if (m.includes('at least') || m.includes('should contain') || m.includes('password should') || m.includes('weak')) return 'La contraseña no cumple los requisitos: mínimo 8 caracteres con mayúsculas, minúsculas y números.'
   if (m.includes('rate limit') || m.includes('too many requests') || m.includes('over_email_send')) return 'Has pedido demasiados emails. Espera unos minutos e inténtalo de nuevo.'
   if (m.includes('should be different') || m.includes('same as the old')) return 'La nueva contraseña tiene que ser distinta a la anterior.'
   if (m.includes('unable to validate email') || m.includes('invalid format') || m.includes('invalid email')) return 'Escribe un email válido, por ejemplo nombre@dominio.com.'
