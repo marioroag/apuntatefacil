@@ -1116,8 +1116,8 @@ candidates.push({
       'Carnet en vigor y las carretillas del puesto, confirmado en el CV. Ojo a la ' +
       'experiencia: responde 5 años y las etapas de su CV empiezan en 2021.',
     informe:
-      'El carnet en vigor y las carretillas que pide el puesto no los dice solo el ' +
-      'formulario: están escritos en su CV, y los tres turnos los cubre. Lo que le ' +
+      'El carnet en vigor y las carretillas que pide el puesto no los dice solo él: ' +
+      'están escritos en su CV, y los tres turnos los cubre. Lo que le ' +
       'pediría aclarar antes de nada es la experiencia, porque responde 5 años y las ' +
       'etapas de su CV empiezan en 2021: las dos cifras no cuadran. Con eso resuelto, ' +
       'es de las candidaturas fuertes del proceso.',

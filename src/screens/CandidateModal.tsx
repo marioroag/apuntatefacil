@@ -1559,7 +1559,7 @@ function TrayectoriaTab({
   const caja = 'sm:max-w-[640px] sm:rounded-xl sm:filo sm:p-5'
   if (!trayectoria) {
     const vacio = !pideCv
-      ? 'Este formulario no pide CV, así que no hay trayectoria que leer.'
+      ? 'Este puesto no pide CV, así que no hay trayectoria que leer.'
       : !tieneCv
         ? 'No ha subido su CV: no hay trayectoria que leer.'
         : !ai || ai.error
@@ -1914,7 +1914,7 @@ function Documentos({
           </div>
         ) : (
           <span className="min-w-0 flex-1 text-[13px] text-slate-500">
-            {pideDocumentos ? 'No ha subido ningún documento.' : 'Este formulario no pide documentos.'}
+            {pideDocumentos ? 'No ha subido ningún documento.' : 'Este puesto no pide documentos.'}
           </span>
         )}
         <input

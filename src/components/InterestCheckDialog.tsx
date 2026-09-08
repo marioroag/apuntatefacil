@@ -210,9 +210,9 @@ export function InterestCheckDialog({
                 <div className="flex gap-2.5">
                   <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
                   <div>
-                    <p className="text-sm font-semibold text-amber-950">Este formulario no pide correo</p>
-                    <p className="mt-1 text-[13px] leading-5 text-amber-900/80">Añade un campo de correo para poder enviar esta comprobación a futuras candidaturas.</p>
-                    <Link to={`${base}/puestos/${campaign.id}/formulario`} onClick={close} className="mt-2 inline-flex text-[13px] font-semibold text-amber-950 underline underline-offset-2">Añadir correo al formulario</Link>
+                    <p className="text-sm font-semibold text-amber-950">Este puesto no pide el correo</p>
+                    <p className="mt-1 text-[13px] leading-5 text-amber-900/80">Añade la pregunta del correo para poder enviar esta comprobación a futuras candidaturas.</p>
+                    <Link to={`${base}/puestos/${campaign.id}/formulario`} onClick={close} className="mt-2 inline-flex text-[13px] font-semibold text-amber-950 underline underline-offset-2">Añadir la pregunta del correo</Link>
                   </div>
                 </div>
               </div>

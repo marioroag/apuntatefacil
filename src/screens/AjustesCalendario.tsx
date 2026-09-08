@@ -191,7 +191,7 @@ export function AjustesCalendario() {
                     WhatsApp, que era quien escribía. Hoy la cita se apunta y
                     avisas tú, así que lo que se dice es lo que de verdad pasa. */}
                 {cfg.defaultMode === 'telefonica'
-                  ? 'Le llamas tú al teléfono que dejó en el formulario. Dile la hora al avisarle, para que no se le pase la llamada.'
+                  ? 'Le llamas tú al teléfono que dejó al apuntarse. Dile la hora al avisarle, para que no se le pase la llamada.'
                   : 'El enlace de la sala lo pones al agendar cada cita, porque casi nunca es el mismo.'}
               </p>
               <button

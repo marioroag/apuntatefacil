@@ -3,7 +3,7 @@ const LEGACY_LINK_TOKEN = '{{enlace}}'
 
 export function replyBodyForCampaign({ title }: { title: string }): string {
   const puesto = title.trim() || 'este puesto'
-  return `Hola, gracias por escribir. Para apuntarte a ${puesto}, rellena este formulario corto (1 min):`
+  return `Hola, gracias por escribir. Para apuntarte a ${puesto}, responde estas preguntas (te lleva 1 minuto):`
 }
 
 /**

@@ -611,7 +611,7 @@ export function MenuAnadirFiltro({
                 {!enBusqueda && !enPreguntas && preguntas.length > 0 && (
                   <FilaCategoria
                     icon={ListFilter}
-                    label="Preguntas del formulario"
+                    label="Preguntas del puesto"
                     n={nPreguntas}
                     onClick={() => entrar('preguntas')}
                   />

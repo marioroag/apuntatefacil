@@ -130,7 +130,7 @@ export const VISTAS: Vista[] = [
     cuenta: (n) => plural(n, 'candidato activo', 'candidatos activos'),
     vacio: {
       titulo: 'Aún no tienes candidatos',
-      texto: 'Cuando alguien rellene el formulario de uno de tus puestos, aparecerá aquí.',
+      texto: 'Cuando alguien se apunte a uno de tus puestos, aparecerá aquí.',
     },
     vacioFiltrado: 'Ningún candidato activo en ese puesto',
   },
@@ -162,7 +162,7 @@ export const VISTAS: Vista[] = [
     cuenta: (n) => plural(n, 'candidato', 'candidatos'),
     vacio: {
       titulo: 'Aún no tienes candidatos',
-      texto: 'Cuando alguien rellene el formulario de uno de tus puestos, aparecerá aquí.',
+      texto: 'Cuando alguien se apunte a uno de tus puestos, aparecerá aquí.',
     },
     vacioFiltrado: 'Ningún candidato en ese puesto',
   },

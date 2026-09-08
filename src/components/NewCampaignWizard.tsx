@@ -304,7 +304,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                     <p className="mt-0.5 text-[13px] text-slate-500">
                       {paso === 'plantilla'
                         ? 'Elige un punto de partida. Podrás cambiarlo todo después.'
-                        : 'Lo que se lee antes del formulario. Podrás cambiarlo todo después, el título incluido.'}
+                        : 'Lo que se lee antes de las preguntas. Podrás cambiarlo todo después, el título incluido.'}
                     </p>
                   </div>
                   <button onClick={cerrar} aria-label="Cerrar" className={botonIcono('ghost', 'md', '-mr-1')}>

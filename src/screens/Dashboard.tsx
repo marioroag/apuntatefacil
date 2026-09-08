@@ -1758,8 +1758,8 @@ export function Dashboard() {
         onConfirm={doClose}
       >
         {company?.plan === 'proceso'
-          ? 'El formulario dejará de aceptar candidaturas y este proceso deja de cobrarse (el mes ya empezado no se devuelve). Conservas todos los candidatos, puedes exportarlos y reabrirlo cuando quieras.'
-          : 'El formulario dejará de aceptar candidaturas. Conservas todos los candidatos, puedes exportarlos y reabrirlo cuando quieras.'}
+          ? 'El enlace dejará de aceptar candidaturas y este proceso deja de cobrarse (el mes ya empezado no se devuelve). Conservas todos los candidatos, puedes exportarlos y reabrirlo cuando quieras.'
+          : 'El enlace dejará de aceptar candidaturas. Conservas todos los candidatos, puedes exportarlos y reabrirlo cuando quieras.'}
         {/* Qué pasa con los datos de esa gente a partir de aquí. Los candidatos
             aceptaron que se traten "para este proceso"; guardarlos después es
             una decisión de la empresa, y hay que decírselo donde la toma. */}
@@ -4218,7 +4218,7 @@ function PuestoMenu({
           className={`${FILA} ${QUIETA}`}
         >
           <Eye className={GLIFO} aria-hidden />
-          <span className="flex-1">Ver formulario</span>
+          <span className="flex-1">Ver mi enlace</span>
           <ArrowUpRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
           <span className="sr-only">(se abre en otra pestaña)</span>
         </a>
@@ -4658,7 +4658,7 @@ function EmptyFirstUse({ publicUrl, onCopy }: { publicUrl: string; onCopy: () =>
       <IconoVacio Icon={Inbox} />
       <h3 className="mt-4 text-lg font-semibold text-slate-900">Aún no hay candidatos</h3>
       <p className="mt-1 max-w-sm text-sm text-slate-500">
-        Comparte el enlace del formulario para empezar a recibir respuestas. Cada respuesta entra aquí automáticamente.
+        Comparte tu enlace para empezar a recibir respuestas. Cada respuesta entra aquí automáticamente.
       </p>
       {/* w-full + max-w para que la fila se ciña al ancho del card y el enlace se
           trunque (en una columna items-center, sin ancho fijo, no truncaría y se
@@ -4759,7 +4759,7 @@ function SaveViewDialog({
           <p className="text-sm font-semibold text-slate-800">Dónde se aplica</p>
           {hasValueFilters ? (
             <p className="mt-1.5 rounded-xl bg-slate-50 px-3 py-2.5 text-[13px] leading-relaxed text-slate-600">
-              Esta vista incluye filtros de {valueFilterLabels.join(', ')}, que dependen de los campos de este formulario.
+              Esta vista incluye filtros de {valueFilterLabels.join(', ')}, que dependen de las preguntas de este puesto.
               Por eso se guarda solo en <strong className="font-semibold text-slate-800">{campaignTitle}</strong>.
             </p>
           ) : (

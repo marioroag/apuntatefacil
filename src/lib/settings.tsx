@@ -177,7 +177,7 @@ export const SECCIONES: SeccionAjustes[] = [
       {
         id: 'candidaturas',
         titulo: 'Candidaturas',
-        descripcion: 'Lo que entra por tus formularios.',
+        descripcion: 'Lo que entra por tus puestos.',
         ajustes: [
           email(
             EMAIL_KEYS.candidatoNuevo,

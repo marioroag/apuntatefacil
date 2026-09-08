@@ -808,7 +808,7 @@ function Compare() {
 function HowItWorks() {
   const steps = [
     { icon: Megaphone, title: 'Publica tu anuncio', body: 'El anuncio sigue en tu canal habitual y las respuestas llegan por ahí. No cambias dónde publicas ni cómo te encuentran.' },
-    { icon: Link2, title: 'Envía un enlace al candidato', body: 'Cuando llega una respuesta, compartes un enlace con las preguntas del puesto. El candidato completa el formulario en el móvil, con menos fricción que el chat.' },
+    { icon: Link2, title: 'Envía un enlace al candidato', body: 'Cuando llega una respuesta, compartes un enlace con las preguntas del puesto. El candidato las responde en el móvil, con menos fricción que el chat.' },
     { icon: ListChecks, title: 'Gestiona todo desde un panel', body: 'Cada candidatura queda en tu lista, ordenada. Filtras por lo relevante, actualizas el estado y decides a quién contactar.' },
   ]
   return (
@@ -931,7 +931,7 @@ function Features() {
     { icon: ListChecks, title: 'Todas las respuestas en una sola pantalla', body: 'Cada candidatura entra en tu lista, ordenada y junta. Sin revisar conversaciones dispersas ni anotar datos en otro sitio.' },
     { icon: Filter, title: 'Filtra por carnet, zona y experiencia', body: 'Identifica en segundos a quien encaja. Carnet, zona o los criterios del puesto: descarta el resto con un clic.' },
     { icon: PhoneCall, title: 'Estado de cada candidato, siempre visible', body: 'Marca el estado según avanzas. Evita contactar dos veces al mismo perfil y no pierdas candidatos relevantes.' },
-    { icon: Sliders, title: 'Formulario adaptado a cada puesto', body: 'Defines las preguntas del puesto. El candidato las responde en el móvil, con mayor tasa de finalización.' },
+    { icon: Sliders, title: 'Preguntas adaptadas a cada puesto', body: 'Defines las preguntas del puesto. El candidato las responde en el móvil, con mayor tasa de finalización.' },
     { icon: FileSpreadsheet, title: 'Exportación a Excel cuando la necesites', body: 'Tus candidatos son tuyos. Exporta la lista a Excel en cualquier momento, también si dejas el servicio.' },
     { icon: InfinityIcon, title: 'Candidatos sin límite', body: 'Recibe 20 candidaturas o 200: todas quedan en tu lista. En Pro, tu equipo colabora sin coste por usuario.' },
   ]
@@ -1299,15 +1299,36 @@ function Pricing() {
 
         <div className="mx-auto mt-10 max-w-lg rounded-2xl filo bg-white card-pad shadow-card">
           <PrecioProceso />
-          {/* "Sin permanencia" va pegado al precio (doctrina del modelo): es la
-              mitad de la promesa. El IVA ya se dice en el propio precio. */}
-          <p className="mt-2 text-copy text-slate-600">
-            Sin permanencia: cierras un proceso con un clic, deja de cobrarse y sus candidatos siguen siendo tuyos.
-          </p>
+          {/* La promesa del modelo la dicen ya las dos líneas del precio ("sin
+              permanencia" y los impuestos) y la lista de abajo; el párrafo que
+              explicaba el cómo ("cierras un proceso con un clic...") se retiró
+              en sep 2026 por redundante. Lo que decía sigue contestado en las
+              preguntas frecuentes, que es donde se va a buscar. */}
           <ul className="mt-6 space-y-2.5 border-t border-slate-200 pt-5">
             {[
+              // LA UNIDAD DE COBRO VIVE AQUÍ, y es la PRIMERA de la lista
+              // (Mario, sep 2026). Estaba pegada al número ("49 € al mes, por
+              // proceso abierto"), así que lo primero que se leía del precio
+              // era cómo contamos y no lo que te llevas. Baja a los beneficios
+              // y se dice en positivo, que es lo que impide que un "49 € al
+              // mes" a secas se lea como tarifa plana. NO puede dejar de ir la
+              // primera ni perder el "1 proceso": sin eso, la cifra grande
+              // sería falsa para quien abra dos, y enterarse ya dentro es una
+              // omisión engañosa (art. 7 de la Ley de Competencia Desleal)
+              // además del dark pattern que esta casa no hace. Lo que cuesta
+              // el segundo lo dicen el subtítulo de la sección ("pagas por lo
+              // que tienes en marcha: cada proceso abierto") y la pregunta
+              // "¿Hay costes ocultos?" de más abajo, que lo pone en euros.
+              //
+              // DICE "ABIERTO" Y NO "ACTIVO", y la diferencia es dinero: un
+              // proceso PAUSADO sigue abierto y se sigue cobrando (solo
+              // cerrarlo detiene el cobro, ver `procesoAbierto` en pricing.ts).
+              // "Activo" insinuaría que pausar libera el hueco, que es justo el
+              // malentendido que el menú de estado de un puesto se dedica a
+              // evitar diciendo la consecuencia pegada a cada opción.
+              '1 proceso de selección abierto',
               'Candidaturas sin límite y usuarios sin límite',
-              'Formulario a tu medida, con tu nombre, tu logo y tus colores',
+              'Preguntas a tu medida, con tu nombre, tu logo y tus colores',
               'Meridian: resume cada candidatura y calcula su ajuste al puesto',
               'Equipo: chat en cada candidato y tablón de peticiones',
               'Filtros, favoritos, etiquetas y exportar a Excel cuando quieras',
@@ -1374,10 +1395,10 @@ function FaqItem({ q, a, open, onToggle }: { q: string; a: string; open: boolean
 function Faq() {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const qs: [string, string][] = [
-    ['¿Qué hace exactamente Apúntate Fácil?', 'Apúntate Fácil convierte las respuestas de tu anuncio en candidatos ordenados. En lugar de seguir hablando por chat, envías un enlace. Cada persona completa un formulario y toda la información aparece organizada para que puedas filtrar, valorar y elegir.'],
+    ['¿Qué hace exactamente Apúntate Fácil?', 'Apúntate Fácil convierte las respuestas de tu anuncio en candidatos ordenados. En lugar de seguir hablando por chat, envías un enlace. Cada persona responde tus preguntas y toda la información aparece organizada para que puedas filtrar, valorar y elegir.'],
     ['¿Tengo que cambiar cómo publico mis anuncios?', 'No. Sigue publicando donde lo haces normalmente: Milanuncios, Instagram, WhatsApp, un QR, tu web o cualquier otro canal. Cuando alguien quiera apuntarse, solo tienes que enviarle tu enlace.'],
-    ['¿La gente realmente completa el formulario?', 'En la práctica suele completarse más gente, no menos. Son pocas preguntas, adaptadas al móvil, y tardan menos que escribir por el chat.'],
-    ['¿Es difícil empezar?', 'No. En menos de cinco minutos tendrás tu primer formulario listo para recibir candidatos. Después solo tienes que compartir el enlace y empezar a recibir las candidaturas ordenadas.'],
+    ['¿La gente realmente contesta?', 'En la práctica suele completarse más gente, no menos. Son pocas preguntas, adaptadas al móvil, y tardan menos que escribir por el chat.'],
+    ['¿Es difícil empezar?', 'No. En menos de cinco minutos tendrás tu primer puesto listo para recibir candidatos. Después solo tienes que compartir el enlace y empezar a recibir las candidaturas ordenadas.'],
     ['¿Hay permanencia?', 'No. Cierras un proceso con un clic y deja de cobrarse en ese momento. Sin llamadas de retención ni trámites adicionales.'],
     ['¿Los candidatos son míos si cierro un proceso?', 'Sí. El proceso cerrado se conserva entero: puedes consultarlo y exportarlo a Excel en cualquier momento, aunque ya no pagues por él.'],
     ['¿Hay costes ocultos o precios “desde”?', `No. Son ${PRECIO_PROCESO} € al mes por cada proceso de selección que tengas abierto (impuestos no incluidos), con candidaturas sin límite y todo el producto incluido. Lo que ves aquí es lo que pagas.`],

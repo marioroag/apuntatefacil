@@ -263,7 +263,7 @@ export function Playground() {
 
         <TrazoIconos />
 
-        <Section title="Campos de formulario" note="components/FieldRenderer.tsx. El mismo componente pinta el builder y el formulario público.">
+        <Section title="Preguntas" note="components/FieldRenderer.tsx. El mismo componente pinta la vista previa y la página pública.">
           <div className="flex flex-col gap-5">
             {SAMPLE_FIELDS.map((field) => (
               <FieldRenderer

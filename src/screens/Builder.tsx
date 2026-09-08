@@ -178,7 +178,7 @@ export function Builder() {
     if (idx === -1) return
     const removed = fields[idx]
     setFields(fields.filter((f) => f.id !== id))
-    toast.success('Campo eliminado', {
+    toast.success('Pregunta eliminada', {
       action: {
         label: 'Deshacer',
         onClick: () => {
@@ -248,7 +248,7 @@ export function Builder() {
             <ArrowLeft className="size-5" aria-hidden />
           </Link>
           <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold text-slate-900">Formulario de {campaign.title}</h1>
+            <h1 className="truncate text-base font-semibold text-slate-900">Preguntas de {campaign.title}</h1>
             <p className="text-[13px] text-slate-500">Lo que ve quien abre tu enlace</p>
           </div>
         </div>
@@ -277,7 +277,7 @@ export function Builder() {
               onClick={() => setPreviewOpen(true)}
               className={`${BTN_SECONDARY} w-full lg:hidden`}
             >
-              <Smartphone className="size-4 text-slate-500" aria-hidden /> Ver la vista previa del formulario
+              <Smartphone className="size-4 text-slate-500" aria-hidden /> Ver la vista previa
             </button>
 
             {/* Identidad (de la marca: se comparte entre sus puestos) */}
@@ -291,7 +291,7 @@ export function Builder() {
 
             {/* Campos */}
             <section>
-              <SectionTitle>Campos del formulario</SectionTitle>
+              <SectionTitle>Preguntas del puesto</SectionTitle>
               {/* Al empezar a arrastrar cerramos el editor abierto: si no, el <li> sortable
                   incluye el cuerpo expandido y se arrastra un nodo muy alto y de altura
                   variable, lo que rompe el reordenado de dnd-kit (closestCenter) y se ve mal.
@@ -354,7 +354,7 @@ export function Builder() {
 
             {/* Paleta de tipos */}
             <section>
-              <SectionTitle>Añadir campo</SectionTitle>
+              <SectionTitle>Añadir pregunta</SectionTitle>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {TYPE_ORDER.map((t) => {
                   const m = FIELD_TYPE_META[t]
@@ -395,7 +395,7 @@ export function Builder() {
             className="fixed inset-0 z-50 flex flex-col bg-slate-50 lg:hidden"
             role="dialog"
             aria-modal="true"
-            aria-label="Vista previa del formulario"
+            aria-label="Vista previa de las preguntas"
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
@@ -434,7 +434,7 @@ export function Builder() {
         onConfirm={confirmEmailChange}
         title={emailWarning?.kind === 'remove' ? 'Este puesto dejará de pedir email' : 'El email dejará de ser obligatorio'}
         confirmLabel={emailWarning?.kind === 'remove' ? 'Eliminar email' : 'Hacer opcional'}
-        cancelLabel={emailWarning?.kind === 'remove' ? 'Mantener campo' : 'Mantener obligatorio'}
+        cancelLabel={emailWarning?.kind === 'remove' ? 'Mantener la pregunta' : 'Mantener obligatorio'}
         confirmVariant={emailWarning?.kind === 'remove' ? 'danger' : 'primary'}
       >
         {emailWarning?.kind === 'remove'
@@ -582,10 +582,10 @@ function SortableFieldRow({
               Obligatorio
             </label>
             {field.system ? (
-              <span className="text-[12px] text-slate-500">Campo base, no se puede borrar</span>
+              <span className="text-[12px] text-slate-500">Pregunta base, no se puede borrar</span>
             ) : (
               <button onClick={onRemove} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-medium text-slate-500 hover:bg-red-50 hover:text-red-600">
-                <Trash2 className="size-3.5" aria-hidden /> Eliminar campo
+                <Trash2 className="size-3.5" aria-hidden /> Eliminar pregunta
               </button>
             )}
           </div>
@@ -600,7 +600,7 @@ function SortableFieldRow({
               />
               <span>
                 Pedir nombre y apellidos por separado
-                <span className="mt-0.5 block text-[12px] text-slate-500">Crea dos campos obligatorios: Nombre y Apellidos.</span>
+                <span className="mt-0.5 block text-[12px] text-slate-500">Crea dos preguntas obligatorias: Nombre y Apellidos.</span>
               </span>
             </label>
           )}
@@ -811,7 +811,7 @@ function Identidad({ campaign }: { campaign: Campaign }) {
 
             {brands.length > 1 && !active ? (
               <p className="text-[12px] leading-relaxed text-slate-500">
-                Este formulario sale con el nombre de tu empresa, {company?.name}, y sin imágenes. Elige una marca arriba para darle otra cara.
+                Tus preguntas salen con el nombre de tu empresa, {company?.name}, y sin imágenes. Elige una marca arriba para darle otra cara.
               </p>
             ) : (
               <CabeceraEditor
@@ -827,7 +827,7 @@ function Identidad({ campaign }: { campaign: Campaign }) {
                 namePlaceholder={company?.name ?? 'El nombre de tu empresa'}
                 nota={
                   compartida > 1
-                    ? `Esta marca la comparten ${compartida} puestos: al cambiarla, cambian todos sus formularios.`
+                    ? `Esta marca la comparten ${compartida} puestos: al cambiarla, cambian todos.`
                     : 'Es lo primero que ve el candidato al abrir tu enlace: la foto ocupa el ancho entero de tu anuncio.'
                 }
               />
