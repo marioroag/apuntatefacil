@@ -2,9 +2,13 @@
 // Pricing de Apúntate Fácil. Modelo: PAGO POR PROCESO ABIERTO (Mario, ago 2026;
 // sustituye a los tres planes Esencial/Pro/Multi).
 //
-//  - 49 €/mes + IVA por proceso abierto. Todos los procesos al mismo precio
-//    (Mario descartó el descuento del segundo y siguientes). El IVA se comunica
-//    SIEMPRE al lado del precio ("+ IVA"): somos B2B.
+//  - 49 €/mes por proceso abierto, impuestos no incluidos. Todos los procesos
+//    al mismo precio (Mario descartó el descuento del segundo y siguientes).
+//    Los impuestos se dicen SIEMPRE al lado del precio (lo exige la LSSI), pero
+//    como "impuestos no incluidos" y no "+ IVA" (sep 2026): somos canarios y
+//    no cobramos IVA a nadie (IGIC a Canarias, inversión del sujeto pasivo a
+//    la Península). Dónde está el cliente decide el impuesto: ver
+//    _shared/impuestos.ts.
 //  - Sin tiers y sin features de pago: TODO el producto está incluido. Se cobra
 //    por escala real (nº de procesos abiertos), nunca por capacidades.
 //  - Prueba: el PRIMER proceso es gratis 15 días, SIN tope de candidaturas
@@ -115,7 +119,7 @@ export function impuestoTexto(region: RegionFiscal | null | undefined): string {
 export const TRIAL_REASSURANCE = `Tu primer proceso gratis ${PRUEBA_DIAS} días. Sin límite de candidaturas y sin tarjeta.`
 
 /** La frase completa del modelo, para la landing y el formulario de precios. */
-export const PRECIO_FRASE = `${PRECIO_PROCESO} €/mes + IVA por proceso abierto. Primer proceso gratis. Sin permanencia: ciérralo cuando quieras y tus candidatos siguen siendo tuyos.`
+export const PRECIO_FRASE = `${PRECIO_PROCESO} €/mes por proceso abierto, impuestos no incluidos. Primer proceso gratis. Sin permanencia: ciérralo cuando quieras y tus candidatos siguen siendo tuyos.`
 
 /**
  * Estados en los que Stripe está cobrando de verdad. 'past_due' cuenta como

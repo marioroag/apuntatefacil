@@ -278,10 +278,10 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                     ? 'Tienes un hueco de proceso ya pagado en este ciclo: abrir este no te cobra nada ahora.'
                     : cobro.amountDue != null
                       ? <>Se te cobrará ahora <strong className="font-semibold text-slate-900">{(cobro.amountDue / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</strong>{cobro.impuestosIncluidos ? ' (IVA incluido)' : ' más IVA'}, la parte proporcional hasta tu próxima factura.</>
-                      : `Este proceso se añade a tu factura: ${PRECIO_PROCESO} € al mes (IVA aparte).`}
+                      : `Este proceso se añade a tu factura: ${PRECIO_PROCESO} € al mes (impuestos aparte).`}
                 </p>
                 <p className="mt-2 text-[13px] leading-relaxed text-slate-500">
-                  Después son {PRECIO_PROCESO} € al mes (IVA aparte) mientras esté abierto. Ciérralo cuando
+                  Después son {PRECIO_PROCESO} € al mes (impuestos aparte) mientras esté abierto. Ciérralo cuando
                   quieras y deja de cobrarse; tus candidatos siguen siendo tuyos.
                 </p>
                 <div className="mt-6 flex justify-end gap-2">
@@ -315,7 +315,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                 {/* Lo que va a costar se dice ANTES de elegir, no después de crear. */}
                 {modo === 'cobrar' && (
                   <p className="border-b border-slate-200 bg-slate-50 px-5 py-2.5 text-[13px] leading-relaxed text-slate-600">
-                    Tus procesos pagados están ocupados: este son {PRECIO_PROCESO} € al mes más (IVA aparte).
+                    Tus procesos pagados están ocupados: este son {PRECIO_PROCESO} € al mes más (impuestos aparte).
                     Verás el importe exacto antes de cobrar.
                   </p>
                 )}

@@ -1729,7 +1729,7 @@ export function Dashboard() {
           <p>
             El ciclo de este proceso ya está pagado
             {campaign.paidUntil ? ` hasta el ${new Date(campaign.paidUntil).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}` : ''}:
-            reabrirlo ahora no te cobra nada. Después sigue a {PRECIO_PROCESO} € al mes (IVA aparte) mientras esté abierto.
+            reabrirlo ahora no te cobra nada. Después sigue a {PRECIO_PROCESO} € al mes (impuestos aparte) mientras esté abierto.
           </p>
         ) : confirmReopen?.checkout ? (
           <p>
@@ -1741,9 +1741,9 @@ export function Dashboard() {
         ) : (
           <p>
             {typeof confirmReopen?.amountDue === 'number' ? (
-              <>Se te cobrará ahora <strong className="font-semibold text-slate-900">{(confirmReopen.amountDue / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</strong>{confirmReopen.impuestosIncluidos ? ' (IVA incluido)' : ' más IVA'}, la parte proporcional hasta tu próxima factura. Después, {PRECIO_PROCESO} € al mes (IVA aparte) mientras esté abierto.</>
+              <>Se te cobrará ahora <strong className="font-semibold text-slate-900">{(confirmReopen.amountDue / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</strong>{confirmReopen.impuestosIncluidos ? ' (IVA incluido)' : ' más IVA'}, la parte proporcional hasta tu próxima factura. Después, {PRECIO_PROCESO} € al mes (impuestos aparte) mientras esté abierto.</>
             ) : (
-              <>Reabrir este proceso son {PRECIO_PROCESO} € al mes (IVA aparte), que se añaden a tu factura.</>
+              <>Reabrir este proceso son {PRECIO_PROCESO} € al mes (impuestos aparte), que se añaden a tu factura.</>
             )}
           </p>
         )}
@@ -1768,7 +1768,7 @@ export function Dashboard() {
             ? 'Tienes un hueco de proceso ya pagado en este ciclo: la copia no te cobra nada ahora.'
             : typeof confirmDuplicar?.amountDue === 'number'
               ? <>Se te cobrará ahora <strong className="font-semibold text-slate-900">{(confirmDuplicar.amountDue / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</strong>{confirmDuplicar.impuestosIncluidos ? ' (IVA incluido)' : ' más IVA'}, la parte proporcional hasta tu próxima factura.</>
-              : <>La copia se añade a tu factura: {PRECIO_PROCESO} € al mes (IVA aparte).</>}
+              : <>La copia se añade a tu factura: {PRECIO_PROCESO} € al mes (impuestos aparte).</>}
         </p>
         {confirmDuplicar?.checkout && !company?.region_fiscal && <RegionFiscalRadio value={region} onChange={setRegionElegida} />}
         <p className="mt-2 text-slate-500">
