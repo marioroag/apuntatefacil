@@ -56,7 +56,7 @@ function ActivarPago({ onClick, cargando, bloqueadas, abiertos, pendientes, regi
           {abiertos === 1 ? 'Tienes 1 proceso abierto' : `Tienes ${abiertos} procesos abiertos`}
           {pendientes > 0 ? (pendientes === 1 ? ' y 1 a la espera del pago' : ` y ${pendientes} a la espera del pago`) : ''}
           {': '}
-          <span className="num font-semibold">{total} × {PRECIO_PROCESO} € = {total * PRECIO_PROCESO} €</span> al mes {impuestoTexto(region)}.
+          <span className="num font-semibold">{total} × {PRECIO_PROCESO} € = {total * PRECIO_PROCESO} €</span> al mes, {impuestoTexto(region)}.
         </p>
       )}
       {preguntarRegion && <RegionFiscalRadio value={region} onChange={onRegion} />}
@@ -65,8 +65,8 @@ function ActivarPago({ onClick, cargando, bloqueadas, abiertos, pendientes, regi
         Añadir método de pago
       </button>
       <p className="mt-3 text-[13px] leading-relaxed text-slate-500">
-        Con el pago seguro de Stripe, que te pedirá el NIF y la dirección para la factura. Pagas {PRECIO_PROCESO} € al mes {impuestoTexto(region)}
-        por cada proceso que tengas abierto, y cerrar uno deja de cobrarlo
+        Con el pago seguro de Stripe, que te pedirá el NIF y la dirección para la factura. Pagas {PRECIO_PROCESO} € al mes
+        por cada proceso que tengas abierto ({impuestoTexto(region)}), y cerrar uno deja de cobrarlo
         {bloqueadas > 0 ? '. Tus candidaturas en espera se desbloquean al momento' : ''}.
       </p>
     </>
@@ -246,7 +246,7 @@ export function Plan() {
             <h2 className="text-lg font-semibold text-slate-900">Procesos abiertos</h2>
             <p className="text-sm text-slate-600">
               <span className="num font-semibold text-slate-900">{abiertos.length}</span>
-              {' '}× {PRECIO_PROCESO} € = <span className="num font-semibold text-slate-900">{totalMes} €</span>/mes {impuestoTexto(company?.region_fiscal)}
+              {' '}× {PRECIO_PROCESO} € = <span className="num font-semibold text-slate-900">{totalMes} €</span>/mes, {impuestoTexto(company?.region_fiscal)}
             </p>
           </div>
 

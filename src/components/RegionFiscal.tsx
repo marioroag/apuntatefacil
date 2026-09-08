@@ -10,14 +10,18 @@ import { REGIONES_FISCALES, type RegionFiscal } from '../lib/pricing'
  * Con la región ya dicha (companies.region_fiscal) no se pinta: quien la monta
  * lo decide.
  */
-export function RegionFiscalRadio({ value, onChange }: {
+export function RegionFiscalRadio({ value, onChange, falta = false }: {
   value: RegionFiscal | null
   onChange: (v: RegionFiscal) => void
+  /** Se intentó seguir sin contestar: el aviso se enciende y se queda hasta que
+   *  se elige. Nunca se enciende solo, como el resto de avisos del anuncio. */
+  falta?: boolean
 }) {
   return (
-    <fieldset className="mt-4">
+    <fieldset className="mt-4" aria-invalid={falta || undefined} aria-describedby={falta ? 'falta-region' : undefined} data-region-fiscal>
       <legend className="text-sm font-medium text-slate-900">¿Dónde tiene tu empresa su domicilio fiscal?</legend>
       <p className="mt-0.5 text-[13px] text-slate-500">Decide el impuesto de tu factura. Se pregunta una sola vez.</p>
+      {falta && <p id="falta-region" className="mt-1 text-[12px] text-red-600">Elige dónde está tu empresa para preparar la factura.</p>}
       <div className="mt-2 grid gap-1.5">
         {REGIONES_FISCALES.map((r) => (
           <label key={r.value} className={`flex cursor-pointer items-start gap-2.5 rounded-lg px-3 py-2 ring-1 ring-inset ${value === r.value ? 'bg-indigo-50 ring-indigo-300' : 'ring-slate-200 hover:bg-slate-50'}`}>

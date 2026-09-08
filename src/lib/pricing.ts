@@ -89,16 +89,15 @@ export function modoProceso(
 export type RegionFiscal = 'canarias' | 'peninsula' | 'ceuta_melilla'
 export const REGIONES_FISCALES: { value: RegionFiscal; label: string; impuesto: string }[] = [
   { value: 'peninsula', label: 'Península o Baleares', impuesto: 'sin IVA en la factura (inversión del sujeto pasivo: lo declara tu empresa)' },
-  { value: 'canarias', label: 'Canarias', impuesto: '+ 7 % de IGIC' },
+  { value: 'canarias', label: 'Canarias', impuesto: 'más IGIC (7 %)' },
   { value: 'ceuta_melilla', label: 'Ceuta o Melilla', impuesto: 'sin IVA' },
 ]
 
-/** "al mes + 7 % de IGIC" / "al mes, sin IVA en la factura (...)". Sin región
- *  conocida, la fórmula genérica del producto. */
+/** La coletilla del impuesto para escribir detrás de "X € al mes, ": "más IGIC
+ *  (7 %)", "sin IVA en la factura (...)". Sin región conocida, la fórmula
+ *  genérica del producto, "más IVA". */
 export function impuestoTexto(region: RegionFiscal | null | undefined): string {
-  const r = REGIONES_FISCALES.find((x) => x.value === region)
-  if (!r) return '+ IVA'
-  return r.value === 'canarias' ? r.impuesto : `, ${r.impuesto}`
+  return REGIONES_FISCALES.find((x) => x.value === region)?.impuesto ?? 'más IVA'
 }
 
 /** Reassurance de la prueba en hero y CTAs. Derivada del tope real, que ya es
