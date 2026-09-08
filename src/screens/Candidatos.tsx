@@ -711,13 +711,13 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
         open={cerradoDe !== null}
         onClose={() => setCerradoDe(null)}
         onConfirm={() => { const id = cerradoDe; setCerradoDe(null); if (id) navigate(`${base}/puestos/${id}`) }}
-        title="Este proceso está cerrado"
+        title="Solo en puestos activos"
         confirmLabel="Ver el puesto"
         cancelLabel="Ahora no"
       >
         <p className="text-sm leading-relaxed text-slate-600">
-          Sus candidatos siguen aquí y puedes exportarlos desde el puesto. Para abrir sus fichas, cambiarles el estado
-          o etiquetarlos, hay que reabrir el proceso.
+          Esta persona es de un puesto cerrado. Sus candidatos siguen ahí y puedes exportarlos desde el puesto;
+          para abrir sus fichas, cambiarles el estado o etiquetarlos, reábrelo desde su panel.
         </p>
       </ConfirmDialog>
 

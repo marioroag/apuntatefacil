@@ -643,19 +643,38 @@ export function Dashboard() {
   // control donde tiene que caer el cursor. Se limpia al cerrar, o la próxima
   // ficha se abriría también en la nota.
   const [focoFicha, setFocoFicha] = useState<'nota' | 'etiqueta' | null>(null)
-  const [cerradoDialog, setCerradoDialog] = useState(false)
+  // UN PROCESO CERRADO HABLA DOS VECES (Mario, sep 2026). Al ENTRAR, una
+  // invitación a reabrirlo, en tono suave y con "Solo mirar" como salida: quien
+  // llega a un puesto cerrado con gente dentro casi siempre viene a hacer algo
+  // con ella, y es mejor decirle antes lo que cuesta que dejar que lo descubra
+  // al primer clic. Y al INTENTAR algo que no se puede (abrir una ficha,
+  // etiquetar, anotar), el aviso de que eso solo existe en puestos activos, con
+  // la misma puerta. Son dos motivos del MISMO diálogo, no dos diálogos.
+  const [cerradoDialog, setCerradoDialog] = useState<'entrada' | 'bloqueo' | null>(null)
   const abrirFicha = useCallback((id: string) => {
-    if (soloLectura) { setCerradoDialog(true); return }
+    if (soloLectura) { setCerradoDialog('bloqueo'); return }
     setFocoFicha(null); setOpenId(id)
   }, [soloLectura, setOpenId])
   const abrirEnNota = useCallback((id: string) => {
-    if (soloLectura) { setCerradoDialog(true); return }
+    if (soloLectura) { setCerradoDialog('bloqueo'); return }
     setFocoFicha('nota'); setOpenId(id)
   }, [soloLectura, setOpenId])
   const abrirEnEtiqueta = useCallback((id: string) => {
-    if (soloLectura) { setCerradoDialog(true); return }
+    if (soloLectura) { setCerradoDialog('bloqueo'); return }
     setFocoFicha('etiqueta'); setOpenId(id)
   }, [soloLectura, setOpenId])
+  // La invitación sale UNA vez por puesto y por visita (el ref guarda a quién
+  // se invitó), cuando la lista ya está cargada y hay alguien dentro: en un
+  // puesto cerrado sin candidaturas no hay nada que reabrir para "seguir
+  // usándolo", y ahí basta la franja. Eso deja fuera también a un puesto a la
+  // espera del pago, que nunca llegó a abrirse y no tiene a nadie.
+  const invitadoRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!campaign || !soloLectura || loading || all.length === 0) return
+    if (invitadoRef.current === campaign.id) return
+    invitadoRef.current = campaign.id
+    setCerradoDialog('entrada')
+  }, [campaign, soloLectura, loading, all.length])
   // EL CHIP "CV" DE LA COLUMNA ABRE LA FICHA EN EL DOCUMENTO (Mario, sep 2026:
   // "los documentos deben ser clickeables desde la columna").
   //
@@ -1619,16 +1638,20 @@ export function Dashboard() {
       </div>
 
       <ConfirmDialog
-        open={cerradoDialog}
-        onClose={() => setCerradoDialog(false)}
-        onConfirm={() => { setCerradoDialog(false); if (canManage) void reopen() }}
-        title="Este proceso está cerrado"
+        open={cerradoDialog !== null}
+        onClose={() => setCerradoDialog(null)}
+        onConfirm={() => { setCerradoDialog(null); if (canManage) void reopen() }}
+        title={cerradoDialog === 'bloqueo' ? 'Solo en puestos activos' : 'Este puesto está cerrado'}
         confirmLabel={canManage ? 'Reabrir puesto' : 'Entendido'}
-        cancelLabel={canManage ? 'Ahora no' : 'Cerrar'}
+        cancelLabel={canManage ? (cerradoDialog === 'bloqueo' ? 'Ahora no' : 'Solo mirar') : 'Cerrar'}
       >
         <p className="text-sm leading-relaxed text-slate-600">
-          Sus candidatos siguen aquí y puedes exportarlos cuando quieras. Para abrir sus fichas, cambiarles el estado,
-          etiquetarlos o citarlos, hay que reabrir el proceso{company?.plan === 'proceso' || company?.plan === 'trial' ? ` (${PRECIO_PROCESO} € al mes, impuestos aparte)` : ''}.
+          {cerradoDialog === 'bloqueo'
+            ? 'Esto solo está disponible en puestos activos. '
+            : `${all.length === 1 ? 'Su candidatura sigue aquí' : `Sus ${miles(all.length)} candidaturas siguen aquí`} y puedes verlas y exportarlas cuando quieras. `}
+          {canManage
+            ? <>{cerradoDialog === 'bloqueo' ? 'Reábrelo para seguir trabajando con sus candidatos' : 'Para seguir trabajando con ellas (abrir fichas, cambiar estados, etiquetar o citar), reábrelo'}{company?.plan === 'proceso' || company?.plan === 'trial' ? <>: {PRECIO_PROCESO} € al mes, impuestos aparte, y lo cierras cuando quieras</> : null}.</>
+            : 'Para seguir trabajando con ellas (abrir fichas, cambiar estados, etiquetar o citar), hay que reabrirlo, y eso lo hace quien administra el puesto.'}
         </p>
       </ConfirmDialog>
 
