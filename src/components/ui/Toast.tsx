@@ -72,7 +72,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         // declara mientras está puesta (`--alto-barra-flotante`, en Dashboard).
         // Sin esto, el aviso de "Excel listo" aterrizaba encima de la barra que
         // acababas de usar, tapándole la equis.
-        className="pointer-events-none fixed bottom-[calc(1rem+var(--alto-barra-flotante,0px))] right-4 z-[60] flex w-[min(92vw,380px)] flex-col gap-2"
+        // `z-[80]`, por encima de TODO lo que esta app apila (modales a 50, hojas de
+        // móvil a 55-60): un aviso que no se lee no es un aviso, y el que
+        // salta por el tope de etiquetas sale justo desde dentro de una hoja.
+        className="pointer-events-none fixed bottom-[calc(1rem+var(--alto-barra-flotante,0px))] right-4 z-[80] flex w-[min(92vw,380px)] flex-col gap-2"
         aria-live="polite"
       >
         <AnimatePresence initial={false}>

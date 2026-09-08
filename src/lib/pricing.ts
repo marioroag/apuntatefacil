@@ -185,7 +185,7 @@ export function finDePrueba(
  * OJO AL CONSUMIRLO: con `floor`, **`0` es el ÚLTIMO DÍA y no el final**. Con
  * `ceil` las dos cosas coincidían y por eso medio producto leía `dias === 0`
  * como "se acabó"; eso ahora diría que la prueba ha terminado con el puesto
- * todavía en línea. Quién ha terminado lo dice `pruebaAgotada`.
+ * todavía abierto. Quién ha terminado lo dice `pruebaAgotada`.
  */
 export function diasDePruebaRestantes(trialEndsAt: string | null | undefined): number | null {
   if (!trialEndsAt) return null // el reloj arranca al abrir el primer proceso

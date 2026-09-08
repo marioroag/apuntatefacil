@@ -1,5 +1,18 @@
 // Documentos legales de Apúntate Fácil (privacidad y términos).
 //
+// Revisión 1.5 (8 sep 2026): SOLO REDACCIÓN, ninguna obligación cambia. El
+// estado de un puesto pasó a llamarse "Abierto" (antes "En línea"), y con eso
+// el apartado 4 se quedaba diciendo dos cosas raras a la vez: nombraba una
+// etiqueta que ya no existe ("tanto si está en línea") y usaba "sigue abierto"
+// para un puesto PAUSADO, que en pantalla es justo el estado que NO se llama
+// Abierto. Ahora dice el hecho sin apoyarse en el nombre de ningún control:
+// "tanto si acepta candidaturas como si lo tienes en pausa: pausar detiene el
+// enlace, pero el proceso no se cierra y se sigue cobrando". La regla de cobro
+// es exactamente la misma que en 1.4, así que NO es un cambio relevante del
+// apartado 12 y no dispara el aviso previo que ese apartado promete; se sube
+// la versión igual porque 1.4 ya está publicada y los dos textos tienen que
+// poder distinguirse. La fecha no se mueve: es el mismo día.
+//
 // Revisión 1.4 (8 sep 2026): los documentos volvieron a decir lo que se cobra.
 // Seguían anunciando los TRES PLANES con sus precios (185/237/533 EUR al mes)
 // meses después de pasar al pago por proceso, o sea que las condiciones
@@ -594,7 +607,7 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Un proceso está abierto mientras no lo cierres, tanto si está en línea como si lo pausas: pausar detiene el enlace, pero el proceso sigue abierto y se sigue cobrando. Cerrarlo es lo que detiene el cobro, y puedes hacerlo con un clic, sin permanencia y en cualquier momento. Un proceso cerrado deja de aceptar candidaturas, pero se conserva entero y puedes consultarlo y exportarlo."
+          "text": "Un proceso está abierto mientras no lo cierres, tanto si acepta candidaturas como si lo tienes en pausa: pausar detiene el enlace, pero el proceso no se cierra y se sigue cobrando. Cerrarlo es lo que detiene el cobro, y puedes hacerlo con un clic, sin permanencia y en cualquier momento. Un proceso cerrado deja de aceptar candidaturas, pero se conserva entero y puedes consultarlo y exportarlo."
         },
         {
           "type": "p",

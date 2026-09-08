@@ -55,7 +55,7 @@ export const UMBRAL_AGOTADA = -1
  *
  * `agotada` va aparte de los días **porque `0` ya no significa "se acabó"**:
  * con el redondeo hacia abajo, cero días quedan durante toda la última jornada,
- * con el puesto en línea y recibiendo candidaturas. Mezclarlos haría saltar el
+ * con el puesto abierto y recibiendo candidaturas. Mezclarlos haría saltar el
  * aviso de "tu prueba ha terminado" un día antes de que sea verdad, que es
  * exactamente lo que esta casa llama afirmar algo falso.
  */

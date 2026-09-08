@@ -444,7 +444,9 @@ function PanelSpinner() {
 }
 
 const ROLE_LABEL: Record<string, string> = { owner: 'Propietario', member: 'Miembro', encargado: 'Encargado' }
-const CAMPAIGN_STATUS_LABEL: Record<string, string> = { activa: 'Activo', pausada: 'Pausado', cerrada: 'Cerrado' }
+// Los mismos nombres que ve el cliente en la cápsula del puesto: este panel es
+// de staff, pero dos nombres para el mismo estado es como empieza a haber dos.
+const CAMPAIGN_STATUS_LABEL: Record<string, string> = { activa: 'Abierto', pausada: 'Pausado', cerrada: 'Cerrado' }
 
 function shortDate(iso: string): string {
   const d = new Date(iso)

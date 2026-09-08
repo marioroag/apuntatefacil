@@ -90,7 +90,7 @@ export function AvisoPrueba() {
       ) : (
         <>
           <p>
-            Tu puesto sigue en línea y recibiendo candidaturas{' '}
+            Tu puesto sigue abierto y recibiendo candidaturas{' '}
             {dias === 0
               ? 'hasta el final del día'
               : <>hasta el {company?.trial_ends_at ? fechaCorta(company.trial_ends_at) : 'final de la prueba'}</>}

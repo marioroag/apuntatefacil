@@ -101,10 +101,10 @@ Deno.serve(async (req) => {
     if (t === 'previo') {
       subject = `Tu prueba termina el ${fecha}`
       html = renderEmail({
-        preview: `${puesto} sigue en línea hasta el ${fecha}`,
+        preview: `${puesto} sigue abierto hasta el ${fecha}`,
         heading: 'Te quedan tres días de prueba',
         bodyHtml:
-          `Tu puesto ${strong(esc(puesto))} sigue en línea y recibiendo candidaturas hasta el ${strong(esc(fecha))}. ` +
+          `Tu puesto ${strong(esc(puesto))} sigue abierto y recibiendo candidaturas hasta el ${strong(esc(fecha))}. ` +
           `A partir de ahí no se pierde ninguna: las nuevas quedan guardadas en espera y las ves todas en cuanto actives el pago.<br><br>` +
           (sinCobroHoy
             ? `Puedes dejar tu método de pago hoy sin perder lo que te queda: ${strong('no se te cobra nada hasta el ' + esc(fecha))}, ` +

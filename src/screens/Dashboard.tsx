@@ -65,7 +65,7 @@ import { KanbanPuesto } from '../components/KanbanPuesto'
 import { useModoPanel } from '../lib/modoPanel'
 import { useDesvanecido } from '../lib/desvanecido'
 import { DUR, EASE } from '../lib/motion'
-import { StatusPill, StatusSelect, StatusPickerSheet, MenuEstado } from '../components/ui/StatusPill'
+import { StatusPill, StatusSelect, MenuEstado } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { SedesDialog } from '../components/SedesDialog'
@@ -333,7 +333,7 @@ export function Dashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [duplicating, setDuplicating] = useState(false)
   const [confirmClose, setConfirmClose] = useState(false)
-  // Pausar y volver a poner en línea también pasan por un pop-up (Mario, sep
+  // Pausar y reanudar también pasan por un pop-up (Mario, sep
   // 2026): un cambio de estado desde la pastilla no puede dejar dudas de qué
   // pasa con el enlace y con el cobro. Guarda a dónde se va.
   const [confirmPausa, setConfirmPausa] = useState<null | 'pausada' | 'activa'>(null)
@@ -445,7 +445,7 @@ export function Dashboard() {
     const ok = await updateCampaign(campaign.id, { status: next })
     setPausando(false)
     setConfirmPausa(null)
-    if (ok) toast.success(next === 'pausada' ? 'Puesto pausado. Deja de aceptar candidaturas; sigue abierto.' : 'Puesto en línea otra vez.')
+    if (ok) toast.success(next === 'pausada' ? 'Puesto pausado. El enlace deja de aceptar candidaturas.' : 'Puesto reanudado. El enlace vuelve a aceptar candidaturas.')
   }
   // Reabrir un puesto cerrado: en el pago por proceso primero se enseña qué va
   // a costar (previewReabrir) y se confirma; en prueba y tiers antiguos abre
@@ -1739,13 +1739,18 @@ export function Dashboard() {
       />
 
 
-      {/* Pausar y volver a poner en línea: corto y sin dudas, sobre todo con el
-          cobro, que es lo que un cliente quiere saber antes de tocar nada. */}
+      {/* Pausar y reanudar: corto y sin dudas, sobre todo con el cobro, que es lo
+          que un cliente quiere saber antes de tocar nada.
+
+          SE LLAMA "REANUDAR" Y NO "ABRIR" NI "REABRIR" (sep 2026, con el estado
+          renombrado a "Abierto"): "Reabrir puesto" es el salto desde CERRADO y
+          pasa por la facturación, así que con el mismo nombre serían dos puertas
+          distintas llamadas igual. Lo que se deshace aquí es la PAUSA. */}
       <ConfirmDialog
         open={confirmPausa !== null}
         onClose={() => setConfirmPausa(null)}
-        title={confirmPausa === 'pausada' ? 'Pausar puesto' : 'Poner en línea'}
-        confirmLabel={confirmPausa === 'pausada' ? 'Pausar puesto' : 'Poner en línea'}
+        title={confirmPausa === 'pausada' ? 'Pausar puesto' : 'Reanudar puesto'}
+        confirmLabel={confirmPausa === 'pausada' ? 'Pausar puesto' : 'Reanudar puesto'}
         loading={pausando}
         onConfirm={doTogglePause}
       >
@@ -1753,8 +1758,8 @@ export function Dashboard() {
           <p>
             El enlace deja de aceptar candidaturas y tus candidatos siguen aquí.
             {company?.plan === 'proceso'
-              ? <> El proceso sigue abierto y <strong className="font-semibold text-slate-900">se sigue cobrando</strong> ({PRECIO_PROCESO} € al mes): para dejar de pagarlo, ciérralo.</>
-              : ' El proceso sigue abierto: puedes volver a ponerlo en línea cuando quieras.'}
+              ? <> El proceso no se cierra y <strong className="font-semibold text-slate-900">se sigue cobrando</strong> ({PRECIO_PROCESO} € al mes): para dejar de pagarlo, ciérralo.</>
+              : ' El proceso no se cierra: puedes reanudarlo cuando quieras.'}
           </p>
         ) : (
           <p>
@@ -2641,8 +2646,6 @@ const CandidateTable = memo(function CandidateTable({
   const anchoMovil = orden.reduce((t, k) => t + anchoMovilDe(k, campoDe(k)?.type), 40)
   const anchoEscritorio = orden.reduce((t, k) => t + anchoEscritorioDe(k, campoDe(k)?.type), 40)
 
-  // Candidato cuyo estado se está cambiando desde la hoja (solo móvil).
-  const [statusFor, setStatusFor] = useState<Candidate | null>(null)
   // Orden de aparición entre las filas recién llegadas: si entran varias a la
   // vez, se escalonan (como en el mockup del hero) en vez de aparecer todas de
   // golpe. Tope a 4 para no alargar la espera si llega una tanda grande.
@@ -3139,12 +3142,6 @@ const CandidateTable = memo(function CandidateTable({
       )}
       </div>
 
-      <StatusPickerSheet
-        open={!!statusFor}
-        status={statusFor?.status ?? null}
-        onPick={(s) => statusFor && setStatus(statusFor.id, s)}
-        onClose={() => setStatusFor(null)}
-      />
     </>
   )
 })
@@ -3868,12 +3865,23 @@ const ESTADO_PUESTO = {
   // página (#f9fafb) el 100 se queda en 1,05:1, o sea que la cápsula no llega a
   // leerse como una forma; el 200 da 1,16:1, tres veces la separación, y el texto
   // encima sigue en 5,91:1 (AA pide 4,5). Los tres suben a la vez: si solo subiera
-  // el verde, "En línea" parecería de otra familia que "Pausado" y "Cerrado".
+  // el verde, "Abierto" parecería de otra familia que "Pausado" y "Cerrado".
   // El hover es `brightness` y no el siguiente paso de la rampa (200 -> 300), que
   // era un salto entero y se leía como un cambio de estado en vez de como "puedes
   // pulsar esto". Es además el MISMO mecanismo que ya usan las pastillas de estado
   // de un candidato: un solo lenguaje de hover para todas las cápsulas teñidas.
-  activa: { label: 'En línea', punto: 'bg-green-600', chapa: 'bg-green-200 text-green-900' },
+  // SE LLAMA "ABIERTO", NO "EN LÍNEA" (Mario, sep 2026). Es la palabra que el
+  // producto ya usa donde se paga ("N procesos abiertos", "se cobra por proceso
+  // abierto"), así que la cápsula deja de nombrar el estado de una forma y la
+  // factura de otra; y es más corta, que en la cabecera de un móvil es la
+  // diferencia entre una línea y dos.
+  //
+  // LO QUE CUESTA, DICHO: "abierto" tiene aquí un segundo sentido, el de
+  // facturación, donde un puesto PAUSADO también está abierto (no cerrado) y se
+  // sigue cobrando. Por eso las frases de este menú y de sus diálogos dejan de
+  // decir "el proceso sigue abierto" y dicen "no se cierra": el hecho es el
+  // mismo y ya no choca con el nombre del estado de al lado.
+  activa: { label: 'Abierto', punto: 'bg-green-600', chapa: 'bg-green-200 text-green-900' },
   pausada: { label: 'Pausado', punto: 'bg-amber-600', chapa: 'bg-amber-200 text-amber-900' },
   cerrada: { label: 'Cerrado', punto: 'bg-slate-500', chapa: 'bg-slate-200 text-slate-800' },
 } as const
@@ -3904,8 +3912,19 @@ function EstadoPuesto({
   const ref = useRef<HTMLDivElement>(null)
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  // EN MÓVIL, HOJA (Mario, sep 2026), y aquí no era solo consistencia: el panel
+  // mide 312px y colgaba `absolute left-0` de una cápsula que en un teléfono
+  // arranca hacia la mitad del título, así que **se salía de la pantalla por la
+  // derecha** y las tres opciones se leían cortadas. La hoja ocupa el ancho
+  // entero, que es justo lo que este menú necesita: sus tres filas llevan una
+  // frase debajo del nombre, no una palabra.
+  // `useEsMovil` decide qué se MONTA, no qué se ve.
+  const esMovil = useEsMovil()
+  // Nada de esto en móvil: la hoja sale en un portal a `body`, así que ya no está
+  // dentro de `ref` y este click-fuera leería un toque DENTRO de ella como un
+  // toque fuera. Ella se cierra sola (telón, Escape y arrastre).
   useEffect(() => {
-    if (!open) return
+    if (!open || esMovil) return
     const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false)
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
@@ -3918,7 +3937,7 @@ function EstadoPuesto({
       document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, esMovil])
 
   const e = ESTADO_PUESTO[status]
   const etiqueta = pendientePago ? 'Pendiente de pago' : e.label
@@ -3952,7 +3971,12 @@ function EstadoPuesto({
   // acaba en chevron (ver `RELLENO`). `px-3` y `pr-2` son la misma utilidad y no
   // se resuelven por el orden en que se escriben, así que la salida es la de
   // siempre: el esqueleto no pone lo que una de las dos va a tener que anular.
-  const forma = 'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full text-[13px] font-medium'
+  // `whitespace-nowrap`: una cápsula es una ETIQUETA, y partida en dos renglones
+  // deja de medir los 28px que la mantienen siendo un accesorio del título y pasa
+  // a ser una caja. Pasaba con "En línea" en la cabecera de un móvil (se veía
+  // "En / línea") y volvería a pasar con "Pendiente de pago". Quien cede es el
+  // título, que ya se recorta.
+  const forma = 'inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full text-[13px] font-medium'
   // EL RELLENO SE MIDE HASTA LA TINTA, NO HASTA LA CAJA (Mario, sep 2026, sobre
   // la pastilla de estado de la tabla: "parece que hay más padding a la derecha").
   // El chevron de lucide dibuja su flecha en el 50% central de su viewBox, así que
@@ -3975,18 +3999,23 @@ function EstadoPuesto({
   const descripcion = (v: Campaign['status']) => {
     if (v === 'activa') return 'El enlace está publicado y acepta candidaturas.'
     if (v === 'pausada') {
+      // "No se cierra" y no "sigue abierto": con el estado de arriba llamándose
+      // "Abierto", decir que un puesto pausado "sigue abierto" es una
+      // contradicción en la misma lista. El hecho que hay que entender es el
+      // mismo (se cobra hasta que lo cierres) y así además se lee en paralelo con
+      // "Cerrado", que es la fila de debajo.
       return cobraPorProceso
-        ? 'El enlace deja de aceptar candidaturas. El proceso sigue abierto y se sigue cobrando.'
-        : 'El enlace deja de aceptar candidaturas. El proceso sigue abierto.'
+        ? 'El enlace deja de aceptar candidaturas. El proceso no se cierra y se sigue cobrando.'
+        : 'El enlace deja de aceptar candidaturas. El proceso no se cierra.'
     }
-    if (pendientePago) return 'Creado a la espera del pago: elige "En línea" para pagarlo y publicarlo.'
+    if (pendientePago) return 'Creado a la espera del pago: elige "Abierto" para pagarlo y publicarlo.'
     return cobraPorProceso
       ? 'Deja de aceptar candidaturas y de cobrarse. Tus candidatos siguen aquí y puedes exportarlos.'
       : 'Deja de aceptar candidaturas. Tus candidatos siguen aquí y puedes exportarlos.'
   }
 
   // Desde CERRADO solo se puede volver reabriendo, que es una puerta de
-  // facturación y siempre acaba en "en línea". Ofrecer "Pausado" desde ahí sería
+  // facturación y siempre acaba en "abierto". Ofrecer "Pausado" desde ahí sería
   // prometer un salto que el store no hace: se enseña, apagado, con el motivo.
   const bloqueo = (v: Campaign['status']) =>
     status === 'cerrada' && v === 'pausada' ? 'Reábrelo primero' : null
@@ -3996,7 +4025,7 @@ function EstadoPuesto({
     if (v === status) return
     if (v === 'cerrada') return onClosePuesto()
     if (status === 'cerrada') return onReopen()
-    // Entre "en línea" y "pausado" el salto es directo: no toca la facturación.
+    // Entre "abierto" y "pausado" el salto es directo: no toca la facturación.
     onPauseResume()
   }
 
@@ -4009,6 +4038,51 @@ function EstadoPuesto({
     const base = actual < 0 ? desde : actual
     items[(base + dir + items.length) % items.length]?.focus()
   }
+
+  // UNA sola lista, dos envoltorios: el desplegable de escritorio y la hoja de
+  // móvil pintan las mismas tres opciones con las mismas frases. Escritas dos
+  // veces se separan al primer retoque, y aquí lo que se separaría es justo lo
+  // que hay que leer antes de decidir: la consecuencia de facturación.
+  const opciones = (
+    <>
+      {ORDEN_ESTADOS.map((v, i) => {
+        const actual = v === status
+        const motivo = bloqueo(v)
+        return (
+          <button
+            key={v}
+            type="button"
+            role="menuitemradio"
+            aria-checked={actual}
+            disabled={!!motivo}
+            onClick={() => elegir(v)}
+            onKeyDown={(ev) => {
+              if (ev.key === 'ArrowDown') { ev.preventDefault(); mover(i, 1) }
+              else if (ev.key === 'ArrowUp') { ev.preventDefault(); mover(i, -1) }
+            }}
+            className={`block w-full rounded-lg px-2.5 py-2 text-left outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+              actual
+                // El estado actual va en el acento: seleccionar es uno de los
+                // cuatro usos permitidos del ultramarine (acción, nav, foco y
+                // selección). Aquí es exactamente selección.
+                ? 'bg-indigo-50 text-indigo-700'
+                : motivo
+                  ? 'cursor-not-allowed opacity-55'
+                  : 'text-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              {ESTADO_PUESTO[v].label}
+              {motivo && <span className="text-[11px] font-medium text-slate-500">({motivo})</span>}
+            </span>
+            <span className={`mt-0.5 block text-[12px] leading-relaxed ${actual ? 'text-indigo-600' : 'text-slate-500'}`}>
+              {descripcion(v)}
+            </span>
+          </button>
+        )
+      })}
+    </>
+  )
 
   return (
     <div className="relative" ref={ref}>
@@ -4024,49 +4098,20 @@ function EstadoPuesto({
         <ChevronDown className={`size-3.5 shrink-0 opacity-70 transition-transform duration-[var(--duration-control)] ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
 
-      {open && (
+      {esMovil ? (
+        <BottomSheet open={open} onClose={() => setOpen(false)} title="Estado del puesto">
+          {/* `role="menu"` también aquí: los ítems son `menuitemradio` y necesitan
+              su contenedor, y de él cuelgan además las flechas del teclado. */}
+          <div className="px-2 pb-3 pt-1" role="menu" aria-label="Estado del puesto" ref={menuRef}>{opciones}</div>
+        </BottomSheet>
+      ) : open && (
         <div
           ref={menuRef}
           role="menu"
           aria-label="Estado del puesto"
           className="absolute left-0 z-50 mt-1.5 w-[19.5rem] overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop"
         >
-          {ORDEN_ESTADOS.map((v, i) => {
-            const actual = v === status
-            const motivo = bloqueo(v)
-            return (
-              <button
-                key={v}
-                type="button"
-                role="menuitemradio"
-                aria-checked={actual}
-                disabled={!!motivo}
-                onClick={() => elegir(v)}
-                onKeyDown={(ev) => {
-                  if (ev.key === 'ArrowDown') { ev.preventDefault(); mover(i, 1) }
-                  else if (ev.key === 'ArrowUp') { ev.preventDefault(); mover(i, -1) }
-                }}
-                className={`block w-full rounded-lg px-2.5 py-2 text-left outline-none transition-colors duration-[var(--duration-control)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
-                  actual
-                    // El estado actual va en el acento: seleccionar es uno de los
-                    // cuatro usos permitidos del ultramarine (acción, nav, foco y
-                    // selección). Aquí es exactamente selección.
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : motivo
-                      ? 'cursor-not-allowed opacity-55'
-                      : 'text-slate-800 hover:bg-slate-50'
-                }`}
-              >
-                <span className="flex items-center gap-2 text-sm font-semibold">
-                  {ESTADO_PUESTO[v].label}
-                  {motivo && <span className="text-[11px] font-medium text-slate-500">({motivo})</span>}
-                </span>
-                <span className={`mt-0.5 block text-[12px] leading-relaxed ${actual ? 'text-indigo-600' : 'text-slate-500'}`}>
-                  {descripcion(v)}
-                </span>
-              </button>
-            )
-          })}
+          {opciones}
         </div>
       )}
     </div>
@@ -4164,8 +4209,12 @@ function PuestoMenu({
     setPagina('raiz')
   }, [])
 
+  // EN MÓVIL NO SE ESCUCHA NADA AQUÍ: la hoja sale en un portal a `body` (sep
+  // 2026), o sea que ya NO está dentro de `ref`, y este click-fuera leería un
+  // toque en la hoja como un toque fuera y la cerraría. La hoja trae su propio
+  // telón, su Escape y su arrastre, que es todo lo que hace falta ahí.
   useEffect(() => {
-    if (!open) return
+    if (!open || isMobile) return
     const onDoc = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && cerrar()
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
@@ -4185,7 +4234,7 @@ function PuestoMenu({
       document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open, pagina, cerrar])
+  }, [open, pagina, cerrar, isMobile])
 
   // El diálogo se remonta en cada apertura (`key`) para que no arrastre lo que
   // dejaste escrito o la fila que estabas editando la vez anterior.
@@ -4558,8 +4607,10 @@ function ShareMenu({
     }
   }, [open])
 
+  // En móvil no se escucha aquí: la hoja vive en un portal a `body`, así que este
+  // click-fuera leería un toque en ella como un toque fuera. Ella se cierra sola.
   useEffect(() => {
-    if (!open) return
+    if (!open || isMobile) return
     // pointerdown (no click): al pulsar Editar el botón se desmonta en el mismo
     // evento y contains(target) falla con nodos ya desconectados. composedPath
     // conserva el panel aunque React reemplace el botón. El blur del textarea
@@ -4578,7 +4629,7 @@ function ShareMenu({
       document.removeEventListener('pointerdown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, isMobile])
 
   return (
     <div className="relative" ref={ref}>

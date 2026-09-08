@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useDragControls } from 'framer-motion'
 import { X } from 'lucide-react'
 
@@ -9,6 +10,20 @@ import { X } from 'lucide-react'
  *
  * Solo arrastra desde el asa/cabecera (`dragListener={false}` + `dragControls`),
  * así el cuerpo hace scroll normal sin pelearse con el gesto de cierre.
+ *
+ * **VA EN UN PORTAL A `document.body`** (sep 2026), y no es cosmético: la hoja es
+ * `position: fixed`, y un antepasado con `transform` deja de ser la ventana y pasa
+ * a ser SU bloque contenedor. El panel de `ui/Modal` se anima con `scale`/`y`, así
+ * que una hoja abierta desde dentro de la ficha del candidato (cambiar estado,
+ * etiquetar) se colocaría contra el panel y encima la recortaría su
+ * `overflow-hidden`. Es la regla de siempre de esta casa: **lo que flota se coloca
+ * contra la VENTANA**, y un portal salva además del apilamiento del antepasado.
+ *
+ * COROLARIO QUE HAY QUE PAGAR: al salir a un portal, la hoja ya NO está dentro del
+ * `ref` de quien la monta, así que cualquier click-fuera que pregunte
+ * "¿está dentro?" lee un toque en la hoja como un toque fuera y la cierra. Quien
+ * monte una hoja apaga su propio click-fuera mientras está en móvil: la hoja ya
+ * trae telón, Escape y arrastre para cerrarse.
  */
 export function BottomSheet({
   open,
@@ -56,10 +71,19 @@ export function BottomSheet({
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        // CORTA LA PROPAGACIÓN: una hoja puede abrirse DESDE un modal (cambiar
+        // estado o etiquetar dentro de la ficha del candidato), y `ui/Modal`
+        // escucha el mismo Escape en el MISMO nodo. Sin esto, Escape cerraría la
+        // ficha entera además de la hoja.
+        event.stopPropagation()
         onCloseRef.current()
         return
       }
       if (event.key !== 'Tab') return
+      // Y el Tab también: el modal de debajo devuelve el foco a SU panel, y la
+      // hoja vive en un portal fuera de él, así que sin cortar aquí el tabulador
+      // se escaparía de la hoja a la primera. Manda la capa de arriba.
+      event.stopPropagation()
       const items = focusable()
       if (!items?.length) return
       const first = items[0]
@@ -73,11 +97,17 @@ export function BottomSheet({
       }
     }
 
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
+    // EN FASE DE CAPTURA, y no es un detalle: `ui/Modal` escucha en el mismo nodo
+    // (`document`) y en la misma fase de burbuja, y se registra ANTES (al abrirse
+    // la ficha) que esto (al abrirse la hoja). Dos listeners en el mismo nodo y
+    // la misma fase corren en ORDEN DE REGISTRO, así que el corte de arriba
+    // llegaría tarde. En captura, `document` es el primer nodo del recorrido.
+    // Es la misma lección que ya costaron el menú `···` y la lista de etiquetas.
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
   }, [open, inert])
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div
@@ -142,6 +172,7 @@ export function BottomSheet({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }

@@ -3,8 +3,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { Bookmark, Briefcase, ChevronDown, ChevronLeft, ChevronRight, Filter, Globe, ListFilter, Plus, Search, Trash2, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Checkbox } from './ui/Checkbox'
+import { BottomSheet } from './ui/BottomSheet'
 import { colocarFlotante } from '../lib/flotante'
-import { useEsTactil } from '../lib/media'
+import { useEsMovil, useEsTactil } from '../lib/media'
 import { BTN_SUPERFICIE, ALTO_FRANJA, ICONO_CONTROL, botonIcono } from '../lib/buttons'
 import type { SavedView } from '../lib/types'
 
@@ -106,7 +107,9 @@ export function ValoresDimension({ dim, q }: { dim: DimensionFiltro; q: string }
             // filas dentro de un desplegable, y la causa está a dos dedos (la
             // casilla que sí está marcada). Un tooltip aquí taparía la propia lista.
             title={bloqueada ? dim.motivoBloqueo : undefined}
-            className={`flex items-center gap-2.5 rounded-lg px-2 py-2 text-[14px] sm:py-1.5 sm:text-[13px] ${
+            // POR DEBAJO DE `sm` ESTA FILA SOLO EXISTE DENTRO DE UNA HOJA, así que
+            // su talla base es la del dedo (44px) y la del ratón vive en `sm:`.
+            className={`flex items-center gap-2.5 rounded-lg px-2 py-3 text-[15px] sm:py-1.5 sm:text-[13px] ${
               // `slate-400` es el único sitio donde esta doctrina lo admite para
               // texto: un control deshabilitado está exento del suelo de contraste
               // justamente porque no se puede usar, y apagarlo es lo que lo dice.
@@ -144,6 +147,12 @@ export const CHIP_ALTO = ALTO_FRANJA
 
 export function ChipDimension({ dim }: { dim: DimensionFiltro }) {
   const [open, setOpen] = useState(false)
+  // EN MÓVIL, HOJA (Mario, sep 2026). La tira de chips vive pegada al filo y se
+  // desplaza a lo ancho, así que un desplegable de 256px colgado de un chip que
+  // igual está medio fuera de pantalla se coloca donde puede y se lee con el
+  // pulgar tapándolo. La hoja nace pegada abajo y siempre en el mismo sitio.
+  // `useEsMovil` decide qué se MONTA, no qué se ve.
+  const esMovil = useEsMovil()
   const ref = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   // EN UN PORTAL Y CON POSICIÓN FIJA, no `absolute` dentro del chip. La tira de
@@ -155,7 +164,7 @@ export function ChipDimension({ dim }: { dim: DimensionFiltro }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
   useLayoutEffect(() => {
-    if (!open) return
+    if (!open || esMovil) return
     const colocar = () => {
       const ancla = ref.current?.getBoundingClientRect()
       const panel = panelRef.current?.getBoundingClientRect()
@@ -183,10 +192,13 @@ export function ChipDimension({ dim }: { dim: DimensionFiltro }) {
       main?.removeEventListener('scroll', colocar)
       tira?.removeEventListener('scroll', colocar)
     }
-  }, [open])
+  }, [open, esMovil])
 
+  // Nada de esto en móvil: la hoja sale en un portal a `body`, así que ya no está
+  // dentro de `ref` y este click-fuera leería un toque DENTRO de ella como un
+  // toque fuera. Ella se cierra sola (telón, Escape y arrastre).
   useEffect(() => {
-    if (!open) return
+    if (!open || esMovil) return
     const dentro = (t: Node | null) =>
       (ref.current?.contains(t as Node) ?? false) || (panelRef.current?.contains(t as Node) ?? false)
     const onDoc = (e: MouseEvent) => !dentro(e.target as Node) && setOpen(false)
@@ -197,9 +209,25 @@ export function ChipDimension({ dim }: { dim: DimensionFiltro }) {
       document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, esMovil])
 
   useEffect(() => { if (!open) setPos(null) }, [open])
+
+  // Quitar la dimensión vive DENTRO de su desplegable y no como una equis en el
+  // chip: en una fila que puede llevar seis chips, seis equis son seis controles
+  // más, y la doctrina dice que en una fila no se meten controles que no sean
+  // imprescindibles.
+  const pieQuitar = (
+    <button
+      type="button"
+      onClick={() => { dim.limpiar(); setOpen(false) }}
+      className={`mt-1 flex w-full items-center gap-2 border-t border-slate-100 px-2.5 pb-0.5 text-left font-medium text-slate-500 transition-colors hover:text-slate-800 ${
+        esMovil ? 'pt-3 text-[15px]' : 'pt-2 text-[13px]'
+      }`}
+    >
+      <X className={esMovil ? 'size-4' : 'size-3.5'} aria-hidden /> Quitar este filtro
+    </button>
+  )
 
   return (
     <div className="relative shrink-0" ref={ref}>
@@ -234,7 +262,19 @@ export function ChipDimension({ dim }: { dim: DimensionFiltro }) {
         <ChevronDown className={`size-3 shrink-0 opacity-70 transition-transform duration-[var(--duration-control)] ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
 
-      {open && createPortal(
+      {/* UN SOLO CONTENIDO, DOS ENVOLTORIOS: el desplegable y la hoja pintan la
+          misma lista y el mismo pie. Escritos dos veces se separan al primer
+          retoque, que es lo que este proyecto lleva media doctrina evitando. */}
+      {esMovil ? (
+        <BottomSheet open={open} onClose={() => setOpen(false)} title={dim.label}>
+          <div className="px-2 pb-3 pt-1">
+            <div className="space-y-0.5">
+              <ValoresDimension dim={dim} q="" />
+            </div>
+            {pieQuitar}
+          </div>
+        </BottomSheet>
+      ) : open && createPortal(
         <div
           ref={panelRef}
           className="fixed z-50 w-64 overflow-clip rounded-xl filo bg-white p-1.5 shadow-pop"
@@ -242,20 +282,12 @@ export function ChipDimension({ dim }: { dim: DimensionFiltro }) {
           // saltando después, se vería el salto en el primer fotograma.
           style={pos ? { top: pos.top, left: pos.left } : { top: -9999, left: -9999 }}
         >
+          {/* SIN TOPE DE ALTO EN LA HOJA: una superficie, un scroll (la hoja ya
+              scrollea su cuerpo). Aquí sí, porque el desplegable no tiene otro. */}
           <div className="max-h-72 space-y-0.5 overflow-y-auto">
             <ValoresDimension dim={dim} q="" />
           </div>
-          {/* Quitar la dimensión vive DENTRO de su desplegable y no como una equis
-              en el chip: en una fila que puede llevar seis chips, seis equis son
-              seis controles más, y la doctrina dice que en una fila no se meten
-              controles que no sean imprescindibles. */}
-          <button
-            type="button"
-            onClick={() => { dim.limpiar(); setOpen(false) }}
-            className="mt-1 flex w-full items-center gap-2 border-t border-slate-100 px-2.5 pb-0.5 pt-2 text-left text-[13px] font-medium text-slate-500 transition-colors hover:text-slate-800"
-          >
-            <X className="size-3.5" aria-hidden /> Quitar este filtro
-          </button>
+          {pieQuitar}
         </div>,
         document.body,
       )}
@@ -289,7 +321,9 @@ function FilaCategoria({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-800 outline-none transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 sm:py-1.5 sm:text-[13px]"
+      // Igual que los valores: en móvil esto vive en una hoja y se toca con el
+      // dedo, así que la talla base es 44 y la del ratón va en `sm:`.
+      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-3 text-left text-[15px] text-slate-800 outline-none transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 sm:py-1.5 sm:text-[13px]"
     >
       <Icon className="size-4 shrink-0 text-slate-500" aria-hidden />
       <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -352,6 +386,13 @@ export function MenuAnadirFiltro({
 }) {
   const hayVistas = !!vistas
   const [open, setOpen] = useState(false)
+  // EN MÓVIL, HOJA (Mario, sep 2026). Este menú tiene PÁGINAS (raíz -> Preguntas
+  // -> una pregunta), y un desplegable que cambia de alto en cada paso, anclado a
+  // un botón que en móvil es un cuadrado pegado al filo derecho, se recoloca solo
+  // a cada toque. La hoja nace siempre en el mismo sitio y el paso se lee como lo
+  // que es: la misma caja enseñando otra página. Es exactamente lo que ya hace el
+  // `···` de un puesto con su submenú de Sede.
+  const esMovil = useEsMovil()
   // RUTA y no una sola página: hay tres niveles (raíz -> Preguntas -> una pregunta)
   // y volver atrás desde una pregunta tiene que devolverte a la LISTA de preguntas,
   // no a la raíz. Con un solo `pagina` no hay forma de saber por dónde entraste.
@@ -388,7 +429,7 @@ export function MenuAnadirFiltro({
   const nPreguntas = preguntas.reduce((t, d) => t + d.n, 0)
 
   useLayoutEffect(() => {
-    if (!open) return
+    if (!open || esMovil) return
     const colocar = () => {
       const ancla = botonRef.current?.getBoundingClientRect()
       const panel = panelRef.current?.getBoundingClientRect()
@@ -413,7 +454,7 @@ export function MenuAnadirFiltro({
     // La RUTA y la búsqueda cambian el alto del panel (una página con tres filas
     // no mide lo que una con quince), así que hay que volver a colocarlo: si no,
     // al entrar en una categoría el panel crece hacia abajo y se sale.
-  }, [open, ruta, q])
+  }, [open, ruta, q, esMovil])
 
   const entrar = (id: string) => { setRuta((r) => [...r, id]); setQ('') }
   const volver = () => { setRuta((r) => r.slice(0, -1)); setQ('') }
@@ -426,8 +467,13 @@ export function MenuAnadirFiltro({
     setQ('')
   }, [])
 
+  // NADA DE ESTO EN MÓVIL: la hoja sale en un portal a `body`, así que ni `ref` ni
+  // `panelRef` la contienen y este click-fuera leería un toque DENTRO de ella
+  // como un toque fuera. La hoja trae su telón, su Escape y su arrastre, y su
+  // Escape cierra el menú entero (para retroceder está la flecha), igual que en
+  // el `···` de un puesto.
   useEffect(() => {
-    if (!open) return
+    if (!open || esMovil) return
     // EL PANEL VIVE EN UN PORTAL, así que NO está dentro de `ref`: hay que
     // preguntarle a él también o cualquier clic DENTRO del menú se lee como un
     // clic fuera y lo cierra (pasó al sacarlo al portal para que dejara de
@@ -458,7 +504,7 @@ export function MenuAnadirFiltro({
       document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open, ruta, cerrar])
+  }, [open, ruta, cerrar, esMovil])
 
   // El foco entra al campo en un efecto y no en el click: al pulsar todavía no
   // existe. Se repite al cambiar de página, que es cuando el campo cambia de papel.
@@ -484,6 +530,149 @@ export function MenuAnadirFiltro({
     : enPreguntas
       ? preguntas
       : raizDims
+
+  // UN SOLO CONTENIDO, DOS ENVOLTORIOS (el desplegable de escritorio y la hoja de
+  // móvil), como el submenú de Sede y el de Exportar: lo que cambia es la caja,
+  // nunca la lista. La ruta, el buscador y el pie viven una sola vez.
+  const contenido = (hoja: boolean) => (
+    <>
+      {/* El campo cambia de papel según la página: busca CATEGORÍAS en la raíz
+          y VALORES dentro de una. El placeholder es lo que dice dónde estás. */}
+      <div className="relative mb-1 flex items-center gap-1">
+        {ruta.length > 0 && (
+          <button
+            type="button"
+            onClick={volver}
+            aria-label="Volver"
+            // En la hoja, `md` (44 en táctil): es el objetivo de toque y además
+            // la altura del campo que tiene al lado.
+            className={botonIcono('ghost', hoja ? 'md' : 'sm')}
+          >
+            <ChevronLeft className="size-4" aria-hidden />
+          </button>
+        )}
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+          <input
+            ref={campoRef}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={dim ? `Elegir ${dim.label.toLowerCase()}` : enPreguntas ? 'Buscar pregunta' : enVistas ? 'Buscar vista' : 'Buscar filtro'}
+            aria-label={dim ? `Buscar en ${dim.label}` : enPreguntas ? 'Buscar una pregunta' : enVistas ? 'Buscar una vista' : 'Buscar un filtro'}
+            // En la hoja sube a 44 y a 16px: es el objetivo de toque y el suelo
+            // por debajo del cual iOS hace zoom al enfocar.
+            className={`w-full rounded-lg bg-slate-100 pl-8 pr-2.5 text-slate-900 outline-none placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40 ${
+              hoja ? 'h-11 text-base' : 'h-9 text-[13px]'
+            }`}
+          />
+        </div>
+      </div>
+
+      {/* SIN TOPE DE ALTO EN LA HOJA: una superficie, un scroll. La hoja ya
+          scrollea su cuerpo, y dos barras anidadas en 375px son peor problema
+          que el que resuelven. */}
+      <div className={`space-y-0.5 ${hoja ? '' : 'max-h-72 overflow-y-auto'}`}>
+        {enVistas ? (
+          <>
+            {vistasFiltradas.length === 0 ? (
+              <p className="px-2.5 py-3 text-[13px] leading-relaxed text-slate-500">
+                {q
+                  ? 'Ninguna vista se llama así.'
+                  : 'Aún no has guardado ninguna vista. Filtra como quieras y guarda la combinación.'}
+              </p>
+            ) : (
+              vistasFiltradas.map((v) => (
+                <div key={v.id} className="group flex items-center gap-1 rounded-lg hover:bg-slate-50">
+                  <button
+                    type="button"
+                    onClick={() => { onAplicarVista?.(v); cerrar() }}
+                    className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-3 text-left text-[15px] text-slate-800 outline-none sm:py-1.5 sm:text-[13px]"
+                  >
+                    {/* Global (vale para cualquier puesto) o de ESTE puesto: el
+                        glifo lo dice sin gastar una palabra. */}
+                    {v.campaignId === null
+                      ? <Globe className="size-4 shrink-0 text-slate-500" aria-hidden />
+                      : <Briefcase className="size-4 shrink-0 text-slate-500" aria-hidden />}
+                    <span className="min-w-0 flex-1 truncate">{v.name}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onBorrarVista?.(v.id)}
+                    aria-label={`Eliminar vista ${v.name}`}
+                    className="mr-1 grid size-11 shrink-0 place-items-center rounded-lg text-slate-600 transition-opacity hover:bg-slate-200 hover:text-slate-900 focus-visible:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
+                  >
+                    <Trash2 className="size-3.5" aria-hidden />
+                  </button>
+                </div>
+              ))
+            )}
+          </>
+        ) : dim ? (
+          <ValoresDimension dim={dim} q={q} />
+        ) : listaRaiz.length === 0 && !(!enBusqueda && !enPreguntas && preguntas.length > 0) ? (
+          <p className="px-2.5 py-3 text-[13px] text-slate-500">
+            {enPreguntas ? 'Ninguna pregunta se llama así.' : 'Ningún filtro se llama así.'}
+          </p>
+        ) : (
+          <>
+            {listaRaiz.map((d) => (
+              <FilaCategoria key={d.id} icon={d.icon} label={d.label} n={d.n} onClick={() => entrar(d.id)} />
+            ))}
+            {/* "Preguntas" solo en la raíz y solo si el puesto tiene alguna.
+                Buscando NO se pinta, porque ahí la lista ya trae las preguntas
+                mezcladas y entrar en el grupo sería dar un rodeo. */}
+            {!enBusqueda && !enPreguntas && preguntas.length > 0 && (
+              <FilaCategoria
+                icon={ListFilter}
+                label="Preguntas del puesto"
+                n={nPreguntas}
+                onClick={() => entrar('preguntas')}
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {/* El PIE es la zona de las operaciones sobre el CONJUNTO de filtros:
+          recuperar uno entero (Vistas) o vaciarlos todos. Las categorías de
+          arriba son para añadir uno. */}
+      {!dim && !enPreguntas && !enVistas && (
+        <div className="mt-1 border-t border-slate-100 pt-1">
+          {hayVistas && (
+            <FilaCategoria icon={Bookmark} label="Vistas guardadas" n={vistas.length} onClick={() => entrar('vistas')} />
+          )}
+          {hayFiltros && (
+            <button
+              type="button"
+              onClick={() => { onLimpiarTodo(); cerrar() }}
+              className="w-full rounded-lg px-2.5 py-3 text-left text-[15px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 sm:py-1.5 sm:text-[13px]"
+            >
+              Limpiar todos los filtros
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Guardar vive DENTRO de Vistas, que es donde estás cuando piensas en
+          ellas. Apagado sin nada que guardar, y SIN una nota explicándolo: el
+          vacío de la lista, justo encima, ya dice "filtra como quieras y guarda
+          la combinación". Dos frases para el mismo hecho es una de más. */}
+      {enVistas && (
+        <div className="mt-1 border-t border-slate-100 pt-1">
+          <button
+            type="button"
+            onClick={() => { cerrar(); onGuardarVista?.() }}
+            disabled={!puedeGuardar}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-3 text-left text-[15px] font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:opacity-40 disabled:hover:bg-transparent sm:py-1.5 sm:text-[13px]"
+          >
+            <Plus className="size-4 shrink-0" aria-hidden /> Guardar los filtros de ahora
+          </button>
+        </div>
+      )}
+    </>
+  )
+
+  const titulo = dim ? dim.label : enPreguntas ? 'Preguntas del puesto' : enVistas ? 'Vistas guardadas' : 'Filtros'
 
   return (
     <div className="relative shrink-0" ref={ref}>
@@ -519,7 +708,11 @@ export function MenuAnadirFiltro({
         <span className="max-sm:hidden">Filtros</span>
       </button>
 
-      {open && createPortal(
+      {esMovil ? (
+        <BottomSheet open={open} onClose={cerrar} title={titulo} label={dim ? `Elegir ${dim.label}` : titulo}>
+          <div className="px-2 pb-3 pt-1" role="menu" aria-label={dim ? `Elegir ${dim.label}` : titulo}>{contenido(true)}</div>
+        </BottomSheet>
+      ) : open && createPortal(
         <div
           ref={panelRef}
           role="menu"
@@ -532,130 +725,7 @@ export function MenuAnadirFiltro({
           // 0,0 se vería saltar en el primer fotograma.
           style={pos ? { top: pos.top, left: pos.left } : { top: -9999, left: -9999 }}
         >
-          {/* El campo cambia de papel según la página: busca CATEGORÍAS en la raíz
-              y VALORES dentro de una. El placeholder es lo que dice dónde estás. */}
-          <div className="relative mb-1 flex items-center gap-1">
-            {ruta.length > 0 && (
-              <button
-                type="button"
-                onClick={volver}
-                aria-label="Volver"
-                className={botonIcono('ghost', 'sm')}
-              >
-                <ChevronLeft className="size-4" aria-hidden />
-              </button>
-            )}
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
-              <input
-                ref={campoRef}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder={dim ? `Elegir ${dim.label.toLowerCase()}` : enPreguntas ? 'Buscar pregunta' : enVistas ? 'Buscar vista' : 'Buscar filtro'}
-                aria-label={dim ? `Buscar en ${dim.label}` : enPreguntas ? 'Buscar una pregunta' : enVistas ? 'Buscar una vista' : 'Buscar un filtro'}
-                className="h-9 w-full rounded-lg bg-slate-100 pl-8 pr-2.5 text-[13px] text-slate-900 outline-none placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500/40"
-              />
-            </div>
-          </div>
-
-          <div className="max-h-72 space-y-0.5 overflow-y-auto">
-            {enVistas ? (
-              <>
-                {vistasFiltradas.length === 0 ? (
-                  <p className="px-2.5 py-3 text-[13px] leading-relaxed text-slate-500">
-                    {q
-                      ? 'Ninguna vista se llama así.'
-                      : 'Aún no has guardado ninguna vista. Filtra como quieras y guarda la combinación.'}
-                  </p>
-                ) : (
-                  vistasFiltradas.map((v) => (
-                    <div key={v.id} className="group flex items-center gap-1 rounded-lg hover:bg-slate-50">
-                      <button
-                        type="button"
-                        onClick={() => { onAplicarVista?.(v); cerrar() }}
-                        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[14px] text-slate-800 outline-none sm:py-1.5 sm:text-[13px]"
-                      >
-                        {/* Global (vale para cualquier puesto) o de ESTE puesto: el
-                            glifo lo dice sin gastar una palabra. */}
-                        {v.campaignId === null
-                          ? <Globe className="size-4 shrink-0 text-slate-500" aria-hidden />
-                          : <Briefcase className="size-4 shrink-0 text-slate-500" aria-hidden />}
-                        <span className="min-w-0 flex-1 truncate">{v.name}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onBorrarVista?.(v.id)}
-                        aria-label={`Eliminar vista ${v.name}`}
-                        className="mr-1 grid size-8 shrink-0 place-items-center rounded-lg text-slate-600 transition-opacity hover:bg-slate-200 hover:text-slate-900 focus-visible:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100"
-                      >
-                        <Trash2 className="size-3.5" aria-hidden />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </>
-            ) : dim ? (
-              <ValoresDimension dim={dim} q={q} />
-            ) : listaRaiz.length === 0 && !(!enBusqueda && !enPreguntas && preguntas.length > 0) ? (
-              <p className="px-2.5 py-3 text-[13px] text-slate-500">
-                {enPreguntas ? 'Ninguna pregunta se llama así.' : 'Ningún filtro se llama así.'}
-              </p>
-            ) : (
-              <>
-                {listaRaiz.map((d) => (
-                  <FilaCategoria key={d.id} icon={d.icon} label={d.label} n={d.n} onClick={() => entrar(d.id)} />
-                ))}
-                {/* "Preguntas" solo en la raíz y solo si el puesto tiene alguna.
-                    Buscando NO se pinta, porque ahí la lista ya trae las preguntas
-                    mezcladas y entrar en el grupo sería dar un rodeo. */}
-                {!enBusqueda && !enPreguntas && preguntas.length > 0 && (
-                  <FilaCategoria
-                    icon={ListFilter}
-                    label="Preguntas del puesto"
-                    n={nPreguntas}
-                    onClick={() => entrar('preguntas')}
-                  />
-                )}
-              </>
-            )}
-          </div>
-
-          {/* El PIE es la zona de las operaciones sobre el CONJUNTO de filtros:
-              recuperar uno entero (Vistas) o vaciarlos todos. Las categorías de
-              arriba son para añadir uno. */}
-          {!dim && !enPreguntas && !enVistas && (
-            <div className="mt-1 border-t border-slate-100 pt-1">
-              {hayVistas && (
-                <FilaCategoria icon={Bookmark} label="Vistas guardadas" n={vistas.length} onClick={() => entrar('vistas')} />
-              )}
-              {hayFiltros && (
-                <button
-                  type="button"
-                  onClick={() => { onLimpiarTodo(); cerrar() }}
-                  className="w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 sm:py-1.5"
-                >
-                  Limpiar todos los filtros
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Guardar vive DENTRO de Vistas, que es donde estás cuando piensas en
-              ellas. Apagado sin nada que guardar, y SIN una nota explicándolo: el
-              vacío de la lista, justo encima, ya dice "filtra como quieras y guarda
-              la combinación". Dos frases para el mismo hecho es una de más. */}
-          {enVistas && (
-            <div className="mt-1 border-t border-slate-100 pt-1">
-              <button
-                type="button"
-                onClick={() => { cerrar(); onGuardarVista?.() }}
-                disabled={!puedeGuardar}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:opacity-40 disabled:hover:bg-transparent sm:py-1.5"
-              >
-                <Plus className="size-4 shrink-0" aria-hidden /> Guardar los filtros de ahora
-              </button>
-            </div>
-          )}
+          {contenido(false)}
         </div>,
         document.body,
       )}

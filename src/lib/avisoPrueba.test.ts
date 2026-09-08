@@ -29,7 +29,7 @@ describe('qué umbral toca', () => {
     expect(umbralPrueba(3)).toBe(3)
     expect(umbralPrueba(2)).toBe(3) // sigue siendo "quedan pocos días"
     expect(umbralPrueba(1)).toBe(3)
-    expect(umbralPrueba(0)).toBe(0) // el último día, con el puesto AÚN en línea
+    expect(umbralPrueba(0)).toBe(0) // el último día, con el puesto AÚN abierto
   })
 
   it('CERO DÍAS NO ES "SE ACABÓ": la prueba agotada es su propio umbral', () => {

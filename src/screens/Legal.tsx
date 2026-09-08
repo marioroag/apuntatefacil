@@ -4,8 +4,11 @@ import { Logo } from '../components/Logo'
 import { BRAND } from '../lib/brand'
 import { PRIVACY_DOC, TERMS_DOC, type LegalDoc } from '../lib/legal'
 
+// La fecha y la versión son de los DOS documentos: se suben juntas aunque el
+// cambio toque a uno solo, porque lo que se publica es el par y una versión que
+// solo vale para la mitad no se puede citar.
 const LAST_UPDATED = '8 de septiembre de 2026'
-const VERSION = '1.4'
+const VERSION = '1.5'
 
 function LegalLayout({ doc, other }: { doc: LegalDoc; other: { to: string; label: string } }) {
   useEffect(() => {

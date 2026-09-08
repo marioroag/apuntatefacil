@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
 import { STATUS_META, STATUS_ORDER } from '../../lib/types'
 import type { CandidateStatus } from '../../lib/types'
+import { useEsMovil } from '../../lib/media'
 import { BottomSheet } from './BottomSheet'
 
 const MENU_W = 176 // w-44
@@ -61,6 +62,18 @@ export function MenuEstado({
   const btnRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLUListElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  // EN MÓVIL ES UNA HOJA QUE SUBE, no un desplegable colgado del botón (Mario,
+  // sep 2026). Y no es solo consistencia: este menú se abre desde la celda de una
+  // fila que se desplaza a lo ancho y desde la ficha, o sea con el pulgar y a
+  // media pantalla, y un desplegable de 176px con filas de 26 es la mitad del
+  // objetivo de toque. La hoja nace pegada abajo, donde está el dedo, y sus filas
+  // caben a 44. Es la misma pieza que ya usan Filtros, el `···` de un puesto,
+  // Compartir y Gestionar etiquetas, así que aquí no se inventa nada.
+  //
+  // `useEsMovil` decide qué se MONTA y no qué se ve: la hoja atrapa el foco y
+  // escucha el Escape en `document`, así que montada y escondida en escritorio se
+  // tragaría el Escape de la ficha que hay detrás.
+  const esMovil = useEsMovil()
 
   // El menú va en un portal con posición fija (no absolute) para que NO lo recorte el
   // overflow de la tarjeta/scroll de la lista. Se calcula desde el botón, abriendo hacia
@@ -82,11 +95,14 @@ export function MenuEstado({
   }, [align])
 
   useLayoutEffect(() => {
-    if (open) place()
-  }, [open, place])
+    if (open && !esMovil) place()
+  }, [open, esMovil, place])
 
+  // Nada de esto en móvil: ahí la hoja trae su propio telón, su Escape y su
+  // arrastre, y como sale en un portal, este click-fuera leería un toque DENTRO
+  // de ella como un toque fuera.
   useEffect(() => {
-    if (!open) return
+    if (!open || esMovil) return
     const onDoc = (e: MouseEvent) => {
       const t = e.target as Node
       if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return
@@ -105,7 +121,39 @@ export function MenuEstado({
       window.removeEventListener('scroll', close, true)
       window.removeEventListener('resize', close)
     }
-  }, [open])
+  }, [open, esMovil])
+
+  // UNA sola lista, dos paintings. Lo que cambia entre el desplegable y la hoja es
+  // el tamaño de la diana (26px de fila con el ratón, 44 con el dedo) y el cuerpo
+  // de la letra; los cinco estados, su orden, sus roles y lo que hace pulsarlos
+  // son los mismos. Escritas dos veces, se separan al primer retoque.
+  const opciones = (hoja: boolean) =>
+    STATUS_ORDER.map((s) => {
+      const mm = STATUS_META[s]
+      const sel = s === valor
+      return (
+        <li key={s}>
+          <button
+            type="button"
+            role="option"
+            aria-selected={sel}
+            onClick={() => {
+              onChange(s)
+              setOpen(false)
+            }}
+            className={
+              hoja
+                ? 'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] text-slate-700 transition-colors active:bg-slate-50'
+                : 'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50'
+            }
+          >
+            <span className={`${hoja ? 'size-2.5' : 'size-2'} shrink-0 rounded-full ${mm.dot}`} aria-hidden />
+            <span className="flex-1">{mm.label}</span>
+            {sel && <Check className={`${hoja ? 'size-[18px]' : 'size-4'} text-indigo-600`} aria-hidden />}
+          </button>
+        </li>
+      )
+    })
 
   return (
     <div className={triggerClass ? 'contents' : 'inline-block'}>
@@ -119,7 +167,16 @@ export function MenuEstado({
       >
         {children}
       </button>
-      {open &&
+      {esMovil ? (
+        // `z-[60]`: esto se abre también DESDE la ficha del candidato, que ya es
+        // un modal a 50.
+        <BottomSheet open={open} onClose={() => setOpen(false)} title="Cambiar estado" zClass="z-[60]">
+          <ul role="listbox" className="p-2 pb-3">
+            {opciones(true)}
+          </ul>
+        </BottomSheet>
+      ) : (
+        open &&
         pos &&
         createPortal(
           <ul
@@ -128,31 +185,11 @@ export function MenuEstado({
             style={{ position: 'fixed', top: pos.top, left: pos.left, width: MENU_W }}
             className="z-[70] overflow-hidden rounded-xl filo bg-white py-1 shadow-pop"
           >
-            {STATUS_ORDER.map((s) => {
-              const mm = STATUS_META[s]
-              const sel = s === valor
-              return (
-                <li key={s}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={sel}
-                    onClick={() => {
-                      onChange(s)
-                      setOpen(false)
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    <span className={`size-2 rounded-full ${mm.dot}`} aria-hidden />
-                    <span className="flex-1">{mm.label}</span>
-                    {sel && <Check className="size-4 text-indigo-600" aria-hidden />}
-                  </button>
-                </li>
-              )
-            })}
+            {opciones(false)}
           </ul>,
           document.body,
-        )}
+        )
+      )}
     </div>
   )
 }
@@ -252,49 +289,5 @@ export function StatusSelect({
         <ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />
       </span>
     </MenuEstado>
-  )
-}
-
-/**
- * Selector de estado como hoja inferior (solo móvil). Lo usan las tarjetas de
- * candidato del panel y la bandeja para cambiar el estado sin abrir el detalle.
- * En hoja (no desplegable) para que no lo recorte el `overflow-hidden` de la lista.
- */
-export function StatusPickerSheet({
-  open,
-  status,
-  onPick,
-  onClose,
-}: {
-  open: boolean
-  status: CandidateStatus | null
-  onPick: (s: CandidateStatus) => void
-  onClose: () => void
-}) {
-  return (
-    <BottomSheet open={open} onClose={onClose} title="Cambiar estado" zClass="z-[60]">
-      <ul className="p-2 pb-3">
-        {STATUS_ORDER.map((s) => {
-          const m = STATUS_META[s]
-          const sel = s === status
-          return (
-            <li key={s}>
-              <button
-                type="button"
-                onClick={() => {
-                  onPick(s)
-                  onClose()
-                }}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] text-slate-700 transition-colors active:bg-slate-50"
-              >
-                <span className={`size-2.5 shrink-0 rounded-full ${m.dot}`} aria-hidden />
-                <span className="flex-1">{m.label}</span>
-                {sel && <Check className="size-[18px] text-indigo-600" aria-hidden />}
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-    </BottomSheet>
   )
 }

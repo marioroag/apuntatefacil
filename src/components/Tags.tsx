@@ -751,6 +751,17 @@ export function BulkTagMenu({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const esTactil = useEsTactil()
+  // EN MÓVIL EL PANEL ES UNA HOJA QUE SUBE (Mario, sep 2026). Este selector se
+  // abre desde la celda de una fila, desde la barra del pulgar y desde la ficha,
+  // o sea siempre con el dedo y casi siempre a media pantalla: un desplegable de
+  // 240px anclado a un campo de 36 deja la lista donde no llega el pulgar, y con
+  // el teclado del sistema levantado no cabe entera. La hoja nace pegada abajo y
+  // sus filas caben a 44. Misma pieza que Gestionar etiquetas, que es justo la
+  // pantalla a la que este panel lleva.
+  //
+  // `useEsMovil` decide qué se MONTA, no qué se ve: la hoja atrapa el foco y
+  // escucha el Escape en `document`.
+  const esMovil = useEsMovil()
   // EN TÁCTIL EL DISPARADOR VUELVE A SER UN BOTÓN, aunque se pinte como el campo
   // (Mario, ago 2026: "al abrir lo de las etiquetas, que no entre solo al campo
   // de texto"). La variante `campo` nació con el argumento de que el teclado no
@@ -761,7 +772,10 @@ export function BulkTagMenu({
   // ratón); con el dedo, el toque abre la lista y el buscador vive DENTRO del
   // panel, sin enfocarse solo, que es la regla de siempre de esta casa. Quien
   // quiera buscar lo toca, que está ahí.
-  const campoVivo = campo && !esTactil
+  // Y EN MÓVIL TAMPOCO, aunque el puntero sea fino: ahí el panel es una HOJA que
+  // sube y trae su propio buscador dentro, así que un campo vivo detrás sería la
+  // segunda caja de texto que esta variante vino justamente a quitar.
+  const campoVivo = campo && !esTactil && !esMovil
   const ref = useRef<HTMLDivElement>(null)
   // El ancla es el DISPARADOR (el botón, o el campo en la variante `campo`), no
   // el envoltorio: en modo flotante el envoltorio va en `display: contents` (para
@@ -781,7 +795,7 @@ export function BulkTagMenu({
   // Se coloca contra la ventana y se recoloca con los dos desplazamientos que lo
   // pueden dejar huérfano: el de la página y el de la propia tabla.
   useLayoutEffect(() => {
-    if (!open || !flotante) return
+    if (!open || !flotante || esMovil) return
     const colocar = () => {
       const ancla = anclaRef.current?.getBoundingClientRect()
       const panel = panelRef.current?.getBoundingClientRect()
@@ -809,7 +823,7 @@ export function BulkTagMenu({
       main?.removeEventListener('scroll', colocar)
       tabla?.removeEventListener('scroll', colocar)
     }
-  }, [open, flotante, campo, anclaRef])
+  }, [open, flotante, campo, anclaRef, esMovil])
 
   // Al cerrar se olvida lo buscado. Con el disparador hecho campo no es opcional:
   // el texto se quedaría escrito a la vista, donde debería poner "Añadir
@@ -819,8 +833,11 @@ export function BulkTagMenu({
     if (!open) setQuery('')
   }, [open])
 
+  // NADA DE ESTO EN MÓVIL: la hoja sale en un portal a `body`, así que ya no está
+  // dentro de `ref` ni de `panelRef` y este click-fuera leería un toque DENTRO de
+  // ella como un toque fuera. Cerrarse es cosa suya (telón, Escape y arrastre).
   useEffect(() => {
-    if (!open) return
+    if (!open || esMovil) return
     const dentro = (t: Node | null) =>
       (ref.current?.contains(t as Node) ?? false) || (panelRef.current?.contains(t as Node) ?? false)
     const onDoc = (e: MouseEvent) => !dentro(e.target as Node) && setOpen(false)
@@ -848,7 +865,7 @@ export function BulkTagMenu({
       document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey, true)
     }
-  }, [open])
+  }, [open, esMovil])
 
   // Cuántos de los marcados tiene cada etiqueta. De aquí salen los tres estados
   // de la casilla, y se cuenta una sola vez para todo el vocabulario en vez de
@@ -919,10 +936,17 @@ export function BulkTagMenu({
             // pulsado "renombrar", o sea que vas a escribir seguro.
             autoFocus={!esTactil}
             maxLength={40}
-            className="mb-1 h-9 w-full rounded-lg border border-slate-300 px-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+            // En la hoja sube a 44 y a 16px: es el suelo por debajo del cual iOS
+            // hace zoom al enfocar, y ahí el campo es lo primero que se toca.
+            className={`mb-1 w-full rounded-lg border border-slate-300 px-2.5 text-slate-900 outline-none placeholder:text-slate-500 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 ${
+              esMovil ? 'h-11 text-base' : 'h-9 text-sm'
+            }`}
           />
           )}
-          <ul className="max-h-52 overflow-y-auto">
+          {/* SIN TOPE DE ALTO EN LA HOJA: una superficie, un scroll. La hoja ya
+              scrollea su cuerpo, y un `max-h` aquí dentro dejaría dos barras
+              anidadas en 375px, que es peor problema que el que resuelve. */}
+          <ul className={esMovil ? '' : 'max-h-52 overflow-y-auto'}>
             {list.length === 0 && !showCreate && (
               <li className="px-2.5 py-2 text-[13px] text-slate-500">
                 {tags.length === 0 ? 'Todavía no tienes etiquetas.' : 'Ninguna etiqueta coincide.'}
@@ -936,7 +960,7 @@ export function BulkTagMenu({
                   {/* Fila entera pulsable, y el nombre va como CHIP: es como se ve
                       esta etiqueta en la tabla y en la ficha, así que aquí se
                       reconoce por lo mismo, el color, en vez de leerse. */}
-                  <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 hover:bg-slate-100">
+                  <label className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 hover:bg-slate-100 ${esMovil ? 'py-3' : 'py-2'}`}>
                     <Checkbox
                       checked={todos}
                       indeterminate={!todos && n > 0}
@@ -960,7 +984,9 @@ export function BulkTagMenu({
                     setQuery('')
                     onDone?.()
                   }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 text-left font-medium text-indigo-700 hover:bg-indigo-50 ${
+                    esMovil ? 'py-3 text-[15px]' : 'py-2 text-sm'
+                  }`}
                 >
                   <Plus className="size-4 shrink-0" aria-hidden />
                   <span className="truncate">{COPY.create(normalizeTagName(query))}</span>
@@ -976,9 +1002,11 @@ export function BulkTagMenu({
                   setOpen(false)
                   onOpenManage()
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                className={`flex w-full items-center gap-2 rounded-lg px-2.5 text-left font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 ${
+                  esMovil ? 'py-3 text-[15px]' : 'py-1.5 text-[13px]'
+                }`}
               >
-                <Settings2 className="size-3.5 shrink-0" aria-hidden />
+                <Settings2 className={`${esMovil ? 'size-4' : 'size-3.5'} shrink-0`} aria-hidden />
                 {COPY.manage}
               </button>
             </div>
@@ -1040,7 +1068,15 @@ export function BulkTagMenu({
         )}
       </button>
       )}
-      {open && (flotante
+      {/* MÓVIL: la hoja. El contenido es EL MISMO objeto (`lista`), como el
+          submenú de Sede o el de Exportar: lo único que cambia es el envoltorio.
+          `z-[60]` porque esto se abre también desde la ficha, que ya es un modal
+          a 50. */}
+      {esMovil ? (
+        <BottomSheet open={open} onClose={() => setOpen(false)} title={COPY.title} zClass="z-[60]">
+          <div className="px-2 pb-3 pt-1">{lista}</div>
+        </BottomSheet>
+      ) : open && (flotante
         ? createPortal(
           <div
             ref={panelRef}
