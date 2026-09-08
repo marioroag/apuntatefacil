@@ -437,6 +437,14 @@ export function Dashboard() {
       setConfirmReopen(await previewReabrir(campaign.id))
       return
     }
+    // En la prueba, si no queda hueco, reabrir acaba en la página de pago: se
+    // pasa por el diálogo, que lo dice y pregunta la región ANTES de salir.
+    // Iba directo y el servidor lo paraba con un aviso pequeño ("dinos dónde
+    // tiene tu empresa su domicilio fiscal") que casi no se veía.
+    if (company?.plan === 'trial' && modoProceso(company, campaigns) === 'checkout') {
+      setConfirmReopen({ free: false, amountDue: null, checkout: true, impuestosIncluidos: false })
+      return
+    }
     const ok = await reabrirProceso(campaign.id)
     if (ok) toast.success('Puesto reabierto.')
   }
