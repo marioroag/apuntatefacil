@@ -31,20 +31,36 @@
 /**
  * Los días que quedan en los que se avisa, **de más urgente a menos**: ese
  * orden ES el algoritmo (se coge el primero que encaje, o sea el más urgente),
- * así que no se puede reordenar por gusto. `0` es "ya ha terminado".
+ * así que no se puede reordenar por gusto. Con el redondeo hacia abajo, `0` es
+ * el ÚLTIMO DÍA ("termina hoy"), no el final.
  *
- * Tres momentos en quince días, y los tres son "se está acabando": quedan tres
- * días, termina mañana, ha terminado. Un cuarto a mitad de prueba no cabe en
- * esa frase.
+ * Dos umbrales más el de la prueba agotada: **quedan tres días, termina hoy, ha
+ * terminado**. Tres momentos en quince días, y los tres son "se está acabando";
+ * uno a mitad de prueba no cabe en esa frase. Eran los mismos tres cuando los
+ * días se redondeaban hacia arriba, solo que entonces el último día se llamaba
+ * "queda 1 día": **cambia cómo se dicen, no cuántas veces se interrumpe.**
  */
-export const UMBRALES_PRUEBA = [0, 1, 3] as const
+export const UMBRALES_PRUEBA = [0, 3] as const
 
 /**
- * Qué umbral toca con los días que quedan, o `null` si todavía no hay nada que
- * avisar. Devuelve el MÁS URGENTE que encaje: con un día quedan también "menos
- * de tres", y lo que hay que enseñar es el de un día.
+ * La prueba YA agotada. Va por debajo de todos los demás porque es el más
+ * urgente de todos, y así `tocaAvisar` lo sigue ordenando sin ningún caso
+ * especial: quien vio "termina hoy" (0) todavía puede ver este (-1).
  */
-export function umbralPrueba(dias: number | null | undefined): number | null {
+export const UMBRAL_AGOTADA = -1
+
+/**
+ * Qué umbral toca, o `null` si todavía no hay nada que avisar. Devuelve el MÁS
+ * URGENTE que encaje.
+ *
+ * `agotada` va aparte de los días **porque `0` ya no significa "se acabó"**:
+ * con el redondeo hacia abajo, cero días quedan durante toda la última jornada,
+ * con el puesto en línea y recibiendo candidaturas. Mezclarlos haría saltar el
+ * aviso de "tu prueba ha terminado" un día antes de que sea verdad, que es
+ * exactamente lo que esta casa llama afirmar algo falso.
+ */
+export function umbralPrueba(dias: number | null | undefined, agotada = false): number | null {
+  if (agotada) return UMBRAL_AGOTADA
   if (dias === null || dias === undefined) return null
   return UMBRALES_PRUEBA.find((u) => dias <= u) ?? null
 }

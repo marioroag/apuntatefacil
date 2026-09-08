@@ -172,11 +172,34 @@ export function finDePrueba(
   return new Date(fin)
 }
 
-/** Días de prueba restantes (0 si agotada o sin empezar el reloj). */
+/**
+ * Días de prueba restantes, **redondeando HACIA ABAJO** (Mario, sep 2026).
+ *
+ * Estaba en `Math.ceil`, y con 9 días y 17 horas por delante decía "quedan 10"
+ * mientras la página de Stripe, en la misma sesión de pago, decía "9 días
+ * gratis". Dos cuentas distintas del mismo plazo, y la que manda es la de
+ * Stripe, porque es la que factura. Hacia abajo significa "te quedan AL MENOS
+ * estos días", que además es la lectura prudente: nadie se lleva la sorpresa de
+ * que se acabe un día antes de lo que le dijimos.
+ *
+ * OJO AL CONSUMIRLO: con `floor`, **`0` es el ÚLTIMO DÍA y no el final**. Con
+ * `ceil` las dos cosas coincidían y por eso medio producto leía `dias === 0`
+ * como "se acabó"; eso ahora diría que la prueba ha terminado con el puesto
+ * todavía en línea. Quién ha terminado lo dice `pruebaAgotada`.
+ */
 export function diasDePruebaRestantes(trialEndsAt: string | null | undefined): number | null {
   if (!trialEndsAt) return null // el reloj arranca al abrir el primer proceso
   const ms = new Date(trialEndsAt).getTime() - Date.now()
-  return Math.max(0, Math.ceil(ms / 86_400_000))
+  if (!Number.isFinite(ms)) return null
+  return Math.max(0, Math.floor(ms / 86_400_000))
+}
+
+/** ¿Se acabó ya la prueba? Pregunta aparte desde que los días se redondean
+ *  hacia abajo: ver el aviso de arriba. */
+export function pruebaAgotada(trialEndsAt: string | null | undefined): boolean {
+  if (!trialEndsAt) return false
+  const fin = new Date(trialEndsAt).getTime()
+  return Number.isFinite(fin) && fin <= Date.now()
 }
 
 // -----------------------------------------------------------------------------

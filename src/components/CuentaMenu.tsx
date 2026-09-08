@@ -5,7 +5,7 @@ import { useAuth } from '../lib/auth'
 import { useProfiles } from '../lib/profiles'
 import { useStore } from '../lib/store'
 import { useAppBase } from '../lib/useAppBase'
-import { procesosAbiertos, diasDePruebaRestantes } from '../lib/pricing'
+import { procesosAbiertos, diasDePruebaRestantes, pruebaAgotada } from '../lib/pricing'
 import { initials } from '../lib/format'
 import { FACTURACION_ICON } from '../lib/nav'
 import { Avatar } from './ui/Avatar'
@@ -100,6 +100,8 @@ export function CuentaMenu({
   const sinNombre = !profiles.me?.fullName.trim() && !demo
   const abiertos = procesosAbiertos(campaigns)
   const diasPrueba = company?.plan === 'trial' ? diasDePruebaRestantes(company.trial_ends_at) : null
+  // `0` días es el ÚLTIMO DÍA desde que se redondea hacia abajo, no el final.
+  const pruebaFin = company?.plan === 'trial' && pruebaAgotada(company.trial_ends_at)
   const isOwner = role === 'owner'
   const empresa = company?.name ?? ''
   // Debajo del nombre de la empresa NO va el nombre del plan, va CUÁNTOS PROCESOS
@@ -312,13 +314,13 @@ export function CuentaMenu({
                     <span className="min-w-0 truncate text-[15px] font-semibold text-slate-900">{empresa}</span>
                     <ChevronRight className="size-3.5 shrink-0 text-slate-400" aria-hidden />
                   </span>
-                  <Procesos n={abiertos} diasPrueba={diasPrueba} />
+                  <Procesos n={abiertos} diasPrueba={diasPrueba} agotada={pruebaFin} />
                 </button>
               ) : (
                 <div className="flex flex-col items-center gap-1.5 px-3 pb-3 pt-3">
                   <CompanyTile name={empresa} size={44} radius="rounded-xl" />
                   <p className="max-w-full truncate text-[15px] font-semibold text-slate-900">{empresa}</p>
-                  <Procesos n={abiertos} diasPrueba={diasPrueba} />
+                  <Procesos n={abiertos} diasPrueba={diasPrueba} agotada={pruebaFin} />
                 </div>
               )}
 
@@ -449,14 +451,18 @@ function Anillo({ paso }: { paso: number }) {
  * doctrina de precios más se esfuerza en evitar. Es además la palabra que usa
  * Facturación, que es a donde lleva esta línea.
  */
-function Procesos({ n, diasPrueba }: { n: number; diasPrueba?: number | null }) {
+function Procesos({ n, diasPrueba, agotada }: { n: number; diasPrueba?: number | null; agotada?: boolean }) {
   // En la prueba, lo que decide es CUÁNDO ACABA, no cuántos procesos hay (es
   // uno). Con el reloj en marcha se dice aquí, que es la línea que se lee cada
   // día; sin reloj todavía, la cuenta de siempre.
   if (typeof diasPrueba === 'number') {
     return (
       <span className="block text-[12px] text-slate-500">
-        {diasPrueba === 0 ? 'Prueba terminada' : diasPrueba === 1 ? 'Prueba: queda 1 día' : <>Prueba: quedan <span className="num">{diasPrueba}</span> días</>}
+        {agotada
+          ? 'Prueba terminada'
+          : diasPrueba === 0
+            ? 'Prueba: último día'
+            : diasPrueba === 1 ? 'Prueba: queda 1 día' : <>Prueba: quedan <span className="num">{diasPrueba}</span> días</>}
       </span>
     )
   }
