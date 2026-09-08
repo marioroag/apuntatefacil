@@ -1,0 +1,23 @@
+{
+  // POR QUÉ EXISTE ESTE FICHERO (sep 2026). El typecheck que Vercel hace de las
+  // funciones de `api/` busca el tsconfig más cercano al fichero, y hacia arriba
+  // solo encontraba el tsconfig.json de la RAÍZ, que tiene `files: []` y nada
+  // más que `references`: no aplica a ningún fichero, así que compilaba con los
+  // valores por defecto, sin `types: ["node"]`. Resultado: cada deploy imprimía
+  // "Cannot find name 'node:fs/promises' / 'process'" (TS2591) sin llegar a
+  // fallar, que es la peor forma de tener un error, porque el ruido constante
+  // esconde al que sí importa.
+  //
+  // Nuestro `npx tsc -b --noEmit` NO lo veía: va por tsconfig.api.json, que
+  // Vercel no lee. Reproducido antes de arreglarlo con `tsc --ignoreConfig`
+  // sobre el fichero suelto (mismos códigos, mismas líneas y columnas).
+  //
+  // Extiende de tsconfig.api.json en vez de copiar sus opciones: las dos
+  // configuraciones tienen que compilar `api/` igual, y duplicadas se separan a
+  // la primera vez que se toque una.
+  "extends": "../tsconfig.api.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.api.dir.tsbuildinfo"
+  },
+  "include": ["**/*.ts"]
+}
