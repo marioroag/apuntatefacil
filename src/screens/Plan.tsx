@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CreditCard, Loader2, Receipt } from 'lucide-react'
 import {
-  PLAN_LABEL, PRECIO_PROCESO, PRUEBA_DIAS, diasDePruebaRestantes, hayPagoActivo, procesoAbierto,
-  procesosAbiertos,
+  PLAN_LABEL, PRECIO_PROCESO, PRUEBA_DIAS, diasDePruebaRestantes, hayPagoActivo, impuestoTexto, pendienteDePago, procesoAbierto,
+  type RegionFiscal,
 } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { useAuth } from '../lib/auth'
@@ -13,6 +13,8 @@ import { useToast } from '../components/ui/Toast'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { PageHeader } from '../components/ui/PageHeader'
 import { pollPlanAndReload } from '../lib/planSync'
+import { motivo } from '../lib/motivo'
+import { RegionFiscalRadio } from '../components/RegionFiscal'
 
 // Facturación del PAGO POR PROCESO (ago 2026). Sustituye al catálogo de tres
 // planes: aquí ya no se elige nada, se ve lo que hay abierto y lo que cuesta.
@@ -30,42 +32,45 @@ import { pollPlanAndReload } from '../lib/planSync'
  * prueba y un plan antiguo que se quedó sin suscripción detrás. Escrito dos
  * veces, el día que se afine el botón o su letra pequeña se afinaría uno.
  */
-function ActivarPago({ onClick, cargando, bloqueadas }: {
+function ActivarPago({ onClick, cargando, bloqueadas, abiertos, pendientes, region, onRegion, preguntarRegion }: {
   onClick: () => void
   cargando: boolean
   bloqueadas: number
+  /** Dónde está el cliente: decide el impuesto. Se pregunta solo si no lo ha dicho. */
+  region: RegionFiscal | null
+  onRegion: (r: RegionFiscal) => void
+  preguntarRegion: boolean
+  /** Procesos que se van a cobrar al activar el pago (los no cerrados). */
+  abiertos: number
+  /** Puestos creados a la espera del pago: se abren al completarlo. */
+  pendientes: number
 }) {
+  const total = abiertos + pendientes
   return (
     <>
-      <button onClick={onClick} disabled={cargando} className={`${BTN_PRIMARY} mt-5 w-full justify-center sm:w-auto disabled:opacity-60`}>
+      {/* El total ANTES de salir a Stripe. Su página lo enseña también, pero la
+          sorpresa hay que resolverla aquí, sobre todo en una cuenta con varios
+          puestos abiertos: "por cada proceso" no dice cuántos son. */}
+      {total > 0 && (
+        <p className="mt-4 text-sm text-slate-900">
+          {abiertos === 1 ? 'Tienes 1 proceso abierto' : `Tienes ${abiertos} procesos abiertos`}
+          {pendientes > 0 ? (pendientes === 1 ? ' y 1 a la espera del pago' : ` y ${pendientes} a la espera del pago`) : ''}
+          {': '}
+          <span className="num font-semibold">{total} × {PRECIO_PROCESO} € = {total * PRECIO_PROCESO} €</span> al mes {impuestoTexto(region)}.
+        </p>
+      )}
+      {preguntarRegion && <RegionFiscalRadio value={region} onChange={onRegion} />}
+      <button onClick={onClick} disabled={cargando || (preguntarRegion && !region)} className={`${BTN_PRIMARY} mt-4 w-full justify-center sm:w-auto disabled:opacity-60`}>
         {cargando ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <CreditCard className="size-4" aria-hidden />}
         Añadir método de pago
       </button>
       <p className="mt-3 text-[13px] leading-relaxed text-slate-500">
-        Tarjeta o domiciliación (SEPA), con el pago seguro de Stripe. Al activarlo pagas {PRECIO_PROCESO} € al mes + IVA
-        por cada proceso que tengas abierto
-        {bloqueadas > 0 ? ', y tus candidaturas en espera se desbloquean al momento' : ''}.
+        Con el pago seguro de Stripe, que te pedirá el NIF y la dirección para la factura. Pagas {PRECIO_PROCESO} € al mes {impuestoTexto(region)}
+        por cada proceso que tengas abierto, y cerrar uno deja de cobrarlo
+        {bloqueadas > 0 ? '. Tus candidaturas en espera se desbloquean al momento' : ''}.
       </p>
     </>
   )
-}
-
-/**
- * El motivo REAL de un fallo del servidor. `invoke` deja la respuesta 4xx/5xx
- * envuelta en `error.context` sin leerle el cuerpo, así que sin esto cualquier
- * causa conocida ("ya tienes una suscripción de un plan anterior") se leía en
- * pantalla como un "inténtalo de nuevo" que no lleva a ninguna parte, y había
- * que ir a los registros del servidor para saber qué pasaba.
- */
-async function motivo(error: unknown): Promise<string | null> {
-  const ctx = (error as { context?: unknown })?.context
-  if (!(ctx instanceof Response)) return null
-  try {
-    const cuerpo = await ctx.clone().json()
-    return typeof cuerpo?.error === 'string' && cuerpo.error ? cuerpo.error : null
-  } catch {
-    return null // el cuerpo no era JSON
-  }
 }
 
 export function Plan() {
@@ -76,10 +81,18 @@ export function Plan() {
   const [busy, setBusy] = useState<string | null>(null)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [dialogBusy, setDialogBusy] = useState(false)
+  // La región la dice el cliente una vez; después manda lo guardado en la empresa.
+  const [regionElegida, setRegionElegida] = useState<RegionFiscal | null>(null)
+  const region = company?.region_fiscal ?? regionElegida
 
   const plan = company?.plan ?? 'trial'
   const abiertos = campaigns.filter(procesoAbierto)
+  const pendientes = campaigns.filter(pendienteDePago).length
   const totalMes = abiertos.length * PRECIO_PROCESO
+  // Un hueco pagado y sin estrenar: se paga un proceso más de los que se ven.
+  // Pasa si se cobra un hueco y la creación del puesto falla justo después; no
+  // se pierde (el siguiente puesto entra sin cobrar), pero hay que decirlo.
+  const huecosSinUsar = Math.max(0, (company?.paid_processes ?? 0) - abiertos.length)
 
   useEffect(() => {
     const c = params.get('checkout')
@@ -112,7 +125,7 @@ export function Plan() {
   const activarPago = async () => {
     setBusy('checkout')
     const { data, error } = await supabase.functions.invoke('stripe-checkout', {
-      body: { checkout: true, returnUrl: `${window.location.origin}/app/plan`, companyId: company?.id },
+      body: { checkout: true, returnUrl: `${window.location.origin}/app/plan`, companyId: company?.id, regionFiscal: region ?? undefined },
     })
     setBusy(null)
     if (!error && data?.url) {
@@ -211,7 +224,7 @@ export function Plan() {
               <div className="rounded-xl bg-slate-50 p-3.5">
                 <dt className="text-[13px] text-slate-500">Procesos abiertos</dt>
                 <dd className="num mt-0.5 font-semibold text-slate-900">
-                  {procesosAbiertos(campaigns)} de 1
+                  {abiertos.length} de 1
                 </dd>
               </div>
             </dl>
@@ -222,7 +235,7 @@ export function Plan() {
               se siguen recibiendo y las verás todas al activar el pago.
             </p>
           )}
-          <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} />
+          <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} abiertos={abiertos.length} pendientes={pendientes} region={region} onRegion={setRegionElegida} preguntarRegion={!company?.region_fiscal} />
         </div>
       )}
 
@@ -233,7 +246,7 @@ export function Plan() {
             <h2 className="text-lg font-semibold text-slate-900">Procesos abiertos</h2>
             <p className="text-sm text-slate-600">
               <span className="num font-semibold text-slate-900">{abiertos.length}</span>
-              {' '}× {PRECIO_PROCESO} € = <span className="num font-semibold text-slate-900">{totalMes} €</span>/mes + IVA
+              {' '}× {PRECIO_PROCESO} € = <span className="num font-semibold text-slate-900">{totalMes} €</span>/mes {impuestoTexto(company?.region_fiscal)}
             </p>
           </div>
 
@@ -244,10 +257,16 @@ export function Plan() {
             </p>
           )}
           {!conPago && (
-            <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-[13px] leading-relaxed text-slate-600">
-              No tienes ningún pago activo. Tus puestos cerrados se conservan enteros y exportables:
-              reabre uno desde su pantalla y pasarás por el pago seguro de Stripe.
-            </p>
+            <>
+              {/* Sin suscripción viva (cancelada, o agotada por impago): la puerta
+                  de vuelta es el alta, aquí mismo, con el total delante. Antes solo
+                  había una nota que mandaba a reabrir un puesto, y con puestos
+                  abiertos y sin pago la pantalla se contradecía a sí misma. */}
+              <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-[13px] leading-relaxed text-slate-600">
+                No tienes ningún pago activo. Tus puestos cerrados se conservan enteros y exportables.
+              </p>
+              <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} abiertos={abiertos.length} pendientes={pendientes} region={region} onRegion={setRegionElegida} preguntarRegion={!company?.region_fiscal} />
+            </>
           )}
 
           {abiertos.length > 0 ? (
@@ -272,6 +291,13 @@ export function Plan() {
             </p>
           ) : null}
 
+          {conPago && huecosSinUsar > 0 && (
+            <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-[13px] leading-relaxed text-slate-600">
+              {huecosSinUsar === 1
+                ? 'Tienes 1 proceso pagado sin usar: el próximo puesto que abras no te cobra nada.'
+                : `Tienes ${huecosSinUsar} procesos pagados sin usar: los próximos puestos que abras no te cobran nada.`}
+            </p>
+          )}
           <p className="mt-4 text-[13px] leading-relaxed text-slate-500">
             Un proceso pausado sigue abierto (no acepta candidaturas nuevas, pero se cobra). Para dejar de
             pagar uno, ciérralo desde su pantalla: un clic, y conservas todos sus candidatos.
@@ -295,7 +321,7 @@ export function Plan() {
                 no hay facturas que ver ni suscripción que cancelar. Para seguir con tus procesos abiertos,
                 añade un método de pago y pasarás al pago por proceso.
               </p>
-              <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} />
+              <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} abiertos={abiertos.length} pendientes={pendientes} region={region} onRegion={setRegionElegida} preguntarRegion={!company?.region_fiscal} />
             </>
           ) : (
             <>

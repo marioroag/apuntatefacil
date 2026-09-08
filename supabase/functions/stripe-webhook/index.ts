@@ -15,6 +15,7 @@
 import Stripe from 'npm:stripe@18.5.0'
 import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { PLAZO } from '../_shared/red.ts'
+import { esRegion, regionDePostal, tipoImpositivo } from '../_shared/impuestos.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil', timeout: PLAZO.api })
 const admin = createClient(
@@ -131,6 +132,31 @@ Deno.serve(async (req) => {
               paid_processes: 1,
             }).eq('id', companyId)
           }
+        }
+        // LA REGIÓN QUE DIJO EL CLIENTE, CONTRASTADA CON SU CÓDIGO POSTAL. El
+        // impuesto de la factura depende de dónde esté (IGIC en Canarias, sin
+        // IVA con inversión del sujeto pasivo en la Península), y la región la
+        // eligió él en la app antes de pagar. Si el código postal que dio en la
+        // página de Stripe dice otra cosa, manda el código postal: se corrige
+        // la suscripción para las facturas siguientes y se apunta en la
+        // empresa. La primera factura ya salió; queda en los registros.
+        try {
+          const cp = s.customer_details?.address?.postal_code ?? null
+          const segunCp = regionDePostal(cp)
+          if (segunCp && typeof s.subscription === 'string') {
+            const { data: co } = await admin.from('companies').select('region_fiscal').eq('id', companyId).maybeSingle()
+            const dicha = esRegion(co?.region_fiscal) ? co.region_fiscal : null
+            if (dicha !== segunCp) {
+              console.warn(`region fiscal: la empresa ${companyId} dijo ${dicha ?? 'nada'} y su código postal ${cp} dice ${segunCp}; se corrige`)
+              const tipo = await tipoImpositivo(stripe, segunCp)
+              await stripe.subscriptions.update(s.subscription, { default_tax_rates: [tipo] })
+              await admin.from('companies').update({ region_fiscal: segunCp }).eq('id', companyId)
+            }
+          }
+        } catch (e) {
+          // No es motivo para que Stripe reintente el evento entero: el pago
+          // y el plan ya están aplicados. Queda en los registros.
+          console.error('region fiscal: no se pudo contrastar', e)
         }
         // El puesto que esperaba el pago (creado cerrado desde el asistente):
         // se abre ahora que su hueco existe. Si el trigger de límite lo

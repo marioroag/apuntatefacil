@@ -8,7 +8,8 @@ import { useAuth } from './auth'
 import { useToast } from '../components/ui/Toast'
 import { SEED, SEED_BRANDS, SEED_CANDIDATE_COMMENTS, SEED_CANDIDATE_DOCUMENTS, SEED_CANDIDATE_EVENTS, SEED_MEMBERS, SEED_TAGS, SEED_TEAM_COMMENTS, SEED_TEAM_REQUESTS, aiFor, demoInterviews, freshenDemoData } from './seed'
 import { interestEligibility, interestRecipient, type InterestSendResult } from './interest'
-import { PRECIO_PROCESO } from './pricing'
+import { motivo } from './motivo'
+import { PRECIO_PROCESO, type RegionFiscal } from './pricing'
 
 // Normaliza un nombre de etiqueta como hace el servidor (trigger normalize_tag_name):
 // quita espacios de los extremos y colapsa los interiores. La comparación de
@@ -34,6 +35,7 @@ type CampaignRow = {
   notify_new: boolean
   share_reply: string | null
   paid_until: string | null
+  closed_at: string | null
   anuncio: unknown
   created_at: string
 }
@@ -70,6 +72,7 @@ const toCampaign = (r: CampaignRow): Campaign => ({
   notifyNew: r.notify_new ?? true,
   shareReply: r.share_reply ?? undefined,
   paidUntil: r.paid_until ?? undefined,
+  closedAt: r.closed_at ?? null,
   anuncio: r.anuncio == null ? undefined : leerAnuncio(r.anuncio),
 })
 
@@ -404,7 +407,9 @@ interface Store {
   createCampaign: (input: NewCampaignInput) => Promise<Campaign | null>
   // Crea un puesto nuevo copiando campos, apariencia y datos del original (enlace
   // propio, sin candidatos). Devuelve el puesto nuevo o null si falla.
-  duplicateCampaign: (campaignId: string) => Promise<Campaign | null>
+  /** `status: 'cerrada'` = la copia nace A LA ESPERA DEL PAGO (mismo flujo que
+   *  Crear puesto sin método de pago: Checkout la abre al completarse). */
+  duplicateCampaign: (campaignId: string, opts?: { status?: 'activa' | 'cerrada' }) => Promise<Campaign | null>
   deleteCampaign: (campaignId: string) => Promise<boolean>
   // ---- La puerta de facturación del pago por proceso (ago 2026) ----
   // Cerrar y reabrir un proceso NUNCA van por updateCampaign: además del estado
@@ -416,10 +421,12 @@ interface Store {
   cerrarProceso: (campaignId: string) => Promise<boolean>
   /** Qué costaría reabrir/abrir un hueco AHORA: gratis (ciclo ya pagado o hueco
    *  libre), un importe en céntimos, o `checkout` (hay que dar el método de pago). */
-  previewReabrir: (campaignId: string | null) => Promise<{ free: boolean; amountDue: number | null; checkout: boolean }>
+  previewReabrir: (campaignId: string | null) => Promise<{ free: boolean; amountDue: number | null; checkout: boolean; impuestosIncluidos: boolean }>
   /** Reabre un proceso cerrado cobrando lo que toque; si falta el método de
    *  pago, redirige a Stripe Checkout (el webhook lo abrirá al completarse). */
-  reabrirProceso: (campaignId: string) => Promise<boolean>
+  /** `regionFiscal`: dónde está el cliente, si aún no lo ha dicho; hace falta
+   *  cuando la reapertura acaba en Checkout (decide el impuesto de la factura). */
+  reabrirProceso: (campaignId: string, regionFiscal?: RegionFiscal | null) => Promise<boolean>
   /** Compra un hueco más en la suscripción (para crear un proceso nuevo cuando
    *  los pagados están todos ocupados). Cobra la prorrata al momento. */
   contratarHueco: () => Promise<boolean>
@@ -1556,7 +1563,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setCampaigns((cs) => [...cs, campaign])
       return campaign
     },
-    duplicateCampaign: async (campaignId) => {
+    duplicateCampaign: async (campaignId, opts) => {
       const src = campaigns.find((c) => c.id === campaignId)
       if (!src) return null
       const title = `${src.title} (copia)`
@@ -1570,7 +1577,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           sector: src.sector,
           location: src.location,
           provincia: src.provincia,
-          status: 'activa',
+          status: opts?.status ?? 'activa',
           createdAt: new Date().toISOString(),
           milanunciosUrl: src.milanunciosUrl,
           fields,
@@ -1593,7 +1600,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           sector: src.sector,
           location: src.location,
           provincia: src.provincia || null,
-          status: 'activa',
+          status: opts?.status ?? 'activa',
           milanuncios_url: src.milanunciosUrl ?? null,
           fields,
           branding,
@@ -1655,7 +1662,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
         if (error || !data?.closed) {
           setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? prev : c)))
-          toast.error('No se pudo cerrar el puesto. Inténtalo de nuevo.')
+          toast.error(await motivo(error) ?? 'No se pudo cerrar el puesto. Inténtalo de nuevo.')
           return false
         }
         if (data.paidUntil) {
@@ -1676,18 +1683,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     previewReabrir: async (campaignId) => {
       if (companyId === 'demo' || company?.plan !== 'proceso') {
-        return { free: true, amountDue: null, checkout: false }
+        return { free: true, amountDue: null, checkout: false, impuestosIncluidos: false }
       }
       const { data, error } = await supabase.functions.invoke('stripe-checkout', {
         body: { previewAdd: true, campaignId: campaignId ?? undefined, companyId },
       })
-      if (error) return { free: false, amountDue: null, checkout: false }
-      if (data?.notSubscribed) return { free: false, amountDue: null, checkout: true }
-      if (data?.free) return { free: true, amountDue: null, checkout: false }
-      return { free: false, amountDue: typeof data?.amountDue === 'number' ? data.amountDue : null, checkout: false }
+      if (error) return { free: false, amountDue: null, checkout: false, impuestosIncluidos: false }
+      if (data?.notSubscribed) return { free: false, amountDue: null, checkout: true, impuestosIncluidos: false }
+      if (data?.free) return { free: true, amountDue: null, checkout: false, impuestosIncluidos: false }
+      return {
+        free: false,
+        amountDue: typeof data?.amountDue === 'number' ? data.amountDue : null,
+        checkout: false,
+        impuestosIncluidos: data?.impuestosIncluidos === true,
+      }
     },
 
-    reabrirProceso: async (campaignId) => {
+    reabrirProceso: async (campaignId, regionFiscal) => {
       const prev = campaigns.find((c) => c.id === campaignId)
       if (!prev || prev.status !== 'cerrada') return false
       if (companyId === 'demo') {
@@ -1707,17 +1719,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // Sin método de pago: a Stripe Checkout. El webhook reabre el puesto
           // al completarse el pago y la vuelta cae en /plan, que ya sondea.
           const { data: co, error: e2 } = await supabase.functions.invoke('stripe-checkout', {
-            body: { checkout: true, activateCampaignId: campaignId, companyId, returnUrl: `${window.location.origin}/app/plan` },
+            body: { checkout: true, activateCampaignId: campaignId, companyId, regionFiscal: regionFiscal ?? undefined, returnUrl: `${window.location.origin}/app/plan` },
           })
           if (!e2 && co?.url) {
             window.location.href = co.url as string
             return true
           }
+          if (e2) {
+            toast.error(await motivo(e2) ?? 'No se pudo abrir el pago. Inténtalo de nuevo.')
+            return false
+          }
         }
         toast.error(
           data?.paymentFailed
             ? 'No se pudo cobrar el proceso. Revisa tu método de pago e inténtalo de nuevo.'
-            : 'No se pudo reabrir el puesto. Inténtalo de nuevo.',
+            : await motivo(error) ?? 'No se pudo reabrir el puesto. Inténtalo de nuevo.',
         )
         return false
       }
@@ -1730,13 +1746,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // Checkout cuenta este puesto (activateCampaignId) además de los
           // abiertos, y el webhook lo abre al completarse el pago.
           const { data: co, error: e2 } = await supabase.functions.invoke('stripe-checkout', {
-            body: { checkout: true, activateCampaignId: campaignId, companyId, returnUrl: `${window.location.origin}/app/plan` },
+            body: { checkout: true, activateCampaignId: campaignId, companyId, regionFiscal: regionFiscal ?? undefined, returnUrl: `${window.location.origin}/app/plan` },
           })
           if (!e2 && co?.url) {
             window.location.href = co.url as string
             return true
           }
-          toast.error('No se pudo abrir el pago. Inténtalo de nuevo.')
+          toast.error(await motivo(e2) ?? 'No se pudo abrir el pago. Inténtalo de nuevo.')
           return false
         }
         toast.error(
@@ -1759,7 +1775,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         toast.error(
           data?.paymentFailed
             ? 'No se pudo cobrar el proceso nuevo. Revisa tu método de pago e inténtalo de nuevo.'
-            : 'No se pudo añadir el proceso. Inténtalo de nuevo.',
+            : await motivo(error) ?? 'No se pudo añadir el proceso. Inténtalo de nuevo.',
         )
         return false
       }
