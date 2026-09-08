@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { AlertCircle, Check, ChevronDown, Paperclip, X } from 'lucide-react'
 import type { FormField } from '../lib/types'
+import { MINIMO_NUMERICO } from '../lib/rangoNumerico'
 
 export type FieldValue = string | string[] | boolean | undefined
 
@@ -22,6 +23,16 @@ export function validateField(field: FormField, value: FieldValue): string | nul
   if (field.type === 'email' && typeof value === 'string') {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))
       return 'Escribe un email válido, por ejemplo nombre@dominio.com'
+  }
+  // UNA CANTIDAD NO PUEDE SER NEGATIVA. El `min` del input frena las flechas y
+  // poco más (escribiendo "-1" a mano el valor llega igual, porque aquí el envío
+  // lo hace JavaScript y no el navegador), así que sin esto el suelo sería un
+  // adorno. Y de un negativo guardado no se sale: estira el carril del filtro de
+  // ese puesto para siempre, que es de donde vino toda esta regla.
+  if (field.type === 'number' && typeof value === 'string') {
+    const n = Number(value)
+    if (!Number.isFinite(n)) return 'Escribe solo el número, sin letras'
+    if (n < MINIMO_NUMERICO) return 'Escribe un número de 0 en adelante'
   }
   if (field.type === 'phone' && typeof value === 'string') {
     const digits = value.replace(/\D/g, '')
@@ -252,6 +263,7 @@ function Control({
           {...common}
           type="number"
           inputMode="numeric"
+          min={MINIMO_NUMERICO}
           value={(value as string) ?? ''}
           onChange={(e) => onChange(e.target.value.slice(0, 12))}
           placeholder={field.placeholder}
