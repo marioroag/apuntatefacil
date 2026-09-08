@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Logo } from '../components/Logo'
-import { BTN_PRIMARY, BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
+import { BTN_PRIMARY_LG, BTN_SECONDARY_LG } from '../lib/buttons'
 import { BRAND } from '../lib/brand'
 import { useAuth } from '../lib/auth'
 
@@ -19,12 +19,13 @@ import { useAuth } from '../lib/auth'
  * sin caja ni icono. El "404" va en pequeño y en gris, como un dato: es lo
  * que buscará quien sepa lo que es, y no hace falta gritarlo.
  *
- * Dos superficies, una pieza. Fuera del panel, la portada o el panel si hay
- * sesión; dentro (`enPanel`, en `/app` y `/demo`), sin marca porque el lateral
- * ya dice dónde estás, y la salida es la vista general. Los enlaces de PUESTO
- * no llegan aquí: los atiende PublicForm, que distingue "ya no está activo".
+ * SOLO FUERA DEL PANEL. Dentro, una ruta que no existe lleva a la vista
+ * general sin más (Mario, sep 2026: "mostrarlo así en el dashboard es
+ * horrible"): quien ya está dentro no necesita que le expliquen que se ha
+ * perdido, necesita estar en algún sitio. Los enlaces de PUESTO no llegan
+ * aquí: los atiende PublicForm, que distingue "ya no está activo".
  */
-export function NoEncontrado({ enPanel = false }: { enPanel?: boolean }) {
+export function NoEncontrado() {
   const { session } = useAuth()
 
   useEffect(() => {
@@ -32,21 +33,6 @@ export function NoEncontrado({ enPanel = false }: { enPanel?: boolean }) {
     document.title = `Página no encontrada · ${BRAND}`
     return () => { document.title = anterior }
   }, [])
-
-  if (enPanel) {
-    return (
-      <div className="mx-auto max-w-lectura px-4 py-20 sm:px-6 lg:px-8">
-        <p className="num text-sm font-medium text-slate-500">Error 404</p>
-        <h1 className="mt-2 text-[28px] font-bold leading-tight tracking-[-0.012em] text-slate-900">Esta página no existe</h1>
-        <p className="mt-3 max-w-[52ch] text-base leading-relaxed text-slate-600">
-          El enlace puede estar mal escrito, o esa pantalla ya no está.
-        </p>
-        <div className="mt-8">
-          <Link to="/app/resumen" className={BTN_PRIMARY}>Ir a la vista general</Link>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="flex min-h-svh flex-col bg-white">

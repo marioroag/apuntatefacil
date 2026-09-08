@@ -192,7 +192,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="plan" element={<Plan />} />
                   <Route path="admin" element={<AdminOverview />} />
                   <Route path="soporte" element={<Soporte />} />
-                  <Route path="*" element={<NoEncontrado enPanel />} />
+                  <Route path="*" element={<Navigate to="resumen" replace />} />
                 </Route>
                 <Route
                   path="/demo"
@@ -219,7 +219,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
                   <Route path="ajustes" element={<Ajustes />} />
                   <Route path="ajustes/:seccion" element={<Ajustes />} />
-                  <Route path="*" element={<NoEncontrado enPanel />} />
+                  <Route path="*" element={<Navigate to="resumen" replace />} />
                 </Route>
                 {/* Lo que no tiene forma de nada: una página que lo dice, no una
                     redirección muda a la portada. Los enlaces de puesto (dos o tres
