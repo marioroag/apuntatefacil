@@ -3,7 +3,10 @@
 // nº de procesos abiertos (49 €/mes + IVA cada uno). Acciones:
 //  - { checkout: true, activateCampaignId? } -> Stripe Checkout (alta nueva,
 //    tarjeta o SEPA). Cantidad = procesos abiertos (+1 si hay un puesto creado
-//    en espera de pago, que el webhook activará al completarse).
+//    en espera de pago, que el webhook activará al completarse). Desde la
+//    prueba, y si el pago cubre UN proceso, la suscripción nace en 'trialing'
+//    hasta trial_ends_at: activar el pago no quema los días que queden
+//    (_shared/prueba.ts). Abrir uno MÁS acaba la prueba y cobra.
 //  - { previewAdd: true, campaignId? } -> qué costaría abrir un proceso más
 //    AHORA: gratis si es reabrir dentro de su ciclo ya pagado (paid_until),
 //    o la parte proporcional hasta la próxima factura.
@@ -28,6 +31,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { PLAZO } from '../_shared/red.ts'
 import { esRegion, tipoImpositivo, type RegionFiscal } from '../_shared/impuestos.ts'
+import { acabarPrueba, finDePrueba } from '../_shared/prueba.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil', timeout: PLAZO.api })
 
@@ -94,7 +98,7 @@ Deno.serve(async (req) => {
     // caemos a la única.
     let companyQuery = supabase
       .from('companies')
-      .select('id,name,plan,paid_processes,stripe_customer_id,stripe_subscription_id,subscription_status,region_fiscal')
+      .select('id,name,plan,paid_processes,stripe_customer_id,stripe_subscription_id,subscription_status,region_fiscal,trial_ends_at')
     companyQuery = typeof companyId === 'string' && companyId
       ? companyQuery.eq('id', companyId)
       : companyQuery.limit(1)
@@ -256,7 +260,12 @@ Deno.serve(async (req) => {
     // ------------------------------------------------------------------
     if (previewAdd) {
       if (!hasActiveSub || !subObj || !esProceso || !item) return json({ notSubscribed: true })
-      if (huecoGratis) {
+      // ABRIR UNO MÁS ACABA LA PRUEBA (cubre el primero y solo el primero), así
+      // que el importe que se enseña tiene que ser el de la prueba ya
+      // terminada. Sin esto la pantalla diría "no te cobra nada" y el cobro
+      // llegaría igual un segundo después, que es la peor forma de enterarse.
+      const acabaPrueba = acabarPrueba(subObj.status, abiertasDespues)
+      if (huecoGratis && !acabaPrueba) {
         return json({ free: true, paidUntil: laCampaña?.paid_until ?? null })
       }
       const pv = await stripe.invoices.createPreview({
@@ -265,6 +274,7 @@ Deno.serve(async (req) => {
         subscription_details: {
           items: [{ id: item.id, quantity: abiertasDespues }],
           proration_behavior: 'always_invoice',
+          ...(acabaPrueba ? { trial_end: 'now' as const } : {}),
         },
       })
       const fin = periodEnd(subObj)
@@ -286,13 +296,22 @@ Deno.serve(async (req) => {
       // La cantidad objetivo es "procesos abiertos tras abrir": nunca se baja
       // desde aquí (bajar es cosa de closeProcess/syncProcesses).
       const objetivo = Math.max(abiertasDespues, cantidad)
+      // Con la prueba en marcha, el proceso que se abre ahora es el SEGUNDO: la
+      // prueba se acaba aquí y se cobra el ciclo entero de los dos, que es
+      // exactamente lo que se cobra hoy por ese segundo proceso. Sin esto, el
+      // trial de la suscripción (que es de la suscripción entera, no de una
+      // unidad) los dejaría a los dos gratis hasta el día 15: el agujero que
+      // cerró "la prueba es el primer puesto, y solo ese".
+      const acabaPrueba = acabarPrueba(subObj.status, objetivo)
       try {
         if (objetivo > cantidad || subObj.cancel_at_period_end) {
           await stripe.subscriptions.update(subId!, {
             ...(objetivo > cantidad ? { items: [{ id: item.id, quantity: objetivo }] } : {}),
+            ...(acabaPrueba ? { trial_end: 'now' as const } : {}),
             // Un hueco ya pagado no se cobra otra vez ("se retoma el ciclo
-            // donde estaba"). Si no, prorrata al momento.
-            proration_behavior: huecoGratis ? 'none' : 'always_invoice',
+            // donde estaba"). Si no, prorrata al momento. Al acabar la prueba
+            // manda el cobro: el ciclo empieza ahora y hay factura.
+            proration_behavior: huecoGratis && !acabaPrueba ? 'none' : 'always_invoice',
             payment_behavior: 'error_if_incomplete',
             cancel_at_period_end: false,
             metadata: { company_id: company.id },
@@ -382,6 +401,9 @@ Deno.serve(async (req) => {
           try {
             await stripe.subscriptions.update(live.id, {
               items: [{ id: liveItem.id, quantity: cantidadAlta }],
+              // Igual que en addProcess: si la que se adopta está en prueba y
+              // pasa a cubrir más de un proceso, la prueba se acaba aquí.
+              ...(acabarPrueba(live.status, cantidadAlta) ? { trial_end: 'now' as const } : {}),
               proration_behavior: 'always_invoice',
               payment_behavior: 'error_if_incomplete',
               cancel_at_period_end: false,
@@ -410,6 +432,15 @@ Deno.serve(async (req) => {
       return json({ error: 'Ya tienes una suscripción activa de un plan anterior. Cancélala antes de pasar al pago por proceso.' }, 400)
     }
 
+    // LOS DÍAS DE PRUEBA QUE QUEDEN NO SE PIERDEN AL PAGAR (sep 2026). La
+    // suscripción nace en `trialing` con el fin de la prueba puesto: el método
+    // de pago queda dado (Checkout lo sigue pidiendo: `payment_method_collection`
+    // es 'always' por defecto), el webhook aplica el plan y desbloquea las
+    // candidaturas en espera al momento, y la primera factura cae el día que le
+    // tocaba. Solo cuando este pago cubre UN proceso: más es capacidad que la
+    // prueba no cubre y se cobra ya (ver _shared/prueba.ts).
+    const trialEnd = finDePrueba(company.plan, company.trial_ends_at, cantidadAlta)
+
     const base = safeReturnBase(returnUrl, Deno.env.get('APP_URL') || `${new URL(req.url).origin}`)
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -431,7 +462,21 @@ Deno.serve(async (req) => {
       // El NIF y la dirección se piden en la propia página de pago: el NIF
       // hace válida la factura entre empresas y el código postal deja que el
       // webhook contraste la región que dijo el cliente.
-      subscription_data: { metadata: { company_id: company.id }, default_tax_rates: [tipo] },
+      subscription_data: {
+        metadata: { company_id: company.id },
+        default_tax_rates: [tipo],
+        ...(trialEnd
+          ? {
+            trial_end: trialEnd,
+            // Cinturón: Checkout pide el método de pago igualmente, así que
+            // esto no debería dispararse nunca. Si pasara, se cancela en vez de
+            // emitir una factura, que es lo que dice el correo de la prueba
+            // ("no se cobra nada sin que añadas tu método de pago"); el webhook
+            // cierra entonces los procesos, que es el desenlace correcto.
+            trial_settings: { end_behavior: { missing_payment_method: 'cancel' as const } },
+          }
+          : {}),
+      },
       tax_id_collection: { enabled: true },
       billing_address_collection: 'required',
       customer_update: { address: 'auto', name: 'auto' },

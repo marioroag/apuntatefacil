@@ -23,6 +23,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { esc, renderEmail } from '../_shared/email.ts'
 import { PLAZO, plazo } from '../_shared/red.ts'
+import { finDePrueba } from '../_shared/prueba.ts'
 
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, SERVICE_ROLE_KEY)
@@ -76,6 +77,16 @@ Deno.serve(async (req) => {
       ? await admin.from('campaigns').select('id,title').eq('id', co.trial_campaign_id).maybeSingle()
       : { data: null }
     const puesto = camp?.title ?? 'tu puesto'
+    // ACTIVAR EL PAGO AHORA NO QUEMA LOS DÍAS QUE QUEDAN, y este correo es el
+    // mejor sitio donde decirlo: es lo único que quita el motivo para esperar
+    // al último día, que es cuando el cliente está más frío. Pero solo se
+    // promete si de verdad va a pasar, y eso depende de cuántos procesos
+    // cubriría el pago (la prueba cubre uno): se pregunta a la MISMA función
+    // que lo aplica en Stripe, no a una copia de la regla.
+    const { count: aCubrir } = await admin
+      .from('campaigns').select('id', { count: 'exact', head: true })
+      .eq('company_id', co.id).or('status.neq.cerrada,closed_at.is.null')
+    const sinCobroHoy = finDePrueba(co.plan, co.trial_ends_at, aCubrir ?? 1) !== null
     const { count: esperando } = await admin
       .from('candidates').select('id', { count: 'exact', head: true }).eq('company_id', co.id).eq('locked', true)
 
@@ -95,6 +106,10 @@ Deno.serve(async (req) => {
         bodyHtml:
           `Tu puesto ${strong(esc(puesto))} sigue en línea y recibiendo candidaturas hasta el ${strong(esc(fecha))}. ` +
           `A partir de ahí no se pierde ninguna: las nuevas quedan guardadas en espera y las ves todas en cuanto actives el pago.<br><br>` +
+          (sinCobroHoy
+            ? `Puedes dejar tu método de pago hoy sin perder lo que te queda: ${strong('no se te cobra nada hasta el ' + esc(fecha))}, ` +
+              `cuando acabe la prueba.<br><br>`
+            : '') +
           esc(condiciones),
         buttons: [
           ...(planLink ? [{ label: 'Activar el pago', href: planLink }] : []),
