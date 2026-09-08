@@ -15,6 +15,7 @@ import { SedesDialog } from '../components/SedesDialog'
 import { NewCampaignWizard } from '../components/NewCampaignWizard'
 import { SupportDialog } from '../components/SupportDialog'
 import { DowngradeReconcileDialog } from '../components/DowngradeReconcileDialog'
+import { AvisoPrueba } from '../components/AvisoPrueba'
 import { OnboardingGuide, OnboardingCreatePuesto } from '../components/OnboardingGuide'
 import { useOnboarding } from '../lib/onboarding'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -433,6 +434,10 @@ export function AppLayout() {
       {/* Bloqueante: tras bajar de plan, el dueño elige qué puestos mantener
           activos. El servidor ya garantizó el límite; esto es solo la elección. */}
       {!demo && isOwner && company?.downgrade_reconcile_at != null && <DowngradeReconcileDialog />}
+      {/* La prueba se acaba: se avisa en pantalla en sus umbrales, una vez cada
+          uno. Se monta siempre y decide él si sale (necesita sus hooks para
+          leer la marca de visto); las condiciones viven dentro. */}
+      <AvisoPrueba />
       <ConfirmDialog
         open={confirmReset}
         onClose={() => setConfirmReset(false)}
