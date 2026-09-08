@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CreditCard, Loader2, Receipt } from 'lucide-react'
 import {
-  PLAN_LABEL, PRECIO_PROCESO, PRUEBA_DIAS, diasDePruebaRestantes, hayPagoActivo, impuestoTexto, pendienteDePago, procesoAbierto,
+  PLAN_LABEL, PRECIO_PROCESO, PRUEBA_DIAS, diasDePruebaRestantes, finDePrueba, hayPagoActivo, impuestoTexto, pendienteDePago, procesoAbierto,
   type RegionFiscal,
 } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
@@ -32,7 +32,7 @@ import { RegionFiscalRadio } from '../components/RegionFiscal'
  * prueba y un plan antiguo que se quedó sin suscripción detrás. Escrito dos
  * veces, el día que se afine el botón o su letra pequeña se afinaría uno.
  */
-function ActivarPago({ onClick, cargando, bloqueadas, abiertos, pendientes, region, onRegion, preguntarRegion }: {
+function ActivarPago({ onClick, cargando, bloqueadas, abiertos, pendientes, region, onRegion, preguntarRegion, primerCobro }: {
   onClick: () => void
   cargando: boolean
   bloqueadas: number
@@ -44,6 +44,8 @@ function ActivarPago({ onClick, cargando, bloqueadas, abiertos, pendientes, regi
   abiertos: number
   /** Puestos creados a la espera del pago: se abren al completarlo. */
   pendientes: number
+  /** Fecha del primer cobro si la prueba lo pospone; null = se cobra hoy. */
+  primerCobro: Date | null
 }) {
   const total = abiertos + pendientes
   return (
@@ -57,6 +59,16 @@ function ActivarPago({ onClick, cargando, bloqueadas, abiertos, pendientes, regi
           {pendientes > 0 ? (pendientes === 1 ? ' y 1 a la espera del pago' : ` y ${pendientes} a la espera del pago`) : ''}
           {': '}
           <span className="num font-semibold">{total} × {PRECIO_PROCESO} € = {total * PRECIO_PROCESO} €</span> al mes, {impuestoTexto(region)}.
+        </p>
+      )}
+      {/* ACTIVAR EL PAGO NO QUEMA LOS DÍAS QUE QUEDEN, y hay que decirlo aquí:
+          es lo que quita el motivo para esperar al último día. Va pegado al
+          total, porque es lo que lo matiza, y antes del botón. */}
+      {primerCobro && (
+        <p className="mt-2 text-sm text-slate-900">
+          <strong className="font-semibold">Hoy no se te cobra nada.</strong>{' '}
+          Dejas tu método de pago y el primer cobro es el{' '}
+          {primerCobro.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}, cuando acabe tu prueba.
         </p>
       )}
       {preguntarRegion && <RegionFiscalRadio value={region} onChange={onRegion} />}
@@ -181,6 +193,11 @@ export function Plan() {
   }
 
   const dias = diasDePruebaRestantes(company?.trial_ends_at)
+  // Cuándo caería el primer cobro si activa el pago ahora: null = hoy. Se
+  // calcula con lo que este pago va a cubrir (los abiertos más el que espera),
+  // porque la prueba cubre UN proceso y abrir más se cobra al momento. Fuera de
+  // la prueba devuelve null solo, así que sirve para los tres bloques.
+  const primerCobro = finDePrueba(company?.plan, company?.trial_ends_at, abiertos.length + pendientes)
   const bloqueadas = Object.values(lockedInfo).reduce((n, i) => n + i.count, 0)
   const pastDue = company?.subscription_status === 'past_due'
   // Lo que decide qué se puede hacer aquí es si Stripe está cobrando, no cómo
@@ -236,7 +253,7 @@ export function Plan() {
               se siguen recibiendo y las verás todas al activar el pago.
             </p>
           )}
-          <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} abiertos={abiertos.length} pendientes={pendientes} region={region} onRegion={setRegionElegida} preguntarRegion={!company?.region_fiscal} />
+          <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} abiertos={abiertos.length} pendientes={pendientes} region={region} onRegion={setRegionElegida} preguntarRegion={!company?.region_fiscal} primerCobro={primerCobro} />
         </div>
       )}
 
@@ -266,7 +283,7 @@ export function Plan() {
               <p className="mt-3 rounded-xl bg-slate-50 p-3.5 text-[13px] leading-relaxed text-slate-600">
                 No tienes ningún pago activo. Tus puestos cerrados se conservan enteros y exportables.
               </p>
-              <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} abiertos={abiertos.length} pendientes={pendientes} region={region} onRegion={setRegionElegida} preguntarRegion={!company?.region_fiscal} />
+              <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} abiertos={abiertos.length} pendientes={pendientes} region={region} onRegion={setRegionElegida} preguntarRegion={!company?.region_fiscal} primerCobro={primerCobro} />
             </>
           )}
 
@@ -322,7 +339,7 @@ export function Plan() {
                 no hay facturas que ver ni suscripción que cancelar. Para seguir con tus procesos abiertos,
                 añade un método de pago y pasarás al pago por proceso.
               </p>
-              <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} abiertos={abiertos.length} pendientes={pendientes} region={region} onRegion={setRegionElegida} preguntarRegion={!company?.region_fiscal} />
+              <ActivarPago onClick={activarPago} cargando={!!busy} bloqueadas={bloqueadas} abiertos={abiertos.length} pendientes={pendientes} region={region} onRegion={setRegionElegida} preguntarRegion={!company?.region_fiscal} primerCobro={primerCobro} />
             </>
           ) : (
             <>

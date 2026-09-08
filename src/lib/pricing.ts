@@ -20,8 +20,9 @@
 //    prueba es el producto durante dos semanas. La prueba cubre UN solo
 //    puesto, EL PRIMERO que se abre (Mario, sep 2026): ese se puede pausar,
 //    cerrar y reabrir gratis; cualquier otro pasa por pagarlo, aunque el
-//    primero esté cerrado. Sin tarjeta al empezar: se pide al final. Una sola
-//    prueba por empresa.
+//    primero esté cerrado. Sin tarjeta al empezar: se pide al final, y darla
+//    NO quema los días que queden (la suscripción nace en `trialing` hasta
+//    `trial_ends_at`: ver `finDePrueba`). Una sola prueba por empresa.
 //  - Cerrar un proceso es un clic y deja de cobrarse; el proceso cerrado no
 //    acepta candidaturas pero se conserva entero y exportable ("tus candidatos
 //    siguen siendo tuyos"). Mes empezado, mes cobrado: al cerrar no hay
@@ -142,6 +143,33 @@ export function hayPagoActivo(
   company: { subscription_status?: string | null } | null | undefined,
 ): boolean {
   return SUSCRIPCION_VIVA.includes(company?.subscription_status ?? '')
+}
+
+/**
+ * ACTIVAR EL PAGO NO QUEMA LOS DÍAS DE PRUEBA QUE QUEDEN (sep 2026). Espejo de
+ * `supabase/functions/_shared/prueba.ts`, que es quien lo aplica en Stripe;
+ * aquí se usa para escribir la frase de Facturación, que tiene que decir lo
+ * mismo que va a pasar. Los cuadra el guardián `prueba.test.ts`.
+ *
+ * Devuelve la FECHA del primer cobro, o `null` si se cobra al momento: no hay
+ * prueba, el reloj no ha arrancado, el pago cubre más de un proceso (la prueba
+ * cubre el primero y solo el primero) o queda menos del margen que Stripe
+ * exige para poder posponer.
+ */
+export const MARGEN_PRUEBA_MS = 49 * 60 * 60 * 1000
+
+export function finDePrueba(
+  plan: string | null | undefined,
+  trialEndsAt: string | null | undefined,
+  procesos: number,
+  ahora: number = Date.now(),
+): Date | null {
+  if (plan !== 'trial' || !trialEndsAt) return null
+  if (procesos > 1) return null
+  const fin = new Date(trialEndsAt).getTime()
+  if (!Number.isFinite(fin)) return null
+  if (fin - ahora < MARGEN_PRUEBA_MS) return null
+  return new Date(fin)
 }
 
 /** Días de prueba restantes (0 si agotada o sin empezar el reloj). */
