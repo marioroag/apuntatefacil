@@ -6,12 +6,13 @@ import {
   BadgeCheck,
   CalendarDays,
   Check,
-  ChevronDown,
+  CircleSlash,
   Copy,
   Download,
   FileText,
   GraduationCap,
   Loader2,
+  Mail,
   MessageCircle,
   MoreHorizontal,
   Phone,
@@ -34,7 +35,7 @@ import { FAVORITO_STAR, SOURCE_META, STATUS_META } from '../lib/types'
 import { CAMPOS_YA_PINTADOS, answerText, candidateName, fechaCorta, formatPhone, fullDateTime, fullDateTimeInZone, personLabel, relativeDate, shortWhenInZone } from '../lib/format'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
-import { botonIconoBloque, BTN_DANGER_SM, BTN_PRIMARY, BTN_PRIMARY_BLOCK, BTN_SECONDARY, BTN_SECONDARY_BLOCK, BTN_SECONDARY_SM, botonIcono, BTN_PRIMARY_SM } from '../lib/buttons'
+import { botonIconoBloque, BTN_DANGER_SM, BTN_PRIMARY, BTN_PRIMARY_BLOCK, BTN_SECONDARY_BLOCK, BTN_SECONDARY_SM, botonIcono, BTN_PRIMARY_SM } from '../lib/buttons'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { copyText } from '../lib/clipboard'
@@ -77,12 +78,17 @@ import { ERROR_DESCARGA, useDocumento } from '../lib/documento'
  * piden: están puestos, y la pestaña se reserva para lo que de verdad es largo.
  *
  * Lo que el diseño proponía y NO se ha copiado, con su motivo:
- *   - Dos botones grandes en el raíl, "Contactar" y "Rechazar". El estado y las
- *     acciones viven en la cabecera desde ago 2026 y ahí se quedan: un segundo
- *     juego de acciones es una segunda puerta para lo mismo. Y "Rechazar"
- *     rompía dos reglas a la vez, porque descartar es un ESTADO (uno de los
- *     cinco, y reversible) y porque iba pintado de rojo, que en esta app avisa
- *     de un error o de algo que no se deshace.
+ *   - "Rechazar" como botón grande del raíl. Rompía dos reglas a la vez, porque
+ *     descartar es un ESTADO (uno de los cinco, y reversible) y porque iba
+ *     pintado de rojo, que en esta app avisa de un error o de algo que no se
+ *     deshace. El verbo se queda, en línea y llamándose "Descartar".
+ *   - Su vecino "Contactar" SÍ acabó existiendo, y conviene saber por qué cambió
+ *     de opinión esta nota. Se descartó en ago 2026 con el argumento de que las
+ *     acciones ya vivían en la cabecera y un segundo juego es una segunda puerta
+ *     para lo mismo; después la cabecera se quedó en la identidad, las acciones
+ *     bajaron aquí, y en sep 2026 se vio que contactar NO ES un paso del proceso
+ *     sino lo que se hace en todos ellos. Ya no es un segundo juego: es el otro
+ *     plano. Ver `AccionesCandidato`.
  *   - "Puesto aplicado" como dato del raíl: ya está escrito debajo del nombre,
  *     en la cabecera, que es donde se lee a quién estás mirando.
  *   - "Notas" como nombre del hilo: son el chat del equipo desde jul 2026, con
@@ -345,15 +351,18 @@ export function CandidateModal({
 
   const acciones = (
     <AccionesCandidato
+      campaign={campaign}
       candidate={candidate}
       phone={phone}
       waPhone={waPhone}
       maskPhone={maskPhone}
+      cvName={cvName}
       onAvisoDemo={avisoDemo}
       esMovil={esMovil}
       onAgendar={() => setAgendarManual(true)}
       onVerEntrevista={() => setCambiarCita(true)}
       onEstado={cambiarEstado}
+      onEliminar={() => setConfirmarBorrado(true)}
     />
   )
 
@@ -460,19 +469,14 @@ export function CandidateModal({
                   </button>
                 </div>
               )}
-              {/* El `···` sube aquí desde la fila de acciones que se retiró: es el
-                  inventario de esta ficha (copiar el contacto, descargar el CV,
-                  eliminar) y eliminar no tiene otra puerta.
-
-                  SOLO DESDE `sm`, y no es una preferencia: en móvil ya vive en la
-                  barra del pulgar, así que aquí sería el mismo menú dos veces, y
-                  su caja le comía al nombre los 44px que necesita (se midió:
-                  "Alberto Herrera" se quedaba en "Alberto Herr..."). En un móvil
-                  el nombre es lo único que no se puede truncar sin perder de
-                  quién es la ficha. */}
-              <span className="hidden sm:inline-flex">
-                <MenuAcciones candidate={candidate} cvName={cvName} onEliminar={() => setConfirmarBorrado(true)} variante="ghost" />
-              </span>
+              {/* AQUÍ YA NO HAY `···` (Mario, sep 2026). Estuvo un mes entre las
+                  flechas de navegar y la equis de cerrar, o sea entre los dos
+                  controles que NO hacen nada con la persona, mientras su
+                  contenido (descargar el documento, copiar el contacto, descartar,
+                  eliminar) es todo sobre ella. Ha bajado a la fila de
+                  herramientas, con WhatsApp y Llamar, que es donde estaba en móvil
+                  desde el principio. La cabecera se queda en lo que siempre debió
+                  ser: quién es y por dónde te mueves. */}
               <button
                 type="button"
                 aria-label="Cerrar"
@@ -711,14 +715,23 @@ export function CandidateModal({
                     <Phone className="size-4 text-indigo-200" aria-hidden /> Llamar
                   </AccionContacto>
                   {waPhone && (
+                    // SÓLIDO, IGUAL QUE LLAMAR (Mario, sep 2026). Iba en línea, y
+                    // eso los convertía en una acción y su apoyo cuando son las
+                    // dos formas de hacer LO MISMO: hablar con esta persona. Es la
+                    // misma regla que ya empareja los dos verbos en la fila de
+                    // herramientas de escritorio; lo que aquí los distingue del
+                    // `···` que tienen al lado es justamente que ellos hacen algo
+                    // y él solo abre una lista.
                     <AccionContacto
                       href={`https://wa.me/${waPhone}`}
                       externo
                       demo={maskPhone}
                       onDemo={avisoDemo}
-                      className={`${BTN_SECONDARY} pointer-events-auto flex-1 shadow-pop`}
+                      className={`${BTN_PRIMARY} pointer-events-auto flex-1 shadow-pop`}
                     >
-                      <MessageCircle className="size-4 text-slate-400" aria-hidden /> WhatsApp
+                      {/* El glifo se sienta un peldaño por debajo de su rótulo,
+                          como el de Llamar: sobre el sólido eso es `indigo-200`. */}
+                      <MessageCircle className="size-4 text-indigo-200" aria-hidden /> WhatsApp
                     </AccionContacto>
                   )}
                 </>
@@ -731,7 +744,17 @@ export function CandidateModal({
                   dicho, en DATOS, que es la primera franja de la columna:
                   "Teléfono · No disponible". El menú se va solo a la derecha. */}
               <span className="pointer-events-auto ml-auto">
-                <MenuAcciones candidate={candidate} cvName={cvName} onEliminar={() => setConfirmarBorrado(true)} banda={barraRef} />
+                {/* Con `descartar`, igual que el `···` de escritorio: en móvil esta
+                    barra ES la fila de herramientas, así que su menú tiene que
+                    llevar los mismos verbos o descartar se quedaría sin puerta por
+                    debajo de `sm`. */}
+                <MenuAcciones
+                  candidate={candidate}
+                  cvName={cvName}
+                  onEliminar={() => setConfirmarBorrado(true)}
+                  descartar={{ status: candidate.status, onEstado: cambiarEstado }}
+                  banda={barraRef}
+                />
               </span>
             </div>
           )}
@@ -870,87 +893,6 @@ function ValorCopiable({ valor, etiqueta, num, truncar = false }: { valor: strin
   )
 }
 
-/**
- * EL TELÉFONO SE PULSA Y OFRECE QUÉ HACER CON ÉL (Mario, sep 2026).
- *
- * Hasta hoy este número solo se COPIABA, y aquella decisión venía con su motivo
- * escrito: "el teléfono tiene sus acciones de verdad, llamar y WhatsApp, en la
- * cabecera". Esa cabecera se retiró en ago 2026, así que en escritorio el dato
- * estaba ahí sin nada que hacer con él salvo pegarlo en otro programa. El motivo
- * se cayó y con él la regla.
- *
- * Copiar NO se pierde, cambia de canal: es el tercer ítem del menú. Y en la DEMO
- * este control no existe (el número está tapado y no lleva a nadie), que es la
- * misma frontera que ya aplica `AccionContacto`.
- *
- * ESCRIBIRLE A UN CANDIDATO NUEVO LO PASA A CONTACTADO, igual que el botón de
- * arriba. Es la misma regla mirada desde otra puerta: lo que mueve el estado es
- * haber escrito, no por dónde se pulsó. Y solo desde "nuevo": desde cualquier
- * otro estado sería retroceder el proceso por mandar un mensaje.
- */
-function MenuTelefono({
-  phone,
-  esNuevo,
-  onContactado,
-}: {
-  phone: string
-  esNuevo: boolean
-  onContactado: () => void
-}) {
-  const toast = useToast()
-  const wa = waNumero(phone)
-  const copiar = async (cerrar: () => void) => {
-    const ok = await copyText(formatPhone(phone))
-    if (ok) toast.success('Teléfono copiado')
-    else toast.show(`Copia el teléfono manualmente: ${formatPhone(phone)}`)
-    cerrar()
-  }
-  return (
-    <MenuFlotante etiqueta="Qué hacer con el teléfono" ancho={200} alinear="izquierda"
-      disparador={(props) => (
-        <button
-          {...props}
-          type="button"
-          aria-label={`Teléfono ${formatPhone(phone)}: llamar, WhatsApp o copiar`}
-          className="group -ml-1 flex max-w-full items-center gap-1 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-slate-100"
-        >
-          <span className="num truncate group-hover:underline">{formatPhone(phone)}</span>
-          <ChevronDown className="size-3.5 shrink-0 text-slate-400 group-hover:text-slate-600" aria-hidden />
-        </button>
-      )}
-    >
-      {(cerrar) => (
-        <>
-          {/* Primero WhatsApp: es por donde se contesta en estos sectores, y es
-              lo que la acción principal de un candidato nuevo ya ofrece arriba. */}
-          <a
-            role="menuitem"
-            href={`https://wa.me/${wa}`}
-            target="_blank"
-            rel="noreferrer"
-            className={ITEM_MENU}
-            onClick={() => {
-              // Primero se abre y después se anota, por lo mismo que en
-              // `AccionContacto`: lo que se anota puede rehacer esta pantalla.
-              cerrar()
-              if (esNuevo) setTimeout(onContactado, 0)
-            }}
-          >
-            <MessageCircle className="size-4 text-slate-500" aria-hidden /> WhatsApp
-          </a>
-          <a role="menuitem" href={`tel:${phone.replace(/\s/g, '')}`} className={ITEM_MENU} onClick={cerrar}>
-            <Phone className="size-4 text-slate-500" aria-hidden /> Llamar
-          </a>
-          <div className="my-1 h-px bg-slate-100" role="separator" />
-          <button type="button" role="menuitem" className={ITEM_MENU} onClick={() => void copiar(cerrar)}>
-            <Copy className="size-4 text-slate-500" aria-hidden /> Copiar número
-          </button>
-        </>
-      )}
-    </MenuFlotante>
-  )
-}
-
 function Dato({
   label,
   children,
@@ -1083,16 +1025,25 @@ function Bloque({
 }
 
 /**
- * LAS DOS ACCIONES DE UNA PERSONA, arriba del raíl (diseño de Mario, ago 2026).
+ * LO QUE SE HACE CON UNA PERSONA, arriba del raíl (diseño de Mario, ago 2026;
+ * partido en dos planos en sep 2026).
  *
  * Sustituyen a la fila de decisión que vivía bajo el nombre (pastilla de estado,
  * agendar, llamar, WhatsApp y el `···`), que era una barra de herramientas justo
  * donde se lee quién es alguien. Ahora la cabecera es identidad y navegación, y
  * lo que se HACE está donde se decide, encima de sus datos.
  *
- * **UNA SOLA ACCIÓN PRINCIPAL POR ESTADO**, que es lo que convierte dos botones
- * en un proceso: el botón dice cuál es el siguiente paso, no todos los posibles.
- *   · nuevo / contactado -> agendar la entrevista
+ * **DOS PLANOS, Y SOLO UNO CAMBIA** (sep 2026):
+ *   · CONTACTO, arriba: escribir o llamar. Está en los cinco estados y siempre en
+ *     el mismo píxel, porque hablar con alguien no es un paso del proceso, es lo
+ *     que se hace en todos ellos.
+ *   · PROCESO, debajo: la acción principal del estado y la salida.
+ *
+ * **UNA SOLA ACCIÓN PRINCIPAL POR ESTADO**, que es lo que convierte unos botones
+ * en un proceso: el acento dice cuál es el siguiente paso, no todos los posibles.
+ * Lo que el plano de contacto cambia no es esa regla, es DÓNDE cae el acento:
+ *   · nuevo              -> escribirle (el acento, arriba); agendar queda en línea
+ *   · contactado         -> agendar la entrevista
  *   · entrevista         -> confirmar que se contrata
  *   · contratado         -> ninguna: el proceso acabó
  *   · descartado         -> ninguna, y la secundaria pasa a devolverlo a la lista
@@ -1111,10 +1062,11 @@ function Bloque({
  *
  * EL BOTÓN DICE "AGENDAR ENTREVISTA", y desde que se retiró el asistente de
  * WhatsApp (sep 2026) esa es la única forma que hay: la cita se apunta a mano y
- * avisas tú por el canal que quieras. Llegó a haber un "Invitar a entrevista"
- * previsto, que le escribía al candidato para que eligiera hueco; se fue con el
- * canal. La regla que queda es la de siempre: se ofrece la acción que funciona
- * ENTERA, nunca una que acabe en un mensaje que no sale.
+ * avisas tú por el canal que quieras, que es justo para lo que el plano de
+ * contacto tiene que estar siempre puesto. Llegó a haber un "Invitar a
+ * entrevista" previsto, que le escribía al candidato para que eligiera hueco; se
+ * fue con el canal. La regla que queda es la de siempre: se ofrece la acción que
+ * funciona ENTERA, nunca una que acabe en un mensaje que no sale.
  */
 /**
  * El teléfono en el formato que pide `wa.me`. Vive aquí y no escrito dos veces
@@ -1175,8 +1127,9 @@ function AccionContacto({
       href={href}
       // PRIMERO SE ABRE Y DESPUÉS SE ANOTA, y el retardo de un tic no es un
       // adorno: lo que se anota puede cambiar el estado del candidato, y con él
-      // esta misma pieza (el WhatsApp de un candidato nuevo se convierte en
-      // "Agendar entrevista" en cuanto pasa a contactado). Un React que
+      // esta misma pieza (el WhatsApp de un candidato nuevo pasa de sólido a
+      // línea en cuanto queda contactado, porque el acento baja a su fila). Un
+      // React que
       // reemplaza el `<a>` dentro del propio manejador se lleva por delante el
       // nodo del que el navegador tiene que sacar el enlace, y el peor final
       // posible aquí es quedar marcado como contactado sin que el mensaje se
@@ -1193,16 +1146,21 @@ function AccionContacto({
 }
 
 function AccionesCandidato({
+  campaign,
   candidate,
   phone,
   waPhone,
   maskPhone,
+  cvName,
   onAvisoDemo,
   esMovil,
   onAgendar,
   onVerEntrevista,
   onEstado,
+  onEliminar,
 }: {
+  /** De aquí sale el campo de correo, que es a lo que degrada el contacto sin teléfono. */
+  campaign: Campaign
   candidate: Candidate
   /** El teléfono tal cual lo escribió el candidato (para `tel:`). */
   phone: string
@@ -1211,14 +1169,20 @@ function AccionesCandidato({
   maskPhone: boolean
   onAvisoDemo: () => void
   /**
-   * En móvil, llamar y escribir por WhatsApp ya viven en la barra del pulgar, así
-   * que aquí no se pintan: serían dos puertas para lo mismo a un dedo de
-   * distancia. Ver `contactar`, más abajo.
+   * En móvil, llamar y escribir por WhatsApp ya viven en la barra del pulgar y en
+   * TODOS los estados, así que el plano de contacto no se pinta aquí: serían dos
+   * puertas para lo mismo a un dedo de distancia. La barra del pulgar es, de
+   * hecho, quien llevaba esto bien desde ago 2026; lo que se ha hecho en sep 2026
+   * es traer su reparto al escritorio. Ver `contacto`, más abajo.
    */
   esMovil: boolean
+  /** Lo que el `···` necesita para su fila de descargar el documento. */
+  cvName: string
   onAgendar: () => void
   onVerEntrevista: () => void
   onEstado: (s: CandidateStatus) => void
+  /** Eliminar vive en el `···`, y desde sep 2026 el `···` vive en esta fila. */
+  onEliminar: () => void
 }) {
   const { interviewsFor } = useStore()
   const entrevista = currentInterview(interviewsFor(candidate.id), candidate.id)
@@ -1228,76 +1192,175 @@ function AccionesCandidato({
       : null
   const s = candidate.status
 
-  // CON UN CANDIDATO NUEVO, EL SIGUIENTE PASO ES HABLAR CON ÉL (Mario, sep 2026).
+  // EL CONTACTO NO ES UN PASO DEL PROCESO: ES LO QUE SE HACE EN TODOS ELLOS
+  // (Mario, sep 2026, con Solera Canarias delante: "cuando lo han contactado
+  // previamente se cambian los botones y para recontactar tienen que copiar y
+  // pegar el número, y es un lío").
   //
-  // No es un botón más: es la misma regla de "una sola acción principal por
-  // estado" aplicada al primero de todos. A alguien que acaba de apuntarse no se
-  // le agenda una entrevista, se le escribe; agendar sigue siendo la principal en
-  // cuanto el proceso avanza a "contactado", que es cuando de verdad toca.
+  // Escribir y llamar vivían SOLO en "nuevo", o sea tratados como un paso más
+  // del embudo, y desaparecían justo cuando más se usan: recontactar al que no
+  // contestó, confirmarle la hora al que ya tiene entrevista, avisar al
+  // contratado de cuándo empieza. La puerta que sí estaba siempre (el número del
+  // bloque Datos, que despliega WhatsApp · Llamar · Copiar desde el 2-sep) no se
+  // encuentra, y la prueba es que un cliente con ella delante prefiera copiar y
+  // pegar: en una columna de hechos, un número se lee como un DATO y no como un
+  // control, por mucho chevron que lleve.
   //
-  // Se ofrece solo si dejó teléfono (un botón que no puede hacer nada es peor que
-  // ninguno) y solo donde no está ya la barra del pulgar, que en móvil pinta
-  // Llamar y WhatsApp para cualquier estado. En escritorio no había NINGUNA forma
-  // de escribirle desde la ficha: el hueco que esto tapa.
-  const contactar = s === 'nuevo' && !esMovil && !!waPhone
+  // Así que la ficha pasa a tener DOS PLANOS, y el bloque tiene la MISMA forma
+  // en los cinco estados:
+  //   - CONTACTO, arriba: no se mueve nunca, ni de sitio ni de anatomía.
+  //   - PROCESO, debajo: la acción principal del estado y la salida, que son las
+  //     únicas que cambian.
+  //
+  // No rompe "una sola acción principal por estado", la lee bien: la principal
+  // sigue siendo UNA, lo que cambia es en qué plano cae. En "nuevo" es escribirle
+  // (la decisión de sep 2026 se conserva entera) y el acento se lo lleva el
+  // contacto; en cuanto el proceso avanza, el acento baja a su fila y el contacto
+  // se queda en línea. **El énfasis cambia; la geometría no**, que es exactamente
+  // lo que faltaba: el botón está siempre en el mismo píxel.
+  const esNuevo = s === 'nuevo'
+  const campoEmail = campoCorreo(campaign)
+  const correo = campoEmail ? String(candidate.answers[campoEmail.id] ?? '') : ''
 
+  // EL PASO ARRIBA, LAS HERRAMIENTAS DEBAJO (Mario, sep 2026, con el esquema
+  // dibujado). Dos filas y ni una más:
+  //
+  //   [        Agendar entrevista        ]   <- lo que hace avanzar el proceso
+  //   [◉ WhatsApp] [☎ Llamar] [···]          <- con qué trabajas a esa persona
+  //
+  // Es la misma frontera de siempre (contactar no es un paso del proceso, es lo
+  // que se hace en todos ellos), pero dicha con la MAQUETACIÓN en vez de con el
+  // peso: arriba hay una sola cosa y ocupa el ancho entero, así que se lee sin
+  // buscarla; debajo hay tres, del mismo tamaño y siempre las mismas.
+  //
+  // ES LA COMPOSICIÓN DE LA BARRA DEL PULGAR, TRAÍDA AL ESCRITORIO. En móvil esos
+  // tres controles llevaban juntos desde ago 2026 y nadie se quejó nunca; el
+  // agujero estaba en el escritorio, donde escribir y llamar solo existían en
+  // "nuevo" y el `···` vivía arriba, en la cabecera. Cuando un ancho ya ha
+  // resuelto un problema, la respuesta no es inventar un patrón: es mirar el suyo.
+  const contactar = phone && waPhone
+
+  // LA FILA DE HERRAMIENTAS NO SE PINTA EN MÓVIL: allí ES la barra del pulgar,
+  // con los mismos tres controles y flotando sobre el contenido. Montarla aquí
+  // además sería el mismo menú dos veces en la misma pantalla.
+  const herramientas = esMovil ? null : (
+    // FLEX Y NO REJILLA, y con el `···` empujado al filo: es exactamente lo que
+    // hace la barra del pulgar, y hace falta para el caso en que no haya con qué
+    // contactar. Sin teléfono ni correo se queda el menú solo, y solo se lee bien
+    // pegado a la derecha; con dos verbos, ellos se reparten el ancho y el menú
+    // cierra la fila.
+    <div className="flex items-center gap-2">
+      {contactar ? (
+        <>
+          {/* ESCRIBIRLE A UN CANDIDATO NUEVO LO PASA A "CONTACTADO", y SOLO desde
+              nuevo: desde cualquier otro estado, recontactar a alguien no puede
+              hacer retroceder su proceso, que es justo el caso al que esta fila
+              sirve.
+
+              Lo que se asume, y conviene tenerlo escrito: se anota haber ABIERTO
+              el chat, no haber enviado el mensaje. Es lo único que se puede saber
+              desde aquí, porque el enlace abre el WhatsApp DEL EMPRESARIO y lo que
+              pase dentro ya no es nuestro. Se acepta porque el estado es
+              reversible y se cambia en el selector que tiene a dos dedos. */}
+          <AccionContacto
+            href={`https://wa.me/${waPhone}`}
+            externo
+            demo={maskPhone}
+            onDemo={onAvisoDemo}
+            onAbrir={esNuevo ? () => onEstado('contactado') : undefined}
+            className={`${BTN_SECONDARY_BLOCK} flex-1`}
+          >
+            {/* AQUÍ SÍ VAN ICONOS, y no contradice la regla de que un botón de
+                ancho completo va con la etiqueta sola: aquella es para el botón
+                ÚNICO de una fila, donde el grupo icono+texto se centra y deja el
+                rótulo descentrado. Estos son tres controles repartiéndose una
+                fila, que es la anatomía de la barra del pulgar, y ahí el glifo es
+                lo que los distingue de un vistazo antes de leerlos. */}
+            <MessageCircle className="size-4 text-slate-500" aria-hidden /> WhatsApp
+          </AccionContacto>
+          {/* LLAMAR RECUPERA SU NOMBRE. Era un cuadrado con el glifo solo, que es
+              lo correcto cuando acompaña a un botón ancho; en una fila de tres
+              hermanos, la palabra cuesta lo mismo y se lee sin aprender nada. */}
+          <AccionContacto
+            href={`tel:${phone.replace(/\s/g, '')}`}
+            demo={maskPhone}
+            onDemo={onAvisoDemo}
+            className={`${BTN_SECONDARY_BLOCK} flex-1`}
+          >
+            <Phone className="size-4 text-slate-500" aria-hidden /> Llamar
+          </AccionContacto>
+        </>
+      ) : correo ? (
+        // SIN TELÉFONO LA FILA NO DESAPARECE: DEGRADA. Lo que dice no es "WhatsApp
+        // y llamar", es CÓMO SE HABLA CON ESTA PERSONA, y a quien solo dejó correo
+        // se le escribe un correo. Sin teléfono NI correo se queda el `···` solo,
+        // porque un botón que no puede hacer nada es peor que ninguno.
+        //
+        // `demo={false}` no es un descuido: en la demo lo que está tapado es el
+        // TELÉFONO, y el correo se pinta ya como un `mailto:` vivo en Datos (son
+        // los dominios reservados de la RFC 2606, así que no lleva a nadie real).
+        // Taparlo aquí y no allí serían dos respuestas para el mismo dato.
+        <AccionContacto
+          href={`mailto:${correo}`}
+          demo={false}
+          onDemo={onAvisoDemo}
+          onAbrir={esNuevo ? () => onEstado('contactado') : undefined}
+          className={`${BTN_SECONDARY_BLOCK} flex-1`}
+        >
+          <Mail className="size-4 text-slate-500" aria-hidden /> Escribir un correo
+        </AccionContacto>
+      ) : null}
+      {/* EL `···` BAJA DE LA CABECERA A ESTA FILA (Mario, sep 2026). Allí era el
+          inventario de la ficha metido entre las flechas de navegar y la equis de
+          cerrar, o sea entre controles que no hacen nada CON la persona; aquí está
+          con los que sí. Y no se duplica: la cabecera se queda sin él, que es la
+          regla de que cada cosa exista una sola vez en cada ancho. */}
+      <span className={contactar || correo ? '' : 'ml-auto'}>
+        <MenuAcciones
+          candidate={candidate}
+          cvName={cvName}
+          onEliminar={onEliminar}
+          bloque
+          descartar={{ status: s, onEstado }}
+        />
+      </span>
+    </div>
+  )
+
+  // UNA SOLA ACCIÓN PRINCIPAL POR ESTADO, y ahora ocupa una fila para ella sola:
+  // el botón dice cuál es el SIGUIENTE paso, no todos los posibles.
+  //   · nuevo / contactado -> agendar la entrevista
+  //   · entrevista         -> confirmar que se contrata
+  //   · contratado         -> ninguna: el proceso acabó
+  //   · descartado         -> devolverlo a la lista, que es lo único que queda
+  //
+  // DESCARTAR SE VA AL `···`, y es lo que hace que esta fila pueda decir UNA cosa.
+  // Compartiendo fila con el paso, las dos salidas de la decisión se leían como
+  // alternativas equivalentes; y descartar no es lo que se hace a diario con una
+  // ficha abierta, es cómo se sale de ella. Sigue siendo un ESTADO reversible: se
+  // cambia también desde su pastilla, en Datos, que es donde vive el estado.
+  //
+  // "Devolver a la lista" SÍ es principal, porque en "descartado" es literalmente
+  // lo único que queda por hacer; si estuviera en el menú, salir de un descarte
+  // costaría dos clics y uno de ellos a ciegas.
   const principal =
     s === 'entrevista' ? (
       <button type="button" onClick={() => onEstado('contratado')} className={BTN_PRIMARY_BLOCK}>
         Confirmar contratado
       </button>
-    ) : contactar ? (
-      // LA PAREJA ES UNA REJILLA, no un `flex`: `BTN_PRIMARY_BLOCK` ya trae
-      // `w-full`, y `w-full` con `flex-1` son el mismo eje. En una celda de grid,
-      // el `w-full` hace justo lo que dice y el cuadrado se queda con lo suyo.
-      <div className="grid grid-cols-[1fr_auto] gap-2">
-        {/* Sin icono, como manda el punto 3 de arriba: en un botón de ancho
-            completo el grupo icono+texto se centra y el rótulo queda descentrado. */}
-        {/* ESCRIBIRLE LO PASA A "CONTACTADO" (Mario, sep 2026). Es lo que
-            convierte este botón en un paso del proceso y no en un atajo: el
-            estado dice por dónde va cada candidato, y dejarlo en "Nuevo"
-            después de haberle escrito obliga a moverlo a mano cada vez, que es
-            justo el trabajo que esta pantalla existe para quitar.
-
-            Lo que se asume, y conviene tenerlo escrito: se anota haber ABIERTO
-            el chat, no haber enviado el mensaje. Es lo único que se puede saber
-            desde aquí, porque el enlace abre el WhatsApp DEL EMPRESARIO y lo que
-            pase dentro ya no es nuestro. Se acepta porque el estado es
-            reversible y se cambia en el selector que tiene justo debajo. */}
-        <AccionContacto
-          href={`https://wa.me/${waPhone}`}
-          externo
-          demo={maskPhone}
-          onDemo={onAvisoDemo}
-          onAbrir={() => onEstado('contactado')}
-          className={BTN_PRIMARY_BLOCK}
-        >
-          WhatsApp
-        </AccionContacto>
-        {/* Llamar SÍ es solo el glifo: el teléfono es de los poquísimos iconos
-            que no hay que aprenderse, y su nombre no se pierde, lo lleva en
-            `aria-label` y en el `title`.
-
-            Y va en COLOR DE MARCA, no en línea (Mario, sep 2026). No rompe la
-            regla de una sola acción principal, la lee bien: escribir y llamar no
-            son una acción y su apoyo, son las dos formas de hacer LO MISMO con un
-            candidato nuevo, y en secundario el cuadrado se leía como si fuera de
-            otro grupo. La que sí es de otro grupo, Descartar, sigue en línea
-            debajo. */}
-        <AccionContacto
-          href={`tel:${phone.replace(/\s/g, '')}`}
-          demo={maskPhone}
-          onDemo={onAvisoDemo}
-          className={botonIconoBloque()}
-          label="Llamar"
-        >
-          {/* El glifo va en blanco y no en el `text-indigo-200` con el que este
-              mismo icono acompaña a "Llamar" en la barra del pulgar: allí es lo
-              que ACOMPAÑA a un rótulo y se sienta un peldaño por debajo; aquí es
-              todo lo que hay que leer. */}
-          <Phone className="size-4" aria-hidden />
-        </AccionContacto>
-      </div>
+    ) : s === 'descartado' ? (
+      // EN ACENTO, COMO CUALQUIER OTRA PRINCIPAL (Mario, sep 2026). Iba en línea
+      // por herencia: cuando compartía fila con "Descartar" era la mitad
+      // secundaria de esa pareja. Sola en su fila es lo ÚNICO que queda por hacer
+      // con esta persona, o sea la definición de acción principal, y en línea
+      // decía lo contrario de lo que es. Que descartar sea reversible se dice
+      // ofreciendo la vuelta bien visible, no pintándola de segunda.
+      //
+      // Vuelve a "nuevo" porque es el único estado que no afirma nada sobre el
+      // trato que ya ha habido; el historial conserva por dónde pasó.
+      <button type="button" onClick={() => onEstado('nuevo')} className={BTN_PRIMARY_BLOCK}>
+        Devolver a la lista
+      </button>
     ) : s === 'nuevo' || s === 'contactado' ? (
       <button type="button" onClick={onAgendar} className={BTN_PRIMARY_BLOCK}>
         Agendar entrevista
@@ -1305,39 +1368,23 @@ function AccionesCandidato({
     ) : null
 
   return (
-    <div className="space-y-2">
-      {/* EN MÓVIL LOS DOS BOTONES COMPARTEN FILA (44px en vez de 132). Apilados
-          son la mitad de la primera pantalla de un teléfono para dos verbos que
-          caben de sobra en 165px cada uno. Es una REJILLA y no un `flex-row`:
-          `BTN_*_BLOCK` ya trae `w-full`, y `w-full` con `flex-1` son el mismo eje
-          y no se resuelven por el orden en que se escriben; en una celda de grid,
-          el `w-full` hace justo lo que dice.
+    // DOS FILAS, SEPARADAS CON AIRE Y NO CON UNA RAYA: 12px entre ellas y 8
+    // dentro. Es la regla de siempre (una raya solo vale si separa algo que el
+    // hueco no separa), y aquí el hueco basta porque las dos filas ya se
+    // distinguen por su forma: arriba una cosa a lo ancho, debajo tres iguales.
+    <div className="space-y-3">
+      {principal}
+      {herramientas}
+      {/* CUÁNDO ES LA CITA VA AL PIE, DEBAJO DE TODO (Mario, sep 2026). Estuvo
+          entre el paso y las herramientas, con el argumento de que es el dato de
+          lo que ese botón acaba de hacer; y el precio era peor que el argumento,
+          porque partía en dos los CONTROLES, que son lo que se viene a usar. Los
+          dos filas son una unidad (qué haces con esta persona) y una línea de
+          texto en medio las separaba como si fueran cosas distintas.
 
-          PERO LA FILA DE DOS SOLO EXISTE SI HAY DOS. En "descartado" y en
-          "contratado" el proceso ya no tiene siguiente paso, así que no hay
-          acción principal y queda un botón solo: en la rejilla se sentaba en la
-          primera columna, o sea a media pantalla y con un hueco al lado que no
-          era de nadie. Un botón de bloque ocupa el ancho de su bloque. */}
-      <div className={`grid gap-2 ${principal ? 'max-sm:grid-cols-2' : ''}`}>
-        {principal}
-        {s === 'descartado' ? (
-          // Descartar es reversible y se dice con un botón, no con una
-          // advertencia: vuelve a "nuevo" porque es el único estado que no
-          // afirma nada sobre el trato que ya ha habido, y el historial conserva
-          // por dónde pasó.
-          <button type="button" onClick={() => onEstado('nuevo')} className={BTN_SECONDARY_BLOCK}>
-            Devolver a la lista
-          </button>
-        ) : (
-          <button type="button" onClick={() => onEstado('descartado')} className={BTN_SECONDARY_BLOCK}>
-            Descartar
-          </button>
-        )}
-      </div>
-
-      {/* CUÁNDO es la cita no se pierde con la fila que se retiró. Es una línea y
-          no un tercer botón: no es una acción sobre la persona, es un dato que
-          además lleva a donde se ve entera. */}
+          Debajo cierra el bloque sin estorbar a nada: es un DATO, no una acción,
+          y su sitio natural es después de lo que se pulsa. Línea y no un tercer
+          botón, por lo mismo; lleva a donde la cita se ve entera. */}
       {confirmada && (
         <button
           type="button"
@@ -1392,55 +1439,66 @@ function FichaDatos({
   return (
     <div className="space-y-5">
       <Bloque titulo="Datos">
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <Dato label="Teléfono">
-            {!phone ? (
-              <span className="font-normal text-slate-500">No disponible</span>
-            ) : maskPhone ? (
-              <MaskedPhone value={formatPhone(phone)} />
-            ) : (
-              <MenuTelefono
-                phone={phone}
-                esNuevo={candidate.status === 'nuevo'}
-                onContactado={() => onEstado('contactado')}
-              />
-            )}
-          </Dato>
-          {/* La fecha SOLA, en su casilla, se dice corta: aquí se compara el día,
-              y la hora exacta cambia de canal (al `title` y al `datetime`), que
-              es lo que ya hace la columna Recibida de la tabla. Escrita entera no
-              cabía en media rejilla de 336px y rompía la fila en dos líneas. */}
-          <Dato label="Recibida">
-            <time dateTime={candidate.submittedAt} title={fullDateTime(candidate.submittedAt)} className="num">
-              {fechaCorta(candidate.submittedAt)}
-            </time>
-          </Dato>
-          <Dato label="Origen">{SOURCE_META[candidate.source].label}</Dato>
+        {/* EL ORDEN LO DECIDE PARA QUÉ SE MIRA CADA DATO (Mario, sep 2026):
+            ESTADO arriba y solo, CORREO y TELÉFONO en la misma línea, y ORIGEN y
+            RECIBIDA cerrando.
+
+            Estaba repartido por cómo cuadraban los anchos (el correo al final
+            porque era el único que ocupaba dos columnas) y no por lo que se viene
+            a hacer. Leído así, el bloque cuenta una frase: en qué punto está esta
+            persona · por dónde la localizas · de dónde salió y cuándo. Lo de
+            arriba cambia el trabajo de hoy; lo de abajo es la ficha del archivo.
+
+            ESTADO OCUPA SU PROPIA LÍNEA porque es el único dato que además es un
+            CONTROL, y el único que dice qué toca hacer. Su cápsula deja media
+            fila vacía a la derecha y está bien: el vacío no se reparte, se deja
+            donde cae. */}
+        {/* LA COLUMNA DERECHA SE DECLARA Y LA IZQUIERDA SE QUEDA CON EL RESTO.
+            A partes iguales el correo se quedaba en 160px y
+            `laura.gil21@example.com`, que son 23 caracteres y de los cortos que
+            hay, ya pedía 169: se recortaba **el caso normal**, no el raro.
+
+            LOS 116 SON UNA CUENTA, NO UN NÚMERO REDONDO: a la derecha solo caen
+            el teléfono y la fecha, y el ancho lo manda el primero, que es
+            `formatPhone` de nueve dígitos (84 medidos) + 8 de hueco + 14 del
+            icono de copiar + 8 del relleno de su botón = 114, más 2 de aire. La
+            fecha corta cabe de sobra.
+
+            Y SE DECLARA EN VEZ DE PONER `auto`, que es lo que se probó primero:
+            `ValorCopiable` lleva `max-w-full`, y dentro de una pista `auto` ese
+            porcentaje se resuelve contra un ancho que todavía depende del
+            contenido. El navegador corta el nudo dando 110 a una celda que pedía
+            114, así que el número salía recortado ("646 595 6…") con la columna a
+            medio llenar; y quitándole el recorte, partía en dos líneas y
+            descuadraba la fila. **Cuando una medida depende de sí misma, se
+            declara.** */}
+        <dl className="grid grid-cols-[minmax(0,1fr)_116px] gap-x-4 gap-y-3">
           {/* EL ESTADO ES UN DATO MÁS, y vive aquí desde que la cabecera se quedó
               en la identidad (Mario, ago 2026). Estaba en su propia fila debajo
-              del nombre; en el raíl cae al lado del origen, que es su hermano
-              natural (de dónde vino y en qué punto está), y con los dos botones
-              de acción justo encima, que son quienes lo mueven. Ocupa el hueco
-              que tenía "Interés actual", que se retiró de la ficha: esa señal se
-              sigue viendo en la fila de la lista, y en una ficha cualquiera casi
-              siempre decía "sin comprobar", porque la comprobación se manda desde
-              un puesto y sobre una selección. */}
-          <Dato label="Estado">
+              del nombre; en el raíl es el primero, con los botones que lo mueven
+              justo encima. Ocupa el hueco que tenía "Interés actual", que se
+              retiró de la ficha: esa señal se sigue viendo en la fila de la
+              lista, y en una ficha cualquiera casi siempre decía "sin comprobar",
+              porque la comprobación se manda desde un puesto y sobre una
+              selección. */}
+          <Dato label="Estado" ancho>
             <StatusSelect status={candidate.status} onChange={onEstado} />
           </Dato>
           {/* EL CORREO ES UN ENLACE, no un valor que se copia (Mario, ago 2026):
-              es el único dato de este bloque con el que se puede HACER algo
-              desde aquí, y `mailto:` lo hace en un clic en vez de en tres
-              (copiar, abrir el correo, pegar). Mismo tratamiento que la columna
-              de correo de la tabla. El teléfono se queda copiable: su acción de
-              verdad (llamar, WhatsApp) está en la cabecera, y lo que se hace con
-              el número es pegarlo en otro sitio.
+              es el único dato de este bloque con el que se puede HACER algo desde
+              aquí, y `mailto:` lo hace en un clic en vez de en tres (copiar, abrir
+              el correo, pegar). Mismo tratamiento que la columna de correo de la
+              tabla.
 
-              Y va el ÚLTIMO, debajo de Origen e Interés: es el único que ocupa
-              las dos columnas, así que en medio partía la rejilla en dos mitades
-              de dos casillas y el ojo perdía la vertical. Al final, las cuatro
-              casillas cortas forman un bloque limpio y el ancho cierra. */}
-          <Dato label="Correo" ancho>
+              LO QUE CUESTA BAJARLO A MEDIA FILA, MEDIDO: en los 156px de media
+              rejilla caben ~24 caracteres, así que un correo largo se recorta con
+              puntos suspensivos. No se pierde (va entero en el `title` y el enlace
+              sigue llevando a donde tiene que llevar) y se acepta porque a cambio
+              queda al lado del teléfono, que es su hermano: los dos contestan la
+              misma pregunta, por dónde se localiza a esta persona, y separados por
+              dos filas había que buscarlos. Si algún día molesta, la salida es
+              devolverle el ancho entero, NO encoger la letra. */}
+          <Dato label="Correo">
             {correo ? (
               <a
                 href={`mailto:${correo}`}
@@ -1452,6 +1510,44 @@ function FichaDatos({
             ) : (
               <span className="font-normal text-slate-500">No disponible</span>
             )}
+          </Dato>
+          <Dato label="Teléfono">
+            {!phone ? (
+              <span className="font-normal text-slate-500">No disponible</span>
+            ) : maskPhone ? (
+              <MaskedPhone value={formatPhone(phone)} />
+            ) : (
+              // EL NÚMERO SE COPIA, Y ESO ES TODO LO QUE HACE (sep 2026).
+              //
+              // Llegó a desplegar un menú con WhatsApp · Llamar · Copiar, y su
+              // motivo era bueno: la cabecera se había retirado en ago 2026 y en
+              // escritorio este dato se había quedado sin ninguna acción cerca.
+              // Ese motivo se ha vuelto a caer, esta vez por el otro lado: las dos
+              // acciones tienen ahora sitio fijo en la fila de herramientas, a un
+              // palmo de aquí y en los cinco estados. Repetirlas también aquí
+              // serían dos puertas idénticas para lo mismo, y en una celda de
+              // 156px no caben sin estrujar el número.
+              //
+              // Se queda lo único que esa fila NO da y sí hace falta: pegar el
+              // número en otro programa. Y con la pieza que ya existía para eso,
+              // la misma que usan las respuestas, en vez de un menú propio: un
+              // verbo, un clic y nada que descubrir.
+              // CON `truncar`, y NO porque se espere recortar: es lo que impide que
+              // un valor raro parta en dos líneas y descuadre la fila. Lo que
+              // garantiza que el número entre entero es el ancho declarado de su
+              // columna, aquí al lado.
+              <ValorCopiable valor={formatPhone(phone)} etiqueta="Teléfono" num truncar />
+            )}
+          </Dato>
+          <Dato label="Origen">{SOURCE_META[candidate.source].label}</Dato>
+          {/* La fecha SOLA, en su casilla, se dice corta: aquí se compara el día,
+              y la hora exacta cambia de canal (al `title` y al `datetime`), que
+              es lo que ya hace la columna Recibida de la tabla. Escrita entera no
+              cabía en media rejilla de 336px y rompía la fila en dos líneas. */}
+          <Dato label="Recibida">
+            <time dateTime={candidate.submittedAt} title={fullDateTime(candidate.submittedAt)} className="num">
+              {fechaCorta(candidate.submittedAt)}
+            </time>
           </Dato>
         </dl>
       </Bloque>
@@ -2610,11 +2706,12 @@ function MenuAcciones({
   cvName,
   onEliminar,
   size = 'md',
-  // En la cabecera va SIN caja, como las flechas y la equis con las que comparte
-  // fila: un botón de línea entre tres fantasmas se lee como si fuera de otro
-  // grupo. En la barra del pulgar sí lleva caja, porque allí sus vecinos son
-  // botones de verdad.
+  // En la barra del pulgar y en la fila de herramientas lleva caja, porque allí
+  // sus vecinos son botones de verdad. `ghost` queda para cuando comparta fila
+  // con fantasmas, que es donde un botón de línea se leería como de otro grupo.
   variante = 'secondary',
+  bloque = false,
+  descartar,
   banda,
 }: {
   candidate: Candidate
@@ -2622,6 +2719,26 @@ function MenuAcciones({
   onEliminar: () => void
   size?: 'sm' | 'md'
   variante?: 'secondary' | 'ghost'
+  /**
+   * TALLA DE BLOQUE (44px y radio 10), para cuando comparte fila con botones de
+   * bloque: en la fila de herramientas de la ficha, un cuadrado de 36 al lado de
+   * dos botones de 44 se lee hundido. Es una variante DECLARADA y no un `size-11`
+   * pegado desde fuera, porque `size-9` y `size-11` son la misma utilidad y no se
+   * resuelven por el orden en que se escriben.
+   */
+  bloque?: boolean
+  /**
+   * DESCARTAR VIVE AQUÍ DESDE SEP 2026, y es opcional porque no todo el que monta
+   * este menú tiene con qué mover el estado. Salió de ser un botón para que la
+   * fila de arriba pueda decir UNA cosa: compartiendo fila con el siguiente paso,
+   * las dos salidas de la decisión se leían como alternativas equivalentes, y no
+   * lo son. Sigue siendo un ESTADO reversible y sigue teniendo su otra puerta, la
+   * pastilla de Datos, que es donde el estado vive.
+   *
+   * En "descartado" no se pinta: allí lo que hay que ofrecer es volver, y eso es
+   * la acción principal de la fila de arriba.
+   */
+  descartar?: { status: CandidateStatus; onEstado: (s: CandidateStatus) => void }
   /**
    * La superficie que contiene al botón, si la hay (la barra del pulgar).
    *
@@ -2670,7 +2787,11 @@ function MenuAcciones({
           {...props}
           type="button"
           aria-label="Más acciones"
-          className={botonIcono(variante, size, size === 'sm' ? 'pointer-coarse:size-11' : '')}
+          className={
+            bloque
+              ? botonIconoBloque('secondary')
+              : botonIcono(variante, size, size === 'sm' ? 'pointer-coarse:size-11' : '')
+          }
         >
           {/* El icono también acompaña: los vecinos _SM llevan size-3.5. */}
           <MoreHorizontal className={size === 'sm' ? 'size-3.5' : 'size-4'} aria-hidden />
@@ -2687,6 +2808,22 @@ function MenuAcciones({
           <button type="button" role="menuitem" className={ITEM_MENU} onClick={() => void copiarContacto(cerrar)}>
             <Copy className="size-4 text-slate-500" aria-hidden /> Copiar datos de contacto
           </button>
+          {/* DESCARTAR NO VA EN ROJO NI SE LLAMA "RECHAZAR": es rutina, es
+              reversible y el glosario está congelado. Va con los otros verbos y
+              no abajo con Eliminar, que es de lo que no se deshace. */}
+          {descartar && descartar.status !== 'descartado' && (
+            <button
+              type="button"
+              role="menuitem"
+              className={ITEM_MENU}
+              onClick={() => {
+                cerrar()
+                descartar.onEstado('descartado')
+              }}
+            >
+              <CircleSlash className="size-4 text-slate-500" aria-hidden /> Descartar
+            </button>
+          )}
           <div className="my-1 h-px bg-slate-100" role="separator" />
           <button
             type="button"

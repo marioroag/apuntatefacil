@@ -23,8 +23,9 @@ export function Modal({
   labelledBy,
   label,
   children,
-  /** Ancho máximo en escritorio. El alto lo fija el contenido, con techo de 88vh. */
+  /** Ancho máximo en escritorio. */
   maxWidthClass = 'sm:max-w-[1080px]',
+  alto = 'pantalla',
   inert = false,
   focoInicial,
 }: {
@@ -35,6 +36,26 @@ export function Modal({
   label?: string
   children: ReactNode
   maxWidthClass?: string
+  /**
+   * QUIÉN DECIDE EL ALTO, y hasta sep 2026 lo decidía siempre el modal.
+   *
+   * El panel iba a `sm:h-[min(88vh,780px)]`, o sea ALTO FIJO para todo el mundo,
+   * mientras el comentario de al lado decía lo contrario ("el alto lo fija el
+   * contenido"). Ganaba el código: medido, "Cambiar la cita" pintaba **780px de
+   * panel para 436 de contenido**, 344 de blanco y el 44% del diálogo vacío. Eso
+   * no se lee como aire, se lee como que algo no ha cargado.
+   *
+   * - `pantalla` (lo de siempre): el panel ocupa su alto y lo de dentro scrollea.
+   *   Lo quiere la ficha del candidato, que reparte dos columnas y una barra de
+   *   pestañas dentro de una caja de alto conocido, y que encogiera con cada
+   *   pestaña sería un salto por click.
+   * - `contenido`: el panel mide lo que mide lo de dentro, con el MISMO techo. Lo
+   *   quiere cualquier diálogo de formulario, que es un puñado de campos.
+   *
+   * Sigue de fábrica en `pantalla` a propósito: cambiar el defecto movería la
+   * ficha, que es quien lo necesita. **Un alto se declara, no se hereda.**
+   */
+  alto?: 'pantalla' | 'contenido'
   inert?: boolean
   /**
    * El `id` del control donde tiene que empezar el foco, en vez del panel.
@@ -165,7 +186,11 @@ export function Modal({
             <motion.div
               ref={panelRef}
               tabIndex={inert ? undefined : -1}
-              className={`pointer-events-auto flex h-full max-h-svh w-full flex-col overflow-hidden bg-white shadow-pop outline-none sm:h-[min(88vh,780px)] sm:rounded-xl ${maxWidthClass}`}
+              // En móvil siempre a pantalla completa: un diálogo que flota a media
+              // altura en un teléfono se pelea con el teclado del sistema.
+              className={`pointer-events-auto flex h-full max-h-svh w-full flex-col overflow-hidden bg-white shadow-pop outline-none sm:rounded-xl ${
+                alto === 'contenido' ? 'sm:h-auto sm:max-h-[min(88vh,780px)]' : 'sm:h-[min(88vh,780px)]'
+              } ${maxWidthClass}`}
               initial={reducedMotion ? false : { opacity: 0, scale: 0.98, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0, transition: entra }}
               exit={reducedMotion ? { opacity: 0, transition: sale } : { opacity: 0, scale: 0.98, y: 6, transition: sale }}

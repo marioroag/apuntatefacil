@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useReducedMotion } from 'framer-motion'
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from 'react'
 import { ArrowDown, ArrowUp, FileText, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { fullDateTime, memberAvatarTone, plural, relativeDate } from '../../lib/format'
@@ -327,6 +328,40 @@ export function ChatThread({
   const [borrando, setBorrando] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState(false)
 
+  /**
+   * LO QUE SE ABRE SE ENSEÑA (Mario, sep 2026: "se abren abajo las opciones pero
+   * no te lleva y tienes que scrollear").
+   *
+   * Corregir y borrar abren sus controles DEBAJO de la nota, y el hilo vive
+   * dentro de una columna que scrollea (el raíl de la ficha, o la columna de
+   * móvil). Con la nota al pie de lo que se ve, el editor y la pregunta de
+   * "¿borrar?" nacían fuera de la pantalla: pulsabas un botón y, aparentemente,
+   * no pasaba nada.
+   *
+   * NO CONTRADICE el "aquí NO se hace scroll" de más abajo, lo acota. Aquel
+   * `scrollIntoView` corría con CADA mensaje que llegaba y te bajaba al fondo
+   * mientras releías diez más arriba, o sea que se movía sin que nadie lo
+   * pidiera. Este corre solo cuando acabas de pulsar un botón, que es
+   * exactamente lo contrario: **la pantalla te sigue cuando tú has actuado, y no
+   * cuando actúa otro.**
+   *
+   * `block: 'nearest'` mueve LO MÍNIMO y no hace nada si ya se ve, así que
+   * corregir la nota de arriba del todo no da ningún salto. Y se mira el
+   * CONTENEDOR de los controles y no la nota entera: en una nota larga, encuadrar
+   * su principio dejaría los botones fuera otra vez, que es el fallo que esto
+   * viene a arreglar.
+   */
+  const abiertoRef = useRef<HTMLDivElement>(null)
+  const menosMovimiento = useReducedMotion()
+  // La clave lleva QUÉ se ha abierto además de en qué nota: sin el prefijo, pasar
+  // de corregir a borrar la misma nota no volvería a mover nada. Y no depende del
+  // TEXTO, así que escribir en el editor no dispara un scroll por tecla.
+  const abierto = editando ? `edit:${editando.id}` : borrando ? `del:${borrando}` : null
+  useLayoutEffect(() => {
+    if (!abierto) return
+    abiertoRef.current?.scrollIntoView({ block: 'nearest', behavior: menosMovimiento ? 'auto' : 'smooth' })
+  }, [abierto, menosMovimiento])
+
   const abrirEditor = (m: ChatMessage) => {
     setBorrando(null)
     setEditando({ id: m.id, texto: m.body })
@@ -463,6 +498,7 @@ export function ChatThread({
               </div>
               {enEdicion ? (
                 <EditorNota
+                  contenedorRef={abiertoRef}
                   valor={editando.texto}
                   ocupado={ocupado}
                   compacto={compacto}
@@ -486,7 +522,7 @@ export function ChatThread({
                   diálogo de sedes). Y el texto se queda a la vista mientras
                   decides: se confirma lo que se está mirando. */}
               {borrando === m.id && (
-                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+                <div ref={abiertoRef} className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
                   <span className="text-slate-600">¿Borrar esta nota?</span>
                   <button
                     type="button"
@@ -530,6 +566,7 @@ export function ChatThread({
  * una nota nueva, que es lo que sí avisa.
  */
 function EditorNota({
+  contenedorRef,
   valor,
   ocupado,
   compacto,
@@ -537,6 +574,8 @@ function EditorNota({
   onGuardar,
   onCancelar,
 }: {
+  /** El hilo lo usa para traer el editor a la vista al abrirlo. */
+  contenedorRef?: RefObject<HTMLDivElement | null>
   valor: string
   ocupado: boolean
   compacto: boolean
@@ -552,7 +591,12 @@ function EditorNota({
   useLayoutEffect(() => {
     const el = areaRef.current
     if (!el) return
-    el.focus()
+    // `preventScroll` porque el encuadre lo decide el HILO, que mira el
+    // contenedor entero (texto + botones) y no solo la caja de escribir. Sin
+    // esto son dos scrolls peleándose: el del navegador al enfocar, instantáneo y
+    // calculado ANTES de que el textarea crezca a su alto real, y el nuestro
+    // encima.
+    el.focus({ preventScroll: true })
     el.setSelectionRange(el.value.length, el.value.length)
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, CHAT_ALTO_MAX)}px`
@@ -567,6 +611,7 @@ function EditorNota({
 
   return (
     <div
+      ref={contenedorRef}
       className={compacto ? 'mt-1.5' : 'mt-2'}
       onKeyDownCapture={(e) => {
         if (e.key !== 'Escape') return
