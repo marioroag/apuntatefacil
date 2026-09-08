@@ -47,6 +47,9 @@ export interface Campaign {
   title: string
   sector: string
   location: string
+  /** Una de PROVINCIAS (lib/anuncio.ts) o '' si no se ha dicho. Hermana de
+   *  `location`: columna propia, no parte del jsonb del anuncio. */
+  provincia: string
   status: CampaignStatus
   createdAt: string // ISO
   milanunciosUrl?: string

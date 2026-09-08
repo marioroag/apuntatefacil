@@ -22,6 +22,7 @@ const PUESTO: PuestoPublico = {
   status: 'activa',
   sector: 'Logística',
   location: 'Getafe',
+  provincia: 'Madrid',
   created_at: '2026-09-01T09:00:00.000Z',
   anuncio: {
     descripcion: 'Preparar pedidos con PDA\nCargar y descargar camiones',
@@ -73,7 +74,7 @@ describe('cabecera', () => {
     // Primero los hechos que descartan, luego la descripción. (Las cifras van
     // como las escribe la página: Intl en es-ES no agrupa los de cuatro dígitos.)
     expect(metaDe(html, 'name', 'description')).toBe(
-      'Getafe · Presencial · 1500 - 1650 € bruto/mes · Contrato temporal, jornada completa. Preparar pedidos con PDA Cargar y descargar camiones',
+      'Getafe, Madrid · Presencial · 1500 - 1650 € bruto/mes · Contrato temporal, jornada completa. Preparar pedidos con PDA Cargar y descargar camiones',
     )
     expect(metaDe(html, 'property', 'og:url')).toBe(URL_CANONICA)
     expect(html).toContain(`<link rel="canonical" href="${URL_CANONICA}" />`)
@@ -138,7 +139,7 @@ describe('JobPosting', () => {
     expect(jd.datePosted).toBe('2026-09-01T09:00:00.000Z')
     expect(Date.parse(String(jd.validThrough))).toBeGreaterThan(AHORA.getTime())
     expect(jd.jobLocation).toEqual({
-      '@type': 'Place', address: { '@type': 'PostalAddress', addressLocality: 'Getafe', addressCountry: 'ES' },
+      '@type': 'Place', address: { '@type': 'PostalAddress', addressLocality: 'Getafe', addressRegion: 'Madrid', addressCountry: 'ES' },
     })
     expect(jd.jobLocationType).toBeUndefined()
     expect(jd.employmentType).toEqual(['FULL_TIME', 'TEMPORARY'])
@@ -159,17 +160,17 @@ describe('JobPosting', () => {
     expect(html).toBe(
       '<ul><li>Preparar pedidos con PDA</li><li>Cargar y descargar camiones</li></ul>' +
       '<p><strong>Requisitos</strong></p><ul><li>Experiencia mínima: de 1 a 2 años</li><li>Estudios mínimos: educación secundaria obligatoria</li><li>Español: avanzado</li><li>Conocimientos: Carretilla elevadora, PDA</li></ul>' +
-      '<p><strong>Condiciones</strong></p><ul><li>Ubicación: Getafe</li><li>Modalidad: presencial</li><li>Contrato temporal, jornada completa</li><li>Salario: 1500 - 1650 € bruto/mes</li></ul>' +
+      '<p><strong>Condiciones</strong></p><ul><li>Ubicación: Getafe, Madrid</li><li>Modalidad: presencial</li><li>Contrato temporal, jornada completa</li><li>Salario: 1500 - 1650 € bruto/mes</li></ul>' +
       '<p><strong>Sobre la empresa</strong></p><p>Somos una empresa de logística con almacén en Getafe.</p>',
     )
     // Una sola línea es un párrafo, no una lista de uno.
-    const una = descripcionHtml({ ...PUESTO, company_description: null, location: null }, leerAnuncio({ descripcion: 'Turno de tarde' }))
+    const una = descripcionHtml({ ...PUESTO, company_description: null, location: null, provincia: null }, leerAnuncio({ descripcion: 'Turno de tarde' }))
     expect(una).toBe('<p>Turno de tarde</p>')
   })
 
   it('sin salario no hay baseSalary; sin ubicación, solo el país; sin experiencia ni estudios, nada', () => {
     const jd = jobPosting({
-      ...PUESTO, location: '', sector: null,
+      ...PUESTO, location: '', provincia: null, sector: null,
       anuncio: { descripcion: 'Se busca gente', contrato: 'Indefinido' },
     }, CTX)!
     expect(jd.baseSalary).toBeUndefined()
@@ -193,13 +194,23 @@ describe('JobPosting', () => {
     })
   })
 
+  it('la provincia pasa por la aduana y se escribe una vez si es la ciudad', () => {
+    const rara = jobPosting({ ...PUESTO, provincia: 'Narnia' }, CTX)!
+    expect((rara.jobLocation as { address: Record<string, string> }).address.addressRegion).toBeUndefined()
+    const c = cabeceraPuesto({ ...PUESTO, location: 'Valencia', provincia: 'Valencia' }, CTX)
+    expect(c.title).toBe('Mozo/a de almacén en Valencia · Logística Sur')
+    expect(c.description.startsWith('Valencia · Presencial')).toBe(true)
+    const soloProv = cabeceraPuesto({ ...PUESTO, location: '', provincia: 'Madrid' }, CTX)
+    expect(soloProv.title).toBe('Mozo/a de almacén en Madrid · Logística Sur')
+  })
+
   it('teletrabajo: TELECOMMUTE y desde dónde se puede optar', () => {
     const jd = jobPosting({ ...PUESTO, anuncio: { ...(PUESTO.anuncio as object), modalidad: 'teletrabajo' } }, CTX)!
     expect(jd.jobLocationType).toBe('TELECOMMUTE')
     expect(jd.applicantLocationRequirements).toEqual({ '@type': 'Country', name: 'España' })
     // La ciudad de la empresa se sigue diciendo si la hay.
     expect(jd.jobLocation).toBeDefined()
-    const sinCiudad = jobPosting({ ...PUESTO, location: null, anuncio: { ...(PUESTO.anuncio as object), modalidad: 'teletrabajo' } }, CTX)!
+    const sinCiudad = jobPosting({ ...PUESTO, location: null, provincia: null, anuncio: { ...(PUESTO.anuncio as object), modalidad: 'teletrabajo' } }, CTX)!
     expect(sinCiudad.jobLocation).toBeUndefined()
   })
 

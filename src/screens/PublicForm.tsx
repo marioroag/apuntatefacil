@@ -13,7 +13,7 @@ import { CONSENT_VERSION } from '../lib/consent'
 import { brandAssetUrl } from '../lib/brandAsset'
 import { AnuncioPublico } from '../components/AnuncioPublico'
 import { HojaPublica } from '../components/HojaPublica'
-import { hayAnuncio, leerAnuncio } from '../lib/anuncio'
+import { hayAnuncio, leerAnuncio, leerProvincia } from '../lib/anuncio'
 import type { OtroPuesto } from '../lib/demoPublico'
 import type { Campaign } from '../lib/types'
 import { IconoVacio } from '../components/ui/IconoVacio'
@@ -126,12 +126,12 @@ export function PublicForm() {
         id: string; slug: string; title: string; status: Campaign['status']
         fields: Campaign['fields']; branding: Campaign['branding']; company_name: string
         logo_path: string | null; banner_path: string | null
-        anuncio: unknown; location: string | null; company_description: string | null; retencion_meses: number | null
-        others: { slug: string; title: string; location: string | null; brand_label: string; banner_path: string | null }[] | null
+        anuncio: unknown; location: string | null; provincia: string | null; company_description: string | null; retencion_meses: number | null
+        others: { slug: string; title: string; location: string | null; provincia: string | null; brand_label: string; banner_path: string | null }[] | null
       }
       setCampaign({
         id: d.id, slug: d.slug, title: d.title, status: d.status,
-        sector: '', location: d.location ?? '', createdAt: '', fields: d.fields ?? [], branding: d.branding,
+        sector: '', location: d.location ?? '', provincia: leerProvincia(d.provincia), createdAt: '', fields: d.fields ?? [], branding: d.branding,
         siteId: null, brandId: null,
         // La aduana del jsonb es la misma que usa el panel: un anuncio guardado
         // por una versión anterior no puede dejar esta página en blanco.
@@ -142,7 +142,7 @@ export function PublicForm() {
         logoUrl: brandAssetUrl(d.logo_path),
         bannerUrl: brandAssetUrl(d.banner_path),
         otros: (d.others ?? []).map((o) => ({
-          slug: o.slug, title: o.title, location: o.location ?? '', brandLabel: o.brand_label,
+          slug: o.slug, title: o.title, location: o.location ?? '', provincia: leerProvincia(o.provincia), brandLabel: o.brand_label,
           bannerUrl: brandAssetUrl(o.banner_path),
         })),
         esDemo: false,
@@ -169,7 +169,7 @@ export function PublicForm() {
   useEffect(() => {
     if (!campaign) return
     const anterior = document.title
-    const donde = campaign.location.trim()
+    const donde = campaign.location.trim() || campaign.provincia
     document.title = `${campaign.title}${donde ? ` en ${donde}` : ''} · ${campaign.companyName}`
     return () => { document.title = anterior }
   }, [campaign])
@@ -223,6 +223,7 @@ export function PublicForm() {
         logoUrl={campaign.logoUrl}
         bannerUrl={campaign.bannerUrl}
         location={campaign.location}
+        provincia={campaign.provincia}
         otros={campaign.otros}
         onApuntarse={abrirFormulario}
       />

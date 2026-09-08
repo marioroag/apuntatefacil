@@ -4,6 +4,7 @@ import {
   anuncioSinEmpezar, anuncioVacio, contratoTexto, experienciaTexto, faltaEnAnuncio,
   estudiosTexto, hayAnuncio, leerAnuncio, resumenAnuncio, salarioTexto,
   type Anuncio,
+ lugarTexto,
 } from './anuncio'
 
 /**
@@ -88,23 +89,28 @@ describe('leerAnuncio: la aduana del jsonb', () => {
 })
 
 describe('faltaEnAnuncio: qué se pide para crear el puesto', () => {
-  it('pide los ocho y ni uno más', () => {
-    expect(faltaEnAnuncio(anuncioVacio(), '').sort()).toEqual(
-      ['contrato', 'descripcion', 'estudios', 'experiencia', 'jornada', 'location', 'modalidad', 'salario'],
+  it('pide los nueve y ni uno más', () => {
+    expect(faltaEnAnuncio(anuncioVacio(), '', '').sort()).toEqual(
+      ['contrato', 'descripcion', 'estudios', 'experiencia', 'jornada', 'location', 'modalidad', 'provincia', 'salario'],
     )
+  })
+
+  it('la provincia tiene que ser una de la lista: una inventada es como ninguna', () => {
+    expect(faltaEnAnuncio(lleno(), 'Getafe', 'Narnia')).toEqual(['provincia'])
+    expect(faltaEnAnuncio(lleno(), 'Getafe', 'Madrid')).toEqual([])
   })
 
   it('no pide idiomas ni conocimientos: hay puestos que no piden ninguno', () => {
     const a = { ...lleno(), idiomas: [], conocimientos: [] }
-    expect(faltaEnAnuncio(a, 'Valencia')).toEqual([])
+    expect(faltaEnAnuncio(a, 'Valencia', 'Valencia')).toEqual([])
   })
 
   it('el espacio en blanco no rellena nada', () => {
-    expect(faltaEnAnuncio({ ...lleno(), descripcion: '   ' }, '   ')).toEqual(['location', 'descripcion'])
+    expect(faltaEnAnuncio({ ...lleno(), descripcion: '   ' }, '   ', 'Madrid')).toEqual(['location', 'descripcion'])
   })
 
   it('con la cifra de partida basta: la horquilla es opcional', () => {
-    expect(faltaEnAnuncio({ ...lleno(), salarioMax: null }, 'Valencia')).toEqual([])
+    expect(faltaEnAnuncio({ ...lleno(), salarioMax: null }, 'Valencia', 'Valencia')).toEqual([])
   })
 })
 
@@ -215,5 +221,16 @@ describe('los vocabularios', () => {
     // `salarioPeriodo` nace con un valor puesto (no hay "sin periodo"): si
     // alguien renombra el token, el selector arrancaría en blanco.
     expect(PERIODOS.some((p) => p.value === anuncioVacio().salarioPeriodo)).toBe(true)
+  })
+})
+
+describe('lugarTexto: dónde, en una frase', () => {
+  it('ciudad y provincia, una sola vez si son la misma, y la que haya si falta la otra', () => {
+    expect(lugarTexto('Getafe', 'Madrid')).toBe('Getafe, Madrid')
+    expect(lugarTexto('Valencia', 'Valencia')).toBe('Valencia')
+    expect(lugarTexto('valència ', 'Valencia')).toBe('valència')
+    expect(lugarTexto('', 'Madrid')).toBe('Madrid')
+    expect(lugarTexto('Getafe', '')).toBe('Getafe')
+    expect(lugarTexto('  ', '  ')).toBe('')
   })
 })

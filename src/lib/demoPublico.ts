@@ -32,6 +32,7 @@ export type PuestoPublicoDemo = {
   logoUrl: string | null
   bannerUrl: string | null
   location: string
+  provincia: string
   otros: OtroPuesto[]
 }
 
@@ -40,6 +41,7 @@ export type OtroPuesto = {
   slug: string
   title: string
   location: string
+  provincia: string
   brandLabel: string
   bannerUrl: string | null
 }
@@ -66,6 +68,7 @@ export function puestoPublicoDemo(slug: string | undefined): PuestoPublicoDemo |
     logoUrl: brandAssetUrl(marcaDe(campaign.brandId)?.logoPath),
     bannerUrl: brandAssetUrl(marcaDe(campaign.brandId)?.bannerPath),
     location: campaign.location,
+    provincia: campaign.provincia,
     // Mismas reglas que el RPC: solo puestos activos y como mucho cinco.
     otros: SEED.campaigns
       .filter((c) => c.id !== campaign.id && c.status === 'activa')
@@ -74,6 +77,7 @@ export function puestoPublicoDemo(slug: string | undefined): PuestoPublicoDemo |
         slug: c.slug,
         title: c.title,
         location: c.location,
+        provincia: c.provincia,
         brandLabel: nombreDe(c),
         bannerUrl: brandAssetUrl(marcaDe(c.brandId)?.bannerPath),
       })),

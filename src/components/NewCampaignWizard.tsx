@@ -45,7 +45,7 @@ export function useCreateFromTemplate() {
       // El anuncio nace con el puesto cuando viene del asistente. La ubicación
       // es columna propia (la lee la cabecera del puesto y el baremo), así que
       // viaja al lado y no dentro del jsonb.
-      ...(opts?.anuncio ? { anuncio: opts.anuncio.anuncio, location: opts.anuncio.location } : {}),
+      ...(opts?.anuncio ? { anuncio: opts.anuncio.anuncio, location: opts.anuncio.location, provincia: opts.anuncio.provincia } : {}),
     })
     setBusy(null)
     if (!c) toast.error('No se pudo crear el puesto.')
