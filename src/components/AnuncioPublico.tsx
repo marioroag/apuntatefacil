@@ -373,7 +373,7 @@ function FichaPuesto({
  * empresa con dos marcas (una con foto y otra sin ella) tendría una lista a
  * saltos, y el tamaño diría algo que no es: que un puesto importa más.
  */
-function OtroPuestoCard({ otro }: { otro: OtroPuesto }) {
+export function OtroPuestoCard({ otro }: { otro: OtroPuesto }) {
   const conFoto = !!otro.bannerUrl
   return (
     <Link
