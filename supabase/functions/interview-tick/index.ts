@@ -201,6 +201,22 @@ async function avisarCandidatura(job: Job): Promise<{ tipo: 'hecho' } | { tipo: 
   throw new Error('respuesta inesperada de notify-new-candidate')
 }
 
+/** El correo de fin de prueba (tres días antes y al terminar). Misma lectura
+ *  de la respuesta que el aviso de candidatura: enviado = hecho; motivo
+ *  conocido = cancelado con el motivo; fallo del proveedor = reintento. */
+async function avisarPrueba(job: Job): Promise<{ tipo: 'hecho' } | { tipo: 'obsoleto'; motivo: string }> {
+  const companyId = typeof job.payload?.company_id === 'string' ? job.payload.company_id : null
+  const tipo = job.payload?.tipo === 'previo' || job.payload?.tipo === 'fin' ? job.payload.tipo : null
+  if (!companyId || !tipo) return { tipo: 'obsoleto', motivo: 'sin empresa o sin tipo' }
+  const { data, error } = await admin.functions.invoke('notify-trial', { body: { company_id: companyId, tipo } })
+  if (error) throw new Error(`notify-trial: ${await detalle(error)}`)
+  const r = (data ?? {}) as { sent?: boolean; skipped?: string; error?: string }
+  if (r.sent) return { tipo: 'hecho' }
+  if (r.error) throw new Error(r.error)
+  if (r.skipped) return { tipo: 'obsoleto', motivo: r.skipped }
+  throw new Error('respuesta inesperada de notify-trial')
+}
+
 /** El cuerpo de un error de `functions.invoke` no viaja en `message` ("non-2xx
  *  status code"), y sin él `last_error` no dice nada de por qué falló. */
 async function detalle(error: unknown): Promise<string> {
@@ -442,6 +458,18 @@ Deno.serve(async (req) => {
 
       if (job.kind === 'avisar_candidatura') {
         const r = await avisarCandidatura(job)
+        if (r.tipo === 'hecho') {
+          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: true })
+          ok++
+        } else {
+          await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: null, p_error: r.motivo })
+          cancelados++
+        }
+        continue
+      }
+
+      if (job.kind === 'avisar_prueba') {
+        const r = await avisarPrueba(job)
         if (r.tipo === 'hecho') {
           await admin.rpc('finish_interview_job', { p_id: job.id, p_ok: true })
           ok++

@@ -1380,7 +1380,7 @@ function Faq() {
     ['¿Es difícil empezar?', 'No. En menos de cinco minutos tendrás tu primer formulario listo para recibir candidatos. Después solo tienes que compartir el enlace y empezar a recibir las candidaturas ordenadas.'],
     ['¿Hay permanencia?', 'No. Cierras un proceso con un clic y deja de cobrarse en ese momento. Sin llamadas de retención ni trámites adicionales.'],
     ['¿Los candidatos son míos si cierro un proceso?', 'Sí. El proceso cerrado se conserva entero: puedes consultarlo y exportarlo a Excel en cualquier momento, aunque ya no pagues por él.'],
-    ['¿Hay costes ocultos o precios “desde”?', `No. Son ${PRECIO_PROCESO} € al mes + IVA por cada proceso de selección que tengas abierto, con candidaturas sin límite y todo el producto incluido. Lo que ves aquí es lo que pagas.`],
+    ['¿Hay costes ocultos o precios “desde”?', `No. Son ${PRECIO_PROCESO} € al mes por cada proceso de selección que tengas abierto (impuestos no incluidos), con candidaturas sin límite y todo el producto incluido. Lo que ves aquí es lo que pagas.`],
     // La pregunta decía "sin registrarme ni tarjeta" y la respuesta se apoyaba en que
     // la demo era pública. Desde que dejó de serlo, registrarse SÍ hace falta para
     // probarlo, así que cambia la pregunta y no solo la respuesta: dejarla como estaba

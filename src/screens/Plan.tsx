@@ -202,7 +202,7 @@ export function Plan() {
       </Link>
       <PageHeader
         titulo="Facturación"
-        sub={`${PRECIO_PROCESO} € al mes + IVA por proceso abierto. Sin permanencia: cierras un proceso y deja de cobrarse.`}
+        sub={`${PRECIO_PROCESO} € al mes por proceso abierto, impuestos aparte. Sin permanencia: cierras un proceso y deja de cobrarse.`}
       />
 
       {/* ---- En prueba -------------------------------------------------- */}
@@ -328,7 +328,7 @@ export function Plan() {
             <>
               <p className="mt-1 text-sm leading-relaxed text-slate-600">
                 Estás en un plan anterior, que ya no se ofrece. Lo conservas tal cual mientras quieras;
-                si lo cancelas, pasarás al pago por proceso ({PRECIO_PROCESO} € al mes + IVA por proceso abierto).
+                si lo cancelas, pasarás al pago por proceso ({PRECIO_PROCESO} € al mes por proceso abierto, impuestos aparte).
               </p>
               {company?.cancel_at_period_end ? (
                 <>
@@ -373,7 +373,7 @@ export function Plan() {
         <p>
           Mantienes tu plan hasta el final del periodo ya pagado. Después no se te cobra más y tus puestos
           abiertos se cierran: conservas todos los candidatos y puedes exportarlos, o reabrir un proceso
-          pagando {PRECIO_PROCESO} € al mes + IVA.
+          pagando {PRECIO_PROCESO} € al mes, impuestos aparte.
         </p>
       </ConfirmDialog>
     </div>
