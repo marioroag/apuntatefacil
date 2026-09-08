@@ -1,10 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Briefcase, CircleDot, ContactRound, SearchX, Star, Tag } from 'lucide-react'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
-import { StatusSelect } from '../components/ui/StatusPill'
+import { StatusPill, StatusSelect } from '../components/ui/StatusPill'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ColHead, TABLE, ROW, AVATAR_FILA, CELL, FIJA, TRANSICION_FILA, useFilasALaVista, HuecoFilas } from '../components/ui/DataTable'
 import { CandidateModal } from './CandidateModal'
 import { fechaCorta, fullDateTime, formatPhone, candidateName, miles } from '../lib/format'
@@ -82,6 +83,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
   getCampaign,
   setStatus,
   onOpen,
+  onCerrado,
   onOpenDocumento,
   maskPhone,
   base,
@@ -91,6 +93,8 @@ const ListaCandidatos = memo(function ListaCandidatos({
   getCampaign: (id: string) => Campaign | undefined
   setStatus: (id: string, status: CandidateStatus) => void
   onOpen: (id: string) => void
+  /** La fila de un proceso CERRADO no abre la ficha: avisa (solo lectura). */
+  onCerrado: (campaignId: string) => void
   /** El chip "CV" abre el visor a pantalla completa, sin la ficha detrás. */
   onOpenDocumento: (id: string) => void
   maskPhone: boolean
@@ -222,12 +226,16 @@ const ListaCandidatos = memo(function ListaCandidatos({
             <HuecoFilas alto={huecoArriba} columnas={orden.length} />
             {rows.slice(desde, hasta).map((c) => {
               const camp = getCampaign(c.campaignId)
+              // Un proceso cerrado es de solo lectura: la fila avisa en vez de
+              // abrir, y el estado se pinta como texto.
+              const cerrado = camp?.status === 'cerrada'
+              const abrir = () => (cerrado ? onCerrado(c.campaignId) : onOpen(c.id))
               const name = candidateName(c) || 'Sin nombre'
               const phone = answer(c, 'telefono')
               return (
                 <tr
                   key={c.id}
-                  onClick={(e) => clickDeFila(e) && onOpen(c.id)}
+                  onClick={(e) => clickDeFila(e) && abrir()}
                   className={`${ROW} group cursor-pointer hover:bg-slate-50`}
                 >
                   {orden.map((k) => {
@@ -252,7 +260,7 @@ const ListaCandidatos = memo(function ListaCandidatos({
                                   pasa a anillo. */}
                               <button
                                 type="button"
-                                onClick={() => onOpen(c.id)}
+                                onClick={abrir}
                                 title={name}
                                 className="block min-w-0 truncate rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
                               >
@@ -294,7 +302,9 @@ const ListaCandidatos = memo(function ListaCandidatos({
                       case 'estado':
                         return (
                           <td key={k} className={`${CELL} whitespace-nowrap`}>
-                            <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} celda />
+                            {cerrado
+                              ? <StatusPill status={c.status} className="!font-medium" />
+                              : <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} celda />}
                           </td>
                         )
                       case 'recibida':
@@ -346,6 +356,9 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
   const maskPhone = demo
   const canManageTags = role !== 'encargado'
   const [openId, setOpenId] = useState<string | null>(null)
+  // El puesto cerrado cuya fila se ha pulsado: el aviso lleva a su pantalla.
+  const [cerradoDe, setCerradoDe] = useState<string | null>(null)
+  const navigate = useNavigate()
   // EL CHIP "CV" ABRE EL VISOR, Y SOLO EL VISOR, igual que en el panel de un
   // puesto: se ha pulsado un documento, así que lo que tiene que aparecer es ese
   // documento. Abrir la persona entera detrás sería contestar otra pregunta y
@@ -686,12 +699,27 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
             getCampaign={getCampaign}
             setStatus={setStatus}
             onOpen={setOpenId}
+            onCerrado={setCerradoDe}
             onOpenDocumento={abrirDocumento}
             maskPhone={maskPhone}
             base={base}
           />
         </>
       )}
+
+      <ConfirmDialog
+        open={cerradoDe !== null}
+        onClose={() => setCerradoDe(null)}
+        onConfirm={() => { const id = cerradoDe; setCerradoDe(null); if (id) navigate(`${base}/puestos/${id}`) }}
+        title="Este proceso está cerrado"
+        confirmLabel="Ver el puesto"
+        cancelLabel="Ahora no"
+      >
+        <p className="text-sm leading-relaxed text-slate-600">
+          Sus candidatos siguen aquí y puedes exportarlos desde el puesto. Para abrir sus fichas, cambiarles el estado
+          o etiquetarlos, hay que reabrir el proceso.
+        </p>
+      </ConfirmDialog>
 
       {openCampaign && (
         <CandidateModal
