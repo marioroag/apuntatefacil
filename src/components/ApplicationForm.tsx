@@ -145,7 +145,11 @@ export function ApplicationForm({
                 {companyName.slice(0, 1)}
               </span>
             )}
-            <span className="min-w-0 break-words text-base font-bold text-[var(--accent-ink)]">{companyName}</span>
+            {/* En TINTA, no en el color de la marca (Mario, sep 2026): el nombre es
+                quién contrata, no un botón, y teñido se leía como un enlace o
+                como un control. La marca ya la dicen el logo, el banner y el
+                botón; el acento se queda para lo que se pulsa. */}
+            <span className="min-w-0 break-words text-base font-bold text-slate-900">{companyName}</span>
           </div>
         )}
         {campaign.branding.welcome && (
