@@ -13,9 +13,11 @@
 //    funcionaba: un anuncio de peón se come 25 candidaturas en una tarde, así
 //    que a quien más valor estaba viendo era a quien antes se le apagaba la
 //    demo, y encima el día 2 de una prueba de 15. Con un solo freno, lo que se
-//    prueba es el producto durante dos semanas. La prueba sigue cubriendo UN
-//    solo proceso abierto: abrir un segundo pasa por pagarlo. Sin tarjeta al
-//    empezar: se pide al final. Una sola prueba por empresa.
+//    prueba es el producto durante dos semanas. La prueba cubre UN solo
+//    puesto, EL PRIMERO que se abre (Mario, sep 2026): ese se puede pausar,
+//    cerrar y reabrir gratis; cualquier otro pasa por pagarlo, aunque el
+//    primero esté cerrado. Sin tarjeta al empezar: se pide al final. Una sola
+//    prueba por empresa.
 //  - Cerrar un proceso es un clic y deja de cobrarse; el proceso cerrado no
 //    acepta candidaturas pero se conserva entero y exportable ("tus candidatos
 //    siguen siendo tuyos"). Mes empezado, mes cobrado: al cerrar no hay
@@ -65,8 +67,10 @@ export type ModoProceso = 'libre' | 'cobrar' | 'checkout' | 'bloqueado'
  * contestar lo mismo.
  */
 export function modoProceso(
-  company: { id: string; plan: string; paid_processes: number; subscription_status?: string | null } | null | undefined,
+  company: { id: string; plan: string; paid_processes: number; subscription_status?: string | null; trial_campaign_id?: string | null } | null | undefined,
   campaigns: Pick<Campaign, 'status'>[],
+  /** El puesto que se va a ABRIR, si ya existe (reabrir). Sin id, es uno nuevo. */
+  campaignId?: string | null,
 ): ModoProceso {
   if (!company || company.id === 'demo') return 'libre'
   const abiertos = procesosAbiertos(campaigns)
@@ -74,9 +78,14 @@ export function modoProceso(
     if (abiertos < company.paid_processes) return 'libre'
     return hayPagoActivo(company) ? 'cobrar' : 'checkout'
   }
-  // La prueba cubre UN proceso abierto (no cerrado; pausar no libera hueco,
-  // como en el pago). Abrir el segundo pasa por dar el método de pago.
-  if (company.plan === 'trial') return abiertos < 1 ? 'libre' : 'checkout'
+  // LA PRUEBA ES EL PRIMER PUESTO, Y SOLO ESE (Mario, sep 2026): el que abrió
+  // el reloj se puede pausar, cerrar y reabrir gratis; cualquier otro, aunque
+  // el primero esté cerrado, pasa por el pago. Sin puesto de prueba todavía
+  // (no se ha abierto ninguno), el primero que se abra es el de la prueba.
+  if (company.plan === 'trial') {
+    if (!company.trial_campaign_id) return 'libre'
+    return campaignId && campaignId === company.trial_campaign_id ? 'libre' : 'checkout'
+  }
   const activos = campaigns.filter((c) => c.status === 'activa').length
   return activos < (PLAN_PROCESS_LIMIT[company.plan] ?? 0) ? 'libre' : 'bloqueado'
 }

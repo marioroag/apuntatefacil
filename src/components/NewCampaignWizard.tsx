@@ -322,7 +322,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                 {modo === 'checkout' && (
                   <p className="border-b border-slate-200 bg-slate-50 px-5 py-2.5 text-[13px] leading-relaxed text-slate-600">
                     {plan === 'trial'
-                      ? `Tu prueba incluye un proceso. Para abrir otro, activa el pago: cada proceso abierto son ${PRECIO_PROCESO} € al mes (impuestos aparte), también el de tu prueba. Eliges la plantilla y pasas al pago seguro de Stripe.`
+                      ? `La prueba cubre solo tu primer puesto. Para abrir otro, activa el pago: cada proceso abierto son ${PRECIO_PROCESO} € al mes (impuestos aparte), también el de tu prueba. Eliges la plantilla y pasas al pago seguro de Stripe.`
                       : `Abrir este proceso son ${PRECIO_PROCESO} € al mes (impuestos aparte). Eliges la plantilla y pasas al pago seguro de Stripe.`}
                   </p>
                 )}

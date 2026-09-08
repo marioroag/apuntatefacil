@@ -20,6 +20,9 @@ export interface Company {
   downgrade_reconcile_at: string | null // no null = bajaste de plan (legacy) y debes elegir qué puestos mantener activos
   meridian_auto: boolean // analizar cada candidatura nueva al entrar (ajustes)
   trial_ends_at: string | null // fin de la prueba; null = el reloj aún no arrancó (arranca al abrir el primer proceso)
+  /** EL puesto de la prueba: el primero que se abrió. Solo ese se puede abrir
+   *  gratis; cualquier otro pasa por el pago. null = aún no se ha abierto ninguno. */
+  trial_campaign_id: string | null
   paid_processes: number // procesos abiertos pagados en Stripe (el tope real del plan 'proceso')
   /** Lo que la empresa cuenta de sí misma en sus anuncios. Se escribe en Ajustes. */
   descripcion: string
@@ -467,6 +470,7 @@ export const DEMO_COMPANY: Company = {
   downgrade_reconcile_at: null,
   meridian_auto: true,
   trial_ends_at: null,
+  trial_campaign_id: null,
   paid_processes: 99,
   retencion_meses: null,
   region_fiscal: 'peninsula',
