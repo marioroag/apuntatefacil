@@ -210,8 +210,9 @@ export function Plan() {
         <div className="mt-6 rounded-xl filo bg-white p-6 shadow-card">
           <h2 className="text-lg font-semibold text-slate-900">Tu prueba</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Tu primer proceso es gratis durante {PRUEBA_DIAS} días, con todas las candidaturas que lleguen
+            Tu primer puesto es gratis durante {PRUEBA_DIAS} días, con todas las candidaturas que lleguen
             {company?.trial_ends_at ? '.' : <>: el reloj arranca al abrir tu primer puesto.</>}
+            {' '}Solo ese: cualquier otro pasa por el pago.
           </p>
           {company?.trial_ends_at && (
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -222,9 +223,9 @@ export function Plan() {
                 </dd>
               </div>
               <div className="rounded-xl bg-slate-50 p-3.5">
-                <dt className="text-[13px] text-slate-500">Procesos abiertos</dt>
-                <dd className="num mt-0.5 font-semibold text-slate-900">
-                  {abiertos.length} de 1
+                <dt className="text-[13px] text-slate-500">Puesto de prueba</dt>
+                <dd className="mt-0.5 truncate font-semibold text-slate-900">
+                  {campaigns.find((c) => c.id === company?.trial_campaign_id)?.title ?? 'Todavía ninguno'}
                 </dd>
               </div>
             </dl>

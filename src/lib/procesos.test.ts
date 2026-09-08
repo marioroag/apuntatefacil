@@ -12,12 +12,18 @@ const pausado = { status: 'pausada' as const }
 const cerrado = { status: 'cerrada' as const }
 
 describe('modoProceso', () => {
-  it('en la prueba, un pausado ocupa el hueco igual que uno en línea', () => {
-    const prueba = { id: 'c', plan: 'trial', paid_processes: 0 }
-    expect(modoProceso(prueba, [])).toBe('libre')
-    expect(modoProceso(prueba, [cerrado])).toBe('libre')
-    expect(modoProceso(prueba, [abierto])).toBe('checkout')
-    expect(modoProceso(prueba, [pausado])).toBe('checkout')
+  it('la prueba es el PRIMER puesto y solo ese: los demás pasan por el pago aunque esté cerrado', () => {
+    // Sin puesto de prueba todavía: el primero que se abra es el de la prueba.
+    const sinPrueba = { id: 'c', plan: 'trial', paid_processes: 0, trial_campaign_id: null }
+    expect(modoProceso(sinPrueba, [])).toBe('libre')
+    // Con puesto de prueba: uno nuevo paga, aunque el de la prueba esté cerrado.
+    const conPrueba = { id: 'c', plan: 'trial', paid_processes: 0, trial_campaign_id: 'p1' }
+    expect(modoProceso(conPrueba, [abierto])).toBe('checkout')
+    expect(modoProceso(conPrueba, [pausado])).toBe('checkout')
+    expect(modoProceso(conPrueba, [cerrado])).toBe('checkout')
+    // Reabrir EL de la prueba es gratis; reabrir otro, no.
+    expect(modoProceso(conPrueba, [cerrado], 'p1')).toBe('libre')
+    expect(modoProceso(conPrueba, [cerrado], 'p2')).toBe('checkout')
   })
 
   it('pagando: hueco libre, cobrar uno más, o checkout si la suscripción no está viva', () => {

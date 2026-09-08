@@ -326,7 +326,12 @@ export function Dashboard() {
   const [refreshing, setRefreshing] = useState(false)
   const [duplicating, setDuplicating] = useState(false)
   const [confirmClose, setConfirmClose] = useState(false)
+  // Pausar y volver a poner en línea también pasan por un pop-up (Mario, sep
+  // 2026): un cambio de estado desde la pastilla no puede dejar dudas de qué
+  // pasa con el enlace y con el cobro. Guarda a dónde se va.
+  const [confirmPausa, setConfirmPausa] = useState<null | 'pausada' | 'activa'>(null)
   const [closing, setClosing] = useState(false)
+  const [pausando, setPausando] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   // Reapertura de un proceso cerrado (pago por proceso): antes de reabrir se
@@ -422,11 +427,18 @@ export function Dashboard() {
   // Pausar NO es cerrar: el enlace deja de aceptar candidaturas pero el proceso
   // sigue abierto (y, en el pago por proceso, cobrándose). Por eso va directo,
   // sin tocar la facturación.
-  const togglePause = async () => {
+  const togglePause = () => {
     if (!campaign) return
-    const next = campaign.status === 'activa' ? 'pausada' : 'activa'
+    setConfirmPausa(campaign.status === 'activa' ? 'pausada' : 'activa')
+  }
+  const doTogglePause = async () => {
+    if (!campaign || !confirmPausa) return
+    const next = confirmPausa
+    setPausando(true)
     const ok = await updateCampaign(campaign.id, { status: next })
-    if (ok) toast.success(next === 'pausada' ? 'Puesto pausado. Deja de aceptar candidaturas; sigue abierto.' : 'Puesto reactivado.')
+    setPausando(false)
+    setConfirmPausa(null)
+    if (ok) toast.success(next === 'pausada' ? 'Puesto pausado. Deja de aceptar candidaturas; sigue abierto.' : 'Puesto en línea otra vez.')
   }
   // Reabrir un puesto cerrado: en el pago por proceso primero se enseña qué va
   // a costar (previewReabrir) y se confirma; en prueba y tiers antiguos abre
@@ -437,8 +449,17 @@ export function Dashboard() {
       setConfirmReopen(await previewReabrir(campaign.id))
       return
     }
-    const ok = await reabrirProceso(campaign.id)
-    if (ok) toast.success('Puesto reabierto.')
+    // En la prueba, si no queda hueco, reabrir acaba en la página de pago: se
+    // pasa por el diálogo, que lo dice y pregunta la región ANTES de salir.
+    // Iba directo y el servidor lo paraba con un aviso pequeño ("dinos dónde
+    // tiene tu empresa su domicilio fiscal") que casi no se veía.
+    if (company?.plan === 'trial' && modoProceso(company, campaigns, campaign.id) === 'checkout') {
+      setConfirmReopen({ free: false, amountDue: null, checkout: true, impuestosIncluidos: false })
+      return
+    }
+    // El puesto de la prueba (o un tier antiguo con hueco): se reabre gratis,
+    // y también se dice antes.
+    setConfirmReopen({ free: true, amountDue: null, checkout: false, impuestosIncluidos: false })
   }
   const doReopen = async () => {
     if (!campaign) return
@@ -1641,6 +1662,31 @@ export function Dashboard() {
       />
 
 
+      {/* Pausar y volver a poner en línea: corto y sin dudas, sobre todo con el
+          cobro, que es lo que un cliente quiere saber antes de tocar nada. */}
+      <ConfirmDialog
+        open={confirmPausa !== null}
+        onClose={() => setConfirmPausa(null)}
+        title={confirmPausa === 'pausada' ? 'Pausar puesto' : 'Poner en línea'}
+        confirmLabel={confirmPausa === 'pausada' ? 'Pausar puesto' : 'Poner en línea'}
+        loading={pausando}
+        onConfirm={doTogglePause}
+      >
+        {confirmPausa === 'pausada' ? (
+          <p>
+            El enlace deja de aceptar candidaturas y tus candidatos siguen aquí.
+            {company?.plan === 'proceso'
+              ? <> El proceso sigue abierto y <strong className="font-semibold text-slate-900">se sigue cobrando</strong> ({PRECIO_PROCESO} € al mes): para dejar de pagarlo, ciérralo.</>
+              : ' El proceso sigue abierto: puedes volver a ponerlo en línea cuando quieras.'}
+          </p>
+        ) : (
+          <p>
+            El enlace vuelve a aceptar candidaturas.
+            {company?.plan === 'proceso' ? ' No cambia tu factura: ya se estaba cobrando.' : ''}
+          </p>
+        )}
+      </ConfirmDialog>
+
       <ConfirmDialog
         open={confirmClose}
         onClose={() => setConfirmClose(false)}
@@ -1672,7 +1718,14 @@ export function Dashboard() {
         confirmDisabled={!!confirmReopen?.checkout && !region}
         onConfirm={doReopen}
       >
-        {confirmReopen?.free ? (
+        {confirmReopen?.free && company?.plan !== 'proceso' ? (
+          <p>
+            El enlace vuelve a aceptar candidaturas.
+            {company?.plan === 'trial'
+              ? <> Es tu puesto de prueba: sigue gratis{company.trial_ends_at ? ` hasta el ${new Date(company.trial_ends_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}` : ''}, sin cobro.</>
+              : ' No cambia tu factura.'}
+          </p>
+        ) : confirmReopen?.free ? (
           <p>
             El ciclo de este proceso ya está pagado
             {campaign.paidUntil ? ` hasta el ${new Date(campaign.paidUntil).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}` : ''}:
@@ -1681,7 +1734,7 @@ export function Dashboard() {
         ) : confirmReopen?.checkout ? (
           <p>
             {company?.plan === 'trial'
-              ? <>Tu prueba incluye un proceso. Para abrir este, activa el pago: cada proceso abierto son {PRECIO_PROCESO} € al mes (impuestos aparte), también el de tu prueba. Te llevamos al pago seguro de Stripe y el puesto se reabre al completarlo.</>
+              ? <>La prueba cubre solo tu primer puesto. Para abrir este, activa el pago: cada proceso abierto son {PRECIO_PROCESO} € al mes (impuestos aparte), también el de tu prueba. Te llevamos al pago seguro de Stripe y el puesto se reabre al completarlo.</>
               : <>Reabrir este proceso son {PRECIO_PROCESO} € al mes (impuestos aparte). Te llevamos al pago seguro de Stripe y el puesto se reabre al completarlo.</>}
             {!company?.region_fiscal && <RegionFiscalRadio value={region} onChange={setRegionElegida} />}
           </p>
@@ -1709,7 +1762,7 @@ export function Dashboard() {
         <p>
           {confirmDuplicar?.checkout
             ? company?.plan === 'trial'
-              ? <>Tu prueba incluye un proceso. Para abrir la copia, activa el pago: cada proceso abierto son {PRECIO_PROCESO} € al mes (impuestos aparte), también el de tu prueba. Te llevamos al pago seguro de Stripe y la copia se abre al completarlo.</>
+              ? <>La prueba cubre solo tu primer puesto. Para abrir la copia, activa el pago: cada proceso abierto son {PRECIO_PROCESO} € al mes (impuestos aparte), también el de tu prueba. Te llevamos al pago seguro de Stripe y la copia se abre al completarlo.</>
               : <>Abrir la copia son {PRECIO_PROCESO} € al mes (impuestos aparte). Te llevamos al pago seguro de Stripe y se abre al completarlo.</>
             : confirmDuplicar?.free
             ? 'Tienes un hueco de proceso ya pagado en este ciclo: la copia no te cobra nada ahora.'

@@ -727,7 +727,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // proceso), el pago por proceso (cada uno son 49 €/mes) o un tier antiguo.
   const limiteProcesosMsg = () =>
     company?.plan === 'trial'
-      ? 'La prueba incluye 1 proceso abierto. Añade tu método de pago para abrir otro.'
+      ? 'La prueba cubre solo tu primer puesto. Añade tu método de pago para abrir otro.'
       : company?.plan === 'proceso'
         ? `Abrir otro proceso son ${PRECIO_PROCESO} €/mes + IVA: hazlo desde "Crear puesto", o cierra uno que ya no uses.`
         : 'Ya tienes el máximo de puestos activos de tu plan. Pausa o cierra otro para abrir este.'
