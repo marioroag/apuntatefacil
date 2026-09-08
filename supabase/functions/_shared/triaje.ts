@@ -1001,7 +1001,7 @@ export function promptRedactor(args: {
     'Reglas:\n' +
     '- Solo puedes afirmar lo que está en el material de abajo. Nada supuesto, nada de ' +
     'fuera. Lo que no consta se dice como pendiente: "le preguntaría por...".\n' +
-    '- No enumeres los criterios uno a uno ni repitas las respuestas del formulario: ' +
+    '- No enumeres los criterios uno a uno ni repitas lo que ha contestado: ' +
     'eso el jefe ya lo tiene delante. Cuenta lo que se aprende al cruzarlas: qué ' +
     'convence, qué chirría y qué falta por saber.\n' +
     '- Empieza por lo que más pesa para decidir, sea bueno o malo. Sin cortesías ni ' +
@@ -1017,7 +1017,8 @@ export function promptRedactor(args: {
     '- Si no hay CV, menciónalo solo si condiciona la lectura.\n' +
     '- NO recomiendas contratar ni descartar: orientas, la persona decide. Nada de ' +
     'notas ni puntuaciones.\n' +
-    '- Prohibido: listas, encabezados, guion largo, negritas. Y prohibida la jerga de ' +
+    '- Prohibido: listas, encabezados, guion largo, negritas y la palabra '
+    '"formulario" (se dice "las preguntas" o "lo que ha contestado"). Y prohibida la jerga de ' +
     'oficio ("tajo", "curro") y el tono coloquial ("flecos", "no me salen las ' +
     'cuentas"): registro profesional llano, con palabras corrientes y frases cortas. ' +
     'Sencillo no es coloquial: sencillo es sin relleno.\n' +

@@ -744,7 +744,7 @@ export function Candidatos({ vista: vistaId }: { vista: VistaCandidatos }) {
 
           El puesto sale del CANDIDATO y no de la pantalla, que es lo único que
           cambia respecto al panel: esta lista mezcla procesos, y el nombre del
-          fichero es la respuesta a la pregunta de tipo fichero DE SU formulario.
+          fichero es la respuesta a la pregunta de tipo fichero DE SU puesto.
           Sin puesto no hay con qué nombrarlo, así que no se abre nada. */}
       {docAbierto && (() => {
         const c = candidates.find((x) => x.id === docAbierto)

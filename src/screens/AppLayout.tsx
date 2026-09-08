@@ -251,7 +251,7 @@ export function AppLayout() {
         activa={canCreate}
         id="nuevo-puesto"
         label="Crear puesto"
-        hint="Publica un puesto y su formulario."
+        hint="Publica un puesto y sus preguntas."
         icon={Plus}
         claves={['nuevo puesto', 'anuncio', 'oferta', 'vacante', 'publicar']}
         hacer={() => setWizardOpen(true)}

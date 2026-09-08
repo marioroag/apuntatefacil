@@ -250,8 +250,8 @@ export function ShareReply({
             type="button"
             onClick={onFormDemoClick}
             className={ICON_ACTION}
-            aria-label="Abrir formulario"
-            title="Abrir formulario"
+            aria-label="Abrir el enlace"
+            title="Abrir el enlace"
           >
             <ExternalLink className="size-3.5" aria-hidden />
           </button>
@@ -261,8 +261,8 @@ export function ShareReply({
             target="_blank"
             rel="noreferrer"
             className={ICON_ACTION}
-            aria-label="Abrir formulario"
-            title="Abrir formulario"
+            aria-label="Abrir el enlace"
+            title="Abrir el enlace"
           >
             <ExternalLink className="size-3.5" aria-hidden />
           </a>

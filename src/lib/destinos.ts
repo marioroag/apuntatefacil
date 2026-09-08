@@ -182,16 +182,16 @@ export const DESTINOS: Destino[] = [
   // encontrarlo: el `hint` dice dónde vive de verdad (ago 2026).
   {
     id: 'formulario',
-    label: 'Formulario del puesto',
+    label: 'Preguntas del puesto',
     hint: 'Las preguntas del candidato y su enlace.',
     icon: FileText,
-    claves: ['preguntas', 'campos', 'constructor', 'enlace', 'cv', 'formularios'],
+    claves: ['campos', 'constructor', 'enlace', 'cv', 'formulario', 'formularios'],
     disponible: (c) => !!c.campaignId,
     to: (c) => `${c.base}/puestos/${c.campaignId}/formulario`,
   },
   {
     id: 'identidad',
-    label: 'Identidad del formulario',
+    label: 'Identidad del puesto',
     hint: 'Nombre, foto y banner. Se editan en el constructor.',
     icon: Palette,
     claves: ['marca', 'logo', 'banner', 'color', 'colores', 'apariencia', 'imagen'],

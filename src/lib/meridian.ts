@@ -124,7 +124,7 @@ export const CRITERIO_NOMBRE_LEGADO: Record<string, string> = {
   experiencia: 'Experiencia en el puesto',
   disponibilidad: 'Disponibilidad',
   desplazamiento: 'Desplazamiento al puesto',
-  requisitos: 'Requisitos del formulario',
+  requisitos: 'Requisitos del puesto',
   continuidad: 'Continuidad laboral',
 }
 

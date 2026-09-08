@@ -287,13 +287,13 @@ export function OnboardingTestCard({ campaign, shareUrl, onCopy }: {
       <StepProgress current={4} />
       <h2 className="mt-2 text-lg font-semibold text-slate-900">Pruébalo tú mismo</h2>
       <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-slate-500">
-        Abre tu enlace, rellena el formulario como si fueras un candidato y envíalo.
+        Abre tu enlace, responde como si fueras un candidato y envíalo.
         Tu candidatura de prueba aparecerá en esta lista.
       </p>
 
       <div className="mt-6 flex flex-col items-center gap-2.5 sm:flex-row sm:justify-center">
         <button onClick={openForm} className={BTN_PRIMARY}>
-          <ExternalLink className="size-4" aria-hidden /> Abrir mi formulario
+          <ExternalLink className="size-4" aria-hidden /> Abrir mi enlace
         </button>
         <button onClick={onCopy} className={BTN_SECONDARY}>
           <Link2 className="size-4 text-slate-400" aria-hidden /> Copiar enlace
@@ -362,7 +362,7 @@ export function OnboardingCreatePuesto() {
         <>
           <h1 className="mt-2 text-xl font-semibold text-slate-900">Tu anuncio</h1>
           <p className="mt-1.5 text-sm text-slate-500">
-            Lo que se lee antes del formulario. Podrás cambiarlo todo después, el título incluido.
+            Lo que se lee antes de las preguntas. Podrás cambiarlo todo después, el título incluido.
           </p>
           <div ref={formulario} className="mt-6">
             <AnuncioEditor valor={valor} onChange={cambiar} faltan={faltan} />

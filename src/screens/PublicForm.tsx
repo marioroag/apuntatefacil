@@ -418,7 +418,7 @@ export function PublicForm() {
             onChange={(e) => setHoneypot(e.target.value)}
           />
         </div>
-        <p className="pb-10 text-center text-[12px] text-slate-500">Formulario con {BRAND}</p>
+        <p className="pb-10 text-center text-[12px] text-slate-500">Hecho con {BRAND}</p>
     </div>
   )
 }
@@ -472,7 +472,7 @@ function ThankYou({ campaign, isTest = false }: { campaign: PublicCampaign; isTe
             </Link>
           )}
           <p className="mt-8 text-[12px] text-slate-500">
-            Formulario con {BRAND}, enviado a {campaign.companyName}
+            Hecho con {BRAND}, enviado a {campaign.companyName}
           </p>
         </div>
       </HojaPublica>

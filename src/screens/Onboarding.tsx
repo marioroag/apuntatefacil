@@ -128,7 +128,7 @@ export function Onboarding() {
       </div>
       <h1 className="mt-2 text-xl font-semibold text-slate-900">¿Cómo se llama tu empresa?</h1>
       <p className="mt-1 text-sm text-slate-500">
-        Es lo que verán tus candidatos en el formulario. Podrás cambiarlo luego.
+        Es lo que verán tus candidatos al apuntarse. Podrás cambiarlo luego.
       </p>
       <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-[13px] leading-relaxed text-slate-600">
         En unos minutos tendrás tu puesto creado, tu enlace probado y tu primera candidatura en la lista.
