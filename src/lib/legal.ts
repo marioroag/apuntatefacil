@@ -1,5 +1,27 @@
 // Documentos legales de Apúntate Fácil (privacidad y términos).
 //
+// Revisión 1.4 (8 sep 2026): los documentos volvieron a decir lo que se cobra.
+// Seguían anunciando los TRES PLANES con sus precios (185/237/533 EUR al mes)
+// meses después de pasar al pago por proceso, o sea que las condiciones
+// publicadas no eran las del producto que se vende, con clientes reales
+// pagando. Se rehízo el apartado 4 de los términos (precio por proceso
+// abierto, qué cuenta como abierto, impuestos por región de la empresa
+// canaria, prueba de 15 días sin tope de candidaturas y qué pasa con las
+// suscripciones antiguas) y el párrafo del cargo del apartado 5 (mensual, con
+// prorrata al abrir y sin doble cobro al reabrir dentro del periodo pagado).
+// En privacidad: el plan de la cuenta, el precio que gestiona Stripe y el
+// inciso de que OpenAI solo intervenía "en los planes Pro y Multi".
+//
+// Y se corrigieron dos cosas que ya no eran ciertas del PRODUCTO: la
+// "calificación de 0 a 3 estrellas" (es una marca de favorito desde jul 2026)
+// y, sobre todo, la frase "la plataforma no puntúa, clasifica ni descarta
+// candidatos de forma automática", que contradecía a Meridian: SÍ calcula un
+// ajuste automático. Negarlo en el documento que existe para declarar los
+// tratamientos era el peor sitio para tener eso mal. Ahora se dice lo que
+// hace y por qué sigue sin ser una decisión automatizada del art. 22 RGPD:
+// orienta con evidencia citada, no descarta a nadie ni cambia estados, y
+// decide siempre una persona.
+//
 // Revisión (sep 2026): retirado META de la lista de subencargados. Se apoyaba
 // en el asistente de WhatsApp, que ya no existe, así que la plataforma no le
 // manda nada. Un subencargado listado que no trata ningún dato es una lista de
@@ -117,7 +139,7 @@ export const PRIVACY_DOC: LegalDoc = {
             "Email de las personas que invitas a unirse a tu equipo y estado de la invitación, para poder enviarles el enlace de alta.",
             "Nombre o razón social de la empresa.",
             "Color o acento de marca y color que identifica a cada miembro del equipo dentro del panel, como personalización visual.",
-            "Plan de la cuenta (Prueba, Esencial, Pro o Multi) y estado de la suscripción.",
+            "Datos de tu suscripción: si estás en prueba o pagando, cuántos procesos tienes abiertos, la región fiscal que nos indicas para emitir la factura y el estado del pago.",
             "Mensajes de soporte que intercambias con nosotros, desde el panel o por email a soporte@apuntatefacil.com: su contenido, tu dirección y las fechas, para poder atenderte y seguir el hilo de la conversación.",
             "Contenido interno que tu equipo escribe en el panel, como las peticiones y comentarios del tablón de Equipo.",
             "Identificadores de cliente y de suscripción en Stripe, que conectan tu cuenta con tu pago.",
@@ -135,7 +157,7 @@ export const PRIVACY_DOC: LegalDoc = {
             "Email del candidato. Los formularios nuevos lo solicitan por defecto, aunque la empresa puede hacerlo opcional o eliminarlo.",
             "Campos personalizados que cada empresa decida pedir: experiencia, carnet, zona, disponibilidad o cualquier otro que configure en su formulario.",
             "Archivo adjunto opcional, como un CV o documento, almacenado en un espacio privado.",
-            "Respuestas a las preguntas del formulario, respuesta a las comprobaciones de interés y fechas de envío o respuesta, estado de la candidatura (nuevo, contactado, entrevista, contratado, descartado), calificación de 0 a 3 estrellas, etiquetas, y notas internas o comentarios sobre la candidatura que escriba la empresa, por ejemplo en el tablón de Equipo. Esas señales, calificaciones y estados los inicia o usa una persona de la empresa, no un algoritmo: lo aclaramos en el apartado 6.",
+            "Respuestas a las preguntas del formulario, respuesta a las comprobaciones de interés y fechas de envío o respuesta, estado de la candidatura (nuevo, contactado, entrevista, contratado, descartado), marca de favorito, etiquetas, y notas internas o comentarios sobre la candidatura que escriba la empresa, por ejemplo en el tablón de Equipo. Esas señales y estados los inicia o usa una persona de la empresa: lo aclaramos en el apartado 6.",
             "Fuente de la candidatura (por ejemplo la web de empleo donde publiques, como Milanuncios, un enlace o un QR) y fecha y hora de envío."
           ]
         },
@@ -228,12 +250,12 @@ export const PRIVACY_DOC: LegalDoc = {
         {
           "type": "ul",
           "items": [
-            "Stripe (Stripe, Inc.): procesa los pagos. Gestiona el cobro de tu suscripción según tu plan (185, 237 o 533 EUR más IVA), emite facturas y trata los datos de pago y facturación.",
+            "Stripe (Stripe, Inc.): procesa los pagos. Gestiona el cobro de tu suscripción según los procesos que tengas abiertos (49 EUR al mes por cada uno, impuestos aparte), emite facturas y trata los datos de pago y facturación.",
             "Resend (Resend, Inc.): envía los emails transaccionales y los de acceso. Manda el aviso al responsable de la empresa cuando entra una nueva candidatura (ese email incluye el nombre y el teléfono del candidato), las comprobaciones de interés que la empresa decide enviar a candidatos, los avisos de suscripción y los emails de confirmación de cuenta o restablecimiento de contraseña. Las comprobaciones de interés no incorporan seguimiento de aperturas ni de clics por parte de Apúntate Fácil.",
-            "Supabase (Supabase, Inc.): es la infraestructura. Aloja la base de datos con las tablas de empresas, candidatos, puestos y campañas, gestiona la autenticación y las sesiones, y almacena los CV y documentos adjuntos en un espacio de archivos privado. Los datos se alojan en la región eu-west-3 (París, Francia).",
+            "Supabase (Supabase, Inc.): es la infraestructura. Aloja la base de datos con las tablas de empresas, candidatos y puestos, gestiona la autenticación y las sesiones, y almacena los CV y documentos adjuntos en un espacio de archivos privado. Los datos se alojan en la región eu-west-3 (París, Francia).",
             "Vercel (Vercel, Inc.): aloja y sirve la aplicación web, es decir, las páginas que se cargan en el navegador, incluido el formulario público que rellenan los candidatos. Como cualquier servidor web, procesa datos técnicos de conexión (dirección IP, navegador) para entregar las páginas, y nos proporciona la medición de audiencia y rendimiento sin cookies descrita en el apartado 4, con datos agregados.",
             "Google (Google LLC): interviene en dos funciones opcionales. Si eliges entrar con tu cuenta de Google, trata tu email conforme a sus propias políticas, como responsable independiente de ese dato de inicio de sesión. Y si conectas tu Google Calendar, tratamos los datos de tu calendario según se detalla en el apartado 15. Si entras con email y contraseña y no conectas ningún calendario, Google no interviene.",
-            "OpenAI (OpenAI Ireland Ltd.): solo en los planes Pro y Multi, y solo si tu empresa usa Meridian. Es el modelo de lenguaje que resume cada candidatura, calcula su ajuste al puesto y responde a lo que le preguntas en el panel. Le enviamos las respuestas del formulario y, cuando el candidato lo adjunta, el texto de su CV, que puede contener datos de contacto y trayectoria. NO le enviamos el correo ni el teléfono que el candidato escribe en el formulario, ni el archivo del CV en sí. Meridian nunca decide ni descarta por su cuenta: solo resume y ordena, y cualquier acción la confirmas tú. Estos datos no se usan para entrenar los modelos de OpenAI. OpenAI conserva las llamadas hasta 30 días en registros de detección de abusos y después las elimina, salvo que la ley le obligue a guardarlas más tiempo."
+            "OpenAI (OpenAI Ireland Ltd.): solo si tu empresa usa Meridian. Es el modelo de lenguaje que resume cada candidatura, calcula su ajuste al puesto y responde a lo que le preguntas en el panel. Le enviamos las respuestas del formulario y, cuando el candidato lo adjunta, el texto de su CV, que puede contener datos de contacto y trayectoria. NO le enviamos el correo ni el teléfono que el candidato escribe en el formulario, ni el archivo del CV en sí. Meridian nunca decide ni descarta por su cuenta: solo resume y ordena, y cualquier acción la confirmas tú. Estos datos no se usan para entrenar los modelos de OpenAI. OpenAI conserva las llamadas hasta 30 días en registros de detección de abusos y después las elimina, salvo que la ley le obligue a guardarlas más tiempo."
           ]
         },
         {
@@ -343,7 +365,11 @@ export const PRIVACY_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "La calificación de 0 a 3 estrellas, los estados de la candidatura y los filtros del panel son simples herramientas de organización: las introduce y las usa una persona de la empresa cliente, que es quien decide a quién contacta, entrevista o contrata. La plataforma no puntúa, clasifica ni descarta candidatos de forma automática, y no cruzamos sus datos con fuentes externas. La decisión final siempre la toma una persona de la empresa responsable."
+          "text": "La marca de favorito, los estados de la candidatura y los filtros del panel son simples herramientas de organización: las introduce y las usa una persona de la empresa cliente, que es quien decide a quién contacta, entrevista o contrata. No cruzamos los datos de los candidatos con fuentes externas."
+        },
+        {
+          "type": "p",
+          "text": "Si la empresa usa Meridian, la plataforma sí calcula de forma automática un ajuste orientativo de cada candidatura al puesto, a partir de lo que el candidato ha respondido y, si lo adjunta, de su CV. Ese ajuste se presenta siempre con la evidencia concreta en la que se apoya y junto a un resumen escrito, para que la persona que decide pueda comprobarlo. Meridian no descarta, no rechaza ni cambia el estado de nadie por su cuenta, no bloquea el acceso de ningún candidato al proceso y no impide que la empresa contacte con quien quiera: ordena y resume para ayudar a priorizar. La decisión final la toma siempre una persona de la empresa responsable."
         },
         {
           "type": "p",
@@ -560,31 +586,27 @@ export const TERMS_DOC: LegalDoc = {
       ]
     },
     {
-      "heading": "4. Planes, precios e IVA",
+      "heading": "4. Precio, impuestos y prueba gratuita",
       "blocks": [
         {
           "type": "p",
-          "text": "El servicio se ofrece por suscripción, en tres planes de pago:"
-        },
-        {
-          "type": "ul",
-          "items": [
-            "Esencial: 185 EUR al mes (1.850 EUR si pagas el año por adelantado).",
-            "Pro: 237 EUR al mes (2.370 EUR si pagas el año por adelantado).",
-            "Multi: 533 EUR al mes (5.330 EUR si pagas el año por adelantado)."
-          ]
+          "text": "El servicio se cobra por proceso de selección abierto: 49 EUR al mes por cada uno, impuestos aparte. No hay planes que elegir ni funciones de pago: todo el producto está incluido, con candidaturas y usuarios sin límite."
         },
         {
           "type": "p",
-          "text": "Todos los precios se indican sin IVA. Al importe del plan se le suma el IVA que corresponda según la normativa vigente, que verás reflejado en la factura. Las funciones y límites concretos de cada plan son los que aparecen descritos en la web en el momento de la contratación."
+          "text": "Un proceso está abierto mientras no lo cierres, tanto si está en línea como si lo pausas: pausar detiene el enlace, pero el proceso sigue abierto y se sigue cobrando. Cerrarlo es lo que detiene el cobro, y puedes hacerlo con un clic, sin permanencia y en cualquier momento. Un proceso cerrado deja de aceptar candidaturas, pero se conserva entero y puedes consultarlo y exportarlo."
         },
         {
           "type": "p",
-          "text": "Puedes pagar mes a mes o de forma anual. Si en el momento de contratar el pago anual lleva asociado algún descuento, lo verás indicado en la plataforma antes de confirmar. Si cambias de plan, el nuevo precio se aplica desde el siguiente periodo de facturación, salvo que en la propia plataforma se indique otra cosa al confirmar el cambio."
+          "text": "Los precios se indican sin impuestos. Somos una empresa canaria, así que el impuesto que se aplica depende de dónde esté tu empresa: si estás en Canarias, se suma el IGIC al tipo vigente; si estás en la península o Baleares, la factura se emite sin IVA con la mención de inversión del sujeto pasivo del artículo 84.Uno.2º de la Ley 37/1992, y el IVA lo declaras tú; si estás en Ceuta o Melilla, la factura se emite sin IVA. Lo que corresponde en tu caso lo verás en la factura y depende de los datos fiscales que nos facilites, que eres responsable de mantener correctos."
         },
         {
           "type": "p",
-          "text": "Además, al registrarte tu cuenta empieza en un plan de Prueba gratuito y limitado (un puesto activo y un número reducido de candidaturas visibles, el que se indique en la web en cada momento), pensado para que pruebes el servicio con datos reales antes de contratar. En el plan de Prueba, las candidaturas que superan ese tope se siguen recibiendo y guardando con normalidad, pero quedan bloqueadas y no puedes verlas; al contratar un plan de pago se desbloquean todas. El plan de Prueba se ofrece tal cual, sin compromiso de disponibilidad, y podemos ajustar sus límites en cualquier momento."
+          "text": "Al registrarte, el primer proceso que abras es gratis durante 15 días, sin límite de candidaturas y sin que tengas que introducir una tarjeta. Es una sola prueba por empresa. Cuando terminan los 15 días, las candidaturas que sigan llegando se reciben y se guardan con normalidad, pero quedan bloqueadas y no puedes verlas hasta que contrates; al contratar se desbloquean todas. La prueba se ofrece tal cual, sin compromiso de disponibilidad, y podemos ajustar sus condiciones en cualquier momento."
+        },
+        {
+          "type": "p",
+          "text": "Si contrataste uno de nuestros planes anteriores (Esencial, Pro o Multi), que ya no se ofrecen, tu suscripción continúa con el precio y las condiciones que contrataste hasta que la cambies o la canceles, y con todas las funciones del producto incluidas."
         }
       ]
     },
@@ -597,7 +619,11 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "El cargo del plan se realiza por adelantado al inicio de cada periodo: cada mes en el pago mensual y cada año en el pago anual. Emitimos la factura correspondiente a través de Stripe con tus datos de empresa, que eres responsable de mantener actualizados. Si tu empresa está sujeta a un régimen fiscal distinto (por ejemplo, operaciones intracomunitarias con número de IVA válido), aplicaremos el tratamiento del impuesto que proceda según la normativa y los datos fiscales que nos facilites, que eres responsable de mantener correctos."
+          "text": "El cargo se realiza por adelantado, al principio de cada periodo, por los procesos que tengas abiertos. Si abres un proceso a mitad de un periodo ya facturado, se cobra la parte proporcional que quede, y el importe exacto se te muestra antes de que lo confirmes. Emitimos la factura a través de Stripe con tus datos de empresa, que eres responsable de mantener actualizados. El impuesto que se aplica es el descrito en el apartado 4."
+        },
+        {
+          "type": "p",
+          "text": "Cuando cierras un proceso, el periodo que ya has pagado no se devuelve de forma proporcional. A cambio, si lo vuelves a abrir dentro de ese mismo periodo ya pagado, no se te vuelve a cobrar hasta que termine."
         },
         {
           "type": "p",
@@ -681,7 +707,11 @@ export const TERMS_DOC: LegalDoc = {
         },
         {
           "type": "p",
-          "text": "Apúntate Fácil no toma decisiones automatizadas con efectos jurídicos o significativos sobre los candidatos. La calificación de 0 a 3 estrellas, el estado de la candidatura y los filtros del panel son simples herramientas de organización que introduce y usa una persona de tu empresa: la decisión de a quién contactar, entrevistar o contratar la tomas siempre tú. Si decides usar esa puntuación para automatizar decisiones de selección, te corresponde a ti, como responsable, cumplir el artículo 22 del RGPD frente a los candidatos."
+          "text": "Apúntate Fácil no toma decisiones automatizadas con efectos jurídicos o significativos sobre los candidatos. La marca de favorito, el estado de la candidatura y los filtros del panel son simples herramientas de organización que introduce y usa una persona de tu empresa: la decisión de a quién contactar, entrevistar o contratar la tomas siempre tú."
+        },
+        {
+          "type": "p",
+          "text": "Si usas Meridian, la plataforma calcula de forma automática un ajuste orientativo de cada candidatura al puesto y lo resume por escrito, siempre con la evidencia en la que se apoya. Es una ayuda para priorizar, no una decisión: no descarta ni rechaza a nadie, no cambia estados por su cuenta y no impide que contactes con quien quieras. Si decides apoyarte en ese ajuste para automatizar decisiones de selección, te corresponde a ti, como responsable, cumplir el artículo 22 del RGPD frente a los candidatos e informarles de ello."
         },
         {
           "type": "p",
