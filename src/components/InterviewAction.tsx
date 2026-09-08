@@ -1,15 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle, Loader2, X } from 'lucide-react'
+import { AlertCircle, Info, Loader2, X } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { useStore } from '../lib/store'
 import { useToast } from './ui/Toast'
 import { SelectorFechaHora } from './ui/DateTimePicker'
-import { BTN_PRIMARY, BTN_PRIMARY_SM, BTN_SECONDARY, BTN_SECONDARY_SM, botonIcono } from '../lib/buttons'
+import { BTN_DANGER_SM, BTN_PRIMARY, BTN_SECONDARY, BTN_SECONDARY_SM, botonClase, botonIcono } from '../lib/buttons'
 import { useAnfitrion } from '../lib/anfitrion'
 import { useOcupado } from '../lib/ocupado'
 import { ModoEntrevista } from './ModoEntrevista'
 import { candidateName, clockTimeInZone, dayKeyInZone, formatPhone } from '../lib/format'
 import { paredAUtc } from '../../supabase/functions/_shared/schedule/zone'
+
+/**
+ * EL CAMPO DE ESTOS DIÁLOGOS, DECLARADO UNA VEZ.
+ *
+ * Estaba escrito a mano en los seis (las dos duraciones, el descanso, el sitio,
+ * el enlace y el anfitrión) y le faltaban DOS ESTADOS: hover y foco. Al lado del
+ * selector de día y hora, que sí los trae, la diferencia se veía sin medir nada:
+ * tabulabas de un campo al de abajo y el anillo cambiaba de sistema, porque el de
+ * arriba pinta el de la casa y el de abajo el que ponga el navegador. **Un
+ * componente interactivo tiene sus estados o no está terminado**, y dos controles
+ * hermanos de la misma pantalla no pueden tener dos vocabularios de foco.
+ *
+ * Los valores no se inventan: son exactamente los del disparador de
+ * `SelectorFechaHora`, que es el campo con el que comparten columna.
+ */
+const CAMPO =
+  'h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-[15px] text-slate-900 ' +
+  'transition-colors hover:border-slate-400 ' +
+  'focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-indigo-500/15'
 import type { Candidate, Interview, InterviewMode } from '../lib/types'
 
 // El botón de entrevista de la CABECERA que vivía aquí se borró (ago 2026): no
@@ -144,7 +163,7 @@ export function AgendarManualDialog({
   }
 
   return (
-    <Modal open={open} onClose={onClose} label="Agendar entrevista" maxWidthClass="sm:max-w-[460px]">
+    <Modal open={open} onClose={onClose} label="Agendar entrevista" maxWidthClass="sm:max-w-[460px]" alto="contenido">
       <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
         <div>
           <h2 className="text-[17px] font-semibold text-slate-900">Agendar entrevista</h2>
@@ -160,7 +179,15 @@ export function AgendarManualDialog({
         </button>
       </div>
 
-      <div className="space-y-4 overflow-y-auto px-5 py-4">
+      {/* `flex-1` para que el PIE se apoye abajo: en móvil el panel ocupa la
+          pantalla entera (un diálogo flotando a media altura se pelea con el
+          teclado del sistema), y sin esto el cuerpo medía lo que medían sus
+          campos y los botones se quedaban a media pantalla con medio teléfono
+          de blanco debajo. En escritorio no cambia nada: con el alto puesto
+          por el contenido no hay hueco al que crecer. Y `min-h-0`, o el hijo
+          de un flex no puede encoger por debajo de su contenido y el scroll
+          se va al panel. */}
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
         <div>
           <label htmlFor="ent-cuando" className="mb-1 block text-[13px] font-semibold text-slate-700">
             Día y hora
@@ -186,7 +213,7 @@ export function AgendarManualDialog({
               id="ent-dur"
               value={duracion}
               onChange={(e) => setDuracion(Number(e.target.value))}
-              className="h-11 w-full rounded-xl border border-slate-300 px-3 text-[15px] text-slate-900"
+              className={CAMPO}
             >
               {[15, 30, 45, 60, 90].map((m) => (
                 <option key={m} value={m}>{m} min</option>
@@ -201,7 +228,7 @@ export function AgendarManualDialog({
               id="ent-buf"
               value={buffer}
               onChange={(e) => setBuffer(Number(e.target.value))}
-              className="h-11 w-full rounded-xl border border-slate-300 px-3 text-[15px] text-slate-900"
+              className={CAMPO}
             >
               {[0, 10, 15, 30].map((m) => (
                 <option key={m} value={m}>{m === 0 ? 'Sin descanso' : `${m} min`}</option>
@@ -230,7 +257,7 @@ export function AgendarManualDialog({
               onChange={(e) => { tocado.current = true; setSitio(e.target.value) }}
               placeholder="Calle, nave, oficina..."
               maxLength={300}
-              className="h-11 w-full rounded-xl border border-slate-300 px-3 text-[15px] text-slate-900"
+              className={CAMPO}
             />
           </div>
         )}
@@ -246,7 +273,7 @@ export function AgendarManualDialog({
               value={enlace}
               onChange={(e) => setEnlace(e.target.value)}
               placeholder="https://..."
-              className="h-11 w-full rounded-xl border border-slate-300 px-3 text-[15px] text-slate-900"
+              className={CAMPO}
             />
           </div>
         )}
@@ -268,7 +295,7 @@ export function AgendarManualDialog({
               id="ent-host"
               value={anfitrion}
               onChange={(e) => setAnfitrion(e.target.value)}
-              className="h-11 w-full rounded-xl border border-slate-300 px-3 text-[15px] text-slate-900"
+              className={CAMPO}
             >
               <option value="">Tú</option>
               {members.filter((m) => !m.isSelf).map((m) => (
@@ -358,6 +385,23 @@ export function CambiarCitaDialog({
   const [error, setError] = useState<string | null>(null)
   const [confirmandoCancelar, setConfirmandoCancelar] = useState(false)
 
+  /**
+   * AL CONFIRMAR, EL FOCO VA A "VOLVER".
+   *
+   * El disparador se desmonta al pedir confirmación (la pregunta ocupa su sitio),
+   * así que sin esto el foco se cae al `body`: quien navega con teclado pulsa
+   * "Cancelar la entrevista", aparece una pregunta que no puede leer ni contestar
+   * y tiene que volver a tabular el diálogo entero.
+   *
+   * Va a la salida SEGURA y no al botón rojo, que es la regla de cualquier
+   * confirmación destructiva: si el foco cayera en "Sí, cancelar", un Intro de más
+   * (el mismo que acaba de abrir la pregunta) anularía la cita.
+   */
+  const volverRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (confirmandoCancelar) volverRef.current?.focus()
+  }, [confirmandoCancelar])
+
   // Al abrir sobre otra cita, los campos son los de ESA. Sin esto, abrir la de
   // otro candidato enseñaría la hora del anterior.
   const [citaPintada, setCitaPintada] = useState(entrevista.id)
@@ -438,7 +482,7 @@ export function CambiarCitaDialog({
   }
 
   return (
-    <Modal open={open} onClose={onClose} label="Cambiar la cita" maxWidthClass="sm:max-w-[460px]">
+    <Modal open={open} onClose={onClose} label="Cambiar la cita" maxWidthClass="sm:max-w-[460px]" alto="contenido">
       <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
         <div>
           <h2 className="text-[17px] font-semibold text-slate-900">Cambiar la cita</h2>
@@ -456,7 +500,15 @@ export function CambiarCitaDialog({
         </button>
       </div>
 
-      <div className="space-y-4 overflow-y-auto px-5 py-4">
+      {/* `flex-1` para que el PIE se apoye abajo: en móvil el panel ocupa la
+          pantalla entera (un diálogo flotando a media altura se pelea con el
+          teclado del sistema), y sin esto el cuerpo medía lo que medían sus
+          campos y los botones se quedaban a media pantalla con medio teléfono
+          de blanco debajo. En escritorio no cambia nada: con el alto puesto
+          por el contenido no hay hueco al que crecer. Y `min-h-0`, o el hijo
+          de un flex no puede encoger por debajo de su contenido y el scroll
+          se va al panel. */}
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
         <div>
           <label htmlFor="cita-cuando" className="mb-1 block text-[13px] font-semibold text-slate-700">
             Día y hora
@@ -478,7 +530,7 @@ export function CambiarCitaDialog({
             id="cita-duracion"
             value={duracion}
             onChange={(e) => setDuracion(Number(e.target.value))}
-            className="h-11 w-full rounded-xl border border-slate-300 px-3 text-[15px] text-slate-900"
+            className={CAMPO}
           >
             {[15, 20, 30, 45, 60, 90].map((m) => (
               <option key={m} value={m}>{m} min</option>
@@ -489,9 +541,15 @@ export function CambiarCitaDialog({
         {/* Lo que NO pasa al cambiar la hora. Desde aquí no sale ningún mensaje,
             y quien mueve una cita da por hecho que se avisa: es la regla de
             siempre, una nota se gana el sitio cuando avisa de que lo que ves no
-            es lo que el control dice. */}
-        <p className="text-[13px] text-slate-500">
-          Al candidato no le avisamos nosotros: díselo tú por teléfono o por WhatsApp.
+            es lo que el control dice.
+
+            CON GLIFO Y EN FILA, no como un párrafo suelto: flotando entre dos
+            campos se leía como el pie de foto del selector de arriba, que es
+            justo lo que no es. El icono la separa de los rótulos sin subirle el
+            peso, y el gris de apoyo dice que acompaña. */}
+        <p className="flex items-start gap-2 text-[13px] text-slate-500">
+          <Info className="mt-0.5 size-3.5 shrink-0 text-slate-400" aria-hidden />
+          <span>Al candidato no le avisamos nosotros: díselo tú por teléfono o por WhatsApp.</span>
         </p>
 
         {error && (
@@ -500,48 +558,82 @@ export function CambiarCitaDialog({
           </p>
         )}
 
-        {/* Cancelar vive aquí y no como un tercer botón de la ficha: es una
-            acción sobre LA CITA, no sobre la persona, y este diálogo ES la
-            cita. Se confirma en el sitio y no en un diálogo encima, porque dos
-            capas apiladas se pelean por el Escape. */}
-        <div className="border-t border-slate-100 pt-4">
-          {confirmandoCancelar ? (
-            <div className="rounded-xl filo bg-slate-50 p-3">
-              <p className="text-[13px] text-slate-700">
-                La cita se anula y el hueco queda libre. El candidato se queda en el estado
-                que tenga: eso lo decides tú.
-              </p>
-              <div className="mt-2.5 flex gap-2">
-                <button type="button" onClick={() => void cancelar()} disabled={guardando} className={BTN_PRIMARY_SM}>
-                  {guardando ? 'Cancelando...' : 'Cancelar la entrevista'}
-                </button>
-                <button type="button" onClick={() => setConfirmandoCancelar(false)} className={BTN_SECONDARY_SM}>
-                  Volver
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmandoCancelar(true)}
-              className="text-[13px] font-medium text-slate-600 underline-offset-2 hover:text-slate-900 hover:underline"
-            >
-              Cancelar la entrevista
-            </button>
-          )}
-        </div>
       </div>
 
-      <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
-        <button type="button" onClick={onClose} className={BTN_SECONDARY}>Cerrar</button>
-        <button
-          type="button"
-          onClick={() => void guardar()}
-          disabled={guardando || sinCambios}
-          className={`${BTN_PRIMARY} disabled:opacity-50`}
-        >
-          {guardando ? 'Guardando...' : 'Guardar el cambio'}
-        </button>
+      {/* CANCELAR BAJA AL PIE, A LA IZQUIERDA (sep 2026). Vivía en el cuerpo, con
+          una divisoria propia justo encima de la del pie: dos hairlines a 20px
+          uno de otro, que es lo que hacía que el diálogo se leyera a bandas. Y
+          era un enlace subrayado, un control que no está en el vocabulario de
+          esta casa.
+
+          A la izquierda del par de confirmación es donde vive una acción
+          destructiva en un diálogo: lejos del botón que se pulsa por costumbre y
+          en el extremo opuesto al que el ojo va a buscar. Sigue sin ser un botón
+          de la FICHA, que es lo que ya se decidió: es una acción sobre LA CITA, y
+          este diálogo ES la cita.
+
+          SE CONFIRMA SUSTITUYENDO EL PIE, no abriendo otra capa: dos modales
+          apilados se pelean por el Escape. Y el cuerpo se queda a la vista
+          mientras decides, así que se confirma con la cita delante. */}
+      <div className="border-t border-slate-200 px-5 py-3">
+        {confirmandoCancelar ? (
+          // LA FRASE VA ENCIMA, no al lado. En 460px, en la misma línea que los
+          // dos botones le quedan ~240 y parte en dos igual, pero además
+          // estrujada contra ellos. A lo ancho se lee de una pasada y el pie
+          // crece lo mismo. Que crezca está bien: es un paso nuevo, y verlo
+          // aparecer es parte de lo que dice que has pedido algo que no se
+          // deshace.
+          <div className="space-y-2.5">
+            <p role="status" className="text-[13px] text-slate-700">
+              Se anula y el hueco queda libre. <span className="text-slate-500">El candidato no cambia de estado.</span>
+            </p>
+            <div className="flex justify-end gap-2">
+              <button ref={volverRef} type="button" onClick={() => setConfirmandoCancelar(false)} className={BTN_SECONDARY_SM}>
+                Volver
+              </button>
+              {/* ROJO AQUÍ SÍ: cancelar una cita no se deshace, que es el único uso
+                  que esta casa le da. Es lo que lo separa de "descartar", que es
+                  rutina y reversible y por eso va en slate. */}
+              <button type="button" onClick={() => void cancelar()} disabled={guardando} className={BTN_DANGER_SM}>
+                {guardando && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
+                {guardando ? 'Cancelando' : 'Sí, cancelar'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            {/* EN FANTASMA, y es lo que lo separa de "Cerrar": en línea eran dos
+                botones idénticos en los dos extremos del pie, uno que descarta el
+                diálogo y otro que anula una cita. Sin caja se lee como lo que es,
+                la salida rara, y deja el par de la derecha como el único grupo de
+                botones del pie. El rojo llega DESPUÉS, en el clic que no se
+                deshace: un disparador rojo para algo que todavía pregunta grita
+                dos veces. */}
+            <button type="button" onClick={() => setConfirmandoCancelar(true)} className={botonClase('ghost')}>
+              Cancelar la entrevista
+            </button>
+            <div className="flex gap-2">
+              {/* "Cerrar" y no "Cancelar", que es lo que dice su gemelo de
+                  agendar: aquí "Cancelar" al lado de "Cancelar la entrevista"
+                  serían dos cosas distintas con la misma palabra, y el glosario
+                  de esta casa no admite eso. */}
+              <button type="button" onClick={onClose} className={BTN_SECONDARY}>Cerrar</button>
+              {/* Sin `disabled:opacity-50` pegado detrás: `BTN_PRIMARY` ya trae su
+                  `disabled:opacity-60`, y dos utilidades del mismo eje se
+                  resuelven por el orden en que se EMITEN, no por el que se
+                  escriben. La salida es no poner la que sobra. */}
+              <button
+                type="button"
+                onClick={() => void guardar()}
+                disabled={guardando || sinCambios}
+                className={BTN_PRIMARY}
+              >
+                {guardando && <Loader2 className="size-4 animate-spin" aria-hidden />}
+                {guardando ? 'Guardando' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </Modal>
   )
