@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Check, Link2Off, Loader2 } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
 import { supabase, supabaseConfigured } from '../lib/supabase'
 import { ApplicationForm } from '../components/ApplicationForm'
 import { validateField } from '../components/FieldRenderer'
@@ -16,7 +16,7 @@ import { HojaPublica } from '../components/HojaPublica'
 import { hayAnuncio, leerAnuncio, leerProvincia } from '../lib/anuncio'
 import type { OtroPuesto } from '../lib/demoPublico'
 import type { Campaign } from '../lib/types'
-import { IconoVacio } from '../components/ui/IconoVacio'
+import { PuestoInactivo } from '../components/PuestoInactivo'
 
 interface PublicCampaign extends Campaign {
   companyName: string
@@ -191,19 +191,15 @@ export function PublicForm() {
   }
 
   if (state === 'notfound' || !campaign || campaign.status === 'cerrada' || campaign.status === 'pausada') {
-    const paused = campaign?.status === 'pausada'
+    // Un puesto que ya no acepta candidaturas se dice con su empresa y, si la
+    // tiene, con sus otros puestos abiertos: ver PuestoInactivo.
     return (
-      <CenteredCard>
-        <IconoVacio Icon={Link2Off} />
-        <h1 className="mt-4 text-xl font-semibold text-slate-900">
-          {paused ? 'Esta oferta no admite candidaturas ahora mismo' : 'Este enlace ya no está activo'}
-        </h1>
-        <p className="mt-1.5 text-sm text-slate-500">
-          {paused
-            ? 'La empresa ha pausado esta oferta. Si crees que es un error, contacta con quien te lo compartió.'
-            : 'La empresa ha cerrado esta oferta. Si crees que es un error, contacta con quien te lo compartió.'}
-        </p>
-      </CenteredCard>
+      <PuestoInactivo
+        motivo={!campaign ? 'noExiste' : campaign.status === 'pausada' ? 'pausado' : 'cerrado'}
+        titulo={campaign?.title}
+        companyName={campaign?.companyName}
+        otros={campaign?.otros ?? []}
+      />
     )
   }
 
@@ -484,12 +480,3 @@ function ThankYou({ campaign, isTest = false }: { campaign: PublicCampaign; isTe
   )
 }
 
-function CenteredCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-slate-50 px-4 py-8">
-      <div className="w-full max-w-[420px] rounded-2xl filo bg-white p-7 text-center shadow-card">
-        {children}
-      </div>
-    </div>
-  )
-}
