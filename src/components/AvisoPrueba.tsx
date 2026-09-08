@@ -4,8 +4,8 @@ import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { useAppBase } from '../lib/useAppBase'
 import { useOnboarding } from '../lib/onboarding'
-import { diasDePruebaRestantes, finDePrueba, pendienteDePago, procesoAbierto } from '../lib/pricing'
-import { guardarAvisoPrueba, leerAvisosPrueba, tocaAvisar, umbralPrueba } from '../lib/avisoPrueba'
+import { diasDePruebaRestantes, finDePrueba, pendienteDePago, procesoAbierto, pruebaAgotada } from '../lib/pricing'
+import { UMBRAL_AGOTADA, guardarAvisoPrueba, leerAvisosPrueba, tocaAvisar, umbralPrueba } from '../lib/avisoPrueba'
 import { ConfirmDialog } from './ui/ConfirmDialog'
 
 const fechaCorta = (iso: string) =>
@@ -32,7 +32,8 @@ export function AvisoPrueba() {
   const [vistos, setVistos] = useState(leerAvisosPrueba)
 
   const dias = diasDePruebaRestantes(company?.trial_ends_at)
-  const umbral = umbralPrueba(dias)
+  const agotada = pruebaAgotada(company?.trial_ends_at)
+  const umbral = umbralPrueba(dias, agotada)
   const abierto =
     !!company
     && base === '/app' // en la demo no se cobra nada y no hay reloj que contar
@@ -51,7 +52,7 @@ export function AvisoPrueba() {
     setVistos(guardarAvisoPrueba(company.id, umbral))
   }
 
-  const terminada = umbral === 0
+  const terminada = umbral === UMBRAL_AGOTADA
   const bloqueadas = Object.values(lockedInfo).reduce((n, i) => n + i.count, 0)
   // La misma cuenta que hace Facturación antes de salir a pagar: si el pago
   // cubriera más de un proceso, la prueba no lo pospone y prometerlo sería
@@ -66,7 +67,9 @@ export function AvisoPrueba() {
       onConfirm={() => { cerrar(); navigate(`${base}/plan`) }}
       title={terminada
         ? 'Tu prueba ha terminado'
-        : dias === 1 ? 'Te queda un día de prueba' : `Te quedan ${dias} días de prueba`}
+        : dias === 0
+          ? 'Tu prueba termina hoy'
+          : dias === 1 ? 'Te queda un día de prueba' : `Te quedan ${dias} días de prueba`}
       confirmLabel={terminada ? 'Activar el pago' : 'Ir a Facturación'}
       cancelLabel="Ahora no"
     >
@@ -87,10 +90,12 @@ export function AvisoPrueba() {
       ) : (
         <>
           <p>
-            Tu puesto sigue en línea y recibiendo candidaturas hasta el{' '}
-            {company?.trial_ends_at ? fechaCorta(company.trial_ends_at) : 'final de la prueba'}. A partir de
-            ahí no se pierde ninguna: las nuevas quedan guardadas en espera y las ves todas en cuanto
-            actives el pago.
+            Tu puesto sigue en línea y recibiendo candidaturas{' '}
+            {dias === 0
+              ? 'hasta el final del día'
+              : <>hasta el {company?.trial_ends_at ? fechaCorta(company.trial_ends_at) : 'final de la prueba'}</>}
+            . A partir de ahí no se pierde ninguna: las nuevas quedan guardadas en espera y las ves
+            todas en cuanto actives el pago.
           </p>
           {/* La frase que convierte el aviso en algo útil: quita el motivo para
               esperar al último día. Solo si de verdad va a pasar. */}

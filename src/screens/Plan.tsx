@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CreditCard, Loader2, Receipt } from 'lucide-react'
 import {
-  PLAN_LABEL, PRECIO_PROCESO, PRUEBA_DIAS, diasDePruebaRestantes, finDePrueba, hayPagoActivo, impuestoTexto, pendienteDePago, procesoAbierto,
+  PLAN_LABEL, PRECIO_PROCESO, PRUEBA_DIAS, diasDePruebaRestantes, finDePrueba, hayPagoActivo, impuestoTexto, pendienteDePago, procesoAbierto, pruebaAgotada,
   type RegionFiscal,
 } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
@@ -193,6 +193,8 @@ export function Plan() {
   }
 
   const dias = diasDePruebaRestantes(company?.trial_ends_at)
+  // Con los días redondeados hacia abajo, `0` es el último día y no el final.
+  const agotada = pruebaAgotada(company?.trial_ends_at)
   // Cuándo caería el primer cobro si activa el pago ahora: null = hoy. Se
   // calcula con lo que este pago va a cubrir (los abiertos más el que espera),
   // porque la prueba cubre UN proceso y abrir más se cobra al momento. Fuera de
@@ -236,7 +238,7 @@ export function Plan() {
               <div className="rounded-xl bg-slate-50 p-3.5">
                 <dt className="text-[13px] text-slate-500">Días de prueba</dt>
                 <dd className="num mt-0.5 font-semibold text-slate-900">
-                  {dias === 0 ? 'Agotados' : `Quedan ${dias}`}
+                  {agotada ? 'Agotados' : dias === 0 ? 'Último día' : dias === 1 ? 'Queda 1' : `Quedan ${dias}`}
                 </dd>
               </div>
               <div className="rounded-xl bg-slate-50 p-3.5">
