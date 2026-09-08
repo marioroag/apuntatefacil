@@ -933,7 +933,7 @@ function Features() {
     { icon: PhoneCall, title: 'Estado de cada candidato, siempre visible', body: 'Marca el estado según avanzas. Evita contactar dos veces al mismo perfil y no pierdas candidatos relevantes.' },
     { icon: Sliders, title: 'Preguntas adaptadas a cada puesto', body: 'Defines las preguntas del puesto. El candidato las responde en el móvil, con mayor tasa de finalización.' },
     { icon: FileSpreadsheet, title: 'Exportación a Excel cuando la necesites', body: 'Tus candidatos son tuyos. Exporta la lista a Excel en cualquier momento, también si dejas el servicio.' },
-    { icon: InfinityIcon, title: 'Candidatos sin límite', body: 'Recibe 20 candidaturas o 200: todas quedan en tu lista. En Pro, tu equipo colabora sin coste por usuario.' },
+    { icon: InfinityIcon, title: 'Candidatos sin límite', body: 'Recibe 20 candidaturas o 200: todas quedan en tu lista. Y tu equipo entero trabaja en ella, sin coste por usuario.' },
   ]
   const [hero, ...rest] = items
   return (
