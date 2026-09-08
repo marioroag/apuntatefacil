@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   DndContext,
@@ -48,6 +48,7 @@ import { SWATCHES, accentPassesWhite, readableOn } from '../lib/colors'
 import { FORM_WELCOME_DEFAULT, FORM_THANKS_DEFAULT } from '../lib/defaults'
 import { useAuth } from '../lib/auth'
 import { useAppBase } from '../lib/useAppBase'
+import { useOnboarding } from '../lib/onboarding'
 import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 import { AnuncioEditor, type ValorAnuncio } from '../components/AnuncioEditor'
 import { anuncioSinEmpezar, anuncioVacio, resumenAnuncio } from '../lib/anuncio'
@@ -116,6 +117,17 @@ export function Builder() {
   const [previewOpen, setPreviewOpen] = useState(false) // vista previa a pantalla completa (móvil)
   const [saveError, setSaveError] = useState(false) // el último autoguardado falló: el sello lo refleja y deja reintentar
   const [emailWarning, setEmailWarning] = useState<{ kind: 'optional' | 'remove'; fieldId: string } | null>(null)
+  const [params] = useSearchParams()
+  const onboarding = useOnboarding()
+
+  // La torre de primeros pasos no puede deducir de ningún dato que hayas visto
+  // tus preguntas: se apunta al entrar aquí. Fuera de la guía no hace nada.
+  useEffect(() => {
+    if (onboarding.active && campaign) onboarding.marcar('preguntas', 'hecho')
+    // `marcar` se recrea en cada render; lo que decide es estar en la guía y en
+    // un puesto, y con eso basta una vez por puesto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboarding.active, campaign?.id])
 
   // Sensores por dispositivo: ratón arrastra al mover 5px (ágil); táctil exige mantener
   // pulsada el asa un instante antes de arrastrar (el delay distingue arrastre de scroll y
@@ -281,7 +293,7 @@ export function Builder() {
             </button>
 
             {/* Identidad (de la marca: se comparte entre sus puestos) */}
-            <Identidad key={`marca-${campaign.id}`} campaign={campaign} />
+            <Identidad key={`marca-${campaign.id}`} campaign={campaign} abrirAlEntrar={params.has('identidad')} />
 
             {/* El anuncio: lo que se lee ANTES de este formulario */}
             <AnuncioPuesto key={`anuncio-${campaign.id}`} campaign={campaign} />
@@ -664,7 +676,10 @@ function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o:
 // formularios (el formulario público ya lo lee en vivo). Con una sola marca (el
 // caso normal) nunca aparece la palabra "marca": editas tu identidad y ya. Tener
 // VARIAS es lo que desbloquea Multi.
-function Identidad({ campaign }: { campaign: Campaign }) {
+// `abrirAlEntrar`: se llega con `?identidad` (desde la torre de primeros pasos
+// o desde el buscador) y la fila se abre y se pone a la vista sin esperar a que
+// nadie la busque entre los campos.
+function Identidad({ campaign, abrirAlEntrar = false }: { campaign: Campaign; abrirAlEntrar?: boolean }) {
   const { brands, createBrand, updateBrand, deleteBrand, updateCampaign, campaigns, loading } = useStore()
   const { company } = useAuth()
   const demo = useAppBase() === '/demo'
@@ -693,8 +708,12 @@ function Identidad({ campaign }: { campaign: Campaign }) {
   // fila no diría nada y además es lo único pendiente de esta pantalla. Se decide
   // con los datos ya cargados (mientras cargan, `active` es null y se abriría sola
   // para cerrarse de golpe al llegar la marca); en cuanto la tocas, mandas tú.
-  const [open, setOpen] = useState<boolean | null>(null)
+  const [open, setOpen] = useState<boolean | null>(abrirAlEntrar ? true : null)
   const abierta = open ?? (!loading && !(active?.logoPath || active?.bannerPath || active?.name))
+  const seccion = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (abrirAlEntrar) seccion.current?.scrollIntoView({ block: 'start' })
+  }, [abrirAlEntrar])
 
   // Con una sola marca no hay elección que hacer: es la identidad de la casa y le
   // toca a todos los puestos. Si este aún no la tiene (se creó antes, o se quedó
@@ -750,7 +769,7 @@ function Identidad({ campaign }: { campaign: Campaign }) {
   }
 
   return (
-    <section>
+    <section ref={seccion}>
       <SectionTitle>Identidad</SectionTitle>
       {/* Misma forma que un campo del formulario (fila que se despliega): la
           identidad se pone una vez y el trabajo de esta pantalla son los campos,

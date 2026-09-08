@@ -1,237 +1,23 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { ExternalLink, Link2, Loader2, RefreshCw, X } from 'lucide-react'
-import { useAuth } from '../lib/auth'
+import { useNavigate } from 'react-router-dom'
+import { ExternalLink, Link2, Loader2, RefreshCw } from 'lucide-react'
 import { useStore } from '../lib/store'
-import { useOnboarding } from '../lib/onboarding'
-import { useAppBase } from '../lib/useAppBase'
-import { useToast } from './ui/Toast'
-import { TemplateGrid, useCreateFromTemplate } from './NewCampaignWizard'
-import { AnuncioEditor, usePasoAnuncio } from './AnuncioEditor'
-import type { SectorTemplate } from '../lib/templates'
-import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
+import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import type { Campaign } from '../lib/types'
 
 // ----------------------------------------------------------------------------
-// Guía de primer uso, "wizard en dos actos" sobre el producto REAL:
-//  - Paso 2 (OnboardingCreatePuesto): pantalla completa en /app mientras no hay
-//    puestos, con la misma rejilla de plantillas del modal "Crear puesto".
-//  - Pasos 3-4 (OnboardingGuide): tarjeta acoplada que muestra UN paso con UNA
-//    acción, encima del Builder y del panel reales. El paso 4 vive incrustado en
-//    el hueco de la lista vacía (OnboardingTestCard): la candidatura de prueba
-//    aparece literalmente donde la tarjeta dice que aparecerá.
-// El progreso se deriva de datos reales (useOnboarding); aquí solo hay estado
-// efímero: "esperando la candidatura" y el latch del cierre.
+// Lo que queda de la guía "en dos actos" tras la torre de primeros pasos (sep
+// 2026): el paso de PROBAR, que sigue viviendo incrustado en el hueco de la
+// lista vacía del puesto porque la candidatura de prueba aparece literalmente
+// donde la tarjeta dice que aparecerá. La torre (`TorreOnboarding`) solo LLEVA
+// aquí; la tarjeta flotante y la pantalla completa de crear el primer puesto se
+// retiraron con ella. El progreso se deriva de las marcas y los datos
+// (`useOnboarding`); aquí solo hay estado efímero: "esperando la candidatura".
 // ----------------------------------------------------------------------------
 
-// Indicador de progreso del wizard: 4 segmentos en tinta (los cumplidos) + la
-// etiqueta "Paso N de 4". Orienta al usuario no técnico ("son pocos pasos, voy
-// por aquí") sin ruido. Tinta, no el acento (reservado a acción/nav/foco). Es
-// inline-flex: se alinea solo a la izquierda o al centro según el contenedor.
-export function StepProgress({ current, total = 4 }: { current: number; total?: number }) {
-  return (
-    <span className="inline-flex items-center gap-2.5 align-middle">
-      <span className="flex items-center gap-1" aria-hidden>
-        {Array.from({ length: total }, (_, i) => (
-          <span key={i} className={`h-1 w-6 rounded-full ${i < current ? 'bg-slate-900' : 'bg-slate-200'}`} />
-        ))}
-      </span>
-      <span className="text-[12px] font-semibold text-slate-500">Paso {current} de {total}</span>
-    </span>
-  )
-}
-
-// Tarjeta flotante: recuerda el paso actual fuera de su pantalla, muestra el
-// paso 3 en el Builder y la tarjeta final al llegar la primera candidatura.
-export function OnboardingGuide() {
-  const ob = useOnboarding()
-  const { company, setOnboardingDone } = useAuth()
-  const { candidates, reloadCandidatesFor, deleteCandidate } = useStore()
-  const { pathname } = useLocation()
-  const navigate = useNavigate()
-  const base = useAppBase()
-  const toast = useToast()
-
-  // La fase se deriva de los datos, sin latch en memoria: los dos botones de la
-  // tarjeta final ("Terminar" y "Borrar la prueba") CIERRAN la guía, así que la
-  // fase nunca puede regresar a 'probar' tras el hito (era el bug: borrar la
-  // prueba dejaba candidates=0 y el Dashboard, que lee el hook, remostraba el
-  // paso 4 mientras la flotante seguía en 'hecho').
-  const phase = ob.phase
-  const campaignId = ob.campaign?.id ?? null
-
-  // Detección de la llegada (fase 'probar'), centralizada aquí: al volver a la
-  // pestaña se recarga al instante, y mientras está visible sondea suave (5 s los
-  // dos primeros minutos, luego 30 s). Se apaga solo al salir de la fase.
-  const polling = ob.active && phase === 'probar' && campaignId != null
-  useEffect(() => {
-    if (!polling || !campaignId) return
-    let cancelled = false
-    const started = Date.now()
-    let timer = 0
-    const tick = async () => {
-      if (cancelled) return
-      if (document.visibilityState === 'visible') await reloadCandidatesFor(campaignId)
-      if (cancelled) return
-      timer = window.setTimeout(tick, Date.now() - started < 120_000 ? 5_000 : 30_000)
-    }
-    const onWake = () => {
-      if (document.visibilityState === 'visible') void reloadCandidatesFor(campaignId)
-    }
-    window.addEventListener('focus', onWake)
-    document.addEventListener('visibilitychange', onWake)
-    timer = window.setTimeout(tick, 5_000)
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
-      window.removeEventListener('focus', onWake)
-      document.removeEventListener('visibilitychange', onWake)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [polling, campaignId])
-
-  if (!ob.active) return null
-
-  // Dónde NO flota: en /app sin puestos (el paso 2 ocupa la pantalla) y en el
-  // panel del puesto durante la prueba (ahí el paso 4 vive incrustado en la lista).
-  const onIndex = pathname === base || pathname === `${base}/`
-  const onCampaignDash = campaignId != null && pathname === `${base}/puestos/${campaignId}`
-  if (phase === 'puesto' && onIndex) return null
-  if (phase === 'probar' && onCampaignDash) return null
-
-  const dismiss = async () => {
-    await setOnboardingDone(true)
-    toast.show('Guía cerrada. La tienes arriba, en Primeros pasos.', {
-      action: { label: 'Deshacer', onClick: () => void setOnboardingDone(false) },
-    })
-  }
-
-  const testCandidate = candidates.find((c) => c.source === 'prueba')
-
-  return (
-    // El hueco contra el lateral es el MISMO que la tarjeta se deja por los otros
-    // dos lados (20px, `bottom-5`/`left-5`). Estaba en 16.25rem = 260px contra un
-    // lateral de 256 + 1 de filo: 3px de aire, o sea pegada por un lado y suelta
-    // por los otros dos. La cuenta se deja escrita para que se mueva con el
-    // lateral si alguna vez cambia de ancho.
-    <div
-      className="fixed inset-x-3 bottom-3 z-40 sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-[380px] lg:left-[calc(16rem+1px+1.25rem)]"
-      style={{ animation: 'reveal-up .18s var(--ease-out) both' }}
-      role="complementary"
-      aria-label="Guía de primeros pasos"
-    >
-      <div className="relative rounded-xl filo bg-white p-4 shadow-pop">
-        {/* De `botonIcono`, no de un `p-1.5` a mano: medía 28px y no crecía en
-            táctil, y en un móvil esta tarjeta vive fija abajo, así que cerrarla es
-            lo único que se puede hacer con ella. */}
-        <button
-          onClick={dismiss}
-          aria-label="Cerrar la guía"
-          className={botonIcono('ghost', 'md', 'absolute right-2 top-2')}
-        >
-          <X className="size-4" aria-hidden />
-        </button>
-
-        {phase === 'puesto' && (
-          <>
-            <StepProgress current={2} />
-            <p className="mt-2 pr-9 text-[15px] font-semibold text-slate-900">Crea tu primer puesto</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-              Con una plantilla de tu sector lo tienes listo en un minuto.
-            </p>
-            <button onClick={() => navigate(base)} className={`${BTN_PRIMARY} mt-3`}>
-              Crear un puesto
-            </button>
-          </>
-        )}
-
-        {phase === 'formulario' && (
-          <>
-            <StepProgress current={3} />
-            <p className="mt-2 pr-9 text-[15px] font-semibold text-slate-900">Esto es lo que verá quien abra tu enlace</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-              Retoca las preguntas si quieres. Los cambios se guardan solos.
-            </p>
-            <button
-              onClick={() => campaignId && navigate(`${base}/puestos/${campaignId}`)}
-              className={`${BTN_PRIMARY} mt-3`}
-            >
-              Continuar
-            </button>
-          </>
-        )}
-
-        {phase === 'probar' && (
-          <>
-            <StepProgress current={4} />
-            <p className="mt-2 pr-9 text-[15px] font-semibold text-slate-900">Pruébalo tú mismo</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-              Te falta enviarte una candidatura de prueba para ver cómo llega.
-            </p>
-            <button
-              onClick={() => campaignId && navigate(`${base}/puestos/${campaignId}`)}
-              className={`${BTN_PRIMARY} mt-3`}
-            >
-              Ir a mi puesto
-            </button>
-          </>
-        )}
-
-        {phase === 'hecho' && (
-          <div className="flex items-start gap-3">
-            {/* El hito del primer uso: la insignia asienta y el check se dibuja de
-                un trazo. Un único momento ganado, sobrio; en tinta (el verde es de
-                "contratado"). SVG propio para controlar el trazo del dibujo. */}
-            <span className="onboarding-badge grid size-9 shrink-0 place-items-center rounded-full bg-slate-900 text-white">
-              {/* El trazo se expresa RELATIVO al del sistema, no como un número suelto:
-                  es un check de celebración y va más gordo a propósito, pero si algún
-                  día se mueve `--stroke-icon` este se mueve con él en vez de quedarse
-                  descolgado (que es justo lo que le pasó cuando el sistema bajó a 1,75). */}
-              <svg
-                viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeLinecap="round" strokeLinejoin="round"
-                className="onboarding-check size-5 [stroke-width:calc(var(--stroke-icon)*1.4)]" aria-hidden
-              >
-                <path d="M20 6 9 17l-5-5" pathLength={1} />
-              </svg>
-            </span>
-            {/* El hueco que se reserva a la derecha sigue a la equis: con el botón
-                a 36px (44 en táctil) y pegado a 8px del filo, un `pr-5` dejaba el
-                final de la línea por debajo del control. */}
-            <div className="min-w-0 pr-9">
-              <p className="text-[15px] font-semibold text-slate-900">Ya está. Tu primera candidatura ha llegado</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-                Así entrará cada persona que rellene tu enlace: ordenada y con sus respuestas.
-                Cuando publiques tu anuncio, comparte el enlace con quien responda.
-              </p>
-              {testCandidate && company?.plan === 'trial' && (
-                <p className="mt-2 text-[12px] leading-relaxed text-slate-500">
-                  Es una candidatura de prueba, no de una persona real: bórrala cuando ya no la necesites.
-                </p>
-              )}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button onClick={() => void setOnboardingDone(true)} className={BTN_PRIMARY}>
-                  Terminar
-                </button>
-                {testCandidate && (
-                  <button
-                    onClick={() => { deleteCandidate(testCandidate.id); void setOnboardingDone(true) }}
-                    className={BTN_SECONDARY}
-                  >
-                    Borrar la prueba
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Paso 4 incrustado en el hueco de la lista vacía del puesto: la candidatura de
-// prueba aparecerá exactamente aquí. Sustituye al empty state SOLO durante la guía.
+// El paso de probar, incrustado en el hueco de la lista vacía del puesto: la
+// candidatura de prueba aparecerá exactamente aquí. Sustituye al empty state
+// SOLO mientras ese paso es el actual de la torre.
 export function OnboardingTestCard({ campaign, shareUrl, onCopy }: {
   campaign: Campaign
   shareUrl: string
@@ -249,6 +35,36 @@ export function OnboardingTestCard({ campaign, shareUrl, onCopy }: {
     const t = window.setTimeout(() => setSlow(true), 60_000)
     return () => window.clearTimeout(t)
   }, [waiting])
+
+  // Detección de la llegada, solo desde que se pulsa "Abrir mi enlace": al
+  // volver a la pestaña se recarga al instante, y mientras está visible sondea
+  // suave (5 s los dos primeros minutos, luego 30 s). El canal en vivo del store
+  // ya trae la candidatura sola; esto es el respaldo para cuando no llega.
+  useEffect(() => {
+    if (!waiting) return
+    let cancelled = false
+    const started = Date.now()
+    let timer = 0
+    const tick = async () => {
+      if (cancelled) return
+      if (document.visibilityState === 'visible') await reloadCandidatesFor(campaign.id)
+      if (cancelled) return
+      timer = window.setTimeout(tick, Date.now() - started < 120_000 ? 5_000 : 30_000)
+    }
+    const onWake = () => {
+      if (document.visibilityState === 'visible') void reloadCandidatesFor(campaign.id)
+    }
+    window.addEventListener('focus', onWake)
+    document.addEventListener('visibilitychange', onWake)
+    timer = window.setTimeout(tick, 5_000)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+      window.removeEventListener('focus', onWake)
+      document.removeEventListener('visibilitychange', onWake)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waiting, campaign.id])
 
   const openForm = () => {
     setWaiting(true)
@@ -273,8 +89,7 @@ export function OnboardingTestCard({ campaign, shareUrl, onCopy }: {
   if (campaign.status !== 'activa') {
     return (
       <div className="px-6 py-14 text-center">
-        <StepProgress current={4} />
-        <h2 className="mt-2 text-lg font-semibold text-slate-900">Tu puesto está en pausa</h2>
+        <h2 className="text-lg font-semibold text-slate-900">Tu puesto está en pausa</h2>
         <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-slate-500">
           Un puesto en pausa no acepta candidaturas. Reactívalo para probar tu enlace.
         </p>
@@ -284,8 +99,7 @@ export function OnboardingTestCard({ campaign, shareUrl, onCopy }: {
 
   return (
     <div className="px-6 py-14 text-center">
-      <StepProgress current={4} />
-      <h2 className="mt-2 text-lg font-semibold text-slate-900">Pruébalo tú mismo</h2>
+      <h2 className="text-lg font-semibold text-slate-900">Pruébalo tú mismo</h2>
       <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-slate-500">
         Abre tu enlace, responde como si fueras un candidato y envíalo.
         Tu candidatura de prueba aparecerá en esta lista.
@@ -327,77 +141,3 @@ export function OnboardingTestCard({ campaign, shareUrl, onCopy }: {
   )
 }
 
-// Paso 2 a pantalla completa: sustituye al empty state de /app mientras la guía
-// está activa y aún no hay puestos.
-//
-// PASA POR EL MISMO PROCESO QUE "CREAR PUESTO" (Mario, ago 2026): elegir
-// plantilla y escribir el anuncio. Se hizo primero con la creación de un clic,
-// con el argumento de no cargar el primer minuto de alguien que aún no sabe qué
-// es esto; el argumento se cae solo porque el anuncio ES el puesto, y estrenar
-// la app con un puesto que no cuenta nada enseña un producto a medias justo en
-// el momento en que se está aprendiendo cómo funciona. Aquí no se duplica nada:
-// la rejilla es `TemplateGrid`, el formulario es `AnuncioEditor` y el estado del
-// paso es `usePasoAnuncio`, los tres compartidos con el asistente.
-//
-// SIGUE SIENDO EL PASO 2 DE LA GUÍA, con sus dos pantallas dentro. El indicador
-// cuenta hitos del producto (crear, montar el formulario, probarlo), no pantallas.
-export function OnboardingCreatePuesto() {
-  const { busy, create } = useCreateFromTemplate()
-  const { setOnboardingDone } = useAuth()
-  const navigate = useNavigate()
-  const base = useAppBase()
-  const [elegida, setElegida] = useState<{ key: string; t?: SectorTemplate } | null>(null)
-  const { valor, cambiar, faltan, formulario, comprobar, reiniciar } = usePasoAnuncio()
-
-  const crear = async () => {
-    if (!elegida || busy || !comprobar()) return
-    const c = await create(elegida.key, elegida.t, { anuncio: valor })
-    if (c) navigate(`${base}/puestos/${c.id}/formulario`)
-  }
-
-  return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:py-14">
-      <StepProgress current={2} />
-      {elegida ? (
-        <>
-          <h1 className="mt-2 text-xl font-semibold text-slate-900">Tu anuncio</h1>
-          <p className="mt-1.5 text-sm text-slate-500">
-            Lo que se lee antes de las preguntas. Podrás cambiarlo todo después, el título incluido.
-          </p>
-          <div ref={formulario} className="mt-6">
-            <AnuncioEditor valor={valor} onChange={cambiar} faltan={faltan} />
-          </div>
-          {/* Aquí no se pinta "Ahora no, quiero ver el panel": la salida de la
-              guía vive en la pantalla donde todavía estás DECIDIENDO si entras,
-              y desde esta se llega con "Volver". Tres controles en un pie que ya
-              tiene el que crea el puesto es un cruce de caminos. */}
-          <div className="mt-6 flex items-center justify-end gap-2">
-            <button onClick={() => { setElegida(null); reiniciar() }} className={BTN_SECONDARY} disabled={!!busy}>
-              Volver
-            </button>
-            <button onClick={() => void crear()} className={`${BTN_PRIMARY} disabled:opacity-60`} disabled={!!busy}>
-              {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
-              Crear puesto
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <h1 className="mt-2 text-xl font-semibold text-slate-900">Crea tu primer puesto</h1>
-          <p className="mt-1.5 text-sm text-slate-500">
-            Elige un punto de partida según tu sector. Podrás cambiarlo todo después.
-          </p>
-          <div className="mt-6">
-            <TemplateGrid busyKey={busy} onPick={(key, t) => setElegida({ key, t })} />
-          </div>
-          <button
-            onClick={() => void setOnboardingDone(true)}
-            className="mt-6 text-[13px] font-medium text-slate-500 underline hover:text-slate-700"
-          >
-            Ahora no, quiero ver el panel
-          </button>
-        </>
-      )}
-    </div>
-  )
-}

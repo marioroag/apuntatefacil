@@ -196,7 +196,8 @@ export const DESTINOS: Destino[] = [
     icon: Palette,
     claves: ['marca', 'logo', 'banner', 'color', 'colores', 'apariencia', 'imagen'],
     disponible: (c) => !!c.campaignId,
-    to: (c) => `${c.base}/puestos/${c.campaignId}/formulario`,
+    // Con `?identidad` el constructor abre esa fila y la pone a la vista.
+    to: (c) => `${c.base}/puestos/${c.campaignId}/formulario?identidad`,
   },
   // Las SEDES ya no están aquí (ago 2026). Eran un destino que llevaba a Vista
   // general porque ahí vivía el bloque "Por sede"; con el rediseño de esa

@@ -97,6 +97,11 @@
      entre dos nombres, no inventa un sexto número. */
   --container-trabajo: 1240px;
   --container-lectura: 820px;
+  /* Y una tercera, la de la GUÍA de primeros pasos (sep 2026): una torre de
+     pasos no es prosa que leer sino filas que subir, y a 820 cada tarjeta era
+     una barra ancha con tres líneas dentro. 640 es el ancho de un objeto que se
+     abarca de un vistazo, con su botón a un palmo del título. */
+  --container-guia: 40rem;
 
   /* Y UNA TERCERA QUE NO ES UNA COLUMNA DE CONTENIDO, SINO EL MARCO DE LA LANDING:
      donde arranca el logo y donde acaba "Empezar", donde caen los dos raíles y
@@ -388,6 +393,18 @@
 @media (prefers-reduced-motion: no-preference) {
   .meridian-in { animation: entrada-suave var(--duration-enter) var(--ease-out) both; }
   .testimonio-in { animation: entrada-suave var(--duration-enter) var(--ease-out) both; }
+  /* Las tarjetas de la torre de primeros pasos entran escalonadas, de arriba
+     abajo, con el mismo movimiento: una lista que aparece de golpe se lee como
+     un bloque; una que llega en orden se lee como una escalera, que es lo que
+     es. 45ms de paso, como las filas del informe; con seis, la última entra a
+     los 225ms, por debajo del techo. Como clase y no como `style` inline para
+     que reduced-motion la apague sola. */
+  .torre-in > li { animation: entrada-suave var(--duration-enter) var(--ease-out) both; }
+  .torre-in > li:nth-child(2) { animation-delay: 45ms; }
+  .torre-in > li:nth-child(3) { animation-delay: 90ms; }
+  .torre-in > li:nth-child(4) { animation-delay: 135ms; }
+  .torre-in > li:nth-child(5) { animation-delay: 180ms; }
+  .torre-in > li:nth-child(6) { animation-delay: 225ms; }
 }
 
 /* (El pliegue del informe de Meridian, `.meridian-fold`, se retiró en ago 2026
@@ -1061,10 +1078,12 @@
 }
 
 
-/* Onboarding · la primera candidatura ha llegado: el hito del primer uso. Un
-   único momento GANADO y sobrio (nada de confetti; el verde sigue reservado a
-   "contratado"): la insignia asienta y el check se dibuja de un solo trazo, como
-   un instrumento que confirma. Con reduced-motion el check ya está dibujado. */
+/* Onboarding · la torre está completa: el hito del primer uso. Un único
+   momento GANADO y sobrio (nada de confetti): la insignia asienta y el check se
+   dibuja de un solo trazo, como un instrumento que confirma. Desde sep 2026 la
+   insignia va en el verde suave de estado, el mismo de los pasos hechos de la
+   torre (Mario: el disco negro se veía feo). Con reduced-motion el check ya
+   está dibujado. */
 @keyframes onboarding-badge-in {
   from { opacity: 0; transform: scale(0.82); }
   to { opacity: 1; transform: none; }

@@ -1,9 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import { ACENTO_MARCA } from './colors'
+import { aplicarMarcas, leerMarcas, marcasIguales, type Marcas } from './primerosPasos'
 
 export interface Company {
   id: string
@@ -16,7 +17,13 @@ export interface Company {
   subscription_status: string | null
   billing_interval: string | null // 'month' | 'year' | null (sin suscripción)
   cancel_at_period_end: boolean // suscripción marcada para cancelarse al final del periodo
-  onboarding_done_at: string | null // null = guía de primer uso activa (el progreso se deriva de los datos)
+  onboarding_done_at: string | null // null = guía de primer uso activa (la torre de Vista general)
+  /**
+   * Marcas de la torre de primeros pasos: qué pasos están hechos u omitidos.
+   * Es la VERDAD y el latch (un hecho no vuelve a pendiente); los datos solo
+   * son el detector que las escribe. Ver `lib/primerosPasos.ts`.
+   */
+  onboarding_pasos: Marcas
   downgrade_reconcile_at: string | null // no null = bajaste de plan (legacy) y debes elegir qué puestos mantener activos
   meridian_auto: boolean // analizar cada candidatura nueva al entrar (ajustes)
   trial_ends_at: string | null // fin de la prueba; null = el reloj aún no arrancó (arranca al abrir el primer proceso)
@@ -86,6 +93,13 @@ interface AuthApi {
   refreshCompany: (preferId?: string) => Promise<Company | null>
   // Cierra (done=true) o reabre (done=false) la guía de primer uso de la empresa activa.
   setOnboardingDone: (done: boolean) => Promise<void>
+  /**
+   * Apunta pasos de la torre como hechos u omitidos. Un solo `update` por lote
+   * sobre el mapa entero: dos pasos pueden latchear en el mismo tick y con dos
+   * escrituras del jsonb completo calculadas sobre estado viejo, una pisaría a
+   * la otra. Lo que no cambia nada no se escribe.
+   */
+  marcarPasos: (patch: Marcas) => Promise<void>
   /** Guarda ajustes de la empresa activa. Optimista, como el resto. */
   updateCompanySettings: (patch: Partial<CompanySettings>) => Promise<{ error?: string }>
 }
@@ -225,6 +239,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
+  // El último mapa de marcas de la torre, por delante del estado: `marcarPasos`
+  // fusiona sobre esto para que dos escrituras seguidas no se pisen. Se rellena
+  // al cargar la empresa y lo mueve solo `marcarPasos`.
+  const pasosRef = useRef<Marcas | null>(null)
   const [companies, setCompanies] = useState<CompanyWithRole[]>([])
   const [companyLoading, setCompanyLoading] = useState(false)
   const [role, setRole] = useState<string | null>(null)
@@ -307,12 +325,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null
     }
     setCompanyError(null)
-    const list = (data as CompanyWithRole[] | null) ?? []
+    // La aduana del jsonb de la torre: lo que llega se filtra a claves y valores
+    // conocidos (una cuenta anterior a la columna trae `{}` por el default).
+    const list = ((data as CompanyWithRole[] | null) ?? []).map((c) => ({ ...c, onboarding_pasos: leerMarcas(c.onboarding_pasos) }))
     setCompanies(list)
     const stored = preferId ?? (typeof localStorage !== 'undefined' ? localStorage.getItem(ACTIVE_COMPANY_KEY) : null)
     const active = list.find((c) => c.id === stored) ?? list[0] ?? null
     if (active && typeof localStorage !== 'undefined') localStorage.setItem(ACTIVE_COMPANY_KEY, active.id)
     setCompany(active)
+    pasosRef.current = active?.onboarding_pasos ?? null
     setRole(active?.role ?? null)
     setCompanyLoading(false)
     return active
@@ -346,6 +367,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!c) return
       if (typeof localStorage !== 'undefined') localStorage.setItem(ACTIVE_COMPANY_KEY, id)
       setCompany(c)
+      pasosRef.current = c.onboarding_pasos
       setRole(c.role)
     },
     signInWithGoogle: async () => {
@@ -416,6 +438,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return {}
     },
     refreshCompany: async (preferId?: string) => loadCompanies(session?.user?.id, preferId),
+    marcarPasos: async (patch) => {
+      if (!company) return
+      // La fusión se hace sobre el ÚLTIMO mapa, no sobre el `company` de este
+      // render: dos llamadas seguidas en el mismo tick verían las dos el mismo
+      // estado viejo y la segunda escritura borraría la primera.
+      const actual = pasosRef.current ?? company.onboarding_pasos
+      const next = aplicarMarcas(actual, patch)
+      if (marcasIguales(actual, next)) return
+      pasosRef.current = next
+      setCompany((c) => (c ? { ...c, onboarding_pasos: next } : c))
+      setCompanies((cs) => cs.map((c) => (c.id === company.id ? { ...c, onboarding_pasos: next } : c)))
+      await supabase.from('companies').update({ onboarding_pasos: next }).eq('id', company.id)
+    },
     setOnboardingDone: async (done) => {
       if (!company) return
       const value = done ? new Date().toISOString() : null
@@ -467,6 +502,7 @@ export const DEMO_COMPANY: Company = {
   cancel_at_period_end: false,
   // La demo nunca enseña la guía de primer uso (ya ES la visita guiada).
   onboarding_done_at: '2026-01-01T00:00:00Z',
+  onboarding_pasos: {},
   downgrade_reconcile_at: null,
   meridian_auto: true,
   trial_ends_at: null,
@@ -502,6 +538,7 @@ export function DemoAuthProvider({ children }: { children: ReactNode }) {
     createCompany: async () => ({}),
     refreshCompany: async (): Promise<Company | null> => demoCompany,
     setOnboardingDone: async () => {},
+    marcarPasos: async () => {},
     updateCompanySettings: async (patch) => {
       setDemoCompany((c) => ({ ...c, ...patch }))
       return {}

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
 import { useAppBase } from '../lib/useAppBase'
-import { useOnboarding } from '../lib/onboarding'
 import { diasDePruebaRestantes, finDePrueba, pendienteDePago, procesoAbierto, pruebaAgotada } from '../lib/pricing'
 import { UMBRAL_AGOTADA, guardarAvisoPrueba, leerAvisosPrueba, tocaAvisar, umbralPrueba } from '../lib/avisoPrueba'
 import { ConfirmDialog } from './ui/ConfirmDialog'
@@ -28,7 +27,6 @@ export function AvisoPrueba() {
   const { campaigns, lockedInfo, loading } = useStore()
   const base = useAppBase()
   const navigate = useNavigate()
-  const onboarding = useOnboarding()
   const [vistos, setVistos] = useState(leerAvisosPrueba)
 
   const dias = diasDePruebaRestantes(company?.trial_ends_at)
@@ -40,7 +38,6 @@ export function AvisoPrueba() {
     && role === 'owner'
     && company.plan === 'trial'
     && !loading // con los datos a medias, "N candidaturas esperando" diría 0 y luego cambiaría
-    && !onboarding.active // dos capas apiladas se pelean por el Escape
     && tocaAvisar(umbral, vistos[company.id])
 
   // Se marca al CERRARLO, no al enseñarlo: hasta que no lo ha cerrado no consta

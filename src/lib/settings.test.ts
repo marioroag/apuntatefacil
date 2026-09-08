@@ -55,6 +55,7 @@ const COLUMNAS_SIN_AJUSTE: Record<string, string> = {
   name: 'Nombre de la empresa: se edita en el onboarding, no es una preferencia.',
   accent: 'Color de marca: vive en el constructor del formulario.',
   onboarding_done_at: 'Estado de la guía de primer uso, lo mueve la propia guía.',
+  onboarding_pasos: 'Marcas de la torre de primeros pasos: las escribe la propia guía al hacer u omitir un paso.',
 }
 
 // --- Utilidades ---------------------------------------------------------------

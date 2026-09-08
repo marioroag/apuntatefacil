@@ -10,6 +10,7 @@ import { PUESTO_ICON, cifraCorta, contarNuevas, contarPuestos, navGroups, type N
 import { BTN_PRIMARY_LATERAL } from '../lib/buttons'
 import { Logo } from './Logo'
 import { Avisos } from './Avisos'
+import { Pliegue } from './ui/Pliegue'
 import { CuentaMenu } from './CuentaMenu'
 import { Combinacion } from './ui/Tecla'
 import { FILA, FILA_ACTIVA, FILA_CAJA, FILA_CHEVRON, FILA_ENLACE, FILA_ETIQUETA, FILA_ETIQUETA_CENTRADA, FILA_HIJA, FILA_QUIETA, FILA_SOLO_ANCHO, FILA_SOLO_ESTRECHO, FILA_SUBLISTA, CTA_LATERAL_CONTRAIDO, ZONA_LATERAL, ZONA_MARCA } from './filaLateral'
@@ -196,40 +197,8 @@ function BotonContraer({ rail, onClick }: { rail: EstadoRail; onClick: () => voi
   )
 }
 
-/**
- * EL PLIEGUE DE UNA SUBLISTA.
- *
- * La lista NO se monta y se desmonta, se pliega: con el raíl estrechándose (o con
- * el ratón entrando y saliendo de él), quitarla del DOM haría que todo lo de
- * debajo pegara un salto de 200px en el fotograma 0, que es exactamente el tirón
- * que esta versión del lateral vino a quitar. Plegada sigue ahí, con alto cero.
- *
- * La altura se anima con `grid-template-rows: 1fr -> 0fr` y NO con `max-height`,
- * por lo mismo que el informe de Meridian: un techo inventado o corta la lista o
- * deja el final del recorrido vacío, y aquí el alto depende de cuántos puestos
- * tenga cada empresa. Con el grid, el recorrido es siempre el alto real.
- *
- * `inert` mientras está plegada: sin él, los seis puestos seguirían en el
- * tabulador y en el lector de pantalla detrás de una lista que no se ve. Es la
- * misma pareja (sigue en el DOM + inert) que ya usa el informe de Meridian.
- */
-function Pliegue({ abierto, children }: { abierto: boolean; children: React.ReactNode }) {
-  return (
-    <div
-      className={`grid transition-[grid-template-rows] duration-[var(--duration-max)] ease-[var(--ease-standard)] motion-reduce:transition-none ${
-        abierto ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
-      }`}
-    >
-      {/* `min-h-0` no es decorativo: un elemento de rejilla trae `min-height:
-          auto`, así que la pista de `0fr` NO puede encoger por debajo del alto del
-          contenido y la lista se quedaba entera a la vista. Se midió: 30px por
-          fila con el pliegue "cerrado". */}
-      <div className="min-h-0 overflow-hidden" inert={!abierto || undefined}>
-        {children}
-      </div>
-    </div>
-  )
-}
+// El pliegue de la sublista vive en `ui/Pliegue`: lo comparte con la torre de
+// primeros pasos, y aquí se llama con el ritmo del raíl (el de siempre).
 
 function EnlaceFila({
   to,
@@ -652,7 +621,7 @@ export function Sidebar({
   onOpenSupport,
   onOpenProfile,
   onOpenOnboarding,
-  onboardingPaso,
+  onboardingProgreso,
   onReiniciarDemo,
   rail = 'ancho',
   cajon = false,
@@ -665,8 +634,8 @@ export function Sidebar({
   onOpenSupport: () => void
   onOpenProfile: () => void
   onOpenOnboarding: () => void
-  /** Paso actual de la guía (2..4, como su propia etiqueta), o null si no procede. */
-  onboardingPaso: number | null
+  /** Avance de la torre de primeros pasos (hechos de total), o null si no procede. */
+  onboardingProgreso: { hechos: number; total: number } | null
   /** Solo en la demo: recarga los datos de ejemplo (pide confirmación). */
   onReiniciarDemo: () => void
   /**
@@ -948,8 +917,8 @@ export function Sidebar({
           onNavigate={onNavigate}
           onOpenSupport={onOpenSupport}
           onOpenProfile={onOpenProfile}
-          onOpenOnboarding={onboardingPaso !== null ? onOpenOnboarding : undefined}
-          onboardingPaso={onboardingPaso}
+          onOpenOnboarding={onboardingProgreso !== null ? onOpenOnboarding : undefined}
+          onboardingProgreso={onboardingProgreso}
           onReiniciarDemo={onReiniciarDemo}
         />
         </div>

@@ -11,6 +11,8 @@ import { SOURCE_META } from '../lib/types'
 import type { Campaign, Candidate, CandidateSource } from '../lib/types'
 import { IconoVacio } from '../components/ui/IconoVacio'
 import { useMenosMovimiento } from '../lib/media'
+import { useOnboarding } from '../lib/onboarding'
+import { TorreOnboarding } from '../components/TorreOnboarding'
 
 const STALE_DAYS = 7
 
@@ -44,11 +46,9 @@ const STALE_DAYS = 7
  * vuelves a anunciarte). El total ya lo dicen el puesto y Candidatos.
  */
 export function Resumen() {
-  const { campaigns, candidates, newCountFor, interviews } = useStore()
   const { user } = useAuth()
   const profiles = useProfiles()
-  const base = useAppBase()
-  const tz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
+  const ob = useOnboarding()
 
   // El nombre de pila, no el nombre entero: un saludo es la voz de alguien que te
   // conoce. Sale de `nameFor`, que es la única fuente de "cómo se llama esta
@@ -56,6 +56,32 @@ export function Resumen() {
   // y sin correo no se saluda por el nombre en vez de inventarse uno.
   const email = user?.email ?? null
   const nombre = email || profiles.me ? profiles.nameFor(user?.id, email).split(' ')[0] : ''
+  const hora = new Date().getHours()
+
+  return (
+    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8 [@media(max-height:820px)]:py-4">
+      {/* El h1 es el saludo, no "Vista general". El nombre de la pantalla sigue
+          escrito en el menú, que es donde se elige a dónde ir; aquí ya has
+          llegado, y lo primero que se lee es a quién le hablamos. */}
+      <PageHeader
+        titulo={`${saludoDe(hora)}${nombre ? `, ${nombre}` : ''}`}
+        sub={ob.active ? 'Unos pasos y tu enlace está listo para repartir.' : 'Aquí tienes un resumen de tu actividad reciente.'}
+        centrada={ob.active}
+      />
+      {/* Con la guía de primer uso viva, esta pantalla ES la torre de pasos: las
+          acciones rápidas y la gráfica no tienen nada que contar todavía y
+          vuelven solas al terminar (o al saltar la guía). Va en dos componentes
+          porque la actividad trae sus propios hooks y aquí hay un camino sin ella. */}
+      {ob.active ? <TorreOnboarding /> : <Actividad />}
+    </div>
+  )
+}
+
+/** Lo de siempre: acciones rápidas y por dónde entra la gente. */
+function Actividad() {
+  const { campaigns, candidates, newCountFor, interviews } = useStore()
+  const base = useAppBase()
+  const tz = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone, [])
 
   const ahora = Date.now()
   const staleCut = ahora - STALE_DAYS * 86400000
@@ -92,16 +118,9 @@ export function Resumen() {
     return { i, quien: cand ? candidateName(cand) : 'un candidato' }
   }, [interviews, candidates, ahora])
 
+  if (campaigns.length === 0)
+    return <Empty text="Aún no tienes puestos. Crea el primero para ver aquí cómo va tu actividad." />
   return (
-    <div className="mx-auto max-w-trabajo px-4 py-6 max-sm:pt-4 sm:px-6 lg:px-8 [@media(max-height:820px)]:py-4">
-      {/* El h1 es el saludo, no "Vista general". El nombre de la pantalla sigue
-          escrito en el menú, que es donde se elige a dónde ir; aquí ya has
-          llegado, y lo primero que se lee es a quién le hablamos. */}
-      <PageHeader titulo={`${saludoDe(new Date(ahora).getHours())}${nombre ? `, ${nombre}` : ''}`} sub="Aquí tienes un resumen de tu actividad reciente." />
-
-      {campaigns.length === 0 ? (
-        <Empty text="Aún no tienes puestos. Crea el primero para ver aquí cómo va tu actividad." />
-      ) : (
         <>
           <h2 className="text-base font-semibold text-slate-900">Acciones rápidas</h2>
           <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3 [@media(max-height:820px)]:mt-3">
@@ -140,8 +159,6 @@ export function Resumen() {
 
           <GraficaOrigen candidates={candidates} campaigns={campaigns} />
         </>
-      )}
-    </div>
   )
 }
 
@@ -290,11 +307,15 @@ function GraficaOrigen({ candidates, campaigns }: { candidates: Candidate[]; cam
           leía como un control suelto flotando entre dos tarjetas. */}
       <h2 className="mb-4 text-base font-semibold text-slate-900">Por dónde entra la gente</h2>
 
-      {datos.series.length === 0 ? (
-        <p className="rounded-xl filo bg-white px-6 py-12 text-center text-[13px] text-slate-500 shadow-card">
-          No ha entrado ninguna candidatura en este periodo.
-        </p>
-      ) : (
+      {/* LA TARJETA SE PINTA SIEMPRE, TAMBIÉN SIN CANDIDATURAS (Mario, sep 2026:
+          "aunque no haya entrado ninguna, debe mostrar el gráfico"). Antes un
+          periodo vacío sustituía la tarjeta entera por una frase, y con ella se
+          iba el selector de periodo: con treinta días vacíos no había forma de
+          pasar a tres meses, que es justo donde podía haber datos. El lienzo ya
+          sabe pintarse sin series (la rejilla con su suelo de 5 y las fechas), y
+          una gráfica plana dice "no ha entrado nadie" mejor que un texto en su
+          lugar, porque enseña el periodo sobre el que lo dice. Lo único que
+          cambia es la leyenda, que en vez de cifras dice que no hay ninguna. */}
         <div className="rounded-xl filo bg-white p-6 shadow-card max-sm:p-5">
           {/* Una sola fila: las plataformas a la izquierda y el rango a la
               derecha (Mario, ago 2026). El selector no rotula nada, dice CON QUÉ
@@ -305,6 +326,9 @@ function GraficaOrigen({ candidates, campaigns }: { candidates: Candidate[]; cam
               de la pantalla en la que está. */}
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
             <div className="flex flex-wrap gap-x-10 gap-y-4">
+              {datos.series.length === 0 && (
+                <p className="self-center text-[13px] text-slate-500">Ninguna candidatura en este periodo.</p>
+              )}
               {datos.series.map((s) => (
                 <div key={s.origen}>
                   <p className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-500">
@@ -339,7 +363,6 @@ function GraficaOrigen({ candidates, campaigns }: { candidates: Candidate[]; cam
 
           <Lienzo datos={datos} rango={rango} />
         </div>
-      )}
     </section>
   )
 }
@@ -553,9 +576,9 @@ function Lienzo({ datos, rango }: { datos: Datos; rango: Rango }) {
   const k = Math.min(n, w < 420 ? 3 : 6)
   const idx = [...new Set(Array.from({ length: k }, (_, j) => (k === 1 ? 0 : Math.round((j * (n - 1)) / (k - 1)))))]
 
-  const resumen = datos.series
-    .map((s) => `${SOURCE_META[s.origen].label} ${s.total}`)
-    .join(', ')
+  const resumen = datos.series.length === 0
+    ? 'ninguna'
+    : datos.series.map((s) => `${SOURCE_META[s.origen].label} ${s.total}`).join(', ')
 
   // A QUÉ CUBO APUNTA EL PUNTERO. Se redondea al MÁS CERCANO en vez de exigir
   // acertarle: los cubos de "12 meses" caen cada 60px, pero los de 30 días caen
@@ -802,6 +825,9 @@ function Lectura({
 
       {/* El filo separa el TOTAL de su desglose, que es la misma jerarquía que la
           referencia: primero lo que preguntas, luego de dónde sale. */}
+      {/* Sin series no hay desglose, y sin desglose tampoco su filo: un
+          separador con nada debajo es una raya suelta. */}
+      {datos.series.length > 0 && (
       <div className="mt-2.5 space-y-1.5 border-t border-slate-100 pt-2.5">
         {datos.series.map((s) => (
           <div key={s.origen} className="flex items-center gap-2">
@@ -817,6 +843,7 @@ function Lectura({
           </div>
         ))}
       </div>
+      )}
     </div>
   )
 }

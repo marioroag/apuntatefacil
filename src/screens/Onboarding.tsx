@@ -3,7 +3,6 @@ import { Loader2, Users } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/Logo'
-import { StepProgress } from '../components/OnboardingGuide'
 import { BTN_PRIMARY, BTN_PRIMARY_BLOCK } from '../lib/buttons'
 
 type Invite = { id: string; token: string; company_name: string; role: string }
@@ -119,14 +118,12 @@ export function Onboarding() {
   }
 
   // Crear empresa (sin invitaciones, o el usuario eligió crear la suya).
-  // Es el paso 1 de la guía de primer uso: promete el destino ("tu primera
-  // candidatura en la lista") para que quien no es de tecnología sepa qué viene.
+  // Es la antesala de la torre de primeros pasos (sin numerar: la torre cuenta
+  // sus pasos sola): promete el destino ("tu primera candidatura en la lista")
+  // para que quien no es de tecnología sepa qué viene.
   return (
     <Shell>
-      <div className="mt-5">
-        <StepProgress current={1} />
-      </div>
-      <h1 className="mt-2 text-xl font-semibold text-slate-900">¿Cómo se llama tu empresa?</h1>
+      <h1 className="mt-5 text-xl font-semibold text-slate-900">¿Cómo se llama tu empresa?</h1>
       <p className="mt-1 text-sm text-slate-500">
         Es lo que verán tus candidatos al apuntarse. Podrás cambiarlo luego.
       </p>

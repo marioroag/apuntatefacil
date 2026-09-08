@@ -1,61 +1,76 @@
-import { useLocation } from 'react-router-dom'
+import { useCallback, useMemo } from 'react'
 import { useAuth } from './auth'
 import { useStore } from './store'
 import { useAppBase } from './useAppBase'
-import type { Campaign } from './types'
+import { estadoDeLaTorre, type Deducido, type EstadoTorre, type Marca, type PasoId } from './primerosPasos'
+import type { Campaign, Candidate } from './types'
 
 // ----------------------------------------------------------------------------
-// Guía de primer uso (onboarding). El progreso NO se persiste: se DERIVA de los
-// datos reales (¿hay puesto? ¿hay candidatura?), así se retoma solo en cualquier
-// dispositivo y no puede desincronizarse. Lo único persistido es "guía cerrada
-// o terminada" (companies.onboarding_done_at, null = activa).
-//
-// Fases (pasos 2-4 del wizard; el paso 1 es la pantalla de crear empresa):
-//   'puesto'      aún no hay ningún puesto -> crear el primero
-//   'formulario'  hay puesto y estamos en su Builder -> "esto verá tu candidato"
-//   'probar'      hay puesto, sin candidaturas -> "pruébalo tú mismo"
-//   'hecho'       hay al menos una candidatura -> cierre
+// Guía de primer uso: la TORRE de pasos de Vista general (sep 2026; antes, una
+// tarjeta flotante con cuatro fases derivadas de la URL). Qué pasos hay y en cuál
+// estás lo decide `lib/primerosPasos.ts` con dos entradas: las MARCAS que la
+// empresa tiene escritas (`companies.onboarding_pasos`, la verdad y el latch) y
+// lo que los DATOS dicen (el detector). Lo único que este hook añade es quién
+// puede verla y con qué puesto habla.
 // ----------------------------------------------------------------------------
-
-export type OnboardingPhase = 'puesto' | 'formulario' | 'probar' | 'hecho'
 
 export interface OnboardingState {
   /** La guía puede mostrarse: sesión real (no demo), dueño, datos cargados. */
   eligible: boolean
-  /** El dueño la cerró (X / "Ahora no") o la terminó. */
+  /** El dueño la cerró ("Saltar la guía") o la terminó. */
   dismissed: boolean
-  /** eligible && !dismissed: la guía está viva. */
+  /** eligible && !dismissed: la torre está viva en Vista general. */
   active: boolean
-  phase: OnboardingPhase
-  /** El primer puesto (el del onboarding; en Prueba solo puede haber uno). */
+  torre: EstadoTorre
+  /** Lo que los datos dicen hoy; la memoria de la torre lo escribe como marca. */
+  deducido: Deducido
+  /** El primer puesto (el de la guía; en Prueba solo puede haber uno). */
   campaign: Campaign | null
+  /** La candidatura que el dueño se envió a sí mismo al probar su enlace. */
+  testCandidate: Candidate | null
+  /** Apunta un paso. No hace nada fuera de la guía (demo, miembro). */
+  marcar: (id: PasoId, valor: Marca) => void
 }
 
 export function useOnboarding(): OnboardingState {
-  const { company, role } = useAuth()
-  const { campaigns, candidates, loading } = useStore()
+  const { company, role, marcarPasos } = useAuth()
+  const { campaigns, candidates, members, brands, loading } = useStore()
   const base = useAppBase()
-  const { pathname } = useLocation()
 
   // Solo el DUEÑO en /app: los invitados (member/encargado) entran a un equipo
   // ya montado y no deben ver la guía; la demo ya es la visita guiada.
   const eligible = base === '/app' && !!company && role === 'owner' && !loading
   const dismissed = (company?.onboarding_done_at ?? null) != null
 
-  const phase: OnboardingPhase =
-    campaigns.length === 0
-      ? 'puesto'
-      : candidates.length > 0
-        ? 'hecho'
-        : /\/formulario$/.test(pathname)
-          ? 'formulario'
-          : 'probar'
+  const marcas = company?.onboarding_pasos
+  const deducido: Deducido = useMemo(
+    () => ({
+      hayPuesto: campaigns.length > 0,
+      hayCandidatura: candidates.length > 0,
+      hayCandidaturaReal: candidates.some((c) => c.source !== 'prueba'),
+      hayEquipo: members.length > 1,
+      hayLogo: brands.some((b) => !!b.logoPath),
+    }),
+    [campaigns.length, candidates, members.length, brands],
+  )
+  const torre = useMemo(() => estadoDeLaTorre(marcas ?? {}, deducido), [marcas, deducido])
+
+  const marcar = useCallback(
+    (id: PasoId, valor: Marca) => {
+      if (!eligible) return
+      void marcarPasos({ [id]: valor })
+    },
+    [eligible, marcarPasos],
+  )
 
   return {
     eligible,
     dismissed,
     active: eligible && !dismissed,
-    phase,
+    torre,
+    deducido,
     campaign: campaigns[0] ?? null,
+    testCandidate: candidates.find((c) => c.source === 'prueba') ?? null,
+    marcar,
   }
 }

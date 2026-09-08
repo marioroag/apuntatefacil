@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useToast } from '../components/ui/Toast'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
+import { useOnboarding } from '../lib/onboarding'
 import { personLabel, relativeDate } from '../lib/format'
 import { useProfiles } from '../lib/profiles'
 import { Avatar } from '../components/ui/Avatar'
@@ -24,6 +25,7 @@ export function EquipoMiembros() {
   const toast = useToast()
   const { sites } = useStore()
   const { company } = useAuth()
+  const onboarding = useOnboarding()
   const demo = company?.id === 'demo'
   // Encargados por sede: incluidos para todos (pago por proceso); solo piden
   // que exista alguna sede a la que acotar el acceso.
@@ -99,6 +101,9 @@ export function EquipoMiembros() {
     await load()
     setBusy(false)
     toast.success('Invitación creada')
+    // Invitar ya cuenta como "invita a tu equipo" en la torre de primeros pasos,
+    // sin esperar a que acepten: lo que se pide es que des el paso.
+    onboarding.marcar('equipo', 'hecho')
   }
 
   const copy = async (token: string) => {

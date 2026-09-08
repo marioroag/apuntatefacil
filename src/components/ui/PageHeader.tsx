@@ -46,6 +46,7 @@ export function PageHeader({
   sub,
   acciones,
   pegada = false,
+  centrada = false,
   className = '',
 }: {
   titulo: React.ReactNode
@@ -77,6 +78,15 @@ export function PageHeader({
    * una utilidad de otra, la respuesta es la variante que NO la pone.
    */
   pegada?: boolean
+  /**
+   * CENTRADA: título y subtítulo en el eje de la pantalla. Es para la Vista
+   * general con la torre de primeros pasos viva (Mario, sep 2026), donde el
+   * objeto de la pantalla está centrado y un saludo pegado a la izquierda se
+   * leía descolgado de él. Es una prop y no un `justify-center` en el
+   * `className` por lo mismo que `pegada`: `justify-center` y `justify-between`
+   * son la misma utilidad y no se resuelven por orden de escritura.
+   */
+  centrada?: boolean
   className?: string
 }) {
   return (
@@ -85,9 +95,9 @@ export function PageHeader({
     // el panel añadía 12 por su cuenta, así que al ir del panel a Bandeja o a
     // Entrevistas el título saltaba 12px hacia arriba. El aire vive en la pieza y
     // no en cada pantalla, que es lo que impide que vuelvan a separarse.
-    <header className={`flex flex-wrap items-start justify-between gap-x-4 gap-y-3 pt-3 ${pegada ? 'pb-2' : 'mb-6'} ${className}`}>
+    <header className={`flex flex-wrap items-start gap-x-4 gap-y-3 pt-3 ${centrada ? 'justify-center text-center' : 'justify-between'} ${pegada ? 'pb-2' : 'mb-6'} ${className}`}>
       <div className="min-w-0">
-        <h1 className="flex items-baseline gap-2 text-[28px] font-bold leading-tight tracking-[-0.012em] text-slate-900">
+        <h1 className={`flex items-baseline gap-2 text-[28px] font-bold leading-tight tracking-[-0.012em] text-slate-900 ${centrada ? 'justify-center' : ''}`}>
           <span className="min-w-0 truncate">{titulo}</span>
         </h1>
         {sub && <p className="mt-1 text-sm font-medium text-slate-500">{sub}</p>}

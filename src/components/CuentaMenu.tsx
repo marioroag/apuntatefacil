@@ -28,7 +28,6 @@ const ITEM =
 
 /** La guía es de 4 pasos y ya los numera ella (StepProgress). El anillo lee
  *  el MISMO número: dos cuentas distintas del mismo avance sería un error. */
-const ONBOARDING_TOTAL = 4
 
 /**
  * Filas del menú que de verdad se ven. `display:none` NO las saca de
@@ -66,14 +65,15 @@ export function CuentaMenu({
   onOpenSupport,
   onOpenProfile,
   onOpenOnboarding,
-  onboardingPaso,
+  onboardingProgreso,
   onReiniciarDemo,
 }: {
   onNavigate: () => void
   onOpenSupport: () => void
   onOpenProfile: () => void
   onOpenOnboarding?: () => void
-  onboardingPaso: number | null
+  /** Avance de la torre de primeros pasos, o null si ya no queda guía. */
+  onboardingProgreso: { hechos: number; total: number } | null
   onReiniciarDemo: () => void
 }) {
   const { company, companies, setActiveCompany, signOut, role, user } = useAuth()
@@ -219,9 +219,9 @@ export function CuentaMenu({
         {/* El aviso de la guía viaja con la cuenta: es lo último que queda por
             hacer para terminar de montar la casa, y aquí está siempre a la vista
             sin ocupar una fila propia del menú. */}
-        {onboardingPaso !== null && (
+        {onboardingProgreso !== null && (
           <span className={FILA_SOLO_ANCHO}>
-            <Anillo paso={onboardingPaso} />
+            <Anillo {...onboardingProgreso} />
           </span>
         )}
         <ChevronDown
@@ -366,8 +366,8 @@ export function CuentaMenu({
                 <button data-mi role="menuitem" onClick={() => { close(); onOpenOnboarding() }} className={ITEM}>
                   <Slot><Compass className="size-4 text-slate-400" aria-hidden /></Slot>
                   <span className="flex-1">Primeros pasos</span>
-                  {onboardingPaso !== null && (
-                    <span className="num shrink-0 text-[12px] text-slate-500">{onboardingPaso}/{ONBOARDING_TOTAL}</span>
+                  {onboardingProgreso !== null && (
+                    <span className="num shrink-0 text-[12px] text-slate-500">{onboardingProgreso.hechos}/{onboardingProgreso.total}</span>
                   )}
                 </button>
               )}
@@ -415,13 +415,14 @@ export function CuentaMenu({
   )
 }
 
-/** Anillo de progreso de la guía. En tinta, no en el acento: es un estado. */
-function Anillo({ paso }: { paso: number }) {
+/** Anillo de progreso de la guía. En tinta, no en el acento: es un estado.
+ *  Cuánto lleva y de cuánto llega de la torre, que es la única cuenta. */
+function Anillo({ hechos, total }: { hechos: number; total: number }) {
   const r = 6.5
   const vuelta = 2 * Math.PI * r
-  const hecho = Math.min(1, Math.max(0, paso / ONBOARDING_TOTAL))
+  const hecho = Math.min(1, Math.max(0, hechos / total))
   return (
-    <svg viewBox="0 0 16 16" className="size-4 shrink-0" role="img" aria-label={`Primeros pasos, paso ${paso} de ${ONBOARDING_TOTAL}`}>
+    <svg viewBox="0 0 16 16" className="size-4 shrink-0" role="img" aria-label={`Primeros pasos, ${hechos} de ${total}`}>
       <circle cx="8" cy="8" r={r} fill="none" strokeWidth="2.5" className="stroke-slate-300" />
       {hecho > 0 && (
         <circle

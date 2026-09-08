@@ -12,6 +12,7 @@ import { TEMPLATES, templateCampaignInput } from '../lib/templates'
 import type { SectorTemplate } from '../lib/templates'
 import { blankCampaignInput } from '../lib/defaults'
 import { useAppBase } from '../lib/useAppBase'
+import { useOnboarding } from '../lib/onboarding'
 import { PLAN_LABEL, PLAN_PROCESS_LIMIT, PRECIO_PROCESO, modoProceso, type RegionFiscal } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 import { IconoVacio } from './ui/IconoVacio'
@@ -22,8 +23,8 @@ const ICONS: Record<string, LucideIcon> = {
   UtensilsCrossed, HardHat, Truck, Sparkles, ShoppingBag, HeartHandshake,
 }
 
-// Crea un puesto desde una plantilla (o desde cero). Lo comparten el modal
-// "Crear puesto" y el paso 2 del onboarding: una sola lógica de creación.
+// Crea un puesto desde una plantilla (o desde cero). Es la única lógica de
+// creación: la torre de primeros pasos abre este mismo asistente.
 // `status: 'cerrada'` lo usa el flujo de pago: el puesto se crea a la espera y
 // el webhook de Stripe lo abre al completarse el cobro.
 export function useCreateFromTemplate() {
@@ -57,7 +58,7 @@ export function useCreateFromTemplate() {
 }
 
 // Rejilla de plantillas por sector + "desde cero". Presentacional: quien la usa
-// decide qué pasa al elegir (el modal navega y cierra; el onboarding navega).
+// decide qué pasa al elegir.
 export function TemplateGrid({ busyKey, onPick }: {
   busyKey: string | null
   onPick: (key: string, t?: SectorTemplate) => void
@@ -103,6 +104,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
   const { company } = useAuth()
   const navigate = useNavigate()
   const base = useAppBase()
+  const onboarding = useOnboarding()
   const { busy, create } = useCreateFromTemplate()
   const [cobro, setCobro] = useState<null | { key: string; t?: SectorTemplate; amountDue: number | null; free: boolean; impuestosIncluidos: boolean }>(null)
   const [cobrando, setCobrando] = useState(false)
@@ -157,6 +159,14 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, onClose, paso, cobro])
 
+  // Con la torre de primeros pasos viva, crear el puesto devuelve a Vista general
+  // y no al constructor: ahí se ve el paso 1 plegarse con su check y el 2
+  // abrirse. Si aterrizara en el constructor, "revisa las preguntas" se marcaría
+  // en el mismo clic que "crea tu puesto" y la torre pasaría dos pasos de golpe
+  // sin que nadie los pulsara.
+  const destinoTrasCrear = (id: string) =>
+    onboarding.active ? `${base}/resumen` : `${base}/puestos/${id}/formulario`
+
   const pick = (key: string, t?: SectorTemplate) => {
     setElegida({ key, t })
     setPaso('anuncio')
@@ -196,7 +206,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
     const c = await create(key, t, { anuncio: valor })
     if (c) {
       cerrar()
-      navigate(`${base}/puestos/${c.id}/formulario`)
+      navigate(destinoTrasCrear(c.id))
     }
   }
 
@@ -213,7 +223,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
     setCobro(null)
     if (c) {
       cerrar()
-      navigate(`${base}/puestos/${c.id}/formulario`)
+      navigate(destinoTrasCrear(c.id))
     }
   }
 

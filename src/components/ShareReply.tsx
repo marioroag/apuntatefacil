@@ -8,6 +8,7 @@ import {
   replyForCampaign,
 } from '../lib/shareReply'
 import { useToast } from './ui/Toast'
+import { useOnboarding } from '../lib/onboarding'
 
 // El botón fantasma de solo icono ya está en `buttons.ts`; esto era una copia a
 // mano de su pintura, y como todas las copias había derivado: sin el tercer
@@ -62,6 +63,7 @@ export function ShareReply({
   onClose,
 }: ShareReplyProps) {
   const toast = useToast()
+  const onboarding = useOnboarding()
   const draftId = useId()
   const defaultBody = replyBodyForCampaign({ title })
   const savedBody = editableReplyBody({ body: template, title })
@@ -133,6 +135,7 @@ export function ShareReply({
     if (copiedLink) {
       setCopied('link')
       toast.success('Enlace copiado')
+      onboarding.marcar('enlace', 'hecho')
     } else {
       toast.show(`Copia el enlace manualmente: ${display}`)
     }

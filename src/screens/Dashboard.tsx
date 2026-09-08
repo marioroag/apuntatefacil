@@ -97,6 +97,7 @@ import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { OnboardingTestCard } from '../components/OnboardingGuide'
 import { ShareReply } from '../components/ShareReply'
 import { useOnboarding } from '../lib/onboarding'
+import { estadoDe } from '../lib/primerosPasos'
 import { useAppBase } from '../lib/useAppBase'
 import { useEsMovil } from '../lib/media'
 import { ChipDimension, MenuAnadirFiltro, type DimensionFiltro } from '../components/FiltroChip'
@@ -1238,8 +1239,11 @@ export function Dashboard() {
       return
     }
     const ok = await copyText(publicFormUrl(campaign.slug, brandLabel))
-    if (ok) toast.success('Enlace copiado')
-    else toast.show('Copia el enlace manualmente: ' + publicUrl)
+    if (ok) {
+      toast.success('Enlace copiado')
+      // Copiarlo desde aquí también cuenta para la torre de primeros pasos.
+      onboarding.marcar('enlace', 'hecho')
+    } else toast.show('Copia el enlace manualmente: ' + publicUrl)
   }
 
   return (
@@ -1612,9 +1616,9 @@ export function Dashboard() {
             <SkeletonRows showFit={showFit} />
           ) : filtered.length === 0 ? (
             all.length === 0 ? (
-              // Durante la guía de primer uso, el paso 4 ("pruébalo tú mismo") vive
+              // Durante la guía de primer uso, el paso "pruébalo tú mismo" vive
               // aquí: en el hueco exacto donde aparecerá la candidatura de prueba.
-              onboarding.active && onboarding.phase === 'probar' && onboarding.campaign?.id === campaign.id ? (
+              onboarding.active && estadoDe(onboarding.torre, 'probar') === 'actual' && onboarding.campaign?.id === campaign.id ? (
                 <OnboardingTestCard campaign={campaign} shareUrl={publicFormUrl(campaign.slug, brandLabel)} onCopy={copyLink} />
               ) : (
                 <EmptyFirstUse publicUrl={publicUrl} onCopy={copyLink} />

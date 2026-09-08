@@ -16,12 +16,13 @@ import { NewCampaignWizard } from '../components/NewCampaignWizard'
 import { SupportDialog } from '../components/SupportDialog'
 import { DowngradeReconcileDialog } from '../components/DowngradeReconcileDialog'
 import { AvisoPrueba } from '../components/AvisoPrueba'
-import { OnboardingGuide, OnboardingCreatePuesto } from '../components/OnboardingGuide'
+import { MemoriaDePasos } from '../components/TorreOnboarding'
 import { useOnboarding } from '../lib/onboarding'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { useAppBase } from '../lib/useAppBase'
 import { useLateralContraido } from '../lib/lateral'
 import { AccionesProvider, RegistrarAccion } from '../lib/acciones'
+import type { ContextoShell } from '../lib/shell'
 import { BTN_PRIMARY, BTN_SECONDARY } from '../lib/buttons'
 import { IconoVacio } from '../components/ui/IconoVacio'
 
@@ -39,15 +40,10 @@ export function FirstCampaignRedirect() {
         <Loader2 className="size-6 animate-spin text-slate-400" aria-hidden />
       </div>
     )
-  // Con la guía de primer uso activa, el paso 2 (crear el primer puesto con
-  // plantilla) ocupa la pantalla; si el usuario la cerró, el empty state normal.
-  if (campaigns.length === 0) return onboarding.active ? <OnboardingCreatePuesto /> : <EmptyCompany />
-  // Recién creado el puesto durante la guía (sin candidaturas aún): el destino de
-  // /app es el formulario del puesto (paso 3), no el resumen. Así ganamos la carrera
-  // con el navigate imperativo del paso 2 y el usuario sigue la secuencia del wizard.
-  if (onboarding.active && onboarding.phase !== 'hecho' && onboarding.campaign) {
-    return <Navigate to={`${base}/puestos/${onboarding.campaign.id}/formulario`} replace />
-  }
+  // Con la guía de primer uso viva, Vista general ES la torre de pasos, también
+  // sin puestos (su primer paso es crearlo). Solo con la guía cerrada y ninguna
+  // campaña se enseña el vacío de siempre.
+  if (campaigns.length === 0 && !onboarding.active) return <EmptyCompany />
   return <Navigate to={`${base}/resumen`} replace />
 }
 
@@ -157,25 +153,21 @@ export function AppLayout() {
   const [sedesOpen, setSedesOpen] = useState(false)
   const [sedesKey, setSedesKey] = useState(0)
 
-  // Guía de primer uso, ahora anclada en la barra con su anillo de progreso. El
-  // paso que enseña es el MISMO que numera la propia guía ("Paso N de 4"), para
-  // que no haya dos cuentas distintas del mismo avance. Se ve mientras quede
-  // algo por hacer, la hayas cerrado o no; al pulsarla, si estaba cerrada se
-  // reabre y en cualquier caso te lleva al paso pendiente.
-  const pasoGuia =
-    onboarding.eligible && onboarding.phase !== 'hecho'
-      ? onboarding.phase === 'puesto'
-        ? 2
-        : onboarding.phase === 'formulario'
-          ? 3
-          : 4
+  // Guía de primer uso, anclada en el menú de cuenta con su anillo de progreso.
+  // El avance que enseña es el MISMO que cuenta la torre ("N de M", de
+  // `estadoDeLaTorre`), para que no haya dos cuentas distintas. Se ve mientras
+  // quede algo por hacer, la hayas cerrado o no; al pulsarla, si estaba cerrada
+  // se reabre y te lleva a Vista general, que es donde vive la torre.
+  const progresoGuia =
+    onboarding.eligible && !onboarding.torre.completa
+      ? { hechos: onboarding.torre.hechos, total: onboarding.torre.total }
       : null
   const abrirGuia = () => {
     if (onboarding.dismissed) void setOnboardingDone(false)
-    const c = onboarding.campaign
-    if (!c) return navigate(base)
-    navigate(onboarding.phase === 'formulario' ? `${base}/puestos/${c.id}/formulario` : `${base}/puestos/${c.id}`)
+    navigate(`${base}/resumen`)
   }
+  // Lo que el shell presta a las pantallas (ver `lib/shell.ts`).
+  const contextoShell: ContextoShell = { abrirAsistente: () => setWizardOpen(true) }
 
   // ⌘K abre el buscador. El atajo vivía DENTRO del campo de la barra, que era
   // donde estaba montado siempre; retirada la barra ya no hay campo permanente,
@@ -234,7 +226,7 @@ export function AppLayout() {
       onOpenSupport={() => setSupportOpen(true)}
       onOpenProfile={() => setProfileOpen(true)}
       onOpenOnboarding={abrirGuia}
-      onboardingPaso={pasoGuia}
+      onboardingProgreso={progresoGuia}
       onReiniciarDemo={() => setConfirmReset(true)}
       rail={rail}
       cajon={cajon}
@@ -406,11 +398,9 @@ export function AppLayout() {
             dos accionables no se perdieron: "Crear mi cuenta" y "Reiniciar demo"
             viven en ese menú, que es donde se va a buscar lo que tiene que ver
             con en qué cuenta estás. */}
-        {/* Con la guía activa, hueco inferior para que la tarjeta flotante no tape
-            el final del contenido (botones de guardar, últimas filas). */}
-        <main id="contenido" className={`min-h-0 flex-1 overflow-y-auto overscroll-contain${onboarding.active ? ' pb-28' : ''}`}>
+        <main id="contenido" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <Suspense fallback={<div className="grid h-full place-items-center" role="status" aria-label="Cargando"><Loader2 className="size-6 animate-spin text-slate-400" aria-hidden /></div>}>
-            <Outlet />
+            <Outlet context={contextoShell} />
           </Suspense>
         </main>
         </div>
@@ -420,7 +410,9 @@ export function AppLayout() {
           dentro del `flex` se quedaría atrapado en su contexto de apilamiento. */}
       {buscarOpen && <GlobalSearch onClose={() => setBuscarOpen(false)} />}
 
-      <OnboardingGuide />
+      {/* La memoria de la torre de primeros pasos: escribe como marca lo que los
+          datos ya dan por hecho. No pinta nada. */}
+      <MemoriaDePasos />
       <ProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
       <SedesDialog key={sedesKey} open={sedesOpen} onClose={() => setSedesOpen(false)} />
       <NewCampaignWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
