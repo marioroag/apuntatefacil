@@ -3,3 +3,18 @@
 # para un proyecto que son 436. El deploy se cayó con "should NOT have more than
 # 15000 items". Aquí no hay nada que el build necesite: Vite compila desde src/.
 .claude
+
+# La DOCUMENTACIÓN INTERNA tampoco la necesita el build: ~1,7 MB de doctrina,
+# planes, decisiones de precio, notas de despliegue y las skills. NO es un
+# agujero que se esté tapando (nada de la raíz llega a dist/: Vite solo compila
+# src/ y copia public/, y se comprobó en producción que /CLAUDE.md devuelve el
+# HTML de la SPA y no el documento). Es higiene: lo que no hace falta ahí
+# fuera, no sale de aquí.
+# Comprobado antes de excluirlo: NADIE importa un .md en src/, api/ ni en las
+# edge functions, así que esto no puede romper el build en silencio; si algún
+# día alguno hiciera falta, faltaría ruidosamente. Ojo si se mete en docs/ algo
+# que el build sí lea: hay que sacarlo de aquí antes.
+/*.md
+/docs
+/.cursor
+/.hermes
