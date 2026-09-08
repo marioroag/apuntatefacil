@@ -88,7 +88,8 @@ import { candidateFit, estaAnalizando, hasMeridian } from '../lib/meridian'
 import { FAVORITO_STAR, STATUS_META, STATUS_ORDER } from '../lib/types'
 import { TIPOS_ORDENABLES } from '../lib/types'
 import type { Campaign, Candidate, CandidateInterestState, CandidateStatus, FormField, NumberFilter, SavedView, Site, SortKey, Tag as TagType } from '../lib/types'
-import { PRECIO_PROCESO, PRUEBA_DIAS, TAGS_ENABLED } from '../lib/pricing'
+import { PRECIO_PROCESO, PRUEBA_DIAS, TAGS_ENABLED, modoProceso, pendienteDePago, type RegionFiscal } from '../lib/pricing'
+import { RegionFiscalRadio } from '../components/RegionFiscal'
 import { TagCell, BulkTagMenu, ManageTagsModal, campoEtiquetaId } from '../components/Tags'
 import { publicFormUrl, publicFormUrlDisplay } from '../lib/brand'
 import { OnboardingTestCard } from '../components/OnboardingGuide'
@@ -149,7 +150,7 @@ const SIN_FECHAS: string[] = []
 export function Dashboard() {
   const { campaignId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, lockedInfo, loadCommentsForMany, loadDocumentsFor, setStatusMany, setStatus, setFavorito, commentCounts } = useStore()
+  const { getCampaign, candidatesFor, restoreCandidate, savedViews, createSavedView, deleteSavedView, sites, updateCampaign, brands, reloadCandidatesFor, markSeen, duplicateCampaign, tags, deleteCampaign, cerrarProceso, reabrirProceso, previewReabrir, contratarHueco, campaigns, lockedInfo, loadCommentsForMany, loadDocumentsFor, setStatusMany, setStatus, setFavorito, commentCounts } = useStore()
   const { company, role } = useAuth()
   const toast = useToast()
   const base = useAppBase()
@@ -330,7 +331,11 @@ export function Dashboard() {
   const [deleting, setDeleting] = useState(false)
   // Reapertura de un proceso cerrado (pago por proceso): antes de reabrir se
   // enseña qué va a costar (gratis dentro del ciclo pagado, o la prorrata).
-  const [confirmReopen, setConfirmReopen] = useState<null | { free: boolean; amountDue: number | null; checkout: boolean }>(null)
+  const [confirmReopen, setConfirmReopen] = useState<null | { free: boolean; amountDue: number | null; checkout: boolean; impuestosIncluidos: boolean }>(null)
+  // Dónde está el cliente, si aún no lo dijo: hace falta para salir a pagar.
+  const [regionElegida, setRegionElegida] = useState<RegionFiscal | null>(null)
+  const region = company?.region_fiscal ?? regionElegida
+  const [confirmDuplicar, setConfirmDuplicar] = useState<null | { free: boolean; amountDue: number | null; checkout: boolean; impuestosIncluidos: boolean }>(null)
   const [reopening, setReopening] = useState(false)
 
   // Lo que le pasamos a `CandidateTable` se declara con identidad ESTABLE: esa tabla
@@ -355,11 +360,59 @@ export function Dashboard() {
 
   // Duplicar el puesto: crea una copia (campos, apariencia y datos), sin candidatos,
   // y abre su editor. El error, si lo hay, lo avisa el store.
+  //
+  // Duplicar abre un proceso NUEVO, así que pasa por la misma puerta que Crear
+  // puesto (`modoProceso`): con hueco pagado libre, directo; sin hueco, se
+  // enseña el importe y se cobra antes; sin método de pago, la copia nace a la
+  // espera y se pasa por Stripe. Antes solo avisaba de que costaba 49 € y
+  // mandaba a Crear puesto: dos puertas para lo mismo con dos comportamientos.
   const handleDuplicate = async () => {
     if (duplicating || !campaign) return
+    const modo = modoProceso(company, campaigns)
+    if (modo === 'bloqueado') {
+      toast.error('Ya tienes el máximo de puestos activos de tu plan. Pausa o cierra otro para duplicar este.')
+      return
+    }
+    if (modo === 'cobrar') {
+      setConfirmDuplicar(await previewReabrir(null))
+      return
+    }
+    if (modo === 'checkout') {
+      setConfirmDuplicar({ free: false, amountDue: null, checkout: true, impuestosIncluidos: false })
+      return
+    }
     setDuplicating(true)
     const copy = await duplicateCampaign(campaign.id)
     setDuplicating(false)
+    if (copy) {
+      toast.success('Puesto duplicado.')
+      navigate(`${base}/puestos/${copy.id}/formulario`)
+    }
+  }
+  const doDuplicarCobrando = async () => {
+    if (!campaign) return
+    setDuplicating(true)
+    if (confirmDuplicar?.checkout) {
+      // Sin método de pago: la copia nace a la espera y se pasa por Stripe, que
+      // la abre al completarse (webhook). Si el pago no arranca, queda guardada
+      // y se abre desde su pantalla.
+      const copy = await duplicateCampaign(campaign.id, { status: 'cerrada' })
+      setDuplicating(false)
+      setConfirmDuplicar(null)
+      if (copy) {
+        const ok = await reabrirProceso(copy.id, region)
+        if (!ok) navigate(`${base}/puestos/${copy.id}/formulario`)
+      }
+      return
+    }
+    const pagado = await contratarHueco()
+    if (!pagado) {
+      setDuplicating(false)
+      return
+    }
+    const copy = await duplicateCampaign(campaign.id)
+    setDuplicating(false)
+    setConfirmDuplicar(null)
     if (copy) {
       toast.success('Puesto duplicado.')
       navigate(`${base}/puestos/${copy.id}/formulario`)
@@ -390,7 +443,7 @@ export function Dashboard() {
   const doReopen = async () => {
     if (!campaign) return
     setReopening(true)
-    const ok = await reabrirProceso(campaign.id)
+    const ok = await reabrirProceso(campaign.id, region)
     setReopening(false)
     setConfirmReopen(null)
     if (ok) toast.success('Puesto reabierto.')
@@ -1181,6 +1234,7 @@ export function Dashboard() {
               <h1 className="min-w-0 truncate text-[28px] font-bold leading-tight tracking-[-0.012em] text-slate-900">{campaign.title}</h1>
               <EstadoPuesto
                 status={campaign.status}
+                pendientePago={pendienteDePago(campaign)}
                 canManage={canManage}
                 cobraPorProceso={company?.plan === 'proceso'}
                 onPauseResume={() => void togglePause()}
@@ -1615,6 +1669,7 @@ export function Dashboard() {
         title="Reabrir puesto"
         confirmLabel={confirmReopen?.checkout ? 'Ir al pago seguro' : 'Reabrir puesto'}
         loading={reopening}
+        confirmDisabled={!!confirmReopen?.checkout && !region}
         onConfirm={doReopen}
       >
         {confirmReopen?.free ? (
@@ -1625,18 +1680,44 @@ export function Dashboard() {
           </p>
         ) : confirmReopen?.checkout ? (
           <p>
-            Reabrir este proceso son {PRECIO_PROCESO} € al mes (IVA aparte). Te llevamos al pago seguro de Stripe
-            (tarjeta o domiciliación) y el puesto se reabre al completarlo.
+            Reabrir este proceso son {PRECIO_PROCESO} € al mes (impuestos aparte). Te llevamos al pago seguro de Stripe
+            y el puesto se reabre al completarlo.
+            {!company?.region_fiscal && <RegionFiscalRadio value={region} onChange={setRegionElegida} />}
           </p>
         ) : (
           <p>
             {typeof confirmReopen?.amountDue === 'number' ? (
-              <>Se te cobrará ahora <strong className="font-semibold text-slate-900">{(confirmReopen.amountDue / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</strong>, la parte proporcional hasta tu próxima factura. Después, {PRECIO_PROCESO} € al mes (IVA aparte) mientras esté abierto.</>
+              <>Se te cobrará ahora <strong className="font-semibold text-slate-900">{(confirmReopen.amountDue / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</strong>{confirmReopen.impuestosIncluidos ? ' (IVA incluido)' : ' más IVA'}, la parte proporcional hasta tu próxima factura. Después, {PRECIO_PROCESO} € al mes (IVA aparte) mientras esté abierto.</>
             ) : (
               <>Reabrir este proceso son {PRECIO_PROCESO} € al mes (IVA aparte), que se añaden a tu factura.</>
             )}
           </p>
         )}
+      </ConfirmDialog>
+
+      {/* Duplicar sin hueco pagado: el importe ANTES de cobrar, como en Crear puesto. */}
+      <ConfirmDialog
+        open={confirmDuplicar !== null}
+        onClose={() => setConfirmDuplicar(null)}
+        title="Duplicar puesto"
+        confirmLabel={confirmDuplicar?.checkout ? 'Ir al pago seguro' : confirmDuplicar?.free ? 'Duplicar puesto' : 'Cobrar y duplicar'}
+        loading={duplicating}
+        confirmDisabled={!!confirmDuplicar?.checkout && !region}
+        onConfirm={doDuplicarCobrando}
+      >
+        <p>
+          {confirmDuplicar?.checkout
+            ? <>Abrir la copia son {PRECIO_PROCESO} € al mes (impuestos aparte). Te llevamos al pago seguro de Stripe y se abre al completarlo.</>
+            : confirmDuplicar?.free
+            ? 'Tienes un hueco de proceso ya pagado en este ciclo: la copia no te cobra nada ahora.'
+            : typeof confirmDuplicar?.amountDue === 'number'
+              ? <>Se te cobrará ahora <strong className="font-semibold text-slate-900">{(confirmDuplicar.amountDue / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</strong>{confirmDuplicar.impuestosIncluidos ? ' (IVA incluido)' : ' más IVA'}, la parte proporcional hasta tu próxima factura.</>
+              : <>La copia se añade a tu factura: {PRECIO_PROCESO} € al mes (IVA aparte).</>}
+        </p>
+        {confirmDuplicar?.checkout && !company?.region_fiscal && <RegionFiscalRadio value={region} onChange={setRegionElegida} />}
+        <p className="mt-2 text-slate-500">
+          Después son {PRECIO_PROCESO} € al mes (impuestos aparte) mientras esté abierta. Ciérrala cuando quieras y deja de cobrarse.
+        </p>
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -3654,6 +3735,7 @@ const ORDEN_ESTADOS = ['activa', 'pausada', 'cerrada'] as const
 
 function EstadoPuesto({
   status,
+  pendientePago = false,
   canManage,
   cobraPorProceso,
   onPauseResume,
@@ -3661,6 +3743,9 @@ function EstadoPuesto({
   onReopen,
 }: {
   status: Campaign['status']
+  /** Cerrado que nunca llegó a abrirse: creado a la espera del pago. Se dice
+   *  con su nombre, porque "Cerrado" a secas hacía creer que alguien lo cerró. */
+  pendientePago?: boolean
   canManage: boolean
   /** En el pago por proceso, pausar no deja de cobrar: hay que decirlo aquí. */
   cobraPorProceso: boolean
@@ -3689,6 +3774,7 @@ function EstadoPuesto({
   }, [open])
 
   const e = ESTADO_PUESTO[status]
+  const etiqueta = pendientePago ? 'Pendiente de pago' : e.label
   // El encargado gestiona candidatos pero no el puesto (lo mismo que aplica la
   // RLS): para él esto es una etiqueta, no un mando. Un botón que no puede hacer
   // nada es peor que ningún botón.
@@ -3696,7 +3782,7 @@ function EstadoPuesto({
     <>
       <span className={`size-1.5 shrink-0 rounded-full ${e.punto}`} aria-hidden />
       <span className="sr-only">Estado del puesto: </span>
-      {e.label}
+      {etiqueta}
     </>
   )
   // 28px A TODOS LOS ANCHOS, y es un número DERIVADO: es un ACCESORIO del título,
@@ -3746,6 +3832,7 @@ function EstadoPuesto({
         ? 'El enlace deja de aceptar candidaturas. El proceso sigue abierto y se sigue cobrando.'
         : 'El enlace deja de aceptar candidaturas. El proceso sigue abierto.'
     }
+    if (pendientePago) return 'Creado a la espera del pago: elige "En línea" para pagarlo y publicarlo.'
     return cobraPorProceso
       ? 'Deja de aceptar candidaturas y de cobrarse. Tus candidatos siguen aquí y puedes exportarlos.'
       : 'Deja de aceptar candidaturas. Tus candidatos siguen aquí y puedes exportarlos.'

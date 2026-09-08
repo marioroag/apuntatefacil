@@ -155,6 +155,28 @@ Las versiones de las edge functions van fijadas en cada `import` (supabase-js, s
 
 ---
 
+## Stripe: lo que tiene que estar puesto en el panel (sep 2026)
+
+Somos una empresa CANARIA: el impuesto de cada factura lo decide dónde esté el
+cliente (IGIC 7 % en Canarias, sin IVA con inversión del sujeto pasivo en la
+Península, sin IVA en Ceuta y Melilla). Lo aplica el código con tipos fijos de
+Stripe, NO Stripe Tax (ver CLAUDE.md, "Revisión del circuito"). En el panel
+(modo real) tiene que haber:
+
+1. **Datos de la empresa** en las facturas: razón social, dirección de La
+   Orotava y NIF. https://dashboard.stripe.com/settings/public
+2. **Correos al cliente**: recibos y pagos fallidos; reintentos automáticos y
+   cancelar la suscripción al agotarlos (es lo que espera el webhook: `unpaid`).
+   https://dashboard.stripe.com/settings/emails y https://dashboard.stripe.com/settings/billing/automatic
+3. **Métodos de pago**: tarjeta. SEPA apagado hasta que se prepare.
+4. El registro de España en Stripe Tax existe pero no se usa (el código no
+   activa `automatic_tax`); no cobra comisión mientras no calcule nada.
+
+Comprobación después de desplegar: desde una cuenta de prueba, activar el pago
+eligiendo "Canarias" y llegar a la página de Checkout: tiene que pedir NIF y
+dirección y el total tiene que llevar la línea "IGIC 7 %". Con "Península", el
+total sin impuesto y, en la factura, la mención de inversión del sujeto pasivo.
+
 ## Test vs Live (Stripe)
 
 - Para probar de punta a punta **sin cobrar de verdad**: usa las claves de **Test** de Stripe (`sk_test_...`, price IDs creados en modo Test, webhook en modo Test).

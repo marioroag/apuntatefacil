@@ -12,10 +12,11 @@ import { TEMPLATES, templateCampaignInput } from '../lib/templates'
 import type { SectorTemplate } from '../lib/templates'
 import { blankCampaignInput } from '../lib/defaults'
 import { useAppBase } from '../lib/useAppBase'
-import { PLAN_LABEL, PLAN_PROCESS_LIMIT, PRECIO_PROCESO } from '../lib/pricing'
+import { PLAN_LABEL, PLAN_PROCESS_LIMIT, PRECIO_PROCESO, modoProceso, type RegionFiscal } from '../lib/pricing'
 import { BTN_PRIMARY, BTN_SECONDARY, botonIcono } from '../lib/buttons'
 import { IconoVacio } from './ui/IconoVacio'
 import { AnuncioEditor, usePasoAnuncio, type ValorAnuncio } from './AnuncioEditor'
+import { RegionFiscalRadio } from './RegionFiscal'
 
 const ICONS: Record<string, LucideIcon> = {
   UtensilsCrossed, HardHat, Truck, Sparkles, ShoppingBag, HeartHandshake,
@@ -103,7 +104,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
   const navigate = useNavigate()
   const base = useAppBase()
   const { busy, create } = useCreateFromTemplate()
-  const [cobro, setCobro] = useState<null | { key: string; t?: SectorTemplate; amountDue: number | null; free: boolean }>(null)
+  const [cobro, setCobro] = useState<null | { key: string; t?: SectorTemplate; amountDue: number | null; free: boolean; impuestosIncluidos: boolean }>(null)
   const [cobrando, setCobrando] = useState(false)
   // DOS PASOS: primero de dónde partes (la plantilla) y después qué cuenta el
   // puesto (el anuncio). El orden no es cosmético: la plantilla trae el título y
@@ -113,24 +114,15 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
   const [elegida, setElegida] = useState<{ key: string; t?: SectorTemplate } | null>(null)
   const { valor, cambiar, faltan, formulario, comprobar, reiniciar } = usePasoAnuncio()
 
-  // Qué le espera a este proceso nuevo, espejo en cliente del enforcement de
-  // servidor. En el pago por proceso nunca hay muro: o hay hueco pagado libre
-  // ('libre'), o se cobra uno más a la suscripción ('cobrar'), o falta el
-  // método de pago y se pasa por Stripe Checkout ('checkout'). El muro solo
-  // queda para los tiers antiguos, que tienen tope fijo.
-  const abiertos = campaigns.filter((c) => c.status !== 'cerrada').length
-  const activos = campaigns.filter((c) => c.status === 'activa').length
+  // Qué le espera a este proceso nuevo: la regla vive en `modoProceso`
+  // (pricing.ts) porque la pregunta también la hace Duplicar, y las dos puertas
+  // tienen que contestar lo mismo.
   const plan = company?.plan ?? 'trial'
-  const modo: 'libre' | 'cobrar' | 'checkout' | 'bloqueado' = (() => {
-    if (!company || company.id === 'demo') return 'libre'
-    if (plan === 'proceso') {
-      if (abiertos < company.paid_processes) return 'libre'
-      const viva = ['active', 'trialing', 'past_due'].includes(company.subscription_status ?? '')
-      return viva ? 'cobrar' : 'checkout'
-    }
-    if (plan === 'trial') return activos < 1 ? 'libre' : 'checkout'
-    return activos < (PLAN_PROCESS_LIMIT[plan] ?? 0) ? 'libre' : 'bloqueado'
-  })()
+  const modo = modoProceso(company, campaigns)
+  // Dónde está el cliente, si aún no lo dijo: decide el impuesto de la factura
+  // y hace falta para salir a pagar.
+  const [regionElegida, setRegionElegida] = useState<RegionFiscal | null>(null)
+  const region = company?.region_fiscal ?? regionElegida
   const atLimit = modo === 'bloqueado'
 
   // Cerrar es volver a empezar: si no, salir a medias y entrar otra vez dejaría
@@ -176,7 +168,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
       // El importe se enseña ANTES de cobrar: prorrata hasta la próxima
       // factura, o gratis si queda un ciclo ya pagado que retomar.
       const pv = await previewReabrir(null)
-      setCobro({ key, t, amountDue: pv.amountDue, free: pv.free })
+      setCobro({ key, t, amountDue: pv.amountDue, free: pv.free, impuestosIncluidos: pv.impuestosIncluidos })
       return
     }
     if (modo === 'checkout') {
@@ -184,7 +176,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
       // al pago seguro; el webhook lo abre al completarse.
       const c = await create(key, t, { status: 'cerrada', anuncio: valor })
       if (!c) return
-      const ok = await reabrirProceso(c.id)
+      const ok = await reabrirProceso(c.id, region)
       if (!ok) {
         // El pago no arrancó: el puesto queda guardado a la espera. Se puede
         // seguir editando y activarlo después desde sus ajustes.
@@ -277,7 +269,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                   {cobro.free
                     ? 'Tienes un hueco de proceso ya pagado en este ciclo: abrir este no te cobra nada ahora.'
                     : cobro.amountDue != null
-                      ? <>Se te cobrará ahora <strong className="font-semibold text-slate-900">{(cobro.amountDue / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</strong>, la parte proporcional hasta tu próxima factura.</>
+                      ? <>Se te cobrará ahora <strong className="font-semibold text-slate-900">{(cobro.amountDue / 100).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}</strong>{cobro.impuestosIncluidos ? ' (IVA incluido)' : ' más IVA'}, la parte proporcional hasta tu próxima factura.</>
                       : `Este proceso se añade a tu factura: ${PRECIO_PROCESO} € al mes (IVA aparte).`}
                 </p>
                 <p className="mt-2 text-[13px] leading-relaxed text-slate-500">
@@ -322,8 +314,8 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                 {modo === 'checkout' && (
                   <p className="border-b border-slate-200 bg-slate-50 px-5 py-2.5 text-[13px] leading-relaxed text-slate-600">
                     {plan === 'trial'
-                      ? `Tu prueba incluye un proceso. Para abrir otro, activa el pago: cada proceso abierto son ${PRECIO_PROCESO} € al mes (IVA aparte), también el de tu prueba. Eliges la plantilla y pasas al pago seguro de Stripe.`
-                      : `Abrir este proceso son ${PRECIO_PROCESO} € al mes (IVA aparte). Eliges la plantilla y pasas al pago seguro de Stripe.`}
+                      ? `Tu prueba incluye un proceso. Para abrir otro, activa el pago: cada proceso abierto son ${PRECIO_PROCESO} € al mes (impuestos aparte), también el de tu prueba. Eliges la plantilla y pasas al pago seguro de Stripe.`
+                      : `Abrir este proceso son ${PRECIO_PROCESO} € al mes (impuestos aparte). Eliges la plantilla y pasas al pago seguro de Stripe.`}
                   </p>
                 )}
 
@@ -335,6 +327,12 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                   <>
                     <div ref={formulario} className="max-h-[60vh] overflow-y-auto px-5 py-4">
                       <AnuncioEditor valor={valor} onChange={cambiar} faltan={faltan} />
+                      {/* Si este puesto acaba en la página de pago, hay que saber
+                          dónde está el cliente ANTES de salir: decide el impuesto
+                          de su primera factura. Una vez, y solo si no lo ha dicho. */}
+                      {modo === 'checkout' && !company?.region_fiscal && (
+                        <RegionFiscalRadio value={region} onChange={setRegionElegida} />
+                      )}
                     </div>
                     {/* El pie es donde vive el flujo: volver a las plantillas o
                         crear. Sin flecha de vuelta arriba, que sería la misma
@@ -344,7 +342,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                       <button onClick={() => setPaso('plantilla')} className={BTN_SECONDARY} disabled={!!busy}>
                         Volver
                       </button>
-                      <button onClick={() => void crear()} className={`${BTN_PRIMARY} disabled:opacity-60`} disabled={!!busy}>
+                      <button onClick={() => void crear()} className={`${BTN_PRIMARY} disabled:opacity-60`} disabled={!!busy || (modo === 'checkout' && !region)}>
                         {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
                         Crear puesto
                       </button>

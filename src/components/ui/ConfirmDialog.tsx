@@ -23,6 +23,7 @@ export function ConfirmDialog({
   cancelLabel = 'Cancelar',
   confirmVariant = 'primary',
   loading = false,
+  confirmDisabled = false,
   children,
 }: {
   open: boolean
@@ -33,6 +34,9 @@ export function ConfirmDialog({
   cancelLabel?: string
   confirmVariant?: 'primary' | 'danger'
   loading?: boolean
+  /** El botón de confirmar apagado hasta que el diálogo tenga lo que necesita
+   *  (por ejemplo, una respuesta pendiente dentro). Cancelar sigue vivo. */
+  confirmDisabled?: boolean
   children: ReactNode
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
@@ -97,7 +101,7 @@ export function ConfirmDialog({
             <div className="mt-2 text-sm leading-relaxed text-slate-600">{children}</div>
             <div className="mt-6 flex justify-end gap-2">
               <Button variant="secondary" onClick={onClose} disabled={loading}>{cancelLabel}</Button>
-              <Button variant={confirmVariant} onClick={onConfirm} loading={loading}>{confirmLabel}</Button>
+              <Button variant={confirmVariant} onClick={onConfirm} loading={loading} disabled={confirmDisabled}>{confirmLabel}</Button>
             </div>
           </motion.div>
         </div>

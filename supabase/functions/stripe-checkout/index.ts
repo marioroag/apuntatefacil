@@ -27,6 +27,7 @@ import Stripe from 'npm:stripe@18.5.0'
 import { createClient } from 'jsr:@supabase/supabase-js@2.116.0'
 import { corsHeaders, json } from '../_shared/cors.ts'
 import { PLAZO } from '../_shared/red.ts'
+import { esRegion, tipoImpositivo, type RegionFiscal } from '../_shared/impuestos.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2025-05-28.basil', timeout: PLAZO.api })
 
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
 
     const {
       checkout, activateCampaignId, previewAdd, addProcess, closeProcess,
-      syncProcesses, portal, cancel, resume, returnUrl, companyId, campaignId,
+      syncProcesses, portal, cancel, resume, returnUrl, companyId, campaignId, regionFiscal,
     } = await req.json()
 
     // Con el JWT del usuario, la RLS solo deja ver SUS empresas. Si el cliente
@@ -93,7 +94,7 @@ Deno.serve(async (req) => {
     // caemos a la única.
     let companyQuery = supabase
       .from('companies')
-      .select('id,name,plan,paid_processes,stripe_customer_id,stripe_subscription_id,subscription_status')
+      .select('id,name,plan,paid_processes,stripe_customer_id,stripe_subscription_id,subscription_status,region_fiscal')
     companyQuery = typeof companyId === 'string' && companyId
       ? companyQuery.eq('id', companyId)
       : companyQuery.limit(1)
@@ -133,7 +134,13 @@ Deno.serve(async (req) => {
     if (subId) {
       try {
         subObj = await stripe.subscriptions.retrieve(subId)
-        hasActiveSub = ['active', 'trialing', 'past_due', 'unpaid'].includes(subObj.status)
+        // 'past_due' sigue viva (Stripe reintenta y hay método de pago detrás).
+        // 'unpaid' NO: Stripe agotó los reintentos, el webhook ya cerró los
+        // procesos, y tratarla como viva dejaba al cliente en un callejón: al
+        // reabrir se intentaba cobrar a esa suscripción muerta (402 "revisa tu
+        // método de pago") y ningún botón le llevaba a un alta nueva. Muerta,
+        // el camino es Checkout, que la cancela y crea una limpia.
+        hasActiveSub = ['active', 'trialing', 'past_due'].includes(subObj.status)
       } catch (e) {
         // Solo auto-reparamos cuando la sub NO existe en este modo: limpiamos
         // SOLO la sub. Ante un error transitorio no tocamos nada.
@@ -264,6 +271,10 @@ Deno.serve(async (req) => {
       return json({
         amountDue: pv.amount_due,
         currency: pv.currency,
+        // Con el tipo impositivo puesto en la suscripción, amount_due ya lleva
+        // el impuesto que toque (IGIC, o cero con inversión del sujeto pasivo):
+        // la pantalla lo dice en vez de sumar "+ IVA" otra vez.
+        impuestosIncluidos: (subObj.default_tax_rates?.length ?? 0) > 0,
         renewsAt: fin ? new Date(fin * 1000).toISOString() : null,
       })
     }
@@ -311,6 +322,17 @@ Deno.serve(async (req) => {
     if (!checkout) return json({ error: 'Acción no reconocida' }, 400)
     if (!PRICE_PROCESO) return json({ error: 'Falta configurar el price del proceso (STRIPE_PRICE_PROCESO)' }, 500)
 
+    // DÓNDE ESTÁ EL CLIENTE decide el impuesto de su factura (somos canarios:
+    // ver _shared/impuestos.ts). Lo dice en la app antes de salir a pagar; sin
+    // ese dato no se puede armar la sesión, porque la primera factura se cobra
+    // en la propia página de Stripe y tiene que salir bien a la primera.
+    let region: RegionFiscal | null = esRegion(regionFiscal) ? regionFiscal : (esRegion(company.region_fiscal) ? company.region_fiscal : null)
+    if (!region) return json({ error: 'Dinos dónde tiene tu empresa su domicilio fiscal para preparar la factura.', needsRegion: true }, 400)
+    if (region !== company.region_fiscal) {
+      await admin.from('companies').update({ region_fiscal: region }).eq('id', company.id)
+    }
+    const tipo = await tipoImpositivo(stripe, region)
+
     // ------------------------------------------------------------------
     // Alta nueva -> Stripe Checkout. Cantidad = procesos abiertos hoy, más el
     // puesto en espera de pago si viene (creado cerrado; el webhook lo activa).
@@ -344,7 +366,13 @@ Deno.serve(async (req) => {
     // sesión de un intento anterior). Si la hay, la ADOPTAMOS y ajustamos su
     // cantidad, en vez de crear una segunda que facturaría en paralelo.
     const existing = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 })
-    const live = existing.data.find((s) => ['active', 'trialing', 'past_due', 'unpaid'].includes(s.status))
+    // Una suscripción agotada por impago ('unpaid') no se adopta: se cancela
+    // aquí, antes del alta nueva, para que no siga viva en Stripe facturando
+    // en paralelo a la que se va a crear. Sus procesos ya los cerró el webhook.
+    for (const s of existing.data.filter((s) => s.status === 'unpaid')) {
+      await stripe.subscriptions.cancel(s.id)
+    }
+    const live = existing.data.find((s) => ['active', 'trialing', 'past_due'].includes(s.status))
     if (live) {
       await admin.from('companies').update({ stripe_subscription_id: live.id }).eq('id', company.id)
       const liveItem = live.items.data[0]
@@ -365,6 +393,9 @@ Deno.serve(async (req) => {
             }
             throw e
           }
+        }
+        if (!live.default_tax_rates?.length) {
+          await stripe.subscriptions.update(live.id, { default_tax_rates: [tipo] })
         }
         await admin.from('companies').update({
           plan: 'proceso',
@@ -391,10 +422,22 @@ Deno.serve(async (req) => {
       // Para ofrecer el recibo domiciliado (SEPA), que en pymes españolas
       // convierte mejor que la tarjeta, se activa en Configuración -> Métodos de
       // pago y aparece aquí solo, sin tocar código.
+      // IMPUESTOS. El precio es "impuestos aparte" y hasta sep 2026 la sesión
+      // no aplicaba ninguno: el cliente pagaba 49 € justos y la factura salía
+      // sin impuesto ni mención (pasó con las dos suscripciones de prueba de
+      // junio). No es Stripe Tax (con un registro en España cobraría el 21 % a
+      // todo el mundo, y somos canarios): es un tipo FIJO por región, puesto
+      // en la suscripción para que valga en esta factura y en las siguientes.
+      // El NIF y la dirección se piden en la propia página de pago: el NIF
+      // hace válida la factura entre empresas y el código postal deja que el
+      // webhook contraste la región que dijo el cliente.
+      subscription_data: { metadata: { company_id: company.id }, default_tax_rates: [tipo] },
+      tax_id_collection: { enabled: true },
+      billing_address_collection: 'required',
+      customer_update: { address: 'auto', name: 'auto' },
       success_url: `${base}?checkout=ok`,
       cancel_url: `${base}?checkout=cancel`,
       metadata: { company_id: company.id, ...(pendiente ? { activate_campaign_id: pendiente.id } : {}) },
-      subscription_data: { metadata: { company_id: company.id } },
       allow_promotion_codes: true,
       // Sesión de vida corta: reduce las sesiones "zombie" completables horas
       // después (otra vía a la doble suscripción). 31 min: el mínimo de Stripe

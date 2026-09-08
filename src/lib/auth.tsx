@@ -30,6 +30,13 @@ export interface Company {
    * Se activa en Ajustes; hoy es 12 o nada.
    */
   retencion_meses: number | null
+  /**
+   * Dónde tiene la empresa su domicilio fiscal, que es lo que decide el
+   * impuesto de su factura (somos canarios: IGIC 7 % a Canarias, sin IVA por
+   * inversión del sujeto pasivo a la Península). Lo dice al dar de alta el
+   * pago y lo escribe solo el servidor. `null` = todavía no lo ha dicho.
+   */
+  region_fiscal: 'canarias' | 'peninsula' | 'ceuta_melilla' | null
 }
 
 /**
@@ -462,6 +469,7 @@ export const DEMO_COMPANY: Company = {
   trial_ends_at: null,
   paid_processes: 99,
   retencion_meses: null,
+  region_fiscal: 'peninsula',
 }
 
 export function DemoAuthProvider({ children }: { children: ReactNode }) {

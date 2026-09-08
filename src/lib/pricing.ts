@@ -43,6 +43,64 @@ export const procesoAbierto = (c: Pick<Campaign, 'status'>): boolean => c.status
 export const procesosAbiertos = (campaigns: Pick<Campaign, 'status'>[]): number =>
   campaigns.filter(procesoAbierto).length
 
+/**
+ * Un puesto que NUNCA ha llegado a abrirse: el asistente lo crea cerrado a la
+ * espera del pago y Checkout lo abre al completarse. Si el cliente cierra la
+ * página de Stripe sin pagar, se queda así, y hasta sep 2026 se pintaba como
+ * "Cerrado" igual que uno que se cerró a propósito. Lo distingue `closed_at`,
+ * que el servidor estampa solo al pasar a cerrado.
+ */
+export const pendienteDePago = (c: Pick<Campaign, 'status' | 'closedAt'>): boolean =>
+  c.status === 'cerrada' && !c.closedAt
+
+export type ModoProceso = 'libre' | 'cobrar' | 'checkout' | 'bloqueado'
+
+/**
+ * Qué le espera a un proceso NUEVO (crear o duplicar), espejo en cliente del
+ * tope del servidor. En el pago por proceso nunca hay muro: o hay hueco pagado
+ * libre ('libre'), o se cobra uno más a la suscripción ('cobrar'), o falta el
+ * método de pago y se pasa por Stripe Checkout ('checkout'). El muro solo
+ * queda para los tiers antiguos, que tienen tope fijo. Se declara UNA vez
+ * porque lo preguntan dos puertas (Crear puesto y Duplicar) y tienen que
+ * contestar lo mismo.
+ */
+export function modoProceso(
+  company: { id: string; plan: string; paid_processes: number; subscription_status?: string | null } | null | undefined,
+  campaigns: Pick<Campaign, 'status'>[],
+): ModoProceso {
+  if (!company || company.id === 'demo') return 'libre'
+  const abiertos = procesosAbiertos(campaigns)
+  if (company.plan === 'proceso') {
+    if (abiertos < company.paid_processes) return 'libre'
+    return hayPagoActivo(company) ? 'cobrar' : 'checkout'
+  }
+  // La prueba cubre UN proceso abierto (no cerrado; pausar no libera hueco,
+  // como en el pago). Abrir el segundo pasa por dar el método de pago.
+  if (company.plan === 'trial') return abiertos < 1 ? 'libre' : 'checkout'
+  const activos = campaigns.filter((c) => c.status === 'activa').length
+  return activos < (PLAN_PROCESS_LIMIT[company.plan] ?? 0) ? 'libre' : 'bloqueado'
+}
+
+/**
+ * DÓNDE ESTÁ EL CLIENTE decide el impuesto de su factura, porque somos una
+ * empresa CANARIA (fuera del territorio del IVA). Espejo de
+ * supabase/functions/_shared/impuestos.ts, que es quien lo aplica en Stripe.
+ */
+export type RegionFiscal = 'canarias' | 'peninsula' | 'ceuta_melilla'
+export const REGIONES_FISCALES: { value: RegionFiscal; label: string; impuesto: string }[] = [
+  { value: 'peninsula', label: 'Península o Baleares', impuesto: 'sin IVA en la factura (inversión del sujeto pasivo: lo declara tu empresa)' },
+  { value: 'canarias', label: 'Canarias', impuesto: '+ 7 % de IGIC' },
+  { value: 'ceuta_melilla', label: 'Ceuta o Melilla', impuesto: 'sin IVA' },
+]
+
+/** "al mes + 7 % de IGIC" / "al mes, sin IVA en la factura (...)". Sin región
+ *  conocida, la fórmula genérica del producto. */
+export function impuestoTexto(region: RegionFiscal | null | undefined): string {
+  const r = REGIONES_FISCALES.find((x) => x.value === region)
+  if (!r) return '+ IVA'
+  return r.value === 'canarias' ? r.impuesto : `, ${r.impuesto}`
+}
+
 /** Reassurance de la prueba en hero y CTAs. Derivada del tope real, que ya es
  *  uno solo: los días. "Sin límite de candidaturas" se dice a propósito, porque
  *  es la duda que traía el modelo viejo y la diferencia con un portal. */

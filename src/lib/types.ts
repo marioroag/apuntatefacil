@@ -52,6 +52,9 @@ export interface Campaign {
   provincia: string
   status: CampaignStatus
   createdAt: string // ISO
+  /** Cuándo se cerró (lo estampa el servidor). Null en un puesto cerrado que
+   *  nunca llegó a abrirse: creado a la espera del pago (ver pendienteDePago). */
+  closedAt?: string | null
   milanunciosUrl?: string
   fields: FormField[]
   branding: Branding
