@@ -77,6 +77,7 @@ type FormatoExport = 'xlsx' | 'csv' | 'zip'
 import { RegistrarAccion } from '../lib/acciones'
 import { answerStr, CAMPOS_YA_PINTADOS, fechaCorta, fullDateTime, miles, formatPhone, candidateName } from '../lib/format'
 import { clickDeFila, invasionDeSeleccion } from '../lib/fila'
+import { rangoNumerico, textoRango } from '../lib/rangoNumerico'
 import type { Invasion } from '../lib/fila'
 // El anillo de ajuste se queda en el avatar (Mario, jul 2026) y desde ago 2026 lo
 // acompaña la columna "Encaje", que dice en palabras lo que el anillo dice en arco:
@@ -879,17 +880,20 @@ export function Dashboard() {
     return list
   }, [all, campaign, q, rpcIds, base, esMovil, tablero, vista, statusFilter, interestFilter, valueFilters, numberFilters, favoritosOnly, tagFilter, sort])
 
-  // Dominio real (mín/máx) de cada pregunta numérica, para acotar sus sliders.
+  // El carril de cada pregunta numérica, para acotar sus sliders.
+  //
+  // Se lo calcula de los DATOS, así que hasta sep 2026 un solo valor imposible
+  // definía el recorrido entero: en un puesto real, "años de experiencia en obra"
+  // ofrecía de -1 a 642943969 porque alguien escribió su móvil donde iban los
+  // años, y los 214 candidatos de verdad no llegaban a un píxel de carril. Ahora
+  // lo mide `rangoNumerico`, que descarta lo que no es una cantidad y recorta las
+  // colas por percentil (con su porqué escrito allí).
   const numberDomains = useMemo(() => {
     const m: Record<string, [number, number]> = {}
     if (!campaign) return m
     for (const f of numberFields(campaign)) {
-      const vals = all.map((c) => Number(c.answers[f.id])).filter((n) => !Number.isNaN(n))
-      if (vals.length) {
-        const lo = Math.min(...vals)
-        const hi = Math.max(...vals)
-        if (hi > lo) m[f.id] = [lo, hi]
-      }
+      const dom = rangoNumerico(all.map((c) => c.answers[f.id]))
+      if (dom) m[f.id] = dom
     }
     return m
   }, [all, campaign])
@@ -1012,8 +1016,12 @@ export function Dashboard() {
       if (!dom) continue // sin rango útil (sin datos o todos iguales): no hay slider
       const [lo, hi] = dom
       const nf = numberFilters.find((x) => x.fieldId === f.id)
-      const from = nf?.min ?? lo
-      const to = nf?.max ?? hi
+      // Sujetos al carril: una vista guardada de antes del recorte puede traer un
+      // valor que ya no cabe en él (un "-1" heredado del carril viejo), y el
+      // mango se pintaría fuera de su pista. Solo mueve dónde SE VE el mango: el
+      // filtro guardado se respeta hasta que se toque.
+      const from = Math.min(Math.max(nf?.min ?? lo, lo), hi)
+      const to = Math.max(Math.min(nf?.max ?? hi, hi), lo)
       d.push({
         id: `num-${f.id}`,
         label: f.label,
@@ -1026,7 +1034,7 @@ export function Dashboard() {
           <div className="px-2 py-2">
             <div className="mb-2 flex items-baseline justify-between">
               <span className="text-[12px] text-slate-500">Rango</span>
-              <span className="num text-[12px] font-medium text-slate-700">{from} – {to}</span>
+              <span className="num text-[12px] font-medium text-slate-700">{textoRango(from, to, lo, hi)}</span>
             </div>
             <RangeSlider
               min={lo}
@@ -1035,10 +1043,17 @@ export function Dashboard() {
               to={to}
               onChange={(nFrom, nTo) => setNumberFilters((p) => {
                 const resto = p.filter((x) => x.fieldId !== f.id)
-                // Rango completo = sin filtro: no se guarda una restricción que no
-                // restringe (dejaría el chip contando 1 sin quitar a nadie).
-                if (nFrom <= lo && nTo >= hi) return resto
-                return [...resto, { fieldId: f.id, label: f.label, min: nFrom, max: nTo }]
+                // UN MANGO EN SU TOPE NO PONE LÍMITE POR ESE LADO, y es lo que
+                // hace que recortar el carril no le cueste el puesto a nadie: el
+                // percentil decide hasta dónde llega el CONTROL, nunca quién sale
+                // en la lista, así que el candidato de 45 años sigue entrando en
+                // "de 20 en adelante" aunque el carril acabe en 38.
+                const min = nFrom <= lo ? null : nFrom
+                const max = nTo >= hi ? null : nTo
+                // Sin ningún límite no se guarda nada: un filtro que no restringe
+                // dejaría el chip contando 1 sin quitar a nadie.
+                if (min == null && max == null) return resto
+                return [...resto, { fieldId: f.id, label: f.label, min, max }]
               })}
             />
           </div>
