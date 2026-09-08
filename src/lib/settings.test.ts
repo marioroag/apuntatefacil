@@ -47,6 +47,7 @@ const CORREOS_SIN_AJUSTE: Record<string, string> = {
   'notify-support': 'Bandeja interna de Apúntate Fácil, no del cliente.',
   'support-reply': 'Respuesta a un ticket que abrió el propio usuario.',
   'resend-inbound': 'Webhook de entrada: recibe correo, no lo manda por su cuenta.',
+  'notify-trial': 'Fin de la prueba: avisa de que termina lo gratis y de que empieza a cobrarse si sigue. Como los correos de acceso, no se apaga.',
 }
 
 /** Columnas de `companies` que se pueden actualizar y NO son un ajuste. */
