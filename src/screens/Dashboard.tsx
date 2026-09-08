@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  CircleAlert,
   CircleDot,
   Clock,
   Copy,
@@ -64,7 +65,7 @@ import { KanbanPuesto } from '../components/KanbanPuesto'
 import { useModoPanel } from '../lib/modoPanel'
 import { useDesvanecido } from '../lib/desvanecido'
 import { DUR, EASE } from '../lib/motion'
-import { StatusSelect, StatusPickerSheet, MenuEstado } from '../components/ui/StatusPill'
+import { StatusPill, StatusSelect, StatusPickerSheet, MenuEstado } from '../components/ui/StatusPill'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { SedesDialog } from '../components/SedesDialog'
@@ -223,7 +224,12 @@ export function Dashboard() {
   const [vista, setVista] = useState<'activos' | 'rechazados'>('activos')
   // El tablero solo existe en escritorio; la preferencia guardada no se pierde
   // al pasar por un móvil, simplemente ahí no aplica.
-  const tablero = modo === 'tablero' && !esMovil
+  // UN PROCESO CERRADO ES DE SOLO LECTURA Y EXPORTACIÓN (Mario, sep 2026): la
+  // lista se ve y se exporta, y no se hace nada más con sus candidatos (ficha,
+  // estado, etiquetas, notas, entrevistas) hasta reabrirlo. Lo aplica la base
+  // (triggers) y esta pantalla lo enseña: sin mandos, con el aviso y la puerta.
+  const soloLectura = campaign?.status === 'cerrada'
+  const tablero = modo === 'tablero' && !esMovil && !soloLectura
 
   /**
    * EL CONMUTADOR SIGUE AL FILTRO DE ESTADO (Mario, ago 2026).
@@ -637,8 +643,38 @@ export function Dashboard() {
   // control donde tiene que caer el cursor. Se limpia al cerrar, o la próxima
   // ficha se abriría también en la nota.
   const [focoFicha, setFocoFicha] = useState<'nota' | 'etiqueta' | null>(null)
-  const abrirEnNota = useCallback((id: string) => { setFocoFicha('nota'); setOpenId(id) }, [setOpenId])
-  const abrirEnEtiqueta = useCallback((id: string) => { setFocoFicha('etiqueta'); setOpenId(id) }, [setOpenId])
+  // UN PROCESO CERRADO HABLA DOS VECES (Mario, sep 2026). Al ENTRAR, una
+  // invitación a reabrirlo, en tono suave y con "Solo mirar" como salida: quien
+  // llega a un puesto cerrado con gente dentro casi siempre viene a hacer algo
+  // con ella, y es mejor decirle antes lo que cuesta que dejar que lo descubra
+  // al primer clic. Y al INTENTAR algo que no se puede (abrir una ficha,
+  // etiquetar, anotar), el aviso de que eso solo existe en puestos activos, con
+  // la misma puerta. Son dos motivos del MISMO diálogo, no dos diálogos.
+  const [cerradoDialog, setCerradoDialog] = useState<'entrada' | 'bloqueo' | null>(null)
+  const abrirFicha = useCallback((id: string) => {
+    if (soloLectura) { setCerradoDialog('bloqueo'); return }
+    setFocoFicha(null); setOpenId(id)
+  }, [soloLectura, setOpenId])
+  const abrirEnNota = useCallback((id: string) => {
+    if (soloLectura) { setCerradoDialog('bloqueo'); return }
+    setFocoFicha('nota'); setOpenId(id)
+  }, [soloLectura, setOpenId])
+  const abrirEnEtiqueta = useCallback((id: string) => {
+    if (soloLectura) { setCerradoDialog('bloqueo'); return }
+    setFocoFicha('etiqueta'); setOpenId(id)
+  }, [soloLectura, setOpenId])
+  // La invitación sale UNA vez por puesto y por visita (el ref guarda a quién
+  // se invitó), cuando la lista ya está cargada y hay alguien dentro: en un
+  // puesto cerrado sin candidaturas no hay nada que reabrir para "seguir
+  // usándolo", y ahí basta la franja. Eso deja fuera también a un puesto a la
+  // espera del pago, que nunca llegó a abrirse y no tiene a nadie.
+  const invitadoRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!campaign || !soloLectura || loading || all.length === 0) return
+    if (invitadoRef.current === campaign.id) return
+    invitadoRef.current = campaign.id
+    setCerradoDialog('entrada')
+  }, [campaign, soloLectura, loading, all.length])
   // EL CHIP "CV" DE LA COLUMNA ABRE LA FICHA EN EL DOCUMENTO (Mario, sep 2026:
   // "los documentos deben ser clickeables desde la columna").
   //
@@ -1071,7 +1107,7 @@ export function Dashboard() {
   // teléfono) y llegaban con la cabecera cortada. Las respuestas siguen enteras donde
   // valen: la ficha, los filtros y el Excel.
   const showFit = hasMeridian(company?.plan)
-  const openCandidate = openId ? all.find((c) => c.id === openId) ?? null : null
+  const openCandidate = openId && !soloLectura ? all.find((c) => c.id === openId) ?? null : null
   const selectedCandidates = all.filter((candidate) => selected.has(candidate.id))
   // Primer tramo del enlace: marca del puesto si la tiene, si no el nombre de la empresa.
   const brandLabel = (campaign.brandId ? brands.find((b) => b.id === campaign.brandId)?.name : null) ?? company?.name
@@ -1528,6 +1564,13 @@ export function Dashboard() {
             diferencia de `hidden`, NO crea contenedor de scroll, que es lo que le
             robaría el `sticky` a la cabecera de la tabla. Era `hidden` en móvil
             porque allí no había tabla dentro; ahora la hay. */}
+        {soloLectura && (
+          <AvisoProcesoCerrado
+            n={all.length}
+            onReabrir={canManage ? () => void reopen() : undefined}
+            onExportar={all.length > 0 ? () => void doExport() : undefined}
+          />
+        )}
         {tablero && !loading && filtered.length > 0 ? (
           // El tablero NO va dentro de la tarjeta blanca de la tabla: sus
           // tarjetas son las superficies, y una tarjeta de tarjetas es una caja
@@ -1542,7 +1585,7 @@ export function Dashboard() {
             setFavorito={setFavorito}
             seleccion={selected}
             onSeleccion={toggleSeleccion}
-            onOpen={setOpenId}
+            onOpen={abrirFicha}
             onOpenEnNota={abrirEnNota}
             onOpenEnEtiqueta={abrirEnEtiqueta}
             onVerDocumento={abrirDocumento}
@@ -1581,7 +1624,8 @@ export function Dashboard() {
               onSort={toggleSort}
               selected={selected}
               setSelected={setSelected}
-              onOpen={setOpenId}
+              soloLectura={soloLectura}
+              onOpen={abrirFicha}
               onOpenDocumento={abrirDocumento}
               maskPhone={maskPhone}
             />
@@ -1592,6 +1636,24 @@ export function Dashboard() {
         {/* Hueco para que la barra inferior fija no tape la última fila (móvil) */}
         {selected.size > 0 && <div className="h-20 sm:hidden" aria-hidden />}
       </div>
+
+      <ConfirmDialog
+        open={cerradoDialog !== null}
+        onClose={() => setCerradoDialog(null)}
+        onConfirm={() => { setCerradoDialog(null); if (canManage) void reopen() }}
+        title={cerradoDialog === 'bloqueo' ? 'Solo en puestos activos' : 'Este puesto está cerrado'}
+        confirmLabel={canManage ? 'Reabrir puesto' : 'Entendido'}
+        cancelLabel={canManage ? (cerradoDialog === 'bloqueo' ? 'Ahora no' : 'Solo mirar') : 'Cerrar'}
+      >
+        <p className="text-sm leading-relaxed text-slate-600">
+          {cerradoDialog === 'bloqueo'
+            ? 'Esto solo está disponible en puestos activos. '
+            : `${all.length === 1 ? 'Su candidatura sigue aquí' : `Sus ${miles(all.length)} candidaturas siguen aquí`} y puedes verlas y exportarlas cuando quieras. `}
+          {canManage
+            ? <>{cerradoDialog === 'bloqueo' ? 'Reábrelo para seguir trabajando con sus candidatos' : 'Para seguir trabajando con ellas (abrir fichas, cambiar estados, etiquetar o citar), reábrelo'}{company?.plan === 'proceso' || company?.plan === 'trial' ? <>: {PRECIO_PROCESO} € al mes, impuestos aparte, y lo cierras cuando quieras</> : null}.</>
+            : 'Para seguir trabajando con ellas (abrir fichas, cambiar estados, etiquetar o citar), hay que reabrirlo, y eso lo hace quien administra el puesto.'}
+        </p>
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={lockedDialogOpen}
@@ -2358,12 +2420,16 @@ const CandidateTable = memo(function CandidateTable({
   onSort,
   selected,
   setSelected,
+  soloLectura = false,
   onOpen,
   onOpenDocumento,
   maskPhone,
   lockedDates,
   onLockedClick,
 }: {
+  /** Proceso cerrado: sin casillas, estado y etiquetas como texto, y la fila
+   *  abre el aviso en vez de la ficha (lo decide quien pasa `onOpen`). */
+  soloLectura?: boolean
   campaign: Campaign
   /** Solo hay columna Encaje si el plan tiene Meridian: sin él nunca habría nada que poner. */
   showFit: boolean
@@ -2734,13 +2800,15 @@ const CandidateTable = memo(function CandidateTable({
         >
           <tr>
             <th scope="col" className={`${esMovil ? HEAD_CELL_FLUSH : `${HEAD_CELL_FLUSH_FIJA} left-0`} w-10 px-0 text-center leading-none ${headTone}`}>
-              <Checkbox
-                className="translate-y-[1.5px]"
-                checked={allSel}
-                indeterminate={someSel && !allSel}
-                onChange={toggleAll}
-                aria-label="Seleccionar todos"
-              />
+              {!soloLectura && (
+                <Checkbox
+                  className="translate-y-[1.5px]"
+                  checked={allSel}
+                  indeterminate={someSel && !allSel}
+                  onChange={toggleAll}
+                  aria-label="Seleccionar todos"
+                />
+              )}
             </th>
             {/* Candidato y Etiquetas van SIN ancho fijo: en `table-fixed` son las
                 que se reparten el hueco sobrante, así que al ensanchar la ventana
@@ -2918,12 +2986,14 @@ const CandidateTable = memo(function CandidateTable({
                 {/* La ÚNICA celda que no abre la ficha, y a propósito: es la zona de
                     puntería de su checkbox, no un hueco de la fila (ver lib/fila.ts). */}
                 <td className={`${CELL_FLUSH} ${fijaCasilla} ${fondoFila} px-0 text-center leading-none`} onClick={(e) => e.stopPropagation()}>
-                  <Checkbox
-                    className="translate-y-[1.5px]"
-                    checked={sel}
-                    onChange={() => toggleOne(c.id)}
-                    aria-label={`Seleccionar ${name}`}
-                  />
+                  {!soloLectura && (
+                    <Checkbox
+                      className="translate-y-[1.5px]"
+                      checked={sel}
+                      onChange={() => toggleOne(c.id)}
+                      aria-label={`Seleccionar ${name}`}
+                    />
+                  )}
                 </td>
                 {orden.map((k) => {
                   switch (k) {
@@ -2984,6 +3054,9 @@ const CandidateTable = memo(function CandidateTable({
 
                               `flotante` porque aquí el panel se sale de la
                               tabla, que se desplaza y va recortada. */}
+                          {soloLectura ? (
+                            hasTags ? <TagCell tagIds={c.tagIds} tags={tags} /> : <span className="text-slate-600">–</span>
+                          ) : (
                           <BulkTagMenu
                             selectedIds={[c.id]}
                             canManage={canManageTags}
@@ -2992,6 +3065,7 @@ const CandidateTable = memo(function CandidateTable({
                           >
                             {hasTags ? <TagCell tagIds={c.tagIds} tags={tags} /> : <span className="text-slate-600">–</span>}
                           </BulkTagMenu>
+                          )}
                         </td>
                       ) : null
                     case 'telefono':
@@ -3007,7 +3081,9 @@ const CandidateTable = memo(function CandidateTable({
                     case 'estado':
                       return (
                         <td key={k} className={`${CELL} whitespace-nowrap`}>
-                          <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} celda />
+                          {soloLectura
+                            ? <StatusPill status={c.status} className="!font-medium" />
+                            : <StatusSelect status={c.status} onChange={(s) => setStatus(c.id, s)} celda />}
                         </td>
                       )
                     case 'recibida':
@@ -4719,3 +4795,36 @@ function SaveViewDialog({
   )
 }
 
+
+/**
+ * El aviso de un proceso CERRADO, encima de su lista: qué se puede hacer
+ * (exportar) y qué no (trabajar con los candidatos), con la puerta a reabrir
+ * al lado. Corto, porque es lo primero que se lee al entrar. Va en ÁMBAR
+ * (Mario, sep 2026: "tiene que tener un tinte de warning"): no es un error, es
+ * el estado en el que el propio cliente dejó el proceso, pero sí es un aviso de
+ * que lo que tiene delante no se puede tocar, y en gris se leía como una nota
+ * más. Es la misma piel que el aviso de "este formulario no pide correo" y que
+ * el de solape de citas: ámbar para lo que avisa, rojo solo para lo que falla.
+ */
+function AvisoProcesoCerrado({ n, onReabrir, onExportar }: {
+  n: number
+  onReabrir?: () => void
+  onExportar?: () => void
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl filo-amber-200 bg-amber-50 px-4 py-3.5">
+      <div className="flex min-w-0 flex-1 gap-2.5">
+        <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
+        <p className="min-w-0 text-sm leading-relaxed text-amber-900/80">
+          <strong className="font-semibold text-amber-950">Este proceso está cerrado.</strong>{' '}
+          {n === 1 ? 'Su candidatura sigue aquí' : `Sus ${miles(n)} candidaturas siguen aquí`} y puedes exportarlas cuando quieras.
+          Para abrir fichas, cambiar estados, etiquetar o citar, reábrelo.
+        </p>
+      </div>
+      <div className="flex shrink-0 gap-2">
+        {onExportar && <button type="button" onClick={onExportar} className={BTN_SECONDARY}>Exportar a Excel</button>}
+        {onReabrir && <button type="button" onClick={onReabrir} className={BTN_PRIMARY}>Reabrir puesto</button>}
+      </div>
+    </div>
+  )
+}

@@ -351,6 +351,16 @@ const toMember = (r: MemberRow): CompanyMember => ({
   isSelf: !!r.is_self,
 })
 
+/**
+ * Un cambio sobre un candidato de un proceso CERRADO lo rechaza la base de
+ * datos (triggers de 20260908150000): un proceso cerrado es de solo lectura y
+ * exportación. La interfaz no ofrece esos mandos, pero si algo llega por
+ * detrás, el aviso tiene que decir la causa y no "inténtalo de nuevo".
+ */
+const PROCESO_CERRADO_MSG = 'Este proceso está cerrado. Reábrelo para trabajar con sus candidatos.'
+const conCierre = (error: { message?: string } | null | undefined, fallback: string): string =>
+  error?.message?.includes('PROCESO_CERRADO') ? PROCESO_CERRADO_MSG : fallback
+
 export interface NewCampaignInput {
   title: string
   sector: string
@@ -1340,7 +1350,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ids.forEach((id) => pendingCandidateWrites.current.delete(id))
       if (error) {
         setCandidates((cs) => cs.map((c) => (antes.has(c.id) ? { ...c, status: antes.get(c.id)!.status, statusChangedAt: antes.get(c.id)!.at } : c)))
-        toast.error('No se pudo cambiar el estado.')
+        toast.error(conCierre(error, 'No se pudo cambiar el estado.'))
       }
     },
     setFavorito: async (id, favorito) => {
@@ -2052,7 +2062,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       pendingCandidateWrites.current.delete(candidateId)
       if (error) {
         patchCandidateLocal(candidateId, { tagIds: cand.tagIds })
-        toast.error('No se pudo aplicar la etiqueta.')
+        toast.error(conCierre(error, 'No se pudo aplicar la etiqueta.'))
       }
     },
     removeTag: async (candidateId, tagId) => {
@@ -2065,7 +2075,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       pendingCandidateWrites.current.delete(candidateId)
       if (error) {
         patchCandidateLocal(candidateId, { tagIds: cand.tagIds })
-        toast.error('No se pudo quitar la etiqueta.')
+        toast.error(conCierre(error, 'No se pudo quitar la etiqueta.'))
       }
     },
     applyTagToMany: async (candidateIds, tagId) => {
@@ -2118,7 +2128,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         p_meeting_url: input.meetingUrl ?? null,
       })
       if (error) {
-        toast.error('No se pudo agendar la entrevista.')
+        toast.error(conCierre(error, 'No se pudo agendar la entrevista.'))
         return { status: 'error' }
       }
       const res = data as { status: string; interview_id?: string }
@@ -2521,7 +2531,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       const { error } = await supabase.from('candidate_comments').delete().eq('id', id)
       if (error) {
-        toast.error('No se pudo borrar la nota. Inténtalo de nuevo.')
+        toast.error(conCierre(error, 'No se pudo borrar la nota. Inténtalo de nuevo.'))
         return false
       }
       bajar()
