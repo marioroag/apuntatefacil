@@ -902,6 +902,7 @@ function AnuncioPuesto({ campaign }: { campaign: Campaign }) {
   const { updateCampaign } = useStore()
   const [valor, setValor] = useState<ValorAnuncio>(() => ({
     location: campaign.location,
+    provincia: campaign.provincia,
     anuncio: campaign.anuncio ?? anuncioVacio(),
   }))
   const [open, setOpen] = useState<boolean | null>(null)
@@ -912,7 +913,7 @@ function AnuncioPuesto({ campaign }: { campaign: Campaign }) {
     if (timer.current) { clearTimeout(timer.current); timer.current = null }
     const v = pendiente.current
     pendiente.current = null
-    if (v) void updateCampaign(campaign.id, { location: v.location, anuncio: v.anuncio })
+    if (v) void updateCampaign(campaign.id, { location: v.location, provincia: v.provincia, anuncio: v.anuncio })
   }
   // Lo que quede en el aire se escribe al desmontar. El componente va con `key`
   // por puesto, así que aquí `campaign.id` es siempre el de este.
@@ -927,7 +928,7 @@ function AnuncioPuesto({ campaign }: { campaign: Campaign }) {
     timer.current = window.setTimeout(guardar, 500)
   }
 
-  const resumen = resumenAnuncio(valor.anuncio, valor.location)
+  const resumen = resumenAnuncio(valor.anuncio, valor.location, valor.provincia)
   const abierta = open ?? anuncioSinEmpezar(valor.anuncio, valor.location)
 
   return (

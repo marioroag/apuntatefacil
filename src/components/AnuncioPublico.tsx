@@ -3,6 +3,7 @@ import { Briefcase, Building2, ChevronRight, Coins, FileText, GraduationCap, Map
 import { Link } from 'react-router-dom'
 import {
   contratoTexto, estudiosTexto, experienciaTexto, modalidadLabel, salarioTexto, type Anuncio,
+ lugarTexto,
 } from '../lib/anuncio'
 import { accentOnWhite, readableOn } from '../lib/colors'
 import { resumenApuntarse, senalesApuntarse, type ResumenApuntarse } from '../lib/apuntarse'
@@ -44,7 +45,7 @@ import type { Campaign } from '../lib/types'
  * clic que no existe. Es el mismo gris con el que se escriben en el editor.
  */
 export function AnuncioPublico({
-  campaign, anuncio, companyName, companyDescription, logoUrl, bannerUrl, location, otros, onApuntarse,
+  campaign, anuncio, companyName, companyDescription, logoUrl, bannerUrl, location, provincia, otros, onApuntarse,
 }: {
   campaign: Campaign
   anuncio: Anuncio
@@ -54,6 +55,7 @@ export function AnuncioPublico({
   logoUrl: string | null
   bannerUrl: string | null
   location: string
+  provincia: string
   otros: OtroPuesto[]
   onApuntarse: () => void
 }) {
@@ -83,7 +85,7 @@ export function AnuncioPublico({
   // TODOS, agrupados por tema, para quien ya ha decidido que le interesa. Es la
   // diferencia entre un resumen y una ficha, y el sitio de cada uno lo dice.
   const donde = [
-    { Icon: MapPin, texto: location.trim() },
+    { Icon: MapPin, texto: lugarTexto(location, provincia) },
     { Icon: Building2, texto: modalidadLabel(anuncio) },
   ].filter((h) => h.texto)
   const condiciones = [
@@ -93,7 +95,7 @@ export function AnuncioPublico({
     { Icon: GraduationCap, texto: estudiosTexto(anuncio) },
   ].filter((h) => h.texto)
   const resumen = [
-    { Icon: MapPin, texto: location.trim() },
+    { Icon: MapPin, texto: lugarTexto(location, provincia) },
     { Icon: Coins, texto: salarioTexto(anuncio) },
     { Icon: FileText, texto: contratoTexto(anuncio) },
   ].filter((h) => h.texto)
@@ -414,9 +416,9 @@ function OtroPuestoCard({ otro }: { otro: OtroPuesto }) {
         <span className={`block break-words text-[15px] font-bold ${conFoto ? 'text-white' : 'text-slate-900'}`}>
           {otro.title}
         </span>
-        {otro.location.trim() && (
+        {lugarTexto(otro.location, otro.provincia) && (
           <span className={`mt-0.5 block break-words text-sm ${conFoto ? 'text-white' : 'text-slate-700'}`}>
-            {otro.location}
+            {lugarTexto(otro.location, otro.provincia)}
           </span>
         )}
       </span>

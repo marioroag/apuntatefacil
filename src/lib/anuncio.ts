@@ -59,6 +59,55 @@ export const PERIODOS: { value: PeriodoSalario; label: string }[] = [
  * "3,5 años", se pide un perfil, y un número exacto invita a descartar por un
  * mes de diferencia.
  */
+/**
+ * LAS 52 PROVINCIAS, para el desplegable del anuncio. La ciudad se escribe a
+ * mano (es texto libre: "Getafe", "polígono de Alcalá", "zona norte"); la
+ * provincia se ELIGE, porque tiene que ser comparable entre puestos y porque es
+ * lo que sitúa la oferta cuando la ciudad no basta: un pueblo con nombre
+ * repetido, una zona, una ciudad mal escrita. Es la misma asimetría que idioma
+ * (a mano) y nivel (de una lista). Google for Jobs la lee como `addressRegion`
+ * y es lo que hace que la oferta caiga siempre en su sitio.
+ *
+ * Con el nombre con el que se busca trabajo, no con el oficial completo
+ * ("Bizkaia" y no "Vizcaya", "Girona" y no "Gerona", que son los que usan los
+ * portales y los que la gente escribe). Ceuta y Melilla van dentro: no son
+ * provincias, pero un puesto allí tiene que poder decir dónde está.
+ */
+export const PROVINCIAS = [
+  'A Coruña', 'Álava', 'Albacete', 'Alicante', 'Almería', 'Asturias', 'Ávila',
+  'Badajoz', 'Baleares', 'Barcelona', 'Bizkaia', 'Burgos', 'Cáceres', 'Cádiz',
+  'Cantabria', 'Castellón', 'Ceuta', 'Ciudad Real', 'Córdoba', 'Cuenca',
+  'Gipuzkoa', 'Girona', 'Granada', 'Guadalajara', 'Huelva', 'Huesca', 'Jaén',
+  'La Rioja', 'Las Palmas', 'León', 'Lleida', 'Lugo', 'Madrid', 'Málaga',
+  'Melilla', 'Murcia', 'Navarra', 'Ourense', 'Palencia', 'Pontevedra',
+  'Salamanca', 'Santa Cruz de Tenerife', 'Segovia', 'Sevilla', 'Soria',
+  'Tarragona', 'Teruel', 'Toledo', 'Valencia', 'Valladolid', 'Zamora', 'Zaragoza',
+] as const
+export type Provincia = (typeof PROVINCIAS)[number]
+
+/** La aduana de la provincia: lo que no esté en la lista se lee como "sin
+ *  decir", igual que hace `leerAnuncio` con contrato o jornada. */
+export function leerProvincia(v: unknown): Provincia | '' {
+  return typeof v === 'string' && (PROVINCIAS as readonly string[]).includes(v) ? (v as Provincia) : ''
+}
+
+const plano = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+
+/**
+ * DÓNDE, en una sola frase: "Getafe, Madrid". Si la ciudad y la provincia son
+ * la misma palabra ("Valencia, Valencia") se escribe una vez, que es la regla
+ * que ya sigue la sede con su ciudad; si falta una, la otra. La pintan la
+ * página del anuncio, la cabecera del puesto y el prerender: escrito en cada
+ * sitio, "Valencia, Valencia" acabaría saliendo en uno de ellos.
+ */
+export function lugarTexto(location: string, provincia: string): string {
+  const ciudad = location.trim()
+  const prov = provincia.trim()
+  if (!ciudad) return prov
+  if (!prov || plano(ciudad) === plano(prov)) return ciudad
+  return `${ciudad}, ${prov}`
+}
+
 export const EXPERIENCIAS = [
   'Sin experiencia',
   'Menos de 1 año',
@@ -215,9 +264,9 @@ export function anuncioSinEmpezar(a: Anuncio, location: string): boolean {
 }
 
 /** Cómo se resume un anuncio en una línea: dónde, cómo y desde cuánto. */
-export function resumenAnuncio(a: Anuncio, location: string): string {
+export function resumenAnuncio(a: Anuncio, location: string, provincia = ''): string {
   return [
-    location.trim(),
+    lugarTexto(location, provincia),
     MODALIDADES.find((m) => m.value === a.modalidad)?.label,
     a.salarioMin != null ? `Desde ${a.salarioMin.toLocaleString('es-ES')} €` : '',
   ].filter(Boolean).join(' · ')
@@ -309,7 +358,7 @@ export function hayAnuncio(a: Anuncio | undefined): boolean {
 
 /** Los campos del anuncio que se piden para poder crear el puesto. */
 export type CampoAnuncio =
-  | 'location' | 'modalidad' | 'salario' | 'contrato' | 'jornada'
+  | 'location' | 'provincia' | 'modalidad' | 'salario' | 'contrato' | 'jornada'
   | 'experiencia' | 'estudios' | 'descripcion'
 
 /**
@@ -330,9 +379,12 @@ export type CampoAnuncio =
  * retribución inicial o su horquilla antes de la entrevista. Aquí es una sola
  * cifra ("Desde"), y la segunda la pone quien quiera dar horquilla.
  */
-export function faltaEnAnuncio(a: Anuncio, location: string): CampoAnuncio[] {
+export function faltaEnAnuncio(a: Anuncio, location: string, provincia: string): CampoAnuncio[] {
   const falta: CampoAnuncio[] = []
   if (!location.trim()) falta.push('location')
+  // La provincia se pide con la ciudad, y es de un clic: es lo que sitúa la
+  // oferta cuando la ciudad sola no basta (ver PROVINCIAS).
+  if (!leerProvincia(provincia)) falta.push('provincia')
   if (!a.modalidad) falta.push('modalidad')
   if (a.salarioMin == null) falta.push('salario')
   if (!a.contrato) falta.push('contrato')

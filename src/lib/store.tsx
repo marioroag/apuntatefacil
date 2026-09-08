@@ -24,6 +24,7 @@ type CampaignRow = {
   title: string
   sector: string
   location: string
+  provincia: string | null
   status: Campaign['status']
   milanuncios_url: string | null
   fields: FormField[]
@@ -58,6 +59,7 @@ const toCampaign = (r: CampaignRow): Campaign => ({
   title: r.title,
   sector: r.sector,
   location: r.location,
+  provincia: r.provincia ?? '',
   status: r.status,
   createdAt: r.created_at,
   milanunciosUrl: r.milanuncios_url ?? undefined,
@@ -350,6 +352,8 @@ export interface NewCampaignInput {
   title: string
   sector: string
   location: string
+  /** Una de PROVINCIAS o ''. Viaja al lado de `location`, como ella. */
+  provincia?: string
   fields: FormField[]
   branding: Branding
   /** El anuncio que se acaba de rellenar en el asistente. Sin él, el puesto se
@@ -1464,6 +1468,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (patch.status !== undefined) dbPatch.status = patch.status
       if (patch.sector !== undefined) dbPatch.sector = patch.sector
       if (patch.location !== undefined) dbPatch.location = patch.location
+      if (patch.provincia !== undefined) dbPatch.provincia = patch.provincia || null
       if (patch.siteId !== undefined) dbPatch.site_id = patch.siteId
       if (patch.brandId !== undefined) dbPatch.brand_id = patch.brandId
       if (patch.notifyNew !== undefined) dbPatch.notify_new = patch.notifyNew
@@ -1492,6 +1497,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           title: input.title,
           sector: input.sector,
           location: input.location,
+          provincia: input.provincia ?? '',
           status: input.status ?? 'activa',
           createdAt: new Date().toISOString(),
           milanunciosUrl: input.milanunciosUrl,
@@ -1520,6 +1526,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             title: input.title,
             sector: input.sector,
             location: input.location,
+            provincia: input.provincia || null,
             status: input.status ?? 'activa',
             milanuncios_url: input.milanunciosUrl ?? null,
             fields: input.fields,
@@ -1562,6 +1569,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           title,
           sector: src.sector,
           location: src.location,
+          provincia: src.provincia,
           status: 'activa',
           createdAt: new Date().toISOString(),
           milanunciosUrl: src.milanunciosUrl,
@@ -1584,6 +1592,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           title,
           sector: src.sector,
           location: src.location,
+          provincia: src.provincia || null,
           status: 'activa',
           milanuncios_url: src.milanunciosUrl ?? null,
           fields,

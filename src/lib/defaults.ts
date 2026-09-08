@@ -32,6 +32,7 @@ export function blankCampaignInput(accent: string, title = 'Nuevo puesto'): NewC
     title,
     sector: '',
     location: '',
+    provincia: '',
     fields: DEFAULT_FIELDS.map((f) => ({ ...f })),
     branding: defaultBranding(accent),
   }

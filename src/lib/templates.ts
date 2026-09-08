@@ -113,6 +113,7 @@ export function templateCampaignInput(t: SectorTemplate, accent: string): NewCam
     title: t.title,
     sector: t.sector,
     location: '',
+    provincia: '',
     fields: t.fields.map((f2) => ({ ...f2 })),
     branding: defaultBranding(accent),
   }

@@ -47,6 +47,7 @@ import {
   User,
   X,
 } from 'lucide-react'
+import { lugarTexto } from '../lib/anuncio'
 import { useStore } from '../lib/store'
 import { useAuth } from '../lib/auth'
 import { useToast } from '../components/ui/Toast'
@@ -1191,7 +1192,7 @@ export function Dashboard() {
                 no en una línea propia debajo de los filtros, y no cambia al filtrar:
                 es el tamaño del puesto, no el del resultado. */}
             <p className="mt-1 text-sm font-medium text-slate-500">
-              {[[campaign.sector, campaign.location].map((t) => t?.trim()).filter(Boolean).join(', ')]
+              {[[campaign.sector, lugarTexto(campaign.location, campaign.provincia)].map((t) => t?.trim()).filter(Boolean).join(', ')]
                 .filter(Boolean)
                 .concat(`${miles(all.length)} ${all.length === 1 ? 'candidatura' : 'candidaturas'}`)
                 .join(' · ')}

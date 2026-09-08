@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import {
-  CONTRATOS, ESTUDIOS, EXPERIENCIAS, JORNADAS, MODALIDADES, NIVELES_IDIOMA, PERIODOS,
+  CONTRATOS, ESTUDIOS, EXPERIENCIAS, JORNADAS, MODALIDADES, NIVELES_IDIOMA, PERIODOS, PROVINCIAS,
   anuncioVacio, faltaEnAnuncio,
   type Anuncio, type CampoAnuncio, type Modalidad, type PeriodoSalario,
 } from '../lib/anuncio'
@@ -66,7 +66,7 @@ function Falta({ campo, children }: { campo: CampoAnuncio; children: React.React
   return <p id={`falta-${campo}`} className="mt-1 text-[12px] text-red-600">{children}</p>
 }
 
-export type ValorAnuncio = { location: string; anuncio: Anuncio }
+export type ValorAnuncio = { location: string; provincia: string; anuncio: Anuncio }
 
 /**
  * EL ESTADO DEL PASO, en una pieza, porque hay DOS sitios donde se escribe un
@@ -77,7 +77,7 @@ export type ValorAnuncio = { location: string; anuncio: Anuncio }
  * veces, el día que cambie una regla de validación cambiaría en uno solo.
  */
 export function usePasoAnuncio() {
-  const [valor, setValor] = useState<ValorAnuncio>({ location: '', anuncio: anuncioVacio() })
+  const [valor, setValor] = useState<ValorAnuncio>({ location: '', provincia: '', anuncio: anuncioVacio() })
   const [faltan, setFaltan] = useState<CampoAnuncio[]>([])
   // Un contador de INTENTOS, y no la propia lista de fallos, es lo que dispara
   // el foco: la lista se recalcula también al escribir (para ir quitando
@@ -100,12 +100,12 @@ export function usePasoAnuncio() {
   const cambiar = (patch: Partial<ValorAnuncio>) => {
     const next = { ...valor, ...patch }
     setValor(next)
-    setFaltan((f) => (f.length ? faltaEnAnuncio(next.anuncio, next.location).filter((c) => f.includes(c)) : f))
+    setFaltan((f) => (f.length ? faltaEnAnuncio(next.anuncio, next.location, next.provincia).filter((c) => f.includes(c)) : f))
   }
 
   /** ¿Se puede seguir? Si no, deja los avisos puestos y lleva el foco al primero. */
   const comprobar = () => {
-    const pendientes = faltaEnAnuncio(valor.anuncio, valor.location)
+    const pendientes = faltaEnAnuncio(valor.anuncio, valor.location, valor.provincia)
     if (!pendientes.length) return true
     setFaltan(pendientes)
     setIntento((n) => n + 1)
@@ -113,7 +113,7 @@ export function usePasoAnuncio() {
   }
 
   const reiniciar = () => {
-    setValor({ location: '', anuncio: anuncioVacio() })
+    setValor({ location: '', provincia: '', anuncio: anuncioVacio() })
     setFaltan([])
   }
 
@@ -141,7 +141,11 @@ export function AnuncioEditor({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* Dónde son DOS campos y no uno: la ciudad se escribe (es texto libre,
+          "Getafe" o "polígono de Alcalá") y la provincia se elige, porque es lo
+          que sitúa la oferta cuando la ciudad sola no basta y lo que Google for
+          Jobs lee como región. Los tres de arriba caben en una fila. */}
+      <div className="grid gap-4 sm:grid-cols-3">
         <label className="block">
           <span className={ETIQUETA}>Ubicación</span>
           <input
@@ -152,6 +156,22 @@ export function AnuncioEditor({
             {...aviso('location')}
           />
           {falta('location') && <Falta campo="location">Dinos dónde se trabaja.</Falta>}
+        </label>
+
+        <label className="block">
+          <span className={ETIQUETA}>Provincia</span>
+          <select
+            value={valor.provincia}
+            onChange={(e) => onChange({ provincia: e.target.value })}
+            className={campo({ error: falta('provincia') })}
+            {...aviso('provincia')}
+          >
+            <option value="">Elige una</option>
+            {PROVINCIAS.map((pr) => (
+              <option key={pr} value={pr}>{pr}</option>
+            ))}
+          </select>
+          {falta('provincia') && <Falta campo="provincia">Elige la provincia.</Falta>}
         </label>
 
         <label className="block">

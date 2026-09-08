@@ -28,8 +28,8 @@
 // guardián lo vigila.
 // ============================================================================
 import {
-  contratoTexto, estudiosTexto, experienciaTexto, hayAnuncio, leerAnuncio, modalidadLabel,
-  salarioTexto, type Anuncio, type PeriodoSalario,
+  contratoTexto, estudiosTexto, experienciaTexto, hayAnuncio, leerAnuncio, leerProvincia, lugarTexto,
+  modalidadLabel, salarioTexto, type Anuncio, type PeriodoSalario,
 } from '../../src/lib/anuncio.js'
 import { DOMAIN, publicFormPathPretty } from '../../src/lib/brand.js'
 
@@ -65,6 +65,8 @@ export interface PuestoPublico {
   status: EstadoPuesto
   sector?: string | null
   location?: string | null
+  /** Una de PROVINCIAS o nada; pasa por leerProvincia como en la app. */
+  provincia?: string | null
   created_at?: string | null
   anuncio?: unknown
   company_name?: string | null
@@ -104,6 +106,10 @@ export interface Cabecera {
 // ----------------------------------------------------------------------------
 
 const limpiar = (s: unknown): string => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim() : '')
+
+/** "Getafe, Madrid", con la misma regla que la página (una sola vez si coinciden). */
+const lugar = (p: { location?: string | null; provincia?: string | null }): string =>
+  lugarTexto(limpiar(p.location), leerProvincia(p.provincia))
 
 /** Recorta a `max` caracteres sin partir una palabra; si corta, lo dice con "…". */
 export function recortar(s: string, max = MAX_DESCRIPCION): string {
@@ -191,7 +197,7 @@ export function descripcionHtml(p: PuestoPublico, a: Anuncio): string {
   }
 
   const condiciones = [
-    limpiar(p.location) ? `Ubicación: ${limpiar(p.location)}` : '',
+    lugar(p) ? `Ubicación: ${lugar(p)}` : '',
     modalidadLabel(a) ? `Modalidad: ${modalidadLabel(a).toLowerCase()}` : '',
     contratoTexto(a),
     salarioTexto(a) ? `Salario: ${salarioTexto(a)}` : '',
@@ -293,9 +299,11 @@ export function jobPosting(p: PuestoPublico, ctx: ContextoPrerender = {}): Recor
   // puede optar (España); la ciudad, si la hay, sigue siendo la de la empresa
   // y se escribe también.
   const ubicacion = limpiar(p.location)
-  if (ubicacion || a.modalidad !== 'teletrabajo') {
+  const provincia = leerProvincia(p.provincia)
+  if (ubicacion || provincia || a.modalidad !== 'teletrabajo') {
     const address: Record<string, unknown> = { '@type': 'PostalAddress' }
     if (ubicacion) address.addressLocality = ubicacion
+    if (provincia) address.addressRegion = provincia
     address.addressCountry = 'ES'
     out.jobLocation = { '@type': 'Place', address }
   }
@@ -348,7 +356,7 @@ export function urlPuesto(p: { slug: string; company_name?: string | null; title
  *  las demás con el mismo nombre. */
 export function tituloPagina(p: PuestoPublico): string {
   const titulo = limpiar(p.title) || 'Oferta de empleo'
-  const donde = limpiar(p.location)
+  const donde = limpiar(p.location) || leerProvincia(p.provincia)
   const empresa = limpiar(p.company_name)
   return `${titulo}${donde ? ` en ${donde}` : ''}${empresa ? ` · ${empresa}` : ''}`
 }
@@ -360,7 +368,7 @@ export function tituloPagina(p: PuestoPublico): string {
 export function descripcionPagina(p: PuestoPublico, a: Anuncio | null): string {
   if (!a) return recortar(limpiar(p.company_description) || DESCRIPCION_POR_DEFECTO)
   const hechos = [
-    limpiar(p.location),
+    lugar(p),
     modalidadLabel(a),
     salarioTexto(a),
     contratoTexto(a),
