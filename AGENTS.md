@@ -5,6 +5,10 @@ This repository is optimized for Cursor agents.
 ## Source of Truth
 
 - `CLAUDE.md` is the full project doctrine and wins if anything conflicts.
+- `docs/pantallas/*.md` hold the per-screen records (candidate modal, job panel and table,
+  sidebar, public ad, interviews, overview, sign-in). They were split out of `CLAUDE.md` in
+  sep 2026 so the always-loaded file stays small. **Read the relevant one before touching that
+  screen**; `CLAUDE.md` still wins if a screen file contradicts the doctrine.
 - `.cursor/rules/*.mdc` contains Cursor-scoped rules for project, design, and pricing (copy/backend/public-form live in `CLAUDE.md` and the skills).
 - `.cursor/skills/*/SKILL.md` contains task workflows for design, Supabase, verification, and PR review.
 
