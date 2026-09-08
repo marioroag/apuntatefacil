@@ -1680,8 +1680,9 @@ export function Dashboard() {
           </p>
         ) : confirmReopen?.checkout ? (
           <p>
-            Reabrir este proceso son {PRECIO_PROCESO} € al mes (impuestos aparte). Te llevamos al pago seguro de Stripe
-            y el puesto se reabre al completarlo.
+            {company?.plan === 'trial'
+              ? <>Tu prueba incluye un proceso. Para abrir este, activa el pago: cada proceso abierto son {PRECIO_PROCESO} € al mes (impuestos aparte), también el de tu prueba. Te llevamos al pago seguro de Stripe y el puesto se reabre al completarlo.</>
+              : <>Reabrir este proceso son {PRECIO_PROCESO} € al mes (impuestos aparte). Te llevamos al pago seguro de Stripe y el puesto se reabre al completarlo.</>}
             {!company?.region_fiscal && <RegionFiscalRadio value={region} onChange={setRegionElegida} />}
           </p>
         ) : (
@@ -1707,7 +1708,9 @@ export function Dashboard() {
       >
         <p>
           {confirmDuplicar?.checkout
-            ? <>Abrir la copia son {PRECIO_PROCESO} € al mes (impuestos aparte). Te llevamos al pago seguro de Stripe y se abre al completarlo.</>
+            ? company?.plan === 'trial'
+              ? <>Tu prueba incluye un proceso. Para abrir la copia, activa el pago: cada proceso abierto son {PRECIO_PROCESO} € al mes (impuestos aparte), también el de tu prueba. Te llevamos al pago seguro de Stripe y la copia se abre al completarlo.</>
+              : <>Abrir la copia son {PRECIO_PROCESO} € al mes (impuestos aparte). Te llevamos al pago seguro de Stripe y se abre al completarlo.</>
             : confirmDuplicar?.free
             ? 'Tienes un hueco de proceso ya pagado en este ciclo: la copia no te cobra nada ahora.'
             : typeof confirmDuplicar?.amountDue === 'number'

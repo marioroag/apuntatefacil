@@ -123,6 +123,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
   // y hace falta para salir a pagar.
   const [regionElegida, setRegionElegida] = useState<RegionFiscal | null>(null)
   const region = company?.region_fiscal ?? regionElegida
+  const [faltaRegion, setFaltaRegion] = useState(false)
   const atLimit = modo === 'bloqueado'
 
   // Cerrar es volver a empezar: si no, salir a medias y entrar otra vez dejaría
@@ -163,6 +164,13 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
 
   const crear = async () => {
     if (!elegida || busy || !comprobar()) return
+    if (modo === 'checkout' && !region) {
+      // Sin región no se puede preparar la factura: el aviso se enciende al
+      // intentar seguir (nunca antes) y el foco va a la pregunta.
+      setFaltaRegion(true)
+      formulario.current?.querySelector<HTMLElement>('[data-region-fiscal] input')?.focus()
+      return
+    }
     const { key, t } = elegida
     if (modo === 'cobrar') {
       // El importe se enseña ANTES de cobrar: prorrata hasta la próxima
@@ -326,13 +334,18 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                 ) : (
                   <>
                     <div ref={formulario} className="max-h-[60vh] overflow-y-auto px-5 py-4">
-                      <AnuncioEditor valor={valor} onChange={cambiar} faltan={faltan} />
                       {/* Si este puesto acaba en la página de pago, hay que saber
                           dónde está el cliente ANTES de salir: decide el impuesto
-                          de su primera factura. Una vez, y solo si no lo ha dicho. */}
+                          de su primera factura. Va ARRIBA, pegado a la nota que
+                          dice que se pasa al pago, y no debajo del anuncio, donde
+                          se probó y quedaba fuera de la vista: el botón se apagaba
+                          sin que se viera por qué. Una vez, y solo si no lo ha dicho. */}
                       {modo === 'checkout' && !company?.region_fiscal && (
-                        <RegionFiscalRadio value={region} onChange={setRegionElegida} />
+                        <div className="mb-5 rounded-xl bg-slate-50 px-4 pb-4 pt-1">
+                          <RegionFiscalRadio value={region} onChange={(r) => { setRegionElegida(r); setFaltaRegion(false) }} falta={faltaRegion} />
+                        </div>
                       )}
+                      <AnuncioEditor valor={valor} onChange={cambiar} faltan={faltan} />
                     </div>
                     {/* El pie es donde vive el flujo: volver a las plantillas o
                         crear. Sin flecha de vuelta arriba, que sería la misma
@@ -342,7 +355,7 @@ export function NewCampaignWizard({ open, onClose }: { open: boolean; onClose: (
                       <button onClick={() => setPaso('plantilla')} className={BTN_SECONDARY} disabled={!!busy}>
                         Volver
                       </button>
-                      <button onClick={() => void crear()} className={`${BTN_PRIMARY} disabled:opacity-60`} disabled={!!busy || (modo === 'checkout' && !region)}>
+                      <button onClick={() => void crear()} className={`${BTN_PRIMARY} disabled:opacity-60`} disabled={!!busy}>
                         {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
                         Crear puesto
                       </button>

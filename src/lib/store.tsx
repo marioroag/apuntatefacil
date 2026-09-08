@@ -738,6 +738,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // equipo anterior. Ver `dataLoading` más abajo.
   const [loadedCompanyId, setLoadedCompanyId] = useState<string | null>(null)
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  // La lista VIVA, para quien la lea justo después de haberla cambiado en el
+  // mismo tirón. `createCampaign` seguido de `reabrirProceso` (el asistente sin
+  // método de pago) leía `campaigns` de la clausura, donde el puesto recién
+  // creado todavía no estaba, y reabrir devolvía false en silencio: el cliente
+  // se quedaba en el constructor en vez de en la página de pago. Se vio en
+  // pantalla (sep 2026).
+  const campaignsRef = useRef<Campaign[]>([])
+  campaignsRef.current = campaigns
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [savedViews, setSavedViews] = useState<SavedView[]>([])
   const [sites, setSites] = useState<Site[]>([])
@@ -1650,9 +1658,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     cerrarProceso: async (campaignId) => {
-      const prev = campaigns.find((c) => c.id === campaignId)
+      const prev = campaignsRef.current.find((c) => c.id === campaignId)
       if (!prev || prev.status === 'cerrada') return false
-      setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, status: 'cerrada' } : c)))
+      // `closedAt` se pone también aquí, no solo en el servidor (que lo estampa
+      // con un trigger): sin él, el cierre optimista dejaba un cerrado sin
+      // fecha, que es exactamente lo que la cápsula lee como "Pendiente de
+      // pago". Se vio en pantalla al cerrar un puesto en la prueba.
+      const cerrado = { status: 'cerrada' as const, closedAt: new Date().toISOString() }
+      setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, ...cerrado } : c)))
       if (companyId === 'demo') return true
       if (company?.plan === 'proceso') {
         // La edge function cierra Y ajusta el cobro en el mismo viaje (cantidad
@@ -1700,10 +1713,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
 
     reabrirProceso: async (campaignId, regionFiscal) => {
-      const prev = campaigns.find((c) => c.id === campaignId)
-      if (!prev || prev.status !== 'cerrada') return false
+      // Se mira la lista viva y, si el puesto aún no está en ella (acaba de
+      // crearse), se sigue: quien llama sabe que está cerrado.
+      const prev = campaignsRef.current.find((c) => c.id === campaignId)
+      if (prev && prev.status !== 'cerrada') return false
       if (companyId === 'demo') {
-        setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, status: 'activa' } : c)))
+        setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, status: 'activa', closedAt: null } : c)))
         return true
       }
       if (company?.plan === 'proceso') {
@@ -1711,7 +1726,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           body: { addProcess: true, campaignId, companyId },
         })
         if (!error && data?.added) {
-          setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, status: 'activa' } : c)))
+          setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, status: 'activa', closedAt: null } : c)))
           void refreshCompany()
           return true
         }
@@ -1762,7 +1777,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         )
         return false
       }
-      setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, status: 'activa' } : c)))
+      setCampaigns((cs) => cs.map((c) => (c.id === campaignId ? { ...c, status: 'activa', closedAt: null } : c)))
       return true
     },
 
