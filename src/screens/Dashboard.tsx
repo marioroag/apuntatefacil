@@ -4813,7 +4813,11 @@ function AvisoProcesoCerrado({ n, onReabrir, onExportar }: {
 }) {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl filo-amber-200 bg-amber-50 px-4 py-3.5">
-      <div className="flex min-w-0 flex-1 gap-2.5">
+      {/* El texto pide una BASE de ancho (basis-64) y no solo flex-1: con base
+          cero no reclama nada, los botones se quedan la fila entera y en un
+          móvil el párrafo salía a una palabra por línea (medido). Con base,
+          si texto y botones no caben juntos, los botones bajan de línea. */}
+      <div className="flex min-w-0 flex-1 basis-64 gap-2.5">
         <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-700" aria-hidden />
         <p className="min-w-0 text-sm leading-relaxed text-amber-900/80">
           <strong className="font-semibold text-amber-950">Este proceso está cerrado.</strong>{' '}
