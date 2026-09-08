@@ -597,7 +597,15 @@ const Ctx = createContext<Store | null>(null)
 // narrativo (ver `hastaAhora` en seed.ts). El reloj de la demo se ancla en el
 // registro más nuevo, así que un estado v20 guardado seguiría trayendo aquellos
 // eventos del futuro y con ellos los dos días vacíos al final de la gráfica.
-const DEMO_KEY = 'apuntatefacil.demo.v24'
+// v25: `campaigns.provincia` (sep 2026). Y esta no dejó la demo desactualizada,
+// la dejó EN BLANCO: `lugarTexto` hace `provincia.trim()`, así que una campaña
+// guardada antes de la columna llegaba con `undefined` y la cabecera del puesto
+// reventaba entera. Quien hubiera abierto la demo antes de ese despliegue se
+// encontraba una pantalla blanca en CUALQUIER puesto, que en la superficie que
+// se le enseña a un cliente es lo peor que puede pasar. La regla no cambia y ya
+// estaba escrita tres versiones más arriba: tocar el seed sin subir la clave se
+// paga; lo que esta añade es que el precio no siempre es un dato viejo.
+const DEMO_KEY = 'apuntatefacil.demo.v25'
 
 /**
  * TODAS LAS FILAS, no las mil primeras (auditoría de seguridad, sep 2026).
