@@ -59,6 +59,7 @@ import { AppLayout, FirstCampaignRedirect } from './screens/AppLayout'
 // su propio chunk, cargada al visitarla. Así el candidato en /a/:slug no se descarga
 // el panel, ni el panel arrastra el formulario público o el constructor (dnd-kit).
 import { Landing } from './screens/Landing'
+import { NoEncontrado } from './screens/NoEncontrado'
 import { Login } from './screens/Login'
 
 const ResetPassword = lazy(() => import('./screens/ResetPassword').then((m) => ({ default: m.ResetPassword })))
@@ -191,6 +192,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="plan" element={<Plan />} />
                   <Route path="admin" element={<AdminOverview />} />
                   <Route path="soporte" element={<Soporte />} />
+                  <Route path="*" element={<NoEncontrado enPanel />} />
                 </Route>
                 <Route
                   path="/demo"
@@ -217,8 +219,12 @@ createRoot(document.getElementById('root')!).render(
                   <Route path="puestos/:campaignId/formulario" element={<Builder />} />
                   <Route path="ajustes" element={<Ajustes />} />
                   <Route path="ajustes/:seccion" element={<Ajustes />} />
+                  <Route path="*" element={<NoEncontrado enPanel />} />
                 </Route>
-                <Route path="*" element={<Navigate to="/" replace />} />
+                {/* Lo que no tiene forma de nada: una página que lo dice, no una
+                    redirección muda a la portada. Los enlaces de puesto (dos o tres
+                    tramos) los atiende PublicForm, que distingue "ya no está activo". */}
+                <Route path="*" element={<NoEncontrado />} />
               </Routes>
               </Suspense>
               <Analytics beforeSend={sinTokens} />

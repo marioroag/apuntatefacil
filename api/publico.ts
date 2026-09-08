@@ -47,17 +47,22 @@ async function leerShell(req: Request): Promise<string> {
   return shellCache
 }
 
-async function puestoPublico(slug: string): Promise<PuestoPublico | null> {
-  if (!SUPABASE_URL || !ANON_KEY) return null
+/** El puesto, o `null` con `sabido: true` cuando el RPC ha contestado que NO
+ *  existe, que no es lo mismo que no haber podido preguntar: un enlace muerto
+ *  se sirve con 404 (es lo que Google necesita para olvidarlo), pero un fallo
+ *  de red no puede convertir un anuncio vivo en un 404. */
+async function puestoPublico(slug: string): Promise<{ puesto: PuestoPublico | null; sabido: boolean }> {
+  if (!SUPABASE_URL || !ANON_KEY) return { puesto: null, sabido: false }
   const res = await fetch(`${SUPABASE_URL.replace(/\/+$/, '')}/rest/v1/rpc/get_public_campaign`, {
     method: 'POST',
     headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ p_slug: slug }),
     signal: AbortSignal.timeout(4000),
   })
-  if (!res.ok) return null
+  if (!res.ok) return { puesto: null, sabido: false }
   const data = (await res.json()) as PuestoPublico | null
-  return data && typeof data === 'object' && typeof data.slug === 'string' ? data : null
+  const puesto = data && typeof data === 'object' && typeof data.slug === 'string' ? data : null
+  return { puesto, sabido: true }
 }
 
 const HTML = {
@@ -80,11 +85,16 @@ export async function GET(req: Request): Promise<Response> {
   }
   if (!slug || !/^[a-z0-9][a-z0-9-]{2,40}$/.test(slug)) return new Response(shell, { headers: HTML })
   let puesto: PuestoPublico | null = null
+  let sabido = false
   try {
-    puesto = await puestoPublico(slug)
+    ;({ puesto, sabido } = await puestoPublico(slug))
   } catch (e) {
     console.error('publico: rpc', e)
   }
   const html = prerenderPublico(shell, puesto, { supabaseUrl: SUPABASE_URL, ahora: new Date() })
-  return new Response(html, { headers: HTML })
+  // Sin puesto y con el RPC contestando, es un enlace muerto: 404 de verdad,
+  // con el shell dentro para que la SPA pinte su "no existe" (o la demo, que
+  // vive en el navegador y no en la base). Sin respuesta del RPC, 200 y
+  // noindex: mejor no decir que no existe lo que no se ha podido comprobar.
+  return new Response(html, { status: !puesto && sabido ? 404 : 200, headers: HTML })
 }
